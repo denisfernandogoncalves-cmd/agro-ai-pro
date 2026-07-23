@@ -1,0 +1,3 @@
+git remote add origin https://github.com/denisfernandogoncalves-cmd/agro-ai-pro.git
+ git branch -M main 
+git push -u origin main
