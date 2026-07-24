@@ -1,0 +1,3 @@
+# Arquitetura
+
+Documente decisões arquiteturais.
