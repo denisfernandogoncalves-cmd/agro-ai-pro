@@ -9,6 +9,7 @@ def health_view(request):
 
 
 urlpatterns = [
+    path("dashboard/", include("apps.dashboard.urls")),
     path("", health_view, name="home"),
     path("admin/", admin.site.urls),
     path("api/health/", health_view),
