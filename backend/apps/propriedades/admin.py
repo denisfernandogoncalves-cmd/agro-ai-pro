@@ -8,6 +8,7 @@ class PropriedadeAdmin(admin.ModelAdmin):
     list_display = (
         "nome",
         "municipio",
+        "uf",
         "area_hectares",
         "criado_em",
     )
@@ -15,4 +16,5 @@ class PropriedadeAdmin(admin.ModelAdmin):
     search_fields = (
         "nome",
         "municipio",
+        "proprietario",
     )

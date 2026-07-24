@@ -7,8 +7,18 @@ class Propriedade(models.Model):
         max_length=100
     )
 
+    proprietario = models.CharField(
+        max_length=100,
+        blank=True
+    )
+
     municipio = models.CharField(
         max_length=100
+    )
+
+    uf = models.CharField(
+        max_length=2,
+        blank=True
     )
 
     area_hectares = models.DecimalField(
@@ -30,6 +40,12 @@ class Propriedade(models.Model):
         blank=True
     )
 
+    arquivo_kml = models.FileField(
+        upload_to="kml/",
+        null=True,
+        blank=True
+    )
+
     observacoes = models.TextField(
         blank=True
     )
@@ -37,6 +53,7 @@ class Propriedade(models.Model):
     criado_em = models.DateTimeField(
         auto_now_add=True
     )
+
 
     def __str__(self):
         return self.nome
