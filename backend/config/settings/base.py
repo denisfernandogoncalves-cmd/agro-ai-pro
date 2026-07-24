@@ -19,9 +19,10 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+
     "rest_framework",
     "corsheaders",
-    "drf_yasg",
+
     "apps.core",
     "apps.accounts",
     "apps.financeiro",
@@ -30,8 +31,7 @@ INSTALLED_APPS = [
     "apps.mercado",
     "apps.propriedades",
     "apps.talhoes",
-    "apps.relatorios",
-    "apps.ai",
+    "apps.clima",
 ]
 
 MIDDLEWARE = [

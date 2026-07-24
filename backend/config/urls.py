@@ -23,6 +23,7 @@ urlpatterns = [
     path("api/mercado/", include("apps.mercado.urls")),
     path("api/propriedades/", include("apps.propriedades.urls")),
     path("api/talhoes/", include("apps.talhoes.urls")),
+    path("api/clima/", include("apps.clima.urls")),
     path("api/relatorios/", include("apps.relatorios.urls")),
     path("api/ai/", include("apps.ai.urls")),
 ]
