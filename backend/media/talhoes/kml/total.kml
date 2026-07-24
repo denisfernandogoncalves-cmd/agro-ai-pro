@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+<Document id="root_doc">
+<Schema name="area_total" id="area_total">
+	<SimpleField name="id" type="float"></SimpleField>
+	<SimpleField name="area" type="float"></SimpleField>
+</Schema>
+<Folder><name>area_total</name>
+  <Placemark id="area_total.1">
+	<Style><LineStyle><color>ff0000ff</color></LineStyle><PolyStyle><fill>0</fill></PolyStyle></Style>
+	<ExtendedData><SchemaData schemaUrl="#area_total">
+		<SimpleData name="area">123383.462</SimpleData>
+	</SchemaData></ExtendedData>
+      <MultiGeometry><Polygon><outerBoundaryIs><LinearRing><coordinates>-51.738442045623,-24.3629395103521 -51.7469066949493,-24.3641514313876 -51.747076693539,-24.3639654954301 -51.7471540306378,-24.3638714036627 -51.7471707853065,-24.3638485192371 -51.747187144095,-24.3638265670454 -51.7472179844341,-24.3637815005623 -51.7473389109148,-24.3635962116348 -51.747662289642,-24.3630580189843 -51.7477242001863,-24.362926501646 -51.7398181828241,-24.3618049515403 -51.7391987300504,-24.3623296676552 -51.738442045623,-24.3629395103521</coordinates></LinearRing></outerBoundaryIs></Polygon></MultiGeometry>
+  </Placemark>
+</Folder>
+</Document></kml>
