@@ -10,11 +10,33 @@ class Talhao(models.Model):
         related_name="talhoes"
     )
 
-    nome = models.CharField(max_length=100)
+    nome = models.CharField(
+        max_length=100
+    )
 
     area_hectares = models.DecimalField(
         max_digits=10,
         decimal_places=2
+    )
+
+    arquivo_kml = models.FileField(
+        upload_to="talhoes/kml/",
+        null=True,
+        blank=True
+    )
+
+    latitude_centro = models.DecimalField(
+        max_digits=10,
+        decimal_places=6,
+        null=True,
+        blank=True
+    )
+
+    longitude_centro = models.DecimalField(
+        max_digits=10,
+        decimal_places=6,
+        null=True,
+        blank=True
     )
 
     cultura_atual = models.CharField(
@@ -24,6 +46,25 @@ class Talhao(models.Model):
 
     safra = models.CharField(
         max_length=20,
+        blank=True
+    )
+
+    tipo_solo = models.CharField(
+        max_length=100,
+        blank=True
+    )
+
+    altitude_media = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
+        blank=True
+    )
+
+    declividade_media = models.DecimalField(
+        max_digits=8,
+        decimal_places=2,
+        null=True,
         blank=True
     )
 

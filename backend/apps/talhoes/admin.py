@@ -11,9 +11,21 @@ class TalhaoAdmin(admin.ModelAdmin):
         "area_hectares",
         "cultura_atual",
         "safra",
+        "tipo_solo",
+    )
+
+    list_filter = (
+        "cultura_atual",
+        "safra",
+        "propriedade",
     )
 
     search_fields = (
         "nome",
         "propriedade__nome",
+        "cultura_atual",
+    )
+
+    readonly_fields = (
+        "criado_em",
     )
