@@ -1,3 +1,10 @@
-from django.shortcuts import render
+from rest_framework import viewsets
 
-# Create your views here.
+from .models import Propriedade
+from .serializers import PropriedadeSerializer
+
+
+class PropriedadeViewSet(viewsets.ModelViewSet):
+
+    queryset = Propriedade.objects.all()
+    serializer_class = PropriedadeSerializer
