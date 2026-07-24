@@ -7,26 +7,21 @@ def extrair_centroide_kml(arquivo):
     with open(arquivo, "rb") as f:
         conteudo = f.read()
 
-    documento = kml.KML()
-    documento.from_string(conteudo)
+    documento = kml.KML.from_string(conteudo)
 
-    for doc in documento.features:
+    doc = list(documento.features)[0]
 
-        for pasta in doc.features:
+    pasta = list(doc.features)[0]
 
-            for placemark in pasta.features:
+    placemark = list(pasta.features)[0]
 
-                geometria = placemark.kml_geometry
+    geometria = placemark.kml_geometry
 
-                if geometria:
+    poligono = geometria.kml_geometries[0].geometry
 
-                    poligono = geometria.kml_geometries[0].geometry
+    centro = shape(poligono).centroid
 
-                    centro = poligono.centroid
-
-                    return {
-                        "longitude": centro.x,
-                        "latitude": centro.y,
-                    }
-
-    return None
+    return {
+        "longitude": centro.x,
+        "latitude": centro.y,
+    }
