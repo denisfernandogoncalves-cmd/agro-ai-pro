@@ -19,9 +19,10 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+
     "rest_framework",
     "corsheaders",
-    "drf_yasg",
+
     "apps.core",
     "apps.accounts",
     "apps.financeiro",
@@ -30,8 +31,7 @@ INSTALLED_APPS = [
     "apps.mercado",
     "apps.propriedades",
     "apps.talhoes",
-    "apps.relatorios",
-    "apps.ai",
+    "apps.clima",
 ]
 
 MIDDLEWARE = [
@@ -81,7 +81,7 @@ REST_FRAMEWORK = {
         "rest_framework_simplejwt.authentication.JWTAuthentication",
     ],
     "DEFAULT_PERMISSION_CLASSES": [
-        "rest_framework.permissions.AllowAny",
+        "rest_framework.permissions.IsAuthenticated",
     ],
 }
 
@@ -105,8 +105,8 @@ SWAGGER_SETTINGS = {
     }
 }
 
-LANGUAGE_CODE = "en-us"
-TIME_ZONE = "UTC"
+LANGUAGE_CODE = "pt-br"
+TIME_ZONE = "America/Sao_Paulo"
 USE_I18N = True
 USE_TZ = True
 
@@ -115,4 +115,4 @@ STATIC_ROOT = str(BASE_DIR / "static")
 MEDIA_URL = "/media/"
 MEDIA_ROOT = str(BASE_DIR / "media")
 
-DEFAULT_AUTO_FIELD = "bigauto_field"
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
