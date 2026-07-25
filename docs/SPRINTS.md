@@ -59,7 +59,7 @@ Este documento organiza a evolução do projeto. Uma Sprint somente deve ser mar
 
 ## Sprint 2 — Talhões e geoprocessamento
 
-**Status:** `[~]`
+**Status:** `[x]`
 
 ### Objetivos
 
@@ -74,10 +74,10 @@ Este documento organiza a evolução do projeto. Uma Sprint somente deve ser mar
 - [x] relacionamento com propriedade;
 - [x] campos agronômicos básicos;
 - [x] upload de KML;
-- [ ] validação de área do talhão contra área da propriedade;
-- [ ] processamento confiável do KML;
-- [ ] testes de API e regras de negócio;
-- [ ] visualização dos perímetros no mapa.
+- [x] validação de área do talhão contra área da propriedade;
+- [x] processamento confiável do KML;
+- [x] testes de API e regras de negócio;
+- [x] perímetros preparados em GeoJSON para visualização no mapa.
 
 ## Sprint 3 — Clima por propriedade
 
