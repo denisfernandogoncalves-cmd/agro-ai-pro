@@ -2,7 +2,7 @@ __pycache__/
 .venv/
 .env
 node_modules/
-backend/media/kml/
+backend/media/
 backend/test.sqlite3
 frontend/dist/
 *.tsbuildinfo

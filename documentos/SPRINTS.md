@@ -6,8 +6,8 @@ Este é o índice operacional das Sprints. Os detalhes técnicos ficam em
 | Sprint | Escopo | Status | Documento |
 | --- | --- | --- | --- |
 | 1 | Infraestrutura + Propriedades | Concluída em 25/07/2026 | `docs/sprints/SPRINT-01.md` |
-| 2 | Talhões | Implementação remota preexistente — status a validar | `docs/api/TALHOES.md` |
-| 3 | Geoprocessamento | Implementação remota preexistente — status a validar | `docs/api/TALHOES.md` |
+| 2 | Talhões | Parcialmente implementada | `docs/sprints/SPRINT-02.md` |
+| 3 | Geoprocessamento | Parcialmente implementada | `docs/sprints/SPRINT-03.md` |
 | 4 | Clima | Pendente | A criar |
 | 5 | Mercado | Pendente | A criar |
 | 6 | Financeiro | Pendente | A criar |
@@ -22,5 +22,6 @@ Este é o índice operacional das Sprints. Os detalhes técnicos ficam em
 
 Uma Sprint só deve ser marcada como concluída após implementação, migrations
 consistentes, execução dos testes aplicáveis e atualização da documentação.
-O próximo avanço de Sprint deve ser definido após validar formalmente o status
-das implementações remotas de Talhões e Geoprocessamento.
+As Sprints 2 e 3 possuem entregas técnicas aproveitáveis, mas ainda não atendem
+integralmente ao escopo oficial. Esta classificação não autoriza iniciar uma nova
+Sprint; os itens remanescentes estão registrados nos documentos correspondentes.
