@@ -15,7 +15,7 @@ class Talhao(models.Model):
 
     propriedade = models.ForeignKey(
         Propriedade,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="talhoes"
     )
 

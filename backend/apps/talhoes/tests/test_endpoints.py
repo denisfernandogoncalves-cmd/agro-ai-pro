@@ -1,6 +1,7 @@
 import shutil
 
 from django.conf import settings
+from django.contrib.auth import get_user_model
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
@@ -13,6 +14,9 @@ class TalhaoEndpointTests(TestCase):
     def setUp(self):
         self.propriedade = Propriedade.objects.create(nome="Fazenda", municipio="Londrina", area_hectares=100)
         self.client = APIClient()
+        self.client.force_authenticate(
+            get_user_model().objects.create_user(username="gestor-talhoes")
+        )
 
     def tearDown(self):
         shutil.rmtree(settings.BASE_DIR / "test-media-talhoes", ignore_errors=True)

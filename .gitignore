@@ -1,4 +1,8 @@
 __pycache__/
+.venv/
 .env
 node_modules/
 backend/media/kml/
+backend/test.sqlite3
+frontend/dist/
+*.tsbuildinfo

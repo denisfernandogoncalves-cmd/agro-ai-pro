@@ -1,105 +1,96 @@
+import { useEffect, useState } from "react";
 import {
+  CircleMarker,
   MapContainer,
-  TileLayer,
-  Marker,
+  Polygon,
   Popup,
-  Polygon
+  TileLayer,
 } from "react-leaflet";
 
 import "leaflet/dist/leaflet.css";
-
-import { useEffect, useState } from "react";
 
 
 type Props = {
   latitude: number;
   longitude: number;
   nome: string;
-  kml?: string;
+  kml?: string | null;
 };
 
+function extrairPoligonoKml(conteudo: string): [number, number][] {
+  const xml = new DOMParser().parseFromString(conteudo, "application/xml");
+  if (xml.querySelector("parsererror")) {
+    throw new Error("KML inválido");
+  }
+  const coordenadas = xml.querySelector("coordinates")?.textContent;
+  if (!coordenadas) {
+    return [];
+  }
+  return coordenadas
+    .trim()
+    .split(/\s+/)
+    .map((coordenada) => coordenada.split(",").map(Number))
+    .filter(([longitudeKml, latitudeKml]) =>
+      Number.isFinite(longitudeKml) && Number.isFinite(latitudeKml)
+    )
+    .map(([longitudeKml, latitudeKml]) => [latitudeKml, longitudeKml]);
+}
 
 export default function MapaPropriedade({
   latitude,
   longitude,
   nome,
-  kml
+  kml,
 }: Props) {
-
-
-  const [poligono, setPoligono] = useState<
-    [number, number][]
-  >([]);
-
+  const [poligono, setPoligono] = useState<[number, number][]>([]);
 
   useEffect(() => {
+    let ativo = true;
+    setPoligono([]);
+    if (!kml) {
+      return () => {
+        ativo = false;
+      };
+    }
 
-    if (!kml) return;
+    fetch(kml)
+      .then((resposta) => {
+        if (!resposta.ok) {
+          throw new Error("Não foi possível carregar o KML.");
+        }
+        return resposta.text();
+      })
+      .then((conteudo) => {
+        if (ativo) {
+          setPoligono(extrairPoligonoKml(conteudo));
+        }
+      })
+      .catch(() => {
+        if (ativo) {
+          setPoligono([]);
+        }
+      });
 
-    console.log("Arquivo KML recebido:", kml);
-
-
+    return () => {
+      ativo = false;
+    };
   }, [kml]);
 
-
-
   return (
-
     <MapContainer
-
-      center={[
-        latitude,
-        longitude
-      ]}
-
-      zoom={15}
-
-      style={{
-        height:"500px",
-        width:"100%"
-      }}
-
+      center={[latitude, longitude]}
+      zoom={13}
+      className="mapa"
+      key={`${latitude}-${longitude}`}
     >
-
       <TileLayer
-
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
         url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-
       />
-
-
-      <Marker
-
-        position={[
-          latitude,
-          longitude
-        ]}
-
-      >
-
-        <Popup>
-
-          {nome}
-
-        </Popup>
-
-      </Marker>
-
-
-      {
-        poligono.length > 0 &&
-
-        <Polygon
-
-          positions={poligono}
-
-        />
-
-      }
-
-
+      <CircleMarker center={[latitude, longitude]} radius={8}>
+        <Popup>{nome}</Popup>
+      </CircleMarker>
+      {poligono.length >= 3 && <Polygon positions={poligono} />}
     </MapContainer>
-
   );
-
 }
