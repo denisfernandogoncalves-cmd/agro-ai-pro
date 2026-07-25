@@ -1,27 +1,14 @@
-from fastkml import kml
-from shapely.geometry import shape
+"""Compatibilidade do processamento KML de propriedades sem dependências opcionais."""
+
+from django.core.files import File
+
+from apps.talhoes.services import processar_kml
 
 
-def extrair_centroide_kml(arquivo):
-
-    with open(arquivo, "rb") as f:
-        conteudo = f.read()
-
-    documento = kml.KML.from_string(conteudo)
-
-    doc = list(documento.features)[0]
-
-    pasta = list(doc.features)[0]
-
-    placemark = list(pasta.features)[0]
-
-    geometria = placemark.kml_geometry
-
-    poligono = geometria.kml_geometries[0].geometry
-
-    centro = shape(poligono).centroid
-
+def extrair_centroide_kml(caminho):
+    with open(caminho, "rb") as arquivo_aberto:
+        resultado = processar_kml(File(arquivo_aberto, name=caminho))
     return {
-        "longitude": centro.x,
-        "latitude": centro.y,
+        "longitude": resultado["longitude_centro"],
+        "latitude": resultado["latitude_centro"],
     }
