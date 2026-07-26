@@ -1,0 +1,47 @@
+.clima-enterprise { gap: 1.25rem; }
+.clima-enterprise .clima-controles { grid-template-columns: minmax(260px, 1fr) minmax(220px, 360px) auto; }
+.clima-enterprise .muted { color: #607168; margin-bottom: 0; }
+.clima-status-grid { display: grid; gap: 1rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.clima-atual-card, .clima-operacao-card, .clima-sincronizacao { display: grid; gap: 0.65rem; }
+.clima-atual-card h3, .clima-operacao-card h3, .clima-sincronizacao h3 { margin-bottom: 0; }
+.clima-temperatura-atual { font-size: clamp(2rem, 5vw, 3.5rem); line-height: 1; }
+.clima-atual-card dl, .clima-operacao-card p, .clima-sincronizacao p { margin: 0; }
+.clima-atual-card dl { display: grid; gap: 0.45rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.clima-atual-card dl div { display: grid; gap: 0.1rem; }
+.clima-atual-card dt { color: #607168; font-size: 0.78rem; }
+.clima-atual-card dd { font-weight: 700; margin: 0; }
+.clima-sincronizacao.is-stale { border-color: #d7a633; }
+.clima-section-heading { align-items: center; display: flex; gap: 1rem; justify-content: space-between; }
+.clima-section-heading h2 { margin-bottom: 0; }
+.clima-section-heading > span { background: #e5ece6; border-radius: 999px; font-weight: 750; padding: 0.4rem 0.7rem; }
+.clima-alertas-lista { display: grid; gap: 0.7rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-top: 1rem; }
+.clima-alertas-lista .alerta-clima { margin: 0; }
+.alerta-clima--critico { background: #fff0ee; border-color: #e9b1aa; color: #8b2922; }
+.alerta-clima--informativo { background: #e8f2ff; border-color: #b7d1ef; color: #1d527f; }
+.clima-horaria-section { display: grid; gap: 1rem; overflow: hidden; }
+.clima-horaria-lista { display: grid; gap: 0.7rem; grid-auto-columns: minmax(150px, 1fr); grid-auto-flow: column; overflow-x: auto; padding-bottom: 0.35rem; }
+.clima-horaria-lista article { background: #f6f8f5; border: 1px solid #d9e2da; border-radius: 10px; display: grid; gap: 0.35rem; padding: 0.85rem; }
+.clima-horaria-lista article > span:not(.clima-condicao) { font-size: 1.2rem; font-weight: 750; }
+.clima-horaria-lista small { color: #607168; }
+.clima-condicao { border-radius: 999px; font-size: 0.7rem; font-weight: 750; padding: 0.35rem 0.5rem; text-align: center; }
+.clima-condicao--favoravel { background: #e2f3e6; color: #1d653b; }
+.clima-condicao--desfavoravel { background: #fff0ee; color: #8b2922; }
+.clima-condicao--atencao { background: #fff3d6; color: #76520a; }
+
+[data-theme="dark"] .clima-enterprise .muted,
+[data-theme="dark"] .clima-atual-card dt,
+[data-theme="dark"] .clima-horaria-lista small { color: #a9b9b0; }
+[data-theme="dark"] .clima-horaria-lista article { background: #17231e; border-color: #32483d; }
+[data-theme="dark"] .clima-section-heading > span { background: #283a31; color: #d7e4dc; }
+
+@media (max-width: 1050px) {
+  .clima-status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .clima-sincronizacao { grid-column: 1 / -1; }
+}
+
+@media (max-width: 760px) {
+  .clima-enterprise .clima-controles, .clima-status-grid { grid-template-columns: 1fr; }
+  .clima-sincronizacao { grid-column: auto; }
+  .clima-atual-card dl { grid-template-columns: 1fr 1fr; }
+  .clima-section-heading { align-items: flex-start; }
+}
