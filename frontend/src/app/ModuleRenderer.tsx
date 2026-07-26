@@ -12,7 +12,7 @@ const MercadoPage = lazy(() => import("../pages/Mercado/MercadoPage"));
 const FinanceiroPage = lazy(() => import("../pages/Financeiro/FinanceiroPage"));
 const EstoquePage = lazy(() => import("../pages/Estoque/EstoquePage"));
 const OperacoesPage = lazy(() => import("../pages/Operacoes/OperacoesPage"));
-const ProducaoPage = lazy(() => import("../pages/Producao/ProducaoPage"));
+const ProducaoPage = lazy(() => import("../pages/Producao/ProducaoIntegratedPage"));
 const MaquinasPage = lazy(() => import("../pages/Maquinas/MaquinasPage"));
 const RelatoriosPage = lazy(() => import("../pages/Relatorios/RelatoriosPage"));
 const InsightsPage = lazy(() => import("../pages/Insights/InsightsPage"));
