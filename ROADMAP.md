@@ -14,7 +14,8 @@
 - [x] mercado e clima no Corn Belt;
 - [x] financeiro;
 - [x] estoque e insumos;
-- [ ] operações e máquinas;
+- [x] operações;
+- [ ] máquinas;
 - [ ] relatórios e dashboards;
 - [ ] inteligência artificial e automação;
 - [ ] aplicativo.

@@ -17,6 +17,7 @@ import ClimaPage from "./pages/Clima/ClimaPage";
 import EstoquePage from "./pages/Estoque/EstoquePage";
 import FinanceiroPage from "./pages/Financeiro/FinanceiroPage";
 import MercadoPage from "./pages/Mercado/MercadoPage";
+import OperacoesPage from "./pages/Operacoes/OperacoesPage";
 import TalhoesPage from "./pages/Talhoes/TalhoesPage";
 
 import "./styles.css";
@@ -50,7 +51,7 @@ function mensagemDoErro(erro: unknown) {
 export default function App() {
   const [autenticado, setAutenticado] = useState(estaAutenticado());
   const [modulo, setModulo] = useState<
-    "propriedades" | "talhoes" | "clima" | "mercado" | "financeiro" | "estoque"
+    "propriedades" | "talhoes" | "clima" | "mercado" | "financeiro" | "estoque" | "operacoes"
   >("propriedades");
   const [credenciais, setCredenciais] = useState({ username: "", password: "" });
   const [propriedades, setPropriedades] = useState<Propriedade[]>([]);
@@ -191,7 +192,9 @@ export default function App() {
                     ? "Mercado"
                     : modulo === "financeiro"
                       ? "Financeiro"
-                      : "Estoque"}
+                      : modulo === "estoque"
+                        ? "Estoque"
+                        : "Operações"}
           </h1>
         </div>
         <button
@@ -242,6 +245,12 @@ export default function App() {
         >
           Estoque
         </button>
+        <button
+          className={modulo === "operacoes" ? "" : "secundario"}
+          onClick={() => setModulo("operacoes")}
+        >
+          Operações
+        </button>
       </nav>
 
       {modulo === "talhoes" ? (
@@ -254,6 +263,8 @@ export default function App() {
         <FinanceiroPage propriedades={propriedades} />
       ) : modulo === "estoque" ? (
         <EstoquePage propriedades={propriedades} />
+      ) : modulo === "operacoes" ? (
+        <OperacoesPage />
       ) : (
         <>
           {erro && <p className="erro card">{erro}</p>}

@@ -38,6 +38,9 @@ try {
   const { default: EstoquePage } = await servidor.ssrLoadModule(
     "/src/pages/Estoque/EstoquePage.tsx",
   );
+  const { default: OperacoesPage } = await servidor.ssrLoadModule(
+    "/src/pages/Operacoes/OperacoesPage.tsx",
+  );
   const { converterGeometria, limitesGeometria } =
     await servidor.ssrLoadModule("/src/utils/geometria.ts");
 
@@ -224,7 +227,13 @@ try {
   assert.match(htmlEstoque, /Rastreabilidade/);
   assert.match(htmlEstoque, /Cadastros de produtos, locais e lotes/);
 
-  console.log("10 testes de componentes e geometria aprovados.");
+  const htmlOperacoes = renderToStaticMarkup(
+    React.createElement(OperacoesPage),
+  );
+  assert.match(htmlOperacoes, /Planejar operaÃ§Ã£o|Planejar operação/);
+  assert.match(htmlOperacoes, /Nenhuma operaÃ§Ã£o planejada|Nenhuma operação planejada/);
+
+  console.log("11 testes de componentes e geometria aprovados.");
 } finally {
   await servidor.close();
 }

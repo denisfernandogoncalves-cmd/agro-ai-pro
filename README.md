@@ -6,8 +6,8 @@ frontend React/TypeScript.
 ## Estado atual
 
 As Sprints 1 (Infraestrutura + Propriedades), 2 (Talhões), 3
-(Geoprocessamento), 4 (Clima), 5 (Mercado), 6 (Financeiro) e 7 (Estoque) estão
-concluídas.
+(Geoprocessamento), 4 (Clima), 5 (Mercado), 6 (Financeiro), 7 (Estoque) e 8
+(Operações) estão concluídas.
 
 O sistema oferece:
 
@@ -46,6 +46,11 @@ O módulo de Estoque controla insumos, defensivos, fertilizantes e sementes por
 local e lote. Entradas e saídas preservam custo, documento fiscal opcional,
 propriedade, safra e usuário responsável. O sistema bloqueia saídas sem saldo e
 alerta sobre validade e estoque mínimo.
+
+O módulo de Operações planeja e acompanha atividades agrícolas por talhão,
+responsável, área e custo. A conclusão baixa os insumos efetivamente usados no
+estoque de forma transacional e mantém a rastreabilidade entre operação, lote,
+propriedade, safra e usuário.
 
 O índice oficial de andamento está em
 [`documentos/SPRINTS.md`](documentos/SPRINTS.md).

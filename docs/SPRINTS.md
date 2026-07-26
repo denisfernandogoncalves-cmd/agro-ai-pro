@@ -64,7 +64,7 @@ Detalhes em `docs/sprints/SPRINT-03.md`.
 | 5 | Mercado | `[x]` — concluída em 25/07/2026 |
 | 6 | Financeiro | `[x]` — concluída em 25/07/2026 |
 | 7 | Estoque | `[x]` — concluída em 25/07/2026 |
-| 8 | Operações | `[ ]` |
+| 8 | Operações | `[x]` — concluída em 25/07/2026 |
 | 9 | Máquinas | `[ ]` |
 | 10 | Relatórios | `[ ]` |
 | 11 | Inteligência Artificial | `[ ]` |
