@@ -1,6 +1,11 @@
+from django.db.models import Q
 from rest_framework.exceptions import NotFound, PermissionDenied
 
-from apps.core.access import PAPEIS_LEITURA, exigir_acesso_propriedade
+from apps.core.access import (
+    PAPEL_ADMINISTRADOR,
+    PAPEIS_LEITURA,
+    exigir_acesso_propriedade,
+)
 
 from .grain_models import AcessoCadPro, CadPro
 
@@ -13,7 +18,14 @@ def cadpros_visiveis(usuario, propriedade_id=None):
         return queryset
     if not usuario or not usuario.is_authenticated:
         return queryset.none()
-    return queryset.filter(acessos__usuario=usuario, acessos__ativo=True).distinct()
+    return queryset.filter(
+        Q(
+            propriedade__acessos__usuario=usuario,
+            propriedade__acessos__ativo=True,
+            propriedade__acessos__papel=PAPEL_ADMINISTRADOR,
+        )
+        | Q(acessos__usuario=usuario, acessos__ativo=True)
+    ).distinct()
 
 
 def exigir_acesso_cadpro(usuario, cadpro, *, papeis=PAPEIS_LEITURA, ocultar=False):
@@ -25,7 +37,7 @@ def exigir_acesso_cadpro(usuario, cadpro, *, papeis=PAPEIS_LEITURA, ocultar=Fals
         papeis=papeis,
         ocultar=ocultar,
     )
-    if usuario and usuario.is_superuser:
+    if usuario and (usuario.is_superuser or papel == PAPEL_ADMINISTRADOR):
         return papel
     autorizado = AcessoCadPro.objects.filter(
         cadpro=cadpro,
