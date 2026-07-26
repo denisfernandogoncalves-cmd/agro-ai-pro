@@ -23,6 +23,9 @@ try {
     await servidor.ssrLoadModule(
       "/src/pages/Talhoes/HistoricoAgronomicoPanel.tsx",
     );
+  const { default: ClimaPage } = await servidor.ssrLoadModule(
+    "/src/pages/Clima/ClimaPage.tsx",
+  );
   const { converterGeometria, limitesGeometria } =
     await servidor.ssrLoadModule("/src/utils/geometria.ts");
 
@@ -159,7 +162,13 @@ try {
     [-17, -47],
   ]);
 
-  console.log("5 testes de componentes e geometria aprovados.");
+  const htmlClima = renderToStaticMarkup(
+    React.createElement(ClimaPage, { propriedades: [propriedade] }),
+  );
+  assert.match(htmlClima, /Atualizar previsão/);
+  assert.match(htmlClima, /precisa de latitude e longitude/);
+
+  console.log("6 testes de componentes e geometria aprovados.");
 } finally {
   await servidor.close();
 }
