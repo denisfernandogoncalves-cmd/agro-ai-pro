@@ -11,7 +11,8 @@ frontend React/TypeScript.
 As Sprints 1 (Infraestrutura + Propriedades), 2 (Talhões), 3
 (Geoprocessamento), 4 (Clima), 5 (Mercado), 6 (Financeiro), 7 (Estoque), 8
 (Operações), 9 (Máquinas), 10 (Relatórios), 11 (IA) e 12 (Aplicativo) estão
-concluídas. A Sprint 13 implementa a Gestão Integrada da Produção Agrícola.
+concluídas. A Sprint 13 implementa a Gestão Integrada da Produção Agrícola e
+evolui o Clima para atualização automática.
 
 O sistema oferece:
 
@@ -35,10 +36,27 @@ Talhões com histórico agronômico possuem exclusão protegida. A API mantém
 compatibilidade com listagens antigas sem paginação e oferece respostas
 paginadas quando `page` ou `page_size` é informado.
 
-O módulo de Clima consulta gratuitamente a Open-Meteo, mantém previsão de sete
-dias por propriedade e apresenta temperaturas, chuva, umidade, vento e alertas
-agrícolas. As consultas persistidas continuam disponíveis durante falhas
-temporárias do provedor.
+## Clima automático
+
+O módulo de Clima mantém estado atual, previsão horária e previsão para sete
+dias por propriedade. Um worker local verifica atualizações vencidas a cada
+três horas por padrão, usa Redis para cache e deduplicação, registra auditoria e
+preserva a última previsão válida quando o provedor estiver indisponível.
+
+A localização usa as coordenadas cadastradas ou, na ausência delas, o centro da
+geometria GeoJSON processada da propriedade ou de um talhão. Nenhuma coordenada
+é inventada a partir do município.
+
+O painel apresenta temperatura, sensação, umidade, chuva, vento, pressão,
+nuvens, radiação, ponto de orvalho, evapotranspiração, nascer e pôr do sol,
+alertas internos e condições para pulverização e colheita. Limites e frequência
+são configuráveis por propriedade e respeitam os papéis multiusuário.
+
+O provedor padrão é Open-Meteo e não utiliza chave. O endpoint público gratuito
+é destinado a uso não comercial; desenvolvimento e homologação podem utilizá-lo,
+mas uma implantação comercial exige instância auto-hospedada compatível ou
+avaliação expressamente autorizada de licenciamento. Nenhum serviço pago foi
+ativado.
 
 O módulo de Mercado acompanha referências mensais globais de soja, milho,
 trigo e petróleo Brent, exibe histórico e variação, monitora cinco regiões do
@@ -85,7 +103,7 @@ operações, abastecimentos e manutenções. Leituras não podem regredir e os
 históricos de campo e combustível são imutáveis.
 
 O dashboard gerencial consolida estrutura, caixa, operações, estoque, máquinas,
-produção, alertas e fluxo mensal, com filtros por propriedade e safra.
+produção, clima, alertas e fluxo mensal, com filtros por propriedade e safra.
 
 O assistente gerencial gera insights explicáveis a partir de alertas e
 pendências do próprio sistema, sem compartilhar dados com serviços externos.
@@ -113,11 +131,17 @@ Configure as variáveis a partir de `.env.example`, inicialize o PostgreSQL e:
 ```powershell
 cd backend
 ..\.venv\Scripts\python.exe manage.py migrate
-..\.venv\Scripts\python.exe createsuperuser
+..\.venv\Scripts\python.exe manage.py createsuperuser
 ..\.venv\Scripts\python.exe runserver
 ```
 
-Para testes não é necessário PostgreSQL:
+Para executar manualmente um ciclo de clima:
+
+```powershell
+..\.venv\Scripts\python.exe manage.py atualizar_clima
+```
+
+Para testes não é necessário PostgreSQL nem Redis:
 
 ```powershell
 $env:DJANGO_SETTINGS_MODULE='config.settings.test'
@@ -145,7 +169,13 @@ docker compose up --build
 
 O sistema fica disponível em `http://127.0.0.1:5173` e o backend também pode
 ser consultado em `http://127.0.0.1:8000/api/health/`. O Compose inicia
-PostgreSQL, Redis, backend e frontend, aguardando os healthchecks dos serviços.
+PostgreSQL, Redis, backend, `clima-worker` e frontend, aguardando os healthchecks
+dos serviços.
+
+```powershell
+docker compose ps
+docker compose logs clima-worker
+```
 
 Se alguma porta já estiver em uso, defina `POSTGRES_PORT_EXPOSED`,
 `REDIS_PORT_EXPOSED`, `BACKEND_PORT` e `FRONTEND_PORT` antes de executar o
@@ -155,6 +185,8 @@ Compose.
 
 - [Prompt Mestre](docs/PROMPT-MESTRE-AGRO-AI-PRO.md)
 - [Arquitetura](ARCHITECTURE.md)
+- [Clima automático](docs/CLIMA-AUTOMATICO.md)
+- [API de Clima](docs/api/CLIMA.md)
 - [Gestão Integrada da Produção](docs/GESTAO-INTEGRADA-PRODUCAO.md)
 - [API da Produção Integrada](docs/api/PRODUCAO-INTEGRADA.md)
 - [Segurança multiusuário](docs/SEGURANCA-MULTIUSUARIO.md)
