@@ -9,6 +9,7 @@ import {
   excluirPropriedade,
   listarPropriedades,
   obterPermissoesUsuario,
+  type PapelPropriedade,
   type PermissoesUsuario,
   type Propriedade,
   type PropriedadeInput,
@@ -22,7 +23,7 @@ import AplicativoStatus from "./components/AplicativoStatus";
 import {
   ConfirmDialog,
   EmptyState,
-  LoadingState,
+  FilterBar,
   PageHeader,
   PermissionGuard,
   SearchInput,
@@ -32,7 +33,7 @@ import { getUserIdentity } from "./utils/session";
 
 import "./styles.css";
 
-const emptyForm: PropriedadeInput = {
+const formularioVazio: PropriedadeInput = {
   nome: "",
   proprietario: "",
   municipio: "",
@@ -44,115 +45,160 @@ const emptyForm: PropriedadeInput = {
   arquivo_kml: null,
 };
 
-const emptyPermissions: PermissoesUsuario = {
+const permissoesVazias: PermissoesUsuario = {
   pode_criar_propriedade: false,
   superusuario: false,
 };
 
-const roleLabels = {
+const ROLE_LABELS: Record<PapelPropriedade, string> = {
   administrador: "Administrador",
   gestor: "Gestor",
   operador: "Operador",
   leitura: "Somente leitura",
-} as const;
+};
 
-function errorMessage(error: unknown) {
-  if (axios.isAxiosError(error)) {
-    const data = error.response?.data;
-    if (error.response?.status === 403 && !data?.detail) {
+function mensagemDoErro(erro: unknown) {
+  if (axios.isAxiosError(erro)) {
+    const dados = erro.response?.data;
+    if (erro.response?.status === 403 && !dados?.detail) {
       return "Seu perfil não permite concluir esta operação.";
     }
-    if (error.response?.status === 404 && !data?.detail) {
-      return "O recurso solicitado não foi encontrado ou não pertence às suas propriedades autorizadas.";
+    if (erro.response?.status === 404 && !dados?.detail) {
+      return "Registro não encontrado ou fora das propriedades autorizadas.";
     }
-    if (typeof data?.detail === "string") return data.detail;
-    if (data && typeof data === "object") return Object.values(data).flat().join(" ");
+    if (typeof dados?.detail === "string") {
+      return dados.detail;
+    }
+    if (dados && typeof dados === "object") {
+      return Object.values(dados).flat().join(" ");
+    }
   }
   return "Não foi possível concluir a operação.";
 }
 
 export default function App() {
-  const [authenticated, setAuthenticated] = useState(estaAutenticado());
-  const [module, setModule] = useState<ModuleId>("dashboard");
-  const [credentials, setCredentials] = useState({ username: "", password: "" });
-  const [properties, setProperties] = useState<Propriedade[]>([]);
-  const [permissions, setPermissions] = useState(emptyPermissions);
-  const [selected, setSelected] = useState<Propriedade | null>(null);
-  const [harvest, setHarvest] = useState("");
-  const [editId, setEditId] = useState<number | null>(null);
-  const [form, setForm] = useState(emptyForm);
-  const [search, setSearch] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [deleteTarget, setDeleteTarget] = useState<Propriedade | null>(null);
+  const [autenticado, setAutenticado] = useState(estaAutenticado());
+  const [modulo, setModulo] = useState<ModuleId>("dashboard");
+  const [credenciais, setCredenciais] = useState({ username: "", password: "" });
+  const [propriedades, setPropriedades] = useState<Propriedade[]>([]);
+  const [permissoes, setPermissoes] = useState(permissoesVazias);
+  const [selectedPropertyId, setSelectedPropertyId] = useState("");
+  const [safra, setSafra] = useState("");
+  const [edicaoId, setEdicaoId] = useState<number | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Propriedade | null>(null);
+  const [formulario, setFormulario] = useState(formularioVazio);
+  const [busca, setBusca] = useState("");
+  const [carregando, setCarregando] = useState(false);
+  const [erro, setErro] = useState("");
   const { theme, toggleTheme } = useTheme();
 
-  const loadProperties = useCallback(async (term = "") => {
-    setLoading(true);
-    setError("");
+  const carregar = useCallback(async (termo = "") => {
+    setCarregando(true);
+    setErro("");
     try {
-      const [data, profile] = await Promise.all([
-        listarPropriedades(term),
+      const [dados, perfil] = await Promise.all([
+        listarPropriedades(termo),
         obterPermissoesUsuario(),
       ]);
-      setProperties(data);
-      setPermissions(profile);
-      setSelected((current) => data.find((item) => item.id === current?.id) ?? data[0] ?? null);
-    } catch (failure) {
-      setError(errorMessage(failure));
+      setPropriedades(dados);
+      setPermissoes(perfil);
+      setSelectedPropertyId((current) =>
+        current && dados.some((item) => String(item.id) === current) ? current : "",
+      );
+    } catch (falha) {
+      setErro(mensagemDoErro(falha));
     } finally {
-      setLoading(false);
+      setCarregando(false);
     }
   }, []);
 
   useEffect(() => {
-    if (authenticated) void loadProperties();
-  }, [authenticated, loadProperties]);
+    if (autenticado) {
+      void carregar();
+    }
+  }, [autenticado, carregar]);
 
-  const availableNavigation = useMemo(() => {
-    const hasPropertyScope = permissions.superusuario || properties.length > 0;
-    return NAVIGATION_ITEMS.filter((item) => !item.requiresProperty || hasPropertyScope);
-  }, [permissions.superusuario, properties.length]);
+  const selectedProperty = useMemo(
+    () => propriedades.find((item) => String(item.id) === selectedPropertyId) ?? null,
+    [propriedades, selectedPropertyId],
+  );
+
+  const visibleNavigation = useMemo(
+    () => NAVIGATION_ITEMS.filter((item) =>
+      !item.requiresProperty || permissoes.superusuario || propriedades.length > 0,
+    ),
+    [permissoes.superusuario, propriedades.length],
+  );
 
   useEffect(() => {
-    if (!availableNavigation.some((item) => item.id === module)) setModule("dashboard");
-  }, [availableNavigation, module]);
+    if (!visibleNavigation.some((item) => item.id === modulo)) {
+      setModulo("dashboard");
+    }
+  }, [modulo, visibleNavigation]);
 
-  async function submitLogin(event: FormEvent) {
-    event.preventDefault();
-    setError("");
+  const roleLabel = useMemo(() => {
+    if (permissoes.superusuario) return "Superusuário";
+    if (selectedProperty?.papel_usuario) return ROLE_LABELS[selectedProperty.papel_usuario];
+    const roles = new Set(propriedades.map((item) => item.papel_usuario).filter(Boolean));
+    if (roles.size === 1) return ROLE_LABELS[[...roles][0] as PapelPropriedade];
+    if (roles.size > 1) return "Múltiplos perfis";
+    return "Sem propriedade";
+  }, [permissoes.superusuario, propriedades, selectedProperty]);
+
+  const userIdentity = useMemo(() => getUserIdentity(), [autenticado]);
+
+  const mapFeatures = useMemo<AgriculturalMapFeature[]>(() => {
+    const scope = selectedProperty ? [selectedProperty] : propriedades;
+    return scope.map((item) => ({
+      id: item.id,
+      kind: "propriedade" as const,
+      name: item.nome,
+      subtitle: `${item.municipio}/${item.uf} · ${item.area_hectares} ha`,
+      latitude: item.latitude === null ? null : Number(item.latitude),
+      longitude: item.longitude === null ? null : Number(item.longitude),
+      geometry: item.geometria_geojson,
+    }));
+  }, [propriedades, selectedProperty]);
+
+  async function enviarLogin(evento: FormEvent) {
+    evento.preventDefault();
+    setErro("");
     try {
-      await autenticar(credentials.username, credentials.password);
-      setAuthenticated(true);
-      setModule("dashboard");
+      await autenticar(credenciais.username, credenciais.password);
+      setAutenticado(true);
+      setModulo("dashboard");
     } catch {
-      setError("Usuário ou senha inválidos.");
+      setErro("Usuário ou senha inválidos.");
     }
   }
 
-  async function saveProperty(event: FormEvent) {
-    event.preventDefault();
-    setLoading(true);
-    setError("");
+  async function salvar(evento: FormEvent) {
+    evento.preventDefault();
+    setCarregando(true);
+    setErro("");
     try {
-      if (editId) await atualizarPropriedade(editId, form);
-      else await criarPropriedade(form);
-      setForm(emptyForm);
-      setEditId(null);
-      await loadProperties(search);
-    } catch (failure) {
-      setError(errorMessage(failure));
-      setLoading(false);
+      if (edicaoId) {
+        await atualizarPropriedade(edicaoId, formulario);
+      } else {
+        await criarPropriedade(formulario);
+      }
+      setFormulario(formularioVazio);
+      setEdicaoId(null);
+      await carregar(busca);
+    } catch (falha) {
+      setErro(mensagemDoErro(falha));
+      setCarregando(false);
     }
   }
 
-  function editProperty(item: Propriedade) {
+  function editar(item: Propriedade) {
     if (!item.pode_editar) {
-      setError("Seu perfil não permite editar esta propriedade.");
+      setErro("Seu perfil não permite editar esta propriedade.");
       return;
     }
-    setEditId(item.id);
-    setForm({
+    setSelectedPropertyId(String(item.id));
+    setEdicaoId(item.id);
+    setFormulario({
       nome: item.nome,
       proprietario: item.proprietario,
       municipio: item.municipio,
@@ -163,154 +209,190 @@ export default function App() {
       observacoes: item.observacoes,
       arquivo_kml: null,
     });
-    setModule("propriedades");
   }
 
-  function requestDelete(item: Propriedade) {
+  function solicitarExclusao(item: Propriedade) {
     if (!item.pode_excluir) {
-      setError("Somente administradores podem excluir propriedades.");
+      setErro("Somente administradores podem excluir propriedades.");
       return;
     }
-    setDeleteTarget(item);
+    setPendingDelete(item);
   }
 
-  async function confirmDelete() {
-    if (!deleteTarget) return;
-    setError("");
+  async function confirmarExclusao() {
+    if (!pendingDelete) return;
+    setErro("");
     try {
-      await excluirPropriedade(deleteTarget.id);
-      setDeleteTarget(null);
-      await loadProperties(search);
-    } catch (failure) {
-      setError(errorMessage(failure));
+      await excluirPropriedade(pendingDelete.id);
+      if (selectedPropertyId === String(pendingDelete.id)) setSelectedPropertyId("");
+      setPendingDelete(null);
+      await carregar(busca);
+    } catch (falha) {
+      setErro(mensagemDoErro(falha));
+      setPendingDelete(null);
     }
   }
 
-  function logout() {
+  function encerrarSessao() {
     sair();
-    setAuthenticated(false);
-    setPermissions(emptyPermissions);
-    setProperties([]);
-    setSelected(null);
-    setModule("dashboard");
+    setAutenticado(false);
+    setPermissoes(permissoesVazias);
+    setPropriedades([]);
+    setSelectedPropertyId("");
+    setModulo("dashboard");
   }
 
-  if (!authenticated) {
+  if (!autenticado) {
     return (
-      <main className="login enterprise-login">
-        <form className="card" onSubmit={submitLogin}>
-          <div className="enterprise-login__brand"><span>A</span><div><h1>AGRO-AI-PRO</h1><p>ERP agrícola inteligente</p></div></div>
-          <label>Usuário<input autoComplete="username" value={credentials.username} onChange={(event) => setCredentials({ ...credentials, username: event.target.value })} required /></label>
-          <label>Senha<input autoComplete="current-password" type="password" value={credentials.password} onChange={(event) => setCredentials({ ...credentials, password: event.target.value })} required /></label>
-          {error && <p className="erro">{error}</p>}
+      <main className="login">
+        <form className="card login-card" onSubmit={enviarLogin}>
+          <span className="kicker">ERP agrícola</span>
+          <h1>AGRO-AI-PRO</h1>
+          <p>Entre para acessar as propriedades e módulos autorizados.</p>
+          <label>
+            Usuário
+            <input
+              autoComplete="username"
+              value={credenciais.username}
+              onChange={(evento) => setCredenciais({ ...credenciais, username: evento.target.value })}
+              required
+            />
+          </label>
+          <label>
+            Senha
+            <input
+              autoComplete="current-password"
+              type="password"
+              value={credenciais.password}
+              onChange={(evento) => setCredenciais({ ...credenciais, password: evento.target.value })}
+              required
+            />
+          </label>
+          {erro && <p className="erro">{erro}</p>}
           <button type="submit">Entrar</button>
+          <button className="secundario" type="button" onClick={toggleTheme}>Usar tema {theme === "dark" ? "claro" : "escuro"}</button>
         </form>
       </main>
     );
   }
 
-  const identity = getUserIdentity();
-  const roleLabel = permissions.superusuario
-    ? "Superusuário"
-    : selected?.papel_usuario
-      ? roleLabels[selected.papel_usuario]
-      : "Acesso autenticado";
-  const selectedFeatures: AgriculturalMapFeature[] = selected ? [{
-    id: selected.id,
-    kind: "propriedade",
-    name: selected.nome,
-    subtitle: `${selected.municipio}/${selected.uf}`,
-    latitude: selected.latitude === null ? null : Number(selected.latitude),
-    longitude: selected.longitude === null ? null : Number(selected.longitude),
-    geometry: selected.geometria_geojson,
-  }] : [];
-
   const propertiesContent = (
     <section className="properties-page">
-      <PageHeader eyebrow="Cadastros rurais" title="Propriedades" description="Consulte e gerencie somente as propriedades autorizadas para o seu perfil." />
-      {error && <p className="erro card" role="alert">{error}</p>}
-      <section className="grade properties-grid">
+      <PageHeader
+        eyebrow="Estrutura rural"
+        title="Propriedades"
+        description="Cadastros, permissões, área declarada, geometrias e localização."
+      />
+
+      {erro && <p className="erro card">{erro}</p>}
+
+      <section className="grade">
         <PermissionGuard
-          allowed={permissions.pode_criar_propriedade || editId !== null}
-          fallback={<div className="card vazio">Seu perfil permite consultar as propriedades autorizadas, sem criar ou editar cadastros.</div>}
+          allowed={permissoes.pode_criar_propriedade || edicaoId !== null}
+          fallback={<EmptyState title="Consulta autorizada" description="Seu perfil permite consultar as propriedades vinculadas, sem criar ou editar cadastros." />}
         >
-          <form className="card formulario" onSubmit={saveProperty}>
-            <h2>{editId ? "Editar propriedade" : "Nova propriedade"}</h2>
-            <label>Nome<input required value={form.nome} onChange={(event) => setForm({ ...form, nome: event.target.value })} /></label>
-            <label>Proprietário<input value={form.proprietario} onChange={(event) => setForm({ ...form, proprietario: event.target.value })} /></label>
+          <form className="card formulario" onSubmit={salvar}>
+            <h2>{edicaoId ? "Editar propriedade" : "Nova propriedade"}</h2>
+            <label>Nome<input required value={formulario.nome} onChange={(event) => setFormulario({ ...formulario, nome: event.target.value })} /></label>
+            <label>Proprietário<input value={formulario.proprietario} onChange={(event) => setFormulario({ ...formulario, proprietario: event.target.value })} /></label>
             <div className="linha">
-              <label>Município<input required value={form.municipio} onChange={(event) => setForm({ ...form, municipio: event.target.value })} /></label>
-              <label>UF<input maxLength={2} value={form.uf} onChange={(event) => setForm({ ...form, uf: event.target.value.toUpperCase() })} /></label>
+              <label>Município<input required value={formulario.municipio} onChange={(event) => setFormulario({ ...formulario, municipio: event.target.value })} /></label>
+              <label>UF<input maxLength={2} value={formulario.uf} onChange={(event) => setFormulario({ ...formulario, uf: event.target.value.toUpperCase() })} /></label>
             </div>
-            <label>Área (ha)<input required min="0.01" step="0.01" type="number" value={form.area_hectares} onChange={(event) => setForm({ ...form, area_hectares: event.target.value })} /></label>
+            <label>Área (ha)<input required min="0.01" step="0.01" type="number" value={formulario.area_hectares} onChange={(event) => setFormulario({ ...formulario, area_hectares: event.target.value })} /></label>
             <div className="linha">
-              <label>Latitude<input step="any" type="number" value={form.latitude} onChange={(event) => setForm({ ...form, latitude: event.target.value })} /></label>
-              <label>Longitude<input step="any" type="number" value={form.longitude} onChange={(event) => setForm({ ...form, longitude: event.target.value })} /></label>
+              <label>Latitude<input step="any" type="number" value={formulario.latitude} onChange={(event) => setFormulario({ ...formulario, latitude: event.target.value })} /></label>
+              <label>Longitude<input step="any" type="number" value={formulario.longitude} onChange={(event) => setFormulario({ ...formulario, longitude: event.target.value })} /></label>
             </div>
-            <label>KML (até 5 MB)<input accept=".kml" type="file" onChange={(event) => setForm({ ...form, arquivo_kml: event.target.files?.[0] ?? null })} /></label>
-            <label>Observações<textarea value={form.observacoes} onChange={(event) => setForm({ ...form, observacoes: event.target.value })} /></label>
+            <label>KML (até 5 MB)<input accept=".kml" type="file" onChange={(event) => setFormulario({ ...formulario, arquivo_kml: event.target.files?.[0] ?? null })} /></label>
+            <label>Observações<textarea value={formulario.observacoes} onChange={(event) => setFormulario({ ...formulario, observacoes: event.target.value })} /></label>
             <div className="acoes">
-              <button disabled={loading} type="submit">{loading ? "Salvando..." : "Salvar"}</button>
-              {editId && <button className="secundario" type="button" onClick={() => { setEditId(null); setForm(emptyForm); }}>Cancelar</button>}
+              <button disabled={carregando} type="submit">Salvar</button>
+              {edicaoId && (
+                <button className="secundario" type="button" onClick={() => { setEdicaoId(null); setFormulario(formularioVazio); }}>Cancelar</button>
+              )}
             </div>
           </form>
         </PermissionGuard>
 
         <section className="conteudo">
-          <form className="busca" onSubmit={(event) => { event.preventDefault(); void loadProperties(search); }}>
-            <SearchInput aria-label="Buscar propriedades" placeholder="Buscar por nome, município ou proprietário" value={search} onChange={(event) => setSearch(event.target.value)} />
-            <button type="submit">Buscar</button>
+          <form onSubmit={(event) => { event.preventDefault(); void carregar(busca); }}>
+            <FilterBar>
+              <SearchInput aria-label="Buscar propriedades" placeholder="Buscar por nome, município ou proprietário" value={busca} onChange={(event) => setBusca(event.target.value)} />
+              <button type="submit">Buscar</button>
+            </FilterBar>
           </form>
-          {loading && properties.length === 0 ? <LoadingState label="Carregando propriedades..." /> : properties.length === 0 ? <EmptyState title="Nenhuma propriedade autorizada" description="Solicite um vínculo ou cadastre a primeira propriedade, quando permitido." /> : (
+
+          {carregando && propriedades.length === 0 ? (
+            <div className="card vazio">Carregando propriedades...</div>
+          ) : propriedades.length === 0 ? (
+            <EmptyState title="Nenhuma propriedade autorizada" description="Solicite um vínculo ativo ou cadastre a primeira propriedade, conforme seu perfil." />
+          ) : (
             <div className="lista">
-              {properties.map((item) => (
-                <article className={`card item ${selected?.id === item.id ? "ativo" : ""}`} key={item.id} onClick={() => setSelected(item)}>
+              {propriedades.map((item) => (
+                <article className={`card item ${selectedProperty?.id === item.id ? "ativo" : ""}`} key={item.id} onClick={() => setSelectedPropertyId(String(item.id))}>
                   <div>
                     <h3>{item.nome}</h3>
                     <p>{item.municipio}/{item.uf} · {item.area_hectares} ha declarados</p>
-                    <p className="metadado-geografico">Perfil: {item.papel_usuario ? roleLabels[item.papel_usuario] : "Superusuário"}</p>
-                    {item.area_calculada_hectares && <p className="metadado-geografico">{item.area_calculada_hectares} ha calculados{item.divergencia_area_percentual && ` · diferença ${item.divergencia_area_percentual}%`}</p>}
+                    <p className="metadado-geografico">Perfil: {item.papel_usuario ? ROLE_LABELS[item.papel_usuario] : "Superusuário"}</p>
+                    {item.area_calculada_hectares && (
+                      <p className="metadado-geografico">
+                        {item.area_calculada_hectares} ha calculados
+                        {item.divergencia_area_percentual && ` · diferença ${item.divergencia_area_percentual}%`}
+                      </p>
+                    )}
                   </div>
-                  {(item.pode_editar || item.pode_excluir) && <div className="acoes">
-                    {item.pode_editar && <button className="secundario" onClick={(event) => { event.stopPropagation(); editProperty(item); }}>Editar</button>}
-                    {item.pode_excluir && <button className="perigo" onClick={(event) => { event.stopPropagation(); requestDelete(item); }}>Excluir</button>}
-                  </div>}
+                  {(item.pode_editar || item.pode_excluir) && (
+                    <div className="acoes">
+                      {item.pode_editar && <button className="secundario" onClick={(event) => { event.stopPropagation(); editar(item); }}>Editar</button>}
+                      {item.pode_excluir && <button className="perigo" onClick={(event) => { event.stopPropagation(); solicitarExclusao(item); }}>Excluir</button>}
+                    </div>
+                  )}
                 </article>
               ))}
             </div>
           )}
-          <AgriculturalMap features={selectedFeatures} emptyMessage="A propriedade selecionada ainda não possui coordenadas ou KML processado." />
+
+          <AgriculturalMap features={mapFeatures} emptyMessage="Cadastre coordenadas ou importe KML para visualizar as propriedades." />
         </section>
       </section>
     </section>
   );
 
   return (
-    <AppShell
-      items={availableNavigation}
-      activeModule={module}
-      onNavigate={setModule}
-      properties={properties}
-      selectedPropertyId={selected ? String(selected.id) : ""}
-      onSelectedPropertyChange={(id) => setSelected(id ? properties.find((item) => item.id === Number(id)) ?? null : null)}
-      safra={harvest}
-      onSafraChange={setHarvest}
-      userLabel={identity.label}
-      roleLabel={roleLabel}
-      theme={theme}
-      onToggleTheme={toggleTheme}
-      onLogout={logout}
-      statusSlot={<AplicativoStatus />}
-    >
-      <ModuleRenderer module={module} properties={properties} selectedProperty={selected} safra={harvest} propertiesContent={propertiesContent} />
+    <>
+      <AppShell
+        items={visibleNavigation}
+        activeModule={modulo}
+        onNavigate={setModulo}
+        properties={propriedades}
+        selectedPropertyId={selectedPropertyId}
+        onSelectedPropertyChange={setSelectedPropertyId}
+        safra={safra}
+        onSafraChange={setSafra}
+        userLabel={userIdentity.label}
+        roleLabel={roleLabel}
+        theme={theme}
+        onToggleTheme={toggleTheme}
+        onLogout={encerrarSessao}
+        statusSlot={<AplicativoStatus />}
+      >
+        <ModuleRenderer
+          module={modulo}
+          properties={propriedades}
+          selectedProperty={selectedProperty}
+          safra={safra}
+          propertiesContent={propertiesContent}
+        />
+      </AppShell>
       <ConfirmDialog
-        open={deleteTarget !== null}
+        open={pendingDelete !== null}
         title="Excluir propriedade"
-        description={`Confirma a exclusão de “${deleteTarget?.nome ?? ""}”? As proteções do backend continuam ativas.`}
+        description={`Confirma a exclusão de ${pendingDelete?.nome ?? "esta propriedade"}? A API continuará protegendo vínculos existentes.`}
         confirmLabel="Excluir"
-        onCancel={() => setDeleteTarget(null)}
-        onConfirm={() => void confirmDelete()}
+        onCancel={() => setPendingDelete(null)}
+        onConfirm={() => void confirmarExclusao()}
       />
-    </AppShell>
+    </>
   );
 }

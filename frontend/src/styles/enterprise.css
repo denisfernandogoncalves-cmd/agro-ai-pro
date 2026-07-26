@@ -61,8 +61,9 @@ button:hover:not(:disabled) { transform: translateY(-1px); }
 .section-card { padding: var(--space-5); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
 .section-card__header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4); }
 .section-card__header h2 { margin-bottom: var(--space-1); font-size: var(--font-size-lg); }
-.dashboard-page, .geoprocessing-page { display: grid; gap: var(--space-4); }
+.dashboard-page, .geoprocessing-page, .production-page, .properties-page { display: grid; gap: var(--space-4); }
 .dashboard-columns { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(20rem, 0.9fr); gap: var(--space-4); }
+.production-scope-grid { grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr)); }
 .alert-list, .market-summary-list { display: grid; gap: var(--space-3); }
 .alert-card { display: grid; gap: var(--space-2); padding: var(--space-4); border: 1px solid var(--color-border); border-left-width: 4px; border-radius: var(--radius-md); background: var(--color-surface-subtle); }
 .alert-card p { margin: 0; color: var(--color-text-muted); }
@@ -91,6 +92,7 @@ button:hover:not(:disabled) { transform: translateY(-1px); }
 .skeleton--value { width: 72%; height: 2rem; margin-top: var(--space-4); }
 @keyframes shimmer { to { background-position-x: -220%; } }
 .filter-bar { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: end; }
+.filter-bar .search-input { flex: 1 1 18rem; }
 .search-input { padding-left: 2.6rem; background-image: radial-gradient(circle at 1.15rem 45%, transparent 0.35rem, var(--color-text-muted) 0.39rem, var(--color-text-muted) 0.48rem, transparent 0.52rem), linear-gradient(45deg, transparent 46%, var(--color-text-muted) 47% 54%, transparent 55%); background-size: 2rem 2rem, 0.55rem 0.55rem; background-position: left center, 1.55rem 1.45rem; background-repeat: no-repeat; }
 .data-table-wrap { overflow-x: auto; }
 .data-table { width: 100%; border-collapse: collapse; }
@@ -109,6 +111,8 @@ button:hover:not(:disabled) { transform: translateY(-1px); }
 .agricultural-map__legend i { width: 1.5rem; height: 0.75rem; border: 2px solid; border-radius: 3px; }
 .legend-property { border-color: var(--map-property) !important; background: color-mix(in srgb, var(--map-property) 18%, transparent); }
 .legend-field { border-color: var(--map-field) !important; background: color-mix(in srgb, var(--map-field) 26%, transparent); }
+.legend-production { border-color: var(--map-production) !important; background: color-mix(in srgb, var(--map-production) 24%, transparent); }
+.legend-storage { border-color: var(--map-storage) !important; background: color-mix(in srgb, var(--map-storage) 24%, transparent); }
 .muted { color: var(--color-text-muted); }
 :root[data-theme="dark"] .card, :root[data-theme="dark"] .section-card, :root[data-theme="dark"] .stat-card { background: var(--color-surface); border-color: var(--color-border); color: var(--color-text); }
 :root[data-theme="dark"] input, :root[data-theme="dark"] select, :root[data-theme="dark"] textarea { background: var(--color-surface-subtle); color: var(--color-text); border-color: var(--color-border); }
@@ -133,7 +137,7 @@ button:hover:not(:disabled) { transform: translateY(-1px); }
   .app-header { grid-template-columns: minmax(0, 1fr) auto; padding: var(--space-3) var(--space-4); }
   .app-header__context { grid-column: 1 / -1; grid-row: 2; grid-template-columns: 1fr 0.7fr; width: 100%; }
   .context-field--harvest { display: grid; }
-  .app-header__actions .status-aplicativo { display: none; }
+  .app-header__actions .status-aplicativo, .app-header__logout { display: none; }
   .app-content { padding: var(--space-4); }
   .page-header { flex-direction: column; }
   .page-header__actions { width: 100%; }
@@ -144,7 +148,6 @@ button:hover:not(:disabled) { transform: translateY(-1px); }
   .context-field--harvest { display: none; }
   .app-header__title h1 { font-size: var(--font-size-lg); }
   .user-chip { display: none; }
-  .app-header__logout { padding-inline: var(--space-3); }
   .responsive-grid { grid-template-columns: 1fr; }
   .stat-card { min-height: 7rem; }
   .section-card { padding: var(--space-4); }

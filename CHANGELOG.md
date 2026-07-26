@@ -2,13 +2,12 @@
 
 ## Em desenvolvimento — manutenção da versão 1.0
 
-- inicia a primeira entrega da interface enterprise em branch isolada;
-- adiciona shell responsivo com sidebar fixa, recolhível e drawer móvel;
-- adiciona Dashboard Executivo usando exclusivamente APIs existentes;
-- centraliza design tokens e temas claro/escuro com preferência persistida;
-- adiciona componentes compartilhados e carregamento sob demanda dos módulos;
-- consolida mapas de propriedades e talhões com GeoJSON, marcadores, escala e legenda;
-- preserva o controle multiusuário e os bloqueios visuais da PR #16;
+- inicia a primeira entrega da interface Enterprise com shell responsivo, sidebar, Dashboard Executivo, temas e design tokens;
+- adiciona carregamento sob demanda dos módulos e componentes compartilhados;
+- consolida o mapa agrícola com propriedades, talhões, legenda, escala e suporte a novas camadas;
+- registra Gestão da Produção Agrícola como módulo oficial pós-1.0;
+- prepara a navegação e as camadas de mapa para Produção e locais de armazenagem, sem criar dados simulados;
+- documenta a separação entre Operações de campo, estoque de insumos e estoque físico de grãos;
 - adiciona controle multiusuário por propriedade;
 - cria papéis de administrador, gestor, operador e somente leitura;
 - isola consultas, filtros, relatórios e insights por usuário;

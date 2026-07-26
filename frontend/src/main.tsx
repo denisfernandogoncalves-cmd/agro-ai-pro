@@ -5,13 +5,15 @@ import App from "./App";
 import { registrarPwa } from "./pwa";
 
 import "leaflet/dist/leaflet.css";
+import "./styles/tokens.css";
+import "./styles/enterprise.css";
 
 void registrarPwa();
 
 ReactDOM.createRoot(
-  document.getElementById("root")!
+  document.getElementById("root")!,
 ).render(
   <React.StrictMode>
     <App />
-  </React.StrictMode>
+  </React.StrictMode>,
 );

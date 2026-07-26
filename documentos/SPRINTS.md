@@ -18,9 +18,19 @@ Este é o índice operacional das Sprints. Os detalhes técnicos ficam em
 | 11 | IA | Concluída em 25/07/2026 | `docs/sprints/SPRINT-11.md` |
 | 12 | Aplicativo | Concluída em 25/07/2026 | `docs/sprints/SPRINT-12.md` |
 
+## Evolução oficial pós-1.0
+
+| Iniciativa | Status | Referência |
+| --- | --- | --- |
+| Interface Enterprise — primeira entrega | Em desenvolvimento | branch `codex/frontend-enterprise-primeira-entrega` |
+| Gestão da Produção Agrícola | Escopo oficial aprovado; implementação transacional pendente | `docs/MODULO-GESTAO-PRODUCAO.md` |
+
+A Gestão da Produção substituirá as planilhas atuais somente após descoberta,
+modelagem, importação, conciliação de saldos, testes e homologação. O app
+existente de Operações continuará preservado.
+
 ## Regra de continuidade
 
-Uma Sprint só deve ser marcada como concluída após implementação, migrations
-consistentes, execução dos testes aplicáveis e atualização da documentação.
-Os critérios técnicos, a estratégia de precisão e os resultados da Sprint 3
-estão registrados no documento correspondente.
+Uma Sprint ou iniciativa só deve ser marcada como concluída após implementação,
+migrations consistentes quando aplicáveis, execução dos testes, validação de
+permissões e atualização da documentação.
