@@ -13,7 +13,7 @@
 - [x] previsão climática por propriedade;
 - [x] mercado e clima no Corn Belt;
 - [x] financeiro;
-- [ ] estoque e insumos;
+- [x] estoque e insumos;
 - [ ] operações e máquinas;
 - [ ] relatórios e dashboards;
 - [ ] inteligência artificial e automação;

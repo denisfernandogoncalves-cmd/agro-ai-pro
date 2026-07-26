@@ -14,6 +14,7 @@ import {
 } from "./api/propriedades";
 import MapaPropriedade from "./components/MapaPropriedade";
 import ClimaPage from "./pages/Clima/ClimaPage";
+import EstoquePage from "./pages/Estoque/EstoquePage";
 import FinanceiroPage from "./pages/Financeiro/FinanceiroPage";
 import MercadoPage from "./pages/Mercado/MercadoPage";
 import TalhoesPage from "./pages/Talhoes/TalhoesPage";
@@ -49,7 +50,7 @@ function mensagemDoErro(erro: unknown) {
 export default function App() {
   const [autenticado, setAutenticado] = useState(estaAutenticado());
   const [modulo, setModulo] = useState<
-    "propriedades" | "talhoes" | "clima" | "mercado" | "financeiro"
+    "propriedades" | "talhoes" | "clima" | "mercado" | "financeiro" | "estoque"
   >("propriedades");
   const [credenciais, setCredenciais] = useState({ username: "", password: "" });
   const [propriedades, setPropriedades] = useState<Propriedade[]>([]);
@@ -188,7 +189,9 @@ export default function App() {
                   ? "Clima"
                   : modulo === "mercado"
                     ? "Mercado"
-                    : "Financeiro"}
+                    : modulo === "financeiro"
+                      ? "Financeiro"
+                      : "Estoque"}
           </h1>
         </div>
         <button
@@ -233,6 +236,12 @@ export default function App() {
         >
           Financeiro
         </button>
+        <button
+          className={modulo === "estoque" ? "" : "secundario"}
+          onClick={() => setModulo("estoque")}
+        >
+          Estoque
+        </button>
       </nav>
 
       {modulo === "talhoes" ? (
@@ -243,6 +252,8 @@ export default function App() {
         <MercadoPage />
       ) : modulo === "financeiro" ? (
         <FinanceiroPage propriedades={propriedades} />
+      ) : modulo === "estoque" ? (
+        <EstoquePage propriedades={propriedades} />
       ) : (
         <>
           {erro && <p className="erro card">{erro}</p>}

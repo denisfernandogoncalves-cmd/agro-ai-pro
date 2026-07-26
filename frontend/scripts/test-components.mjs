@@ -35,6 +35,9 @@ try {
   const { default: FinanceiroPage } = await servidor.ssrLoadModule(
     "/src/pages/Financeiro/FinanceiroPage.tsx",
   );
+  const { default: EstoquePage } = await servidor.ssrLoadModule(
+    "/src/pages/Estoque/EstoquePage.tsx",
+  );
   const { converterGeometria, limitesGeometria } =
     await servidor.ssrLoadModule("/src/utils/geometria.ts");
 
@@ -214,7 +217,14 @@ try {
   assert.match(htmlFinanceiro, /Novo lançamento/);
   assert.match(htmlFinanceiro, /Cadastros auxiliares/);
 
-  console.log("9 testes de componentes e geometria aprovados.");
+  const htmlEstoque = renderToStaticMarkup(
+    React.createElement(EstoquePage, { propriedades: [propriedade] }),
+  );
+  assert.match(htmlEstoque, /Nova movimentaÃ§Ã£o|Nova movimentação/);
+  assert.match(htmlEstoque, /Rastreabilidade/);
+  assert.match(htmlEstoque, /Cadastros de produtos, locais e lotes/);
+
+  console.log("10 testes de componentes e geometria aprovados.");
 } finally {
   await servidor.close();
 }

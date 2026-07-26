@@ -60,3 +60,8 @@ notícias com fonte HTTPS. Consulte [Mercado](MERCADO.md).
 O módulo Financeiro oferece cadastros auxiliares, contas a pagar e receber,
 liquidação, filtros e resumo de fluxo de caixa. Consulte
 [Financeiro](FINANCEIRO.md).
+
+## Estoque
+
+O módulo controla produtos, locais, lotes, entradas, saídas, validade, estoque
+mínimo e rastreabilidade. Consulte [Estoque](ESTOQUE.md).
