@@ -1,8 +1,13 @@
 from django.db.models.deletion import ProtectedError
-from rest_framework import filters, status, viewsets
+from rest_framework import filters, serializers, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+
+from apps.core.access import PAPEIS_GESTAO, PAPEIS_OPERACAO
+from apps.core.viewsets import (
+    EscopoGlobalViewSetMixin,
+    EscopoPropriedadeViewSetMixin,
+)
 
 from .models import (
     LocalEstoque,
@@ -20,8 +25,7 @@ from .services import posicao_estoque, resumo_estoque
 
 
 class CadastroEstoqueMixin:
-    permission_classes = [IsAuthenticated]
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = (filters.SearchFilter, filters.OrderingFilter)
     ordering = ("nome",)
 
     def destroy(self, request, *args, **kwargs):
@@ -34,7 +38,11 @@ class CadastroEstoqueMixin:
             )
 
 
-class ProdutoEstoqueViewSet(CadastroEstoqueMixin, viewsets.ModelViewSet):
+class ProdutoEstoqueViewSet(
+    EscopoGlobalViewSetMixin,
+    CadastroEstoqueMixin,
+    viewsets.ModelViewSet,
+):
     queryset = ProdutoEstoque.objects.all()
     serializer_class = ProdutoEstoqueSerializer
     search_fields = ("nome", "fabricante")
@@ -51,16 +59,32 @@ class ProdutoEstoqueViewSet(CadastroEstoqueMixin, viewsets.ModelViewSet):
         return queryset
 
 
-class LocalEstoqueViewSet(CadastroEstoqueMixin, viewsets.ModelViewSet):
+class LocalEstoqueViewSet(
+    EscopoPropriedadeViewSetMixin,
+    CadastroEstoqueMixin,
+    viewsets.ModelViewSet,
+):
     queryset = LocalEstoque.objects.select_related("propriedade")
     serializer_class = LocalEstoqueSerializer
+    property_filter = "propriedade_id"
+    property_path = "propriedade"
+    property_input_path = "propriedade"
+    write_roles = PAPEIS_GESTAO
     search_fields = ("nome", "descricao", "propriedade__nome")
     ordering_fields = ("nome", "criado_em")
 
 
-class LoteEstoqueViewSet(CadastroEstoqueMixin, viewsets.ModelViewSet):
-    queryset = LoteEstoque.objects.select_related("produto", "local")
+class LoteEstoqueViewSet(
+    EscopoPropriedadeViewSetMixin,
+    CadastroEstoqueMixin,
+    viewsets.ModelViewSet,
+):
+    queryset = LoteEstoque.objects.select_related("produto", "local", "local__propriedade")
     serializer_class = LoteEstoqueSerializer
+    property_filter = "local__propriedade_id"
+    property_path = "local.propriedade"
+    property_input_path = "local.propriedade"
+    write_roles = PAPEIS_GESTAO
     search_fields = ("codigo", "produto__nome", "local__nome")
     ordering_fields = ("codigo", "data_validade", "criado_em")
     ordering = ("data_validade", "codigo")
@@ -82,10 +106,11 @@ class LoteEstoqueViewSet(CadastroEstoqueMixin, viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"])
     def resumo(self, request):
-        return Response(resumo_estoque())
+        return Response(resumo_estoque(self.get_queryset()))
 
 
 class MovimentacaoEstoqueViewSet(
+    EscopoPropriedadeViewSetMixin,
     viewsets.mixins.CreateModelMixin,
     viewsets.mixins.ListModelMixin,
     viewsets.mixins.RetrieveModelMixin,
@@ -94,12 +119,16 @@ class MovimentacaoEstoqueViewSet(
     queryset = MovimentacaoEstoque.objects.select_related(
         "lote__produto",
         "lote__local",
+        "lote__local__propriedade",
         "propriedade",
         "criado_por",
     )
     serializer_class = MovimentacaoEstoqueSerializer
-    permission_classes = [IsAuthenticated]
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    property_filter = "propriedade_id"
+    property_path = "propriedade"
+    property_input_path = "propriedade"
+    write_roles = PAPEIS_OPERACAO
+    filter_backends = (filters.SearchFilter, filters.OrderingFilter)
     search_fields = (
         "lote__produto__nome",
         "lote__codigo",
@@ -123,3 +152,16 @@ class MovimentacaoEstoqueViewSet(
             if valor:
                 queryset = queryset.filter(**{campo: valor})
         return queryset
+
+    def perform_create(self, serializer):
+        propriedade = serializer.validated_data.get("propriedade")
+        lote = serializer.validated_data.get("lote")
+        if lote and lote.local.propriedade_id != getattr(propriedade, "id", None):
+            raise serializers.ValidationError(
+                {
+                    "propriedade": (
+                        "A propriedade do movimento deve ser a mesma do local do lote."
+                    )
+                }
+            )
+        super().perform_create(serializer)

@@ -1,21 +1,29 @@
 from django.shortcuts import get_object_or_404
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from apps.propriedades.models import Propriedade
+from apps.core.access import (
+    PAPEIS_OPERACAO,
+    exigir_acesso_propriedade,
+    propriedades_visiveis,
+)
+from apps.core.viewsets import EscopoPropriedadeViewSetMixin
 
 from .models import PrevisaoClima
 from .serializers import PrevisaoClimaSerializer
 from .services import ServicoClimaError, atualizar_previsoes
 
 
-class PrevisaoClimaViewSet(viewsets.ReadOnlyModelViewSet):
+class PrevisaoClimaViewSet(
+    EscopoPropriedadeViewSetMixin,
+    viewsets.ReadOnlyModelViewSet,
+):
     queryset = PrevisaoClima.objects.select_related("propriedade").all()
     serializer_class = PrevisaoClimaSerializer
-    permission_classes = [IsAuthenticated]
-    filter_backends = [filters.OrderingFilter]
+    property_filter = "propriedade_id"
+    property_path = "propriedade"
+    filter_backends = (filters.OrderingFilter,)
     ordering_fields = ("data", "temperatura_min", "temperatura_max", "chuva_mm")
     ordering = ("data",)
 
@@ -44,7 +52,15 @@ class PrevisaoClimaViewSet(viewsets.ReadOnlyModelViewSet):
                 {"propriedade": ["Informe a propriedade."]},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        propriedade = get_object_or_404(Propriedade, pk=propriedade_id)
+        propriedade = get_object_or_404(
+            propriedades_visiveis(request.user),
+            pk=propriedade_id,
+        )
+        exigir_acesso_propriedade(
+            request.user,
+            propriedade,
+            papeis=PAPEIS_OPERACAO,
+        )
         try:
             previsoes = atualizar_previsoes(propriedade)
         except ServicoClimaError as exc:

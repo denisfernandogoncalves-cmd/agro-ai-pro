@@ -40,10 +40,28 @@ jobs:
           DJANGO_SETTINGS_MODULE: config.settings.test
         run: python manage.py makemigrations --check --dry-run
 
+      - name: Aplicar migrations
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.test
+        run: python manage.py migrate --noinput
+
       - name: Executar testes
         env:
           DJANGO_SETTINGS_MODULE: config.settings.test
-        run: python manage.py test
+        run: |
+          set +e
+          python manage.py test > test-output.log 2>&1
+          status=$?
+          tail -n 180 test-output.log
+          exit $status
+
+      - name: Publicar relatório de testes
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-output
+          path: backend/test-output.log
+          retention-days: 1
 
   frontend:
     name: Frontend
@@ -70,3 +88,26 @@ jobs:
 
       - name: Compilar produção
         run: npm run build
+
+  infraestrutura:
+    name: Infraestrutura e segurança
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Validar Docker Compose
+        run: docker compose config --quiet
+
+      - name: Validar whitespace
+        run: git diff --check HEAD^
+
+      - name: Verificar credenciais versionadas
+        run: |
+          if git grep -nE '(BEGIN (RSA|OPENSSH|EC) PRIVATE KEY|AKIA[0-9A-Z]{16})' -- \
+            ':!*.md' ':!frontend/package-lock.json'; then
+            echo "Possível segredo encontrado."
+            exit 1
+          fi

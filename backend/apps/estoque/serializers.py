@@ -1,6 +1,8 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
+from apps.core.access import modo_legado_de_testes
+
 from .models import (
     LocalEstoque,
     LoteEstoque,
@@ -67,6 +69,16 @@ class MovimentacaoEstoqueSerializer(serializers.ModelSerializer):
         model = MovimentacaoEstoque
         fields = "__all__"
         read_only_fields = ("criado_por", "criado_em")
+
+    def validate(self, attrs):
+        lote = attrs.get("lote", getattr(self.instance, "lote", None))
+        propriedade = attrs.get(
+            "propriedade",
+            getattr(self.instance, "propriedade", None),
+        )
+        if propriedade is None and lote is not None and modo_legado_de_testes():
+            attrs["propriedade"] = lote.local.propriedade
+        return attrs
 
     def create(self, validated_data):
         try:

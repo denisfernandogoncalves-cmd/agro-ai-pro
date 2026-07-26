@@ -8,6 +8,8 @@ import {
   estaAutenticado,
   excluirPropriedade,
   listarPropriedades,
+  obterPermissoesUsuario,
+  PermissoesUsuario,
   Propriedade,
   PropriedadeInput,
   sair,
@@ -39,9 +41,17 @@ const formularioVazio: PropriedadeInput = {
   arquivo_kml: null,
 };
 
+const permissoesVazias: PermissoesUsuario = {
+  pode_criar_propriedade: false,
+  superusuario: false,
+};
+
 function mensagemDoErro(erro: unknown) {
   if (axios.isAxiosError(erro)) {
     const dados = erro.response?.data;
+    if (erro.response?.status === 403 && !dados?.detail) {
+      return "Seu perfil não permite concluir esta operação.";
+    }
     if (typeof dados?.detail === "string") {
       return dados.detail;
     }
@@ -59,6 +69,7 @@ export default function App() {
   >("propriedades");
   const [credenciais, setCredenciais] = useState({ username: "", password: "" });
   const [propriedades, setPropriedades] = useState<Propriedade[]>([]);
+  const [permissoes, setPermissoes] = useState(permissoesVazias);
   const [selecionada, setSelecionada] = useState<Propriedade | null>(null);
   const [edicaoId, setEdicaoId] = useState<number | null>(null);
   const [formulario, setFormulario] = useState(formularioVazio);
@@ -70,8 +81,12 @@ export default function App() {
     setCarregando(true);
     setErro("");
     try {
-      const dados = await listarPropriedades(termo);
+      const [dados, perfil] = await Promise.all([
+        listarPropriedades(termo),
+        obterPermissoesUsuario(),
+      ]);
       setPropriedades(dados);
+      setPermissoes(perfil);
       setSelecionada((atual) =>
         dados.find((item) => item.id === atual?.id) ?? dados[0] ?? null
       );
@@ -119,6 +134,10 @@ export default function App() {
   }
 
   function editar(item: Propriedade) {
+    if (!item.pode_editar) {
+      setErro("Seu perfil não permite editar esta propriedade.");
+      return;
+    }
     setEdicaoId(item.id);
     setFormulario({
       nome: item.nome,
@@ -134,6 +153,10 @@ export default function App() {
   }
 
   async function excluir(item: Propriedade) {
+    if (!item.pode_excluir) {
+      setErro("Somente administradores podem excluir propriedades.");
+      return;
+    }
     if (!window.confirm(`Excluir a propriedade "${item.nome}"?`)) {
       return;
     }
@@ -198,58 +221,38 @@ export default function App() {
                       ? "Financeiro"
                       : modulo === "estoque"
                         ? "Estoque"
-                        : modulo === "operacoes" ? "Operações" : modulo === "maquinas" ? "Máquinas" : modulo === "relatorios" ? "Relatórios" : "Assistente"}
+                        : modulo === "operacoes"
+                          ? "Operações"
+                          : modulo === "maquinas"
+                            ? "Máquinas"
+                            : modulo === "relatorios"
+                              ? "Relatórios"
+                              : "Assistente"}
           </h1>
         </div>
         <div className="cabecalho-acoes">
           <AplicativoStatus />
-          <button className="secundario" onClick={() => { sair(); setAutenticado(false); }}>Sair</button>
+          <button
+            className="secundario"
+            onClick={() => {
+              sair();
+              setAutenticado(false);
+              setPermissoes(permissoesVazias);
+            }}
+          >
+            Sair
+          </button>
         </div>
       </header>
 
       <nav className="navegacao-modulos" aria-label="Módulos agrícolas">
-        <button
-          className={modulo === "propriedades" ? "" : "secundario"}
-          onClick={() => setModulo("propriedades")}
-        >
-          Propriedades
-        </button>
-        <button
-          className={modulo === "talhoes" ? "" : "secundario"}
-          onClick={() => setModulo("talhoes")}
-        >
-          Talhões
-        </button>
-        <button
-          className={modulo === "clima" ? "" : "secundario"}
-          onClick={() => setModulo("clima")}
-        >
-          Clima
-        </button>
-        <button
-          className={modulo === "mercado" ? "" : "secundario"}
-          onClick={() => setModulo("mercado")}
-        >
-          Mercado
-        </button>
-        <button
-          className={modulo === "financeiro" ? "" : "secundario"}
-          onClick={() => setModulo("financeiro")}
-        >
-          Financeiro
-        </button>
-        <button
-          className={modulo === "estoque" ? "" : "secundario"}
-          onClick={() => setModulo("estoque")}
-        >
-          Estoque
-        </button>
-        <button
-          className={modulo === "operacoes" ? "" : "secundario"}
-          onClick={() => setModulo("operacoes")}
-        >
-          Operações
-        </button>
+        <button className={modulo === "propriedades" ? "" : "secundario"} onClick={() => setModulo("propriedades")}>Propriedades</button>
+        <button className={modulo === "talhoes" ? "" : "secundario"} onClick={() => setModulo("talhoes")}>Talhões</button>
+        <button className={modulo === "clima" ? "" : "secundario"} onClick={() => setModulo("clima")}>Clima</button>
+        <button className={modulo === "mercado" ? "" : "secundario"} onClick={() => setModulo("mercado")}>Mercado</button>
+        <button className={modulo === "financeiro" ? "" : "secundario"} onClick={() => setModulo("financeiro")}>Financeiro</button>
+        <button className={modulo === "estoque" ? "" : "secundario"} onClick={() => setModulo("estoque")}>Estoque</button>
+        <button className={modulo === "operacoes" ? "" : "secundario"} onClick={() => setModulo("operacoes")}>Operações</button>
         <button className={modulo === "maquinas" ? "" : "secundario"} onClick={() => setModulo("maquinas")}>Máquinas</button>
         <button className={modulo === "relatorios" ? "" : "secundario"} onClick={() => setModulo("relatorios")}>Relatórios</button>
         <button className={modulo === "insights" ? "" : "secundario"} onClick={() => setModulo("insights")}>Assistente</button>
@@ -278,70 +281,96 @@ export default function App() {
           {erro && <p className="erro card">{erro}</p>}
 
           <section className="grade">
-        <form className="card formulario" onSubmit={salvar}>
-          <h2>{edicaoId ? "Editar propriedade" : "Nova propriedade"}</h2>
-          <label>Nome<input required value={formulario.nome} onChange={(e) => setFormulario({ ...formulario, nome: e.target.value })} /></label>
-          <label>Proprietário<input value={formulario.proprietario} onChange={(e) => setFormulario({ ...formulario, proprietario: e.target.value })} /></label>
-          <div className="linha">
-            <label>Município<input required value={formulario.municipio} onChange={(e) => setFormulario({ ...formulario, municipio: e.target.value })} /></label>
-            <label>UF<input maxLength={2} value={formulario.uf} onChange={(e) => setFormulario({ ...formulario, uf: e.target.value.toUpperCase() })} /></label>
-          </div>
-          <label>Área (ha)<input required min="0.01" step="0.01" type="number" value={formulario.area_hectares} onChange={(e) => setFormulario({ ...formulario, area_hectares: e.target.value })} /></label>
-          <div className="linha">
-            <label>Latitude<input step="any" type="number" value={formulario.latitude} onChange={(e) => setFormulario({ ...formulario, latitude: e.target.value })} /></label>
-            <label>Longitude<input step="any" type="number" value={formulario.longitude} onChange={(e) => setFormulario({ ...formulario, longitude: e.target.value })} /></label>
-          </div>
-          <label>KML (até 5 MB)<input accept=".kml" type="file" onChange={(e) => setFormulario({ ...formulario, arquivo_kml: e.target.files?.[0] ?? null })} /></label>
-          <label>Observações<textarea value={formulario.observacoes} onChange={(e) => setFormulario({ ...formulario, observacoes: e.target.value })} /></label>
-          <div className="acoes">
-            <button disabled={carregando} type="submit">Salvar</button>
-            {edicaoId && <button className="secundario" type="button" onClick={() => { setEdicaoId(null); setFormulario(formularioVazio); }}>Cancelar</button>}
-          </div>
-        </form>
+            {(permissoes.pode_criar_propriedade || edicaoId !== null) ? (
+              <form className="card formulario" onSubmit={salvar}>
+                <h2>{edicaoId ? "Editar propriedade" : "Nova propriedade"}</h2>
+                <label>Nome<input required value={formulario.nome} onChange={(e) => setFormulario({ ...formulario, nome: e.target.value })} /></label>
+                <label>Proprietário<input value={formulario.proprietario} onChange={(e) => setFormulario({ ...formulario, proprietario: e.target.value })} /></label>
+                <div className="linha">
+                  <label>Município<input required value={formulario.municipio} onChange={(e) => setFormulario({ ...formulario, municipio: e.target.value })} /></label>
+                  <label>UF<input maxLength={2} value={formulario.uf} onChange={(e) => setFormulario({ ...formulario, uf: e.target.value.toUpperCase() })} /></label>
+                </div>
+                <label>Área (ha)<input required min="0.01" step="0.01" type="number" value={formulario.area_hectares} onChange={(e) => setFormulario({ ...formulario, area_hectares: e.target.value })} /></label>
+                <div className="linha">
+                  <label>Latitude<input step="any" type="number" value={formulario.latitude} onChange={(e) => setFormulario({ ...formulario, latitude: e.target.value })} /></label>
+                  <label>Longitude<input step="any" type="number" value={formulario.longitude} onChange={(e) => setFormulario({ ...formulario, longitude: e.target.value })} /></label>
+                </div>
+                <label>KML (até 5 MB)<input accept=".kml" type="file" onChange={(e) => setFormulario({ ...formulario, arquivo_kml: e.target.files?.[0] ?? null })} /></label>
+                <label>Observações<textarea value={formulario.observacoes} onChange={(e) => setFormulario({ ...formulario, observacoes: e.target.value })} /></label>
+                <div className="acoes">
+                  <button disabled={carregando} type="submit">Salvar</button>
+                  {edicaoId && (
+                    <button
+                      className="secundario"
+                      type="button"
+                      onClick={() => {
+                        setEdicaoId(null);
+                        setFormulario(formularioVazio);
+                      }}
+                    >
+                      Cancelar
+                    </button>
+                  )}
+                </div>
+              </form>
+            ) : (
+              <div className="card vazio">
+                Seu perfil permite consultar as propriedades autorizadas.
+              </div>
+            )}
 
-        <section className="conteudo">
-          <form className="busca" onSubmit={(e) => { e.preventDefault(); void carregar(busca); }}>
-            <input aria-label="Buscar propriedades" placeholder="Buscar por nome, município ou proprietário" value={busca} onChange={(e) => setBusca(e.target.value)} />
-            <button type="submit">Buscar</button>
-          </form>
+            <section className="conteudo">
+              <form className="busca" onSubmit={(e) => { e.preventDefault(); void carregar(busca); }}>
+                <input aria-label="Buscar propriedades" placeholder="Buscar por nome, município ou proprietário" value={busca} onChange={(e) => setBusca(e.target.value)} />
+                <button type="submit">Buscar</button>
+              </form>
 
-          {carregando && propriedades.length === 0 ? (
-            <p>Carregando propriedades...</p>
-          ) : propriedades.length === 0 ? (
-            <div className="card vazio">Nenhuma propriedade cadastrada.</div>
-          ) : (
-            <div className="lista">
-              {propriedades.map((item) => (
-                <article className={`card item ${selecionada?.id === item.id ? "ativo" : ""}`} key={item.id} onClick={() => setSelecionada(item)}>
-                  <div>
-                    <h3>{item.nome}</h3>
-                    <p>{item.municipio}/{item.uf} · {item.area_hectares} ha declarados</p>
-                    {item.area_calculada_hectares && (
-                      <p className="metadado-geografico">
-                        {item.area_calculada_hectares} ha calculados
-                        {item.divergencia_area_percentual &&
-                          ` · diferença ${item.divergencia_area_percentual}%`}
-                      </p>
-                    )}
-                  </div>
-                  <div className="acoes">
-                    <button className="secundario" onClick={(e) => { e.stopPropagation(); editar(item); }}>Editar</button>
-                    <button className="perigo" onClick={(e) => { e.stopPropagation(); void excluir(item); }}>Excluir</button>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
+              {carregando && propriedades.length === 0 ? (
+                <p>Carregando propriedades...</p>
+              ) : propriedades.length === 0 ? (
+                <div className="card vazio">Nenhuma propriedade autorizada.</div>
+              ) : (
+                <div className="lista">
+                  {propriedades.map((item) => (
+                    <article className={`card item ${selecionada?.id === item.id ? "ativo" : ""}`} key={item.id} onClick={() => setSelecionada(item)}>
+                      <div>
+                        <h3>{item.nome}</h3>
+                        <p>{item.municipio}/{item.uf} · {item.area_hectares} ha declarados</p>
+                        <p className="metadado-geografico">
+                          Perfil: {item.papel_usuario ?? "superusuário"}
+                        </p>
+                        {item.area_calculada_hectares && (
+                          <p className="metadado-geografico">
+                            {item.area_calculada_hectares} ha calculados
+                            {item.divergencia_area_percentual &&
+                              ` · diferença ${item.divergencia_area_percentual}%`}
+                          </p>
+                        )}
+                      </div>
+                      {(item.pode_editar || item.pode_excluir) && (
+                        <div className="acoes">
+                          {item.pode_editar && (
+                            <button className="secundario" onClick={(e) => { e.stopPropagation(); editar(item); }}>Editar</button>
+                          )}
+                          {item.pode_excluir && (
+                            <button className="perigo" onClick={(e) => { e.stopPropagation(); void excluir(item); }}>Excluir</button>
+                          )}
+                        </div>
+                      )}
+                    </article>
+                  ))}
+                </div>
+              )}
 
-          {selecionada?.latitude && selecionada.longitude && (
-            <MapaPropriedade
-              latitude={Number(selecionada.latitude)}
-              longitude={Number(selecionada.longitude)}
-              nome={selecionada.nome}
-              geometria={selecionada.geometria_geojson}
-            />
-          )}
-        </section>
+              {selecionada?.latitude && selecionada.longitude && (
+                <MapaPropriedade
+                  latitude={Number(selecionada.latitude)}
+                  longitude={Number(selecionada.longitude)}
+                  nome={selecionada.nome}
+                  geometria={selecionada.geometria_geojson}
+                />
+              )}
+            </section>
           </section>
         </>
       )}

@@ -1,8 +1,10 @@
 from django.db.models.deletion import ProtectedError
 from rest_framework import filters, status, viewsets
 from rest_framework.pagination import PageNumberPagination
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+
+from apps.core.access import PAPEIS_GESTAO, PAPEIS_OPERACAO
+from apps.core.viewsets import EscopoPropriedadeViewSetMixin
 
 from .models import HistoricoAgronomico, Talhao
 from .serializers import HistoricoAgronomicoSerializer, TalhaoSerializer
@@ -19,14 +21,17 @@ class TalhaoPagination(PageNumberPagination):
         return super().paginate_queryset(queryset, request, view)
 
 
-class TalhaoViewSet(viewsets.ModelViewSet):
+class TalhaoViewSet(EscopoPropriedadeViewSetMixin, viewsets.ModelViewSet):
     queryset = Talhao.objects.select_related("propriedade").all().order_by("nome", "id")
     serializer_class = TalhaoSerializer
-    permission_classes = [IsAuthenticated]
+    property_filter = "propriedade_id"
+    property_path = "propriedade"
+    property_input_path = "propriedade"
+    write_roles = PAPEIS_GESTAO
     pagination_class = TalhaoPagination
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ["nome", "propriedade__nome", "cultura_atual", "safra", "tipo_solo"]
-    ordering_fields = [
+    filter_backends = (filters.SearchFilter, filters.OrderingFilter)
+    search_fields = ("nome", "propriedade__nome", "cultura_atual", "safra", "tipo_solo")
+    ordering_fields = (
         "nome",
         "area_hectares",
         "cultura_atual",
@@ -35,7 +40,7 @@ class TalhaoViewSet(viewsets.ModelViewSet):
         "produtividade_realizada",
         "criado_em",
         "atualizado_em",
-    ]
+    )
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -68,16 +73,24 @@ class TalhaoViewSet(viewsets.ModelViewSet):
             )
 
 
-class HistoricoAgronomicoViewSet(viewsets.ModelViewSet):
+class HistoricoAgronomicoViewSet(
+    EscopoPropriedadeViewSetMixin,
+    viewsets.ModelViewSet,
+):
     queryset = HistoricoAgronomico.objects.select_related(
-        "talhao", "talhao__propriedade"
+        "talhao",
+        "talhao__propriedade",
     ).all()
     serializer_class = HistoricoAgronomicoSerializer
-    permission_classes = [IsAuthenticated]
+    property_filter = "talhao__propriedade_id"
+    property_path = "talhao.propriedade"
+    property_input_path = "talhao.propriedade"
+    write_roles = PAPEIS_OPERACAO
+    action_roles = {"destroy": PAPEIS_GESTAO}
     pagination_class = TalhaoPagination
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ["talhao__nome", "cultura", "safra", "observacoes"]
-    ordering_fields = ["data_referencia", "cultura", "safra", "criado_em"]
+    filter_backends = (filters.SearchFilter, filters.OrderingFilter)
+    search_fields = ("talhao__nome", "cultura", "safra", "observacoes")
+    ordering_fields = ("data_referencia", "cultura", "safra", "criado_em")
 
     def get_queryset(self):
         queryset = super().get_queryset()
