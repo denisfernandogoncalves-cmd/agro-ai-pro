@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 
 import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -49,6 +50,9 @@ try {
   );
   const { default: InsightsPage } = await servidor.ssrLoadModule(
     "/src/pages/Insights/InsightsPage.tsx",
+  );
+  const { default: AplicativoStatus } = await servidor.ssrLoadModule(
+    "/src/components/AplicativoStatus.tsx",
   );
   const { converterGeometria, limitesGeometria } =
     await servidor.ssrLoadModule("/src/utils/geometria.ts");
@@ -259,7 +263,19 @@ try {
   assert.match(htmlInsights, /Assistente gerencial/);
   assert.match(htmlInsights, /Analisar dados atuais/);
 
-  console.log("14 testes de componentes e geometria aprovados.");
+  const htmlAplicativo = renderToStaticMarkup(React.createElement(AplicativoStatus));
+  assert.match(htmlAplicativo, /Online|Offline/);
+  const manifesto = JSON.parse(
+    await readFile(new URL("../public/manifest.webmanifest", import.meta.url), "utf8"),
+  );
+  assert.equal(manifesto.display, "standalone");
+  const serviceWorker = await readFile(
+    new URL("../public/sw.js", import.meta.url),
+    "utf8",
+  );
+  assert.match(serviceWorker, /pathname\.startsWith\(\"\/api\/\"\)/);
+
+  console.log("15 testes de componentes, geometria e PWA aprovados.");
 } finally {
   await servidor.close();
 }

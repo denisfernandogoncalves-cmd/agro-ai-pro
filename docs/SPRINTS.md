@@ -68,7 +68,7 @@ Detalhes em `docs/sprints/SPRINT-03.md`.
 | 9 | Máquinas | `[x]` — concluída em 25/07/2026 |
 | 10 | Relatórios | `[x]` — concluída em 25/07/2026 |
 | 11 | Inteligência Artificial | `[x]` — concluída em 25/07/2026 |
-| 12 | Aplicativo | `[ ]` |
+| 12 | Aplicativo | `[x]` — concluída em 25/07/2026 |
 
 Implementações preexistentes e isoladas nesses módulos não alteram o status de
 uma Sprint sem auditoria formal dos respectivos critérios de aceite.

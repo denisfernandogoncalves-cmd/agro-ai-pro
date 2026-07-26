@@ -16,7 +16,7 @@ Este é o índice operacional das Sprints. Os detalhes técnicos ficam em
 | 9 | Máquinas | Concluída em 25/07/2026 | `docs/sprints/SPRINT-09.md` |
 | 10 | Relatórios | Concluída em 25/07/2026 | `docs/sprints/SPRINT-10.md` |
 | 11 | IA | Concluída em 25/07/2026 | `docs/sprints/SPRINT-11.md` |
-| 12 | Aplicativo | Pendente | A criar |
+| 12 | Aplicativo | Concluída em 25/07/2026 | `docs/sprints/SPRINT-12.md` |
 
 ## Regra de continuidade
 
