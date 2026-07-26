@@ -2,8 +2,7 @@
 
 ## Autenticação
 
-Crie um usuário administrativo com `python manage.py createsuperuser` e obtenha
-um token:
+Crie um usuário administrativo com `python manage.py createsuperuser` e obtenha um token:
 
 ```http
 POST /api/auth/token/
@@ -20,67 +19,54 @@ Authorization: Bearer <access_token>
 
 O token pode ser renovado em `POST /api/auth/token/refresh/`.
 
-## Propriedades
+## Autorização
 
-O endpoint `/api/propriedades/` oferece CRUD, busca textual e ordenação. Campos:
+O sistema usa escopo por propriedade com papéis administrador, gestor, operador e somente leitura. A Gestão Integrada da Produção adiciona escopo por CAD/PRO. IDs fora do escopo autorizado retornam HTTP 404; ações incompatíveis retornam HTTP 403.
 
-- `nome`, `municipio` e `area_hectares`: obrigatórios;
-- `proprietario`, `uf` e `observacoes`: opcionais;
-- `latitude` e `longitude`: opcionais, mas devem ser enviados em conjunto;
-- `arquivo_kml`: polígono `.kml` opcional, com limite de 5 MB.
+Consulte [Controle multiusuário](../SEGURANCA-MULTIUSUARIO.md).
 
-Quando um KML é enviado, o backend valida o XML e o polígono e substitui as
-coordenadas pelo centroide calculado. A resposta também inclui GeoJSON, área
-geodésica aproximada e a diferença para a área declarada. Uma propriedade
-vinculada a talhões não pode ser excluída; nesse caso, a API responde HTTP 409.
+## Módulos
 
-Consulte os exemplos e critérios completos em
-[`docs/sprints/SPRINT-01.md`](../sprints/SPRINT-01.md).
+### Propriedades
 
-## Talhões
+`/api/propriedades/` oferece CRUD, busca, ordenação, KML, GeoJSON e permissões do usuário.
 
-A documentação dos endpoints, histórico agronômico, filtros, paginação,
-validações de área, processamento KML e limitações geoespaciais está em
-[Talhões](TALHOES.md).
+### Talhões
 
-## Clima
+CRUD, histórico agronômico, produtividade, filtros, paginação e KML estão em [Talhões](TALHOES.md).
 
-O módulo oferece previsão de sete dias por propriedade, histórico local,
-temperatura, chuva, umidade, vento e alertas agrícolas. Consulte os endpoints e
-limites em [Clima](CLIMA.md).
+### Clima
 
-## Mercado
+Previsão de sete dias, histórico, atualização e alertas estão em [Clima](CLIMA.md).
 
-O módulo de Mercado mantém o histórico mensal de soja, milho, trigo e Brent,
-resume variações, acompanha cinco regiões do Corn Belt e permite cadastrar
-notícias com fonte HTTPS. Consulte [Mercado](MERCADO.md).
+### Mercado
 
-## Financeiro
+Cotações de soja, milho, trigo e Brent, Corn Belt e notícias estão em [Mercado](MERCADO.md).
 
-O módulo Financeiro oferece cadastros auxiliares, contas a pagar e receber,
-liquidação, filtros e resumo de fluxo de caixa. Consulte
-[Financeiro](FINANCEIRO.md).
+### Financeiro
 
-## Estoque
+Parceiros, categorias, centros de custo, contas a pagar e receber e liquidação estão em [Financeiro](FINANCEIRO.md).
 
-O módulo controla produtos, locais, lotes, entradas, saídas, validade, estoque
-mínimo e rastreabilidade. Consulte [Estoque](ESTOQUE.md).
+### Estoque de insumos
 
-## Operações
+Produtos, locais, lotes, movimentos, validade e estoque mínimo estão em [Estoque](ESTOQUE.md).
 
-O módulo planeja, inicia, conclui e cancela operações por talhão, com custos e
-baixa transacional dos insumos utilizados. Consulte [Operações](OPERACOES.md).
+### Operações agrícolas
 
-## Máquinas
+Planejamento, execução, custos e baixa transacional de insumos estão em [Operações](OPERACOES.md).
 
-O módulo controla frota, horímetro, uso em operações, abastecimentos e
-manutenções. Consulte [Máquinas](MAQUINAS.md).
+### Gestão Integrada da Produção
 
-## Relatórios
+CAD/PRO, recebimentos, qualidade, estoque de grãos, transferências, contratos, embarques, relatórios, auditoria e importação de planilhas estão em [Produção Integrada](PRODUCAO-INTEGRADA.md).
 
-O dashboard consolida indicadores gerenciais de todos os módulos. Consulte
-[Relatórios](RELATORIOS.md).
+### Máquinas
 
-## Assistente
+Frota, horímetro, uso, abastecimentos e manutenções estão em [Máquinas](MAQUINAS.md).
+
+### Relatórios gerais
+
+O Dashboard geral e o fluxo financeiro estão em [Relatórios](RELATORIOS.md).
+
+### Assistente
 
 Insights gerenciais explicáveis estão documentados em [IA](IA.md).
