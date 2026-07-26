@@ -4,7 +4,6 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
 from django.db import models
-from django.utils import timezone
 
 from apps.estoque.models import LoteEstoque, MovimentacaoEstoque
 from apps.talhoes.models import Talhao
@@ -173,3 +172,20 @@ class InsumoOperacao(models.Model):
 
     def __str__(self):
         return f"{self.lote.produto} em {self.operacao}"
+
+
+from .grain_models import (  # noqa: E402,F401
+    AcessoCadPro,
+    AuditoriaProducao,
+    CadPro,
+    ContratoProducao,
+    Cultura,
+    EmbarqueProducao,
+    ImportacaoPlanilha,
+    Motorista,
+    MovimentacaoGraos,
+    RecebimentoProducao,
+    Safra,
+    SaldoGraos,
+    Veiculo,
+)
