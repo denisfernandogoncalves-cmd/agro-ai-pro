@@ -17,5 +17,5 @@
 - [x] operações;
 - [x] máquinas;
 - [x] relatórios e dashboards;
-- [ ] inteligência artificial e automação;
+- [x] inteligência artificial e automação;
 - [ ] aplicativo.

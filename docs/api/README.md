@@ -80,3 +80,7 @@ manutenções. Consulte [Máquinas](MAQUINAS.md).
 
 O dashboard consolida indicadores gerenciais de todos os módulos. Consulte
 [Relatórios](RELATORIOS.md).
+
+## Assistente
+
+Insights gerenciais explicáveis estão documentados em [IA](IA.md).

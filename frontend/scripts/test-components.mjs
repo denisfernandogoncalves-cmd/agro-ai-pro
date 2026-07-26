@@ -47,6 +47,9 @@ try {
   const { default: RelatoriosPage } = await servidor.ssrLoadModule(
     "/src/pages/Relatorios/RelatoriosPage.tsx",
   );
+  const { default: InsightsPage } = await servidor.ssrLoadModule(
+    "/src/pages/Insights/InsightsPage.tsx",
+  );
   const { converterGeometria, limitesGeometria } =
     await servidor.ssrLoadModule("/src/utils/geometria.ts");
 
@@ -250,7 +253,13 @@ try {
   );
   assert.match(htmlRelatorios, /Gerando indicadores/);
 
-  console.log("13 testes de componentes e geometria aprovados.");
+  const htmlInsights = renderToStaticMarkup(
+    React.createElement(InsightsPage, { propriedades: [propriedade] }),
+  );
+  assert.match(htmlInsights, /Assistente gerencial/);
+  assert.match(htmlInsights, /Analisar dados atuais/);
+
+  console.log("14 testes de componentes e geometria aprovados.");
 } finally {
   await servidor.close();
 }

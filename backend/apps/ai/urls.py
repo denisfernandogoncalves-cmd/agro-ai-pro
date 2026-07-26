@@ -1,3 +1,5 @@
 from django.urls import path
 
-urlpatterns = []
+from .views import InsightsView
+
+urlpatterns = [path("insights/", InsightsView.as_view(), name="insights")]
