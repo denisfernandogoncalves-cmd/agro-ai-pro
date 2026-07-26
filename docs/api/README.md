@@ -54,3 +54,9 @@ limites em [Clima](CLIMA.md).
 O módulo de Mercado mantém o histórico mensal de soja, milho, trigo e Brent,
 resume variações, acompanha cinco regiões do Corn Belt e permite cadastrar
 notícias com fonte HTTPS. Consulte [Mercado](MERCADO.md).
+
+## Financeiro
+
+O módulo Financeiro oferece cadastros auxiliares, contas a pagar e receber,
+liquidação, filtros e resumo de fluxo de caixa. Consulte
+[Financeiro](FINANCEIRO.md).

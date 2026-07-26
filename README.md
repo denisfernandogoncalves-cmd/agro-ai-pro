@@ -6,7 +6,7 @@ frontend React/TypeScript.
 ## Estado atual
 
 As Sprints 1 (Infraestrutura + Propriedades), 2 (Talhões), 3
-(Geoprocessamento), 4 (Clima) e 5 (Mercado) estão concluídas.
+(Geoprocessamento), 4 (Clima), 5 (Mercado) e 6 (Financeiro) estão concluídas.
 
 O sistema oferece:
 
@@ -36,6 +36,10 @@ temporárias do provedor.
 O módulo de Mercado acompanha referências mensais globais de soja, milho,
 trigo e petróleo Brent, exibe histórico e variação, monitora cinco regiões do
 Corn Belt e reúne notícias cadastradas com fontes HTTPS.
+
+O módulo Financeiro controla contas a pagar e receber, categorias, parceiros,
+centros de custo, propriedades e safras, com liquidação, atrasos e resumo de
+fluxo de caixa.
 
 O índice oficial de andamento está em
 [`documentos/SPRINTS.md`](documentos/SPRINTS.md).
@@ -97,5 +101,6 @@ Redis e backend; o frontend é executado separadamente nesta Sprint.
 - [Sprint 3](docs/sprints/SPRINT-03.md)
 - [Sprint 4](docs/sprints/SPRINT-04.md)
 - [Sprint 5](docs/sprints/SPRINT-05.md)
+- [Sprint 6](docs/sprints/SPRINT-06.md)
 - [API](docs/api/README.md)
 - [Arquitetura](ARCHITECTURE.md)
