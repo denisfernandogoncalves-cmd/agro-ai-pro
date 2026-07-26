@@ -91,7 +91,7 @@ services:
       CLIMA_MAX_UPDATES_PER_CYCLE: ${CLIMA_MAX_UPDATES_PER_CYCLE:-100}
       CLIMA_AUTOMATIC_UPDATE_ENABLED: ${CLIMA_AUTOMATIC_UPDATE_ENABLED:-True}
     depends_on:
-      postgres:
+      backend:
         condition: service_healthy
       redis:
         condition: service_healthy
