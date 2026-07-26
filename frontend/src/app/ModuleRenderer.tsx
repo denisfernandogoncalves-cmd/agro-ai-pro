@@ -12,16 +12,15 @@ const MercadoPage = lazy(() => import("../pages/Mercado/MercadoPage"));
 const FinanceiroPage = lazy(() => import("../pages/Financeiro/FinanceiroPage"));
 const EstoquePage = lazy(() => import("../pages/Estoque/EstoquePage"));
 const OperacoesPage = lazy(() => import("../pages/Operacoes/OperacoesPage"));
+const ProducaoPage = lazy(() => import("../pages/Producao/ProducaoPage"));
 const MaquinasPage = lazy(() => import("../pages/Maquinas/MaquinasPage"));
 const RelatoriosPage = lazy(() => import("../pages/Relatorios/RelatoriosPage"));
 const InsightsPage = lazy(() => import("../pages/Insights/InsightsPage"));
 
-type BoundaryProps = { children: ReactNode; resetKey: string };
-
-class ModuleErrorBoundary extends Component<BoundaryProps, { failed: boolean }> {
+class ModuleErrorBoundary extends Component<{ children: ReactNode; resetKey: string }, { failed: boolean }> {
   state = { failed: false };
   static getDerivedStateFromError() { return { failed: true }; }
-  componentDidUpdate(previous: Readonly<BoundaryProps>) {
+  componentDidUpdate(previous: { resetKey: string }) {
     if (previous.resetKey !== this.props.resetKey && this.state.failed) this.setState({ failed: false });
   }
   render() {
@@ -30,8 +29,20 @@ class ModuleErrorBoundary extends Component<BoundaryProps, { failed: boolean }> 
   }
 }
 
-export default function ModuleRenderer({ module, properties, selectedProperty, safra, propertiesContent }: { module: ModuleId; properties: Propriedade[]; selectedProperty: Propriedade | null; safra: string; propertiesContent: ReactNode }) {
-  let content: ReactNode = propertiesContent;
+export default function ModuleRenderer({
+  module,
+  properties,
+  selectedProperty,
+  safra,
+  propertiesContent,
+}: {
+  module: ModuleId;
+  properties: Propriedade[];
+  selectedProperty: Propriedade | null;
+  safra: string;
+  propertiesContent: ReactNode;
+}) {
+  let content: ReactNode = null;
   switch (module) {
     case "dashboard": content = <DashboardPage properties={properties} selectedProperty={selectedProperty} safra={safra} />; break;
     case "propriedades": content = propertiesContent; break;
@@ -42,9 +53,14 @@ export default function ModuleRenderer({ module, properties, selectedProperty, s
     case "financeiro": content = <FinanceiroPage propriedades={properties} />; break;
     case "estoque": content = <EstoquePage propriedades={properties} />; break;
     case "operacoes": content = <OperacoesPage />; break;
+    case "producao": content = <ProducaoPage selectedProperty={selectedProperty} safra={safra} />; break;
     case "maquinas": content = <MaquinasPage propriedades={properties} />; break;
     case "relatorios": content = <RelatoriosPage propriedades={properties} />; break;
     case "insights": content = <InsightsPage propriedades={properties} />; break;
   }
-  return <ModuleErrorBoundary resetKey={module}><Suspense fallback={<LoadingState label="Carregando módulo sob demanda..." />}>{content}</Suspense></ModuleErrorBoundary>;
+  return (
+    <ModuleErrorBoundary resetKey={module}>
+      <Suspense fallback={<LoadingState label="Carregando módulo sob demanda..." />}>{content}</Suspense>
+    </ModuleErrorBoundary>
+  );
 }

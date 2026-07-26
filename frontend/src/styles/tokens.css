@@ -52,6 +52,8 @@
   --sidebar-active: #2d7a50;
   --map-property: #237447;
   --map-field: #d59826;
+  --map-production: #7b5eb4;
+  --map-storage: #3f7088;
   --map-tile-filter: none;
 }
 
@@ -81,6 +83,8 @@
   --sidebar-active: #285e40;
   --map-property: #6bc38d;
   --map-field: #efbc56;
+  --map-production: #b29ae3;
+  --map-storage: #77b7d0;
   --map-tile-filter: brightness(0.62) saturate(0.75) contrast(1.2);
   --shadow-sm: 0 1px 3px rgb(0 0 0 / 24%);
   --shadow-md: 0 12px 34px rgb(0 0 0 / 28%);

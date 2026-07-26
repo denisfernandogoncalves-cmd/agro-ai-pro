@@ -16,13 +16,20 @@ import { EmptyState } from "../shared/ui";
 
 export type AgriculturalMapFeature = {
   id: string | number;
-  kind: "propriedade" | "talhao";
+  kind: "propriedade" | "talhao" | "producao" | "armazenagem";
   name: string;
   subtitle?: string;
   latitude?: number | null;
   longitude?: number | null;
   geometry?: GeometriaGeoJSON | null;
 };
+
+const featureColor = (kind: AgriculturalMapFeature["kind"]) => ({
+  propriedade: "var(--map-property)",
+  talhao: "var(--map-field)",
+  producao: "var(--map-production)",
+  armazenagem: "var(--map-storage)",
+})[kind];
 
 function FitFeatures({ features }: { features: AgriculturalMapFeature[] }) {
   const map = useMap();
@@ -34,30 +41,73 @@ function FitFeatures({ features }: { features: AgriculturalMapFeature[] }) {
         bounds.extend(southWest);
         bounds.extend(northEast);
       }
-      if (Number.isFinite(feature.latitude) && Number.isFinite(feature.longitude)) bounds.extend([feature.latitude as number, feature.longitude as number]);
+      if (Number.isFinite(feature.latitude) && Number.isFinite(feature.longitude)) {
+        bounds.extend([feature.latitude as number, feature.longitude as number]);
+      }
     });
-    if (bounds.isValid()) map.fitBounds(bounds, { padding: [32, 32], maxZoom: 15 });
+    if (bounds.isValid()) {
+      map.fitBounds(bounds, { padding: [32, 32], maxZoom: 15 });
+    }
   }, [features, map]);
   return null;
 }
 
-export default function AgriculturalMap({ features, className = "", emptyMessage = "Nenhuma geometria ou coordenada disponível." }: { features: AgriculturalMapFeature[]; className?: string; emptyMessage?: string }) {
-  const visible = features.filter((feature) => feature.geometry || (Number.isFinite(feature.latitude) && Number.isFinite(feature.longitude)));
-  if (visible.length === 0) return <EmptyState title="Mapa indisponível" description={emptyMessage} />;
+export default function AgriculturalMap({
+  features,
+  className = "",
+  emptyMessage = "Nenhuma geometria ou coordenada disponível.",
+}: {
+  features: AgriculturalMapFeature[];
+  className?: string;
+  emptyMessage?: string;
+}) {
+  const visible = features.filter((feature) =>
+    feature.geometry
+    || (Number.isFinite(feature.latitude) && Number.isFinite(feature.longitude)),
+  );
+
+  if (visible.length === 0) {
+    return <EmptyState title="Mapa indisponível" description={emptyMessage} />;
+  }
 
   const first = visible.find((feature) => Number.isFinite(feature.latitude) && Number.isFinite(feature.longitude));
-  const center: [number, number] = first ? [first.latitude as number, first.longitude as number] : [-14.235, -51.9253];
+  const center: [number, number] = first
+    ? [first.latitude as number, first.longitude as number]
+    : [-14.235, -51.9253];
   const kinds = new Set(visible.map((feature) => feature.kind));
 
   return (
     <div className={`agricultural-map ${className}`}>
       <MapContainer center={center} zoom={5} className="agricultural-map__canvas" zoomControl>
-        <TileLayer className="agricultural-map__tiles" attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        <TileLayer
+          className="agricultural-map__tiles"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+        />
         <ScaleControl imperial={false} />
         {visible.map((feature) => (
           <Fragment key={`${feature.kind}-${feature.id}`}>
-            {feature.geometry && <Polygon positions={converterGeometria(feature.geometry)} pathOptions={{ color: feature.kind === "propriedade" ? "var(--map-property)" : "var(--map-field)", fillOpacity: feature.kind === "propriedade" ? 0.1 : 0.24, weight: feature.kind === "propriedade" ? 3 : 2 }}><Popup><strong>{feature.name}</strong>{feature.subtitle && <><br />{feature.subtitle}</>}</Popup></Polygon>}
-            {Number.isFinite(feature.latitude) && Number.isFinite(feature.longitude) && <CircleMarker center={[feature.latitude as number, feature.longitude as number]} radius={feature.kind === "propriedade" ? 8 : 6} pathOptions={{ color: feature.kind === "propriedade" ? "var(--map-property)" : "var(--map-field)" }}><Popup><strong>{feature.name}</strong>{feature.subtitle && <><br />{feature.subtitle}</>}</Popup></CircleMarker>}
+            {feature.geometry && (
+              <Polygon
+                positions={converterGeometria(feature.geometry)}
+                pathOptions={{
+                  color: featureColor(feature.kind),
+                  fillOpacity: feature.kind === "propriedade" ? 0.1 : 0.24,
+                  weight: feature.kind === "propriedade" ? 3 : 2,
+                }}
+              >
+                <Popup><strong>{feature.name}</strong>{feature.subtitle && <><br />{feature.subtitle}</>}</Popup>
+              </Polygon>
+            )}
+            {Number.isFinite(feature.latitude) && Number.isFinite(feature.longitude) && (
+              <CircleMarker
+                center={[feature.latitude as number, feature.longitude as number]}
+                radius={feature.kind === "propriedade" ? 8 : 6}
+                pathOptions={{ color: featureColor(feature.kind) }}
+              >
+                <Popup><strong>{feature.name}</strong>{feature.subtitle && <><br />{feature.subtitle}</>}</Popup>
+              </CircleMarker>
+            )}
           </Fragment>
         ))}
         <FitFeatures features={visible} />
@@ -65,7 +115,9 @@ export default function AgriculturalMap({ features, className = "", emptyMessage
       <div className="agricultural-map__legend" aria-label="Legenda do mapa">
         {kinds.has("propriedade") && <span><i className="legend-property" />Propriedades</span>}
         {kinds.has("talhao") && <span><i className="legend-field" />Talhões</span>}
-        <small>Arquitetura preparada para novas camadas, sem integração paga.</small>
+        {kinds.has("producao") && <span><i className="legend-production" />Produção</span>}
+        {kinds.has("armazenagem") && <span><i className="legend-storage" />Armazenagem</span>}
+        <small>Novas camadas podem ser adicionadas sem alterar os contratos atuais.</small>
       </div>
     </div>
   );
