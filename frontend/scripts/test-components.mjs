@@ -41,6 +41,9 @@ try {
   const { default: OperacoesPage } = await servidor.ssrLoadModule(
     "/src/pages/Operacoes/OperacoesPage.tsx",
   );
+  const { default: MaquinasPage } = await servidor.ssrLoadModule(
+    "/src/pages/Maquinas/MaquinasPage.tsx",
+  );
   const { converterGeometria, limitesGeometria } =
     await servidor.ssrLoadModule("/src/utils/geometria.ts");
 
@@ -233,7 +236,13 @@ try {
   assert.match(htmlOperacoes, /Planejar operaÃ§Ã£o|Planejar operação/);
   assert.match(htmlOperacoes, /Nenhuma operaÃ§Ã£o planejada|Nenhuma operação planejada/);
 
-  console.log("11 testes de componentes e geometria aprovados.");
+  const htmlMaquinas = renderToStaticMarkup(
+    React.createElement(MaquinasPage, { propriedades: [propriedade] }),
+  );
+  assert.match(htmlMaquinas, /Nova mÃ¡quina|Nova máquina/);
+  assert.match(htmlMaquinas, /Uso, combustÃ­vel e manutenÃ§Ã£o|Uso, combustível e manutenção/);
+
+  console.log("12 testes de componentes e geometria aprovados.");
 } finally {
   await servidor.close();
 }

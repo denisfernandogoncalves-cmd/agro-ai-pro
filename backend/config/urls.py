@@ -78,6 +78,11 @@ urlpatterns = [
     ),
 
     path(
+        "api/maquinas/",
+        include("apps.maquinas.urls")
+    ),
+
+    path(
         "api/mercado/",
         include("apps.mercado.urls")
     ),
