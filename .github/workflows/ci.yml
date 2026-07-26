@@ -1,6 +1,7 @@
 name: CI
 
 on:
+  workflow_dispatch:
   pull_request:
   push:
     branches:
@@ -97,13 +98,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 0
 
       - name: Validar Docker Compose
         run: docker compose config --quiet
 
-      - name: Validar whitespace
-        run: git diff --check HEAD^
+      - name: Validar whitespace da branch
+        run: git diff --check "$(git merge-base HEAD origin/main)" HEAD
 
       - name: Verificar credenciais versionadas
         run: |
