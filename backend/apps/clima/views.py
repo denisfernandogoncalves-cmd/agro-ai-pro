@@ -101,14 +101,7 @@ class PrevisaoClimaViewSet(
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
         serializer = self.get_serializer(resultado["previsoes"], many=True)
-        return Response(
-            {
-                "previsoes": serializer.data,
-                "cache": resultado["cache"],
-                "ignorada": resultado["ignorada"],
-            },
-            status=status.HTTP_200_OK,
-        )
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
     @action(detail=False, methods=["get"])
     def status(self, request):
@@ -191,7 +184,7 @@ class PrevisaoHorariaViewSet(
             queryset = queryset.filter(data_hora__gte=data_inicio)
         if data_fim:
             queryset = queryset.filter(data_hora__lte=data_fim)
-        return queryset[:336]
+        return queryset
 
 
 class AlertaClimaticoViewSet(
@@ -202,6 +195,7 @@ class AlertaClimaticoViewSet(
     serializer_class = AlertaClimaticoSerializer
     property_filter = "propriedade_id"
     property_path = "propriedade"
+    action_roles = {"marcar_lido": PAPEIS_LEITURA}
     filter_backends = (filters.OrderingFilter,)
     ordering_fields = ("inicio", "nivel", "tipo")
     ordering = ("-inicio",)
@@ -244,7 +238,7 @@ class AtualizacaoClimaViewSet(
         propriedade = self.request.query_params.get("propriedade", "").strip()
         if propriedade:
             queryset = queryset.filter(propriedade_id=propriedade) if propriedade.isdecimal() else queryset.none()
-        return queryset[:200]
+        return queryset
 
 
 class ConfiguracaoClimaViewSet(
