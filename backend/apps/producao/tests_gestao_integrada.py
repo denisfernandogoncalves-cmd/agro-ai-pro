@@ -86,8 +86,14 @@ class GestaoIntegradaProducaoTests(TestCase):
         AcessoCadPro.objects.create(cadpro=self.cadpro, usuario=self.operador)
         AcessoCadPro.objects.create(cadpro=self.cadpro, usuario=self.leitura)
 
-        self.silo = LocalEstoque.objects.create(nome="Silo Central", propriedade=self.propriedade)
-        self.silo_destino = LocalEstoque.objects.create(nome="Silo Secundário", propriedade=self.propriedade)
+        self.silo = LocalEstoque.objects.create(
+            nome="Silo Central",
+            propriedade=self.propriedade,
+        )
+        self.silo_destino = LocalEstoque.objects.create(
+            nome="Silo Secundário",
+            propriedade=self.propriedade,
+        )
         self.comprador = ParceiroFinanceiro.objects.create(
             nome="Cooperativa Compradora",
             tipo=ParceiroFinanceiro.Tipo.CLIENTE,
@@ -110,12 +116,20 @@ class GestaoIntegradaProducaoTests(TestCase):
         )
 
     def test_administrador_enxerga_todos_cadpros_da_propriedade(self):
-        self.assertQuerySetEqual(cadpros_visiveis(self.admin), [self.cadpro])
-        self.assertFalse(cadpros_visiveis(self.operador).filter(pk=self.cadpro_externo.pk).exists())
+        self.assertEqual(list(cadpros_visiveis(self.admin).values_list("id", flat=True)), [self.cadpro.id])
+        self.assertFalse(
+            cadpros_visiveis(self.operador).filter(pk=self.cadpro_externo.pk).exists()
+        )
 
     def test_confirmacao_recebimento_credita_estoque_e_audita(self):
-        recebimento = confirmar_recebimento(self.criar_recebimento(), usuario=self.operador)
-        saldo = SaldoGraos.objects.get(cadpro=self.cadpro, local_armazenagem=self.silo)
+        recebimento = confirmar_recebimento(
+            self.criar_recebimento(),
+            usuario=self.operador,
+        )
+        saldo = SaldoGraos.objects.get(
+            cadpro=self.cadpro,
+            local_armazenagem=self.silo,
+        )
 
         self.assertEqual(recebimento.status, RecebimentoProducao.Status.CONFIRMADO)
         self.assertEqual(recebimento.quantidade_sacas, Decimal("100.000"))
@@ -142,14 +156,18 @@ class GestaoIntegradaProducaoTests(TestCase):
             motivo="Transferência operacional",
         )
 
-        origem = SaldoGraos.objects.get(cadpro=self.cadpro, local_armazenagem=self.silo)
-        destino = SaldoGraos.objects.get(cadpro=self.cadpro, local_armazenagem=self.silo_destino)
+        origem = SaldoGraos.objects.get(
+            cadpro=self.cadpro,
+            local_armazenagem=self.silo,
+        )
+        destino = SaldoGraos.objects.get(
+            cadpro=self.cadpro,
+            local_armazenagem=self.silo_destino,
+        )
         self.assertEqual(origem.quantidade_kg, Decimal("4500.000"))
         self.assertEqual(destino.quantidade_kg, Decimal("1500.000"))
         self.assertEqual(
-            SaldoGraos.objects.filter(cadpro=self.cadpro).aggregate_total
-            if hasattr(SaldoGraos.objects.filter(cadpro=self.cadpro), "aggregate_total")
-            else origem.quantidade_kg + destino.quantidade_kg,
+            origem.quantidade_kg + destino.quantidade_kg,
             Decimal("6000.000"),
         )
 
@@ -167,7 +185,10 @@ class GestaoIntegradaProducaoTests(TestCase):
                 local_origem=self.silo,
             )
         self.assertEqual(
-            SaldoGraos.objects.get(cadpro=self.cadpro, local_armazenagem=self.silo).quantidade_kg,
+            SaldoGraos.objects.get(
+                cadpro=self.cadpro,
+                local_armazenagem=self.silo,
+            ).quantidade_kg,
             Decimal("6000.000"),
         )
 
@@ -188,13 +209,22 @@ class GestaoIntegradaProducaoTests(TestCase):
         )
 
         embarque = confirmar_embarque(embarque, usuario=self.operador)
-        saldo = SaldoGraos.objects.get(cadpro=self.cadpro, local_armazenagem=self.silo)
+        saldo = SaldoGraos.objects.get(
+            cadpro=self.cadpro,
+            local_armazenagem=self.silo,
+        )
         self.assertEqual(embarque.status, EmbarqueProducao.Status.CONFIRMADO)
         self.assertEqual(embarque.quantidade_sacas, Decimal("50.000"))
         self.assertEqual(embarque.valor_total, Decimal("6000.00"))
         self.assertEqual(saldo.quantidade_kg, Decimal("3000.000"))
-        self.assertEqual(embarque.lancamento_financeiro.tipo, LancamentoFinanceiro.Tipo.RECEBER)
-        self.assertEqual(embarque.lancamento_financeiro.valor, Decimal("6000.00"))
+        self.assertEqual(
+            embarque.lancamento_financeiro.tipo,
+            LancamentoFinanceiro.Tipo.RECEBER,
+        )
+        self.assertEqual(
+            embarque.lancamento_financeiro.valor,
+            Decimal("6000.00"),
+        )
 
     def test_recurso_de_outro_cadpro_retorna_404(self):
         client = APIClient()
