@@ -5,6 +5,11 @@ from .grain_enterprise_report_views import (
     ProducaoDashboardEnterpriseView,
     RelatorioProducaoEnterpriseView,
 )
+from .grain_enterprise_strict_views import (
+    NotaFiscalProducaoStrictViewSet,
+    OrigemTerceiroRecebimentoStrictViewSet,
+    TransferenciaGraosStrictViewSet,
+)
 from .grain_enterprise_views import (
     AuditoriaProducaoEnterpriseViewSet,
     CadProEnterpriseViewSet,
@@ -14,10 +19,7 @@ from .grain_enterprise_views import (
     EmbarqueProducaoEnterpriseViewSet,
     ImportacaoPlanilhaEnterpriseViewSet,
     MovimentacaoGraosEnterpriseViewSet,
-    NotaFiscalProducaoViewSet,
-    OrigemTerceiroRecebimentoViewSet,
     RecebimentoProducaoEnterpriseViewSet,
-    TransferenciaGraosViewSet,
 )
 from .grain_views import (
     AcessoCadProViewSet,
@@ -43,10 +45,10 @@ router.register("veiculos", VeiculoViewSet, basename="veiculos")
 router.register("locais-armazenagem", DetalheLocalArmazenagemViewSet, basename="locais-armazenagem-producao")
 router.register("contratos", ContratoProducaoEnterpriseViewSet, basename="contratos-producao")
 router.register("recebimentos", RecebimentoProducaoEnterpriseViewSet, basename="recebimentos-producao")
-router.register("origens-terceiros", OrigemTerceiroRecebimentoViewSet, basename="origens-terceiros-producao")
+router.register("origens-terceiros", OrigemTerceiroRecebimentoStrictViewSet, basename="origens-terceiros-producao")
 router.register("embarques", EmbarqueProducaoEnterpriseViewSet, basename="embarques-producao")
-router.register("notas-fiscais", NotaFiscalProducaoViewSet, basename="notas-fiscais-producao")
-router.register("transferencias", TransferenciaGraosViewSet, basename="transferencias-graos")
+router.register("notas-fiscais", NotaFiscalProducaoStrictViewSet, basename="notas-fiscais-producao")
+router.register("transferencias", TransferenciaGraosStrictViewSet, basename="transferencias-graos")
 router.register("movimentacoes-graos", MovimentacaoGraosEnterpriseViewSet, basename="movimentacoes-graos")
 router.register("saldos-graos", SaldoGraosViewSet, basename="saldos-graos")
 router.register("auditoria", AuditoriaProducaoEnterpriseViewSet, basename="auditoria-producao")
