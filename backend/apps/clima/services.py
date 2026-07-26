@@ -235,6 +235,19 @@ def _normalizar_diario(dados, configuracao=None):
     diario = dados.get("daily")
     if not isinstance(diario, dict) or not diario.get("time"):
         raise ServicoClimaError("O provedor retornou uma previsão diária incompleta.")
+    quantidade = len(diario["time"])
+    for campo in (
+        "weather_code",
+        "temperature_2m_max",
+        "temperature_2m_min",
+        "precipitation_sum",
+        "precipitation_probability_max",
+        "wind_speed_10m_max",
+        "relative_humidity_2m_mean",
+    ):
+        serie = diario.get(campo)
+        if isinstance(serie, list) and len(serie) != quantidade:
+            raise ServicoClimaError("O provedor retornou séries climáticas inconsistentes.")
     previsoes = []
     for indice, data_iso in enumerate(diario["time"]):
         codigo = _inteiro(_valor(diario.get("weather_code"), indice))
@@ -276,6 +289,10 @@ def _normalizar_horario(dados, configuracao=None):
     horario = dados.get("hourly")
     if not isinstance(horario, dict) or not horario.get("time"):
         return []
+    quantidade = len(horario["time"])
+    for campo, serie in horario.items():
+        if campo != "time" and isinstance(serie, list) and len(serie) != quantidade:
+            raise ServicoClimaError("O provedor retornou séries climáticas horárias inconsistentes.")
     previsoes = []
     for indice, data_iso in enumerate(horario["time"]):
         codigo = _inteiro(_valor(horario.get("weather_code"), indice))
@@ -544,7 +561,7 @@ def atualizar_clima_propriedade(propriedade, transport=_consultar_open_meteo, fo
         if not coordenadas:
             configuracao.status = ConfiguracaoClima.Status.SEM_LOCALIZACAO
             configuracao.ultima_tentativa = agora
-            configuracao.erro_ultima_atualizacao = "Complete as coordenadas ou a geometria da propriedade."
+            configuracao.erro_ultima_atualizacao = "A propriedade precisa ter latitude e longitude ou uma geometria válida para consultar o clima."
             configuracao.proxima_atualizacao = agora + timedelta(minutes=configuracao.frequencia_minutos)
             configuracao.save()
             registro.status = AtualizacaoClima.Status.ERRO
@@ -648,10 +665,9 @@ def atualizar_previsoes(propriedade, transport=_consultar_open_meteo):
 def atualizar_clima_pendente(limite=None):
     limite = limite or MAX_ATUALIZACOES_CICLO
     resumo = {"atualizadas": 0, "ignoradas": 0, "erros": 0}
+    processadas = 0
     agora = timezone.now()
     for propriedade in Propriedade.objects.all().order_by("id").iterator():
-        if sum(resumo.values()) >= limite:
-            break
         configuracao, _ = ConfiguracaoClima.objects.get_or_create(propriedade=propriedade)
         if not configuracao.ativo:
             resumo["ignoradas"] += 1
@@ -659,6 +675,9 @@ def atualizar_clima_pendente(limite=None):
         if configuracao.proxima_atualizacao and configuracao.proxima_atualizacao > agora:
             resumo["ignoradas"] += 1
             continue
+        if processadas >= limite:
+            break
+        processadas += 1
         try:
             resultado = atualizar_clima_propriedade(propriedade, force=False)
             resumo["ignoradas" if resultado["ignorada"] else "atualizadas"] += 1
