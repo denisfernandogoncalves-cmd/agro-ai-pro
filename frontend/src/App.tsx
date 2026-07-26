@@ -14,6 +14,7 @@ import {
 } from "./api/propriedades";
 import MapaPropriedade from "./components/MapaPropriedade";
 import ClimaPage from "./pages/Clima/ClimaPage";
+import MercadoPage from "./pages/Mercado/MercadoPage";
 import TalhoesPage from "./pages/Talhoes/TalhoesPage";
 
 import "./styles.css";
@@ -47,7 +48,7 @@ function mensagemDoErro(erro: unknown) {
 export default function App() {
   const [autenticado, setAutenticado] = useState(estaAutenticado());
   const [modulo, setModulo] = useState<
-    "propriedades" | "talhoes" | "clima"
+    "propriedades" | "talhoes" | "clima" | "mercado"
   >("propriedades");
   const [credenciais, setCredenciais] = useState({ username: "", password: "" });
   const [propriedades, setPropriedades] = useState<Propriedade[]>([]);
@@ -182,7 +183,9 @@ export default function App() {
               ? "Propriedades"
               : modulo === "talhoes"
                 ? "Talhões"
-                : "Clima"}
+                : modulo === "clima"
+                  ? "Clima"
+                  : "Mercado"}
           </h1>
         </div>
         <button
@@ -215,12 +218,20 @@ export default function App() {
         >
           Clima
         </button>
+        <button
+          className={modulo === "mercado" ? "" : "secundario"}
+          onClick={() => setModulo("mercado")}
+        >
+          Mercado
+        </button>
       </nav>
 
       {modulo === "talhoes" ? (
         <TalhoesPage />
       ) : modulo === "clima" ? (
         <ClimaPage propriedades={propriedades} />
+      ) : modulo === "mercado" ? (
+        <MercadoPage />
       ) : (
         <>
           {erro && <p className="erro card">{erro}</p>}
