@@ -60,6 +60,19 @@ header { align-items: center; display: flex; justify-content: space-between; mar
 .previsao-card dd { font-weight: 700; margin: 0; }
 .alerta-clima { background: #fff3d6; border: 1px solid #efd18b; border-radius: 8px; color: #76520a; padding: 0.7rem; }
 .previsao-card small { color: #6c7d73; }
+.modulo-mercado { display: grid; gap: 1.4rem; }
+.mercado-controles { align-items: center; display: flex; justify-content: space-between; }
+.resumos-mercado, .corn-belt-grade, .noticias-mercado { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.resumos-mercado h3 { font-size: 1.7rem; margin-bottom: 0.3rem; }
+.variacao-positiva { color: #237447; font-weight: 750; }
+.variacao-negativa { color: #a53a32; font-weight: 750; }
+.seletor-produto { margin-bottom: 0.8rem; max-width: 360px; }
+.grafico-mercado { margin: 0; overflow: hidden; }
+.grafico-mercado svg { background: linear-gradient(#f8fbf8, #fff); display: block; width: 100%; }
+.grafico-mercado figcaption { color: #607168; font-size: 0.85rem; padding-top: 0.5rem; }
+.alerta-clima { background: #fff3d6; border-radius: 8px; color: #76520a; padding: 0.7rem; }
+.noticias-mercado a { color: #237447; font-weight: 700; }
+.aviso-mercado { border-left: 4px solid #d7a633; color: #5f522e; }
 
 @media (max-width: 860px) {
   .pagina { padding: 1rem; }
@@ -68,4 +81,5 @@ header { align-items: center; display: flex; justify-content: space-between; mar
   .formulario { position: static; }
   .item { align-items: flex-start; flex-direction: column; gap: 1rem; }
   .clima-controles { grid-template-columns: 1fr; }
+  .mercado-controles { align-items: stretch; flex-direction: column; }
 }

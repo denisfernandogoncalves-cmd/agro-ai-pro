@@ -6,7 +6,7 @@ frontend React/TypeScript.
 ## Estado atual
 
 As Sprints 1 (Infraestrutura + Propriedades), 2 (Talhões), 3
-(Geoprocessamento) e 4 (Clima) estão concluídas.
+(Geoprocessamento), 4 (Clima) e 5 (Mercado) estão concluídas.
 
 O sistema oferece:
 
@@ -32,6 +32,10 @@ O módulo de Clima consulta gratuitamente a Open-Meteo, mantém previsão de set
 dias por propriedade e apresenta temperaturas, chuva, umidade, vento e alertas
 agrícolas. As consultas persistidas continuam disponíveis durante falhas
 temporárias do provedor.
+
+O módulo de Mercado acompanha referências mensais globais de soja, milho,
+trigo e petróleo Brent, exibe histórico e variação, monitora cinco regiões do
+Corn Belt e reúne notícias cadastradas com fontes HTTPS.
 
 O índice oficial de andamento está em
 [`documentos/SPRINTS.md`](documentos/SPRINTS.md).
@@ -92,5 +96,6 @@ Redis e backend; o frontend é executado separadamente nesta Sprint.
 - [Sprint 2](docs/sprints/SPRINT-02.md)
 - [Sprint 3](docs/sprints/SPRINT-03.md)
 - [Sprint 4](docs/sprints/SPRINT-04.md)
+- [Sprint 5](docs/sprints/SPRINT-05.md)
 - [API](docs/api/README.md)
 - [Arquitetura](ARCHITECTURE.md)

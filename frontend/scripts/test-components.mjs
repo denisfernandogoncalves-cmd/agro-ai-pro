@@ -26,6 +26,12 @@ try {
   const { default: ClimaPage } = await servidor.ssrLoadModule(
     "/src/pages/Clima/ClimaPage.tsx",
   );
+  const { default: MercadoPage } = await servidor.ssrLoadModule(
+    "/src/pages/Mercado/MercadoPage.tsx",
+  );
+  const { default: GraficoMercado } = await servidor.ssrLoadModule(
+    "/src/pages/Mercado/GraficoMercado.tsx",
+  );
   const { converterGeometria, limitesGeometria } =
     await servidor.ssrLoadModule("/src/utils/geometria.ts");
 
@@ -168,7 +174,38 @@ try {
   assert.match(htmlClima, /Atualizar previsão/);
   assert.match(htmlClima, /precisa de latitude e longitude/);
 
-  console.log("6 testes de componentes e geometria aprovados.");
+  const htmlMercado = renderToStaticMarkup(React.createElement(MercadoPage));
+  assert.match(htmlMercado, /Atualizar cotações/);
+  assert.match(htmlMercado, /Não constituem recomendação/);
+
+  const htmlGrafico = renderToStaticMarkup(
+    React.createElement(GraficoMercado, {
+      cotacoes: [
+        {
+          id: 1,
+          produto: "soja",
+          produto_nome: "Soja",
+          data: "2026-05-01",
+          valor: "400",
+          unidade: "US$/tonelada métrica",
+          fonte: "FRED / FMI",
+        },
+        {
+          id: 2,
+          produto: "soja",
+          produto_nome: "Soja",
+          data: "2026-06-01",
+          valor: "420",
+          unidade: "US$/tonelada métrica",
+          fonte: "FRED / FMI",
+        },
+      ],
+    }),
+  );
+  assert.match(htmlGrafico, /Evolução histórica/);
+  assert.match(htmlGrafico, /400.00/);
+
+  console.log("8 testes de componentes e geometria aprovados.");
 } finally {
   await servidor.close();
 }

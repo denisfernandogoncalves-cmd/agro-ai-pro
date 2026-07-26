@@ -11,7 +11,7 @@
 
 - [x] infraestrutura, propriedades, talhões e geoprocessamento;
 - [x] previsão climática por propriedade;
-- [ ] mercado e clima no Corn Belt;
+- [x] mercado e clima no Corn Belt;
 - [ ] financeiro;
 - [ ] estoque e insumos;
 - [ ] operações e máquinas;

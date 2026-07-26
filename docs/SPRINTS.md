@@ -61,7 +61,7 @@ Detalhes em `docs/sprints/SPRINT-03.md`.
 | Sprint | Escopo | Status |
 | --- | --- | --- |
 | 4 | Clima | `[x]` — concluída em 25/07/2026 |
-| 5 | Mercado | `[ ]` |
+| 5 | Mercado | `[x]` — concluída em 25/07/2026 |
 | 6 | Financeiro | `[ ]` |
 | 7 | Estoque | `[ ]` |
 | 8 | Operações | `[ ]` |
@@ -73,7 +73,8 @@ Detalhes em `docs/sprints/SPRINT-03.md`.
 Implementações preexistentes e isoladas nesses módulos não alteram o status de
 uma Sprint sem auditoria formal dos respectivos critérios de aceite.
 
-Detalhes da Sprint 4 em `docs/sprints/SPRINT-04.md`.
+Detalhes das Sprints 4 e 5 em `docs/sprints/SPRINT-04.md` e
+`docs/sprints/SPRINT-05.md`.
 
 ## Regra de execução
 

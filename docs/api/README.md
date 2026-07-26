@@ -48,3 +48,9 @@ validações de área, processamento KML e limitações geoespaciais está em
 O módulo oferece previsão de sete dias por propriedade, histórico local,
 temperatura, chuva, umidade, vento e alertas agrícolas. Consulte os endpoints e
 limites em [Clima](CLIMA.md).
+
+## Mercado
+
+O módulo de Mercado mantém o histórico mensal de soja, milho, trigo e Brent,
+resume variações, acompanha cinco regiões do Corn Belt e permite cadastrar
+notícias com fonte HTTPS. Consulte [Mercado](MERCADO.md).
