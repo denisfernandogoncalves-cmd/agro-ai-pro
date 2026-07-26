@@ -16,10 +16,12 @@ const MaquinasPage = lazy(() => import("../pages/Maquinas/MaquinasPage"));
 const RelatoriosPage = lazy(() => import("../pages/Relatorios/RelatoriosPage"));
 const InsightsPage = lazy(() => import("../pages/Insights/InsightsPage"));
 
-class ModuleErrorBoundary extends Component<{ children: ReactNode; resetKey: string }, { failed: boolean }> {
+type BoundaryProps = { children: ReactNode; resetKey: string };
+
+class ModuleErrorBoundary extends Component<BoundaryProps, { failed: boolean }> {
   state = { failed: false };
   static getDerivedStateFromError() { return { failed: true }; }
-  componentDidUpdate(previous: { resetKey: string }) {
+  componentDidUpdate(previous: Readonly<BoundaryProps>) {
     if (previous.resetKey !== this.props.resetKey && this.state.failed) this.setState({ failed: false });
   }
   render() {
@@ -28,20 +30,8 @@ class ModuleErrorBoundary extends Component<{ children: ReactNode; resetKey: str
   }
 }
 
-export default function ModuleRenderer({
-  module,
-  properties,
-  selectedProperty,
-  safra,
-  propertiesContent,
-}: {
-  module: ModuleId;
-  properties: Propriedade[];
-  selectedProperty: Propriedade | null;
-  safra: string;
-  propertiesContent: ReactNode;
-}) {
-  let content: ReactNode;
+export default function ModuleRenderer({ module, properties, selectedProperty, safra, propertiesContent }: { module: ModuleId; properties: Propriedade[]; selectedProperty: Propriedade | null; safra: string; propertiesContent: ReactNode }) {
+  let content: ReactNode = propertiesContent;
   switch (module) {
     case "dashboard": content = <DashboardPage properties={properties} selectedProperty={selectedProperty} safra={safra} />; break;
     case "propriedades": content = propertiesContent; break;
@@ -56,9 +46,5 @@ export default function ModuleRenderer({
     case "relatorios": content = <RelatoriosPage propriedades={properties} />; break;
     case "insights": content = <InsightsPage propriedades={properties} />; break;
   }
-  return (
-    <ModuleErrorBoundary resetKey={module}>
-      <Suspense fallback={<LoadingState label="Carregando módulo sob demanda..." />}>{content}</Suspense>
-    </ModuleErrorBoundary>
-  );
+  return <ModuleErrorBoundary resetKey={module}><Suspense fallback={<LoadingState label="Carregando módulo sob demanda..." />}>{content}</Suspense></ModuleErrorBoundary>;
 }
