@@ -5,8 +5,6 @@ import App from "./App";
 import { registrarPwa } from "./pwa";
 
 import "leaflet/dist/leaflet.css";
-import "./styles/tokens.css";
-import "./styles/enterprise.css";
 
 void registrarPwa();
 

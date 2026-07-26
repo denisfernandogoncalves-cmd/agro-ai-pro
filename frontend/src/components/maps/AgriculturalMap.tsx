@@ -37,9 +37,7 @@ function FitFeatures({ features }: { features: AgriculturalMapFeature[] }) {
     const bounds = latLngBounds([]);
     features.forEach((feature) => {
       if (feature.geometry) {
-        const [southWest, northEast] = limitesGeometria(feature.geometry);
-        bounds.extend(southWest);
-        bounds.extend(northEast);
+        bounds.extend(limitesGeometria(feature.geometry));
       }
       if (Number.isFinite(feature.latitude) && Number.isFinite(feature.longitude)) {
         bounds.extend([feature.latitude as number, feature.longitude as number]);
