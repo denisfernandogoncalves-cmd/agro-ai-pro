@@ -132,16 +132,16 @@ def posicao_estoque(queryset=None, *, propriedade=None, safra=""):
 
 
 def resumo_estoque(queryset=None, *, propriedade=None, safra=""):
-    lotes = _lotes_no_escopo(
+    posicoes = posicao_estoque(
         queryset,
         propriedade=propriedade,
         safra=safra,
     )
-    posicoes = posicao_estoque(lotes, safra=safra)
-
     produtos_ativos = ProdutoEstoque.objects.filter(ativo=True)
     if queryset is not None or propriedade or safra:
-        produtos_ativos = produtos_ativos.filter(lotes__in=lotes).distinct()
+        produtos_ativos = produtos_ativos.filter(
+            id__in={item["produto_id"] for item in posicoes}
+        )
 
     return {
         "produtos_ativos": produtos_ativos.count(),
