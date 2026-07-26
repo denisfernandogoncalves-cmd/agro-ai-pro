@@ -5,6 +5,7 @@ import App from "./App";
 import { registrarPwa } from "./pwa";
 
 import "leaflet/dist/leaflet.css";
+import "./pages/Clima/clima.css";
 
 void registrarPwa();
 
