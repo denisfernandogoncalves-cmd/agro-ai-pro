@@ -1,0 +1,159 @@
+name: Branch validation report
+
+on:
+  push:
+    branches:
+      - codex/gestao-integrada-producao
+    paths-ignore:
+      - docs/validation/PRODUCAO-INTEGRADA-CI.md
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Configurar Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: backend/requirements/*.txt
+
+      - id: backend_dependencies
+        name: Instalar dependências backend
+        continue-on-error: true
+        working-directory: backend
+        run: python -m pip install -r requirements/dev.txt
+
+      - id: django_check
+        name: Django Check
+        continue-on-error: true
+        working-directory: backend
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.test
+        run: python manage.py check
+
+      - id: migrations_check
+        name: Verificar migrations
+        continue-on-error: true
+        working-directory: backend
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.test
+        run: python manage.py makemigrations --check --dry-run
+
+      - id: migrations_apply
+        name: Aplicar migrations
+        continue-on-error: true
+        working-directory: backend
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.test
+        run: python manage.py migrate --noinput
+
+      - id: backend_tests
+        name: Testes backend
+        continue-on-error: true
+        working-directory: backend
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.test
+        run: python manage.py test
+
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - id: frontend_dependencies
+        name: Instalar dependências frontend
+        continue-on-error: true
+        working-directory: frontend
+        run: npm ci
+
+      - id: frontend_tests
+        name: Testes frontend
+        continue-on-error: true
+        working-directory: frontend
+        run: npm test
+
+      - id: frontend_build
+        name: Build frontend
+        continue-on-error: true
+        working-directory: frontend
+        run: npm run build
+
+      - id: docker_config
+        name: Validar Docker Compose
+        continue-on-error: true
+        run: docker compose config --quiet
+
+      - id: whitespace
+        name: Validar whitespace
+        continue-on-error: true
+        run: git diff --check HEAD^
+
+      - id: secrets
+        name: Verificar arquivos e padrões sensíveis
+        continue-on-error: true
+        run: |
+          status=0
+          if git ls-files | grep -E '(^|/)\.env($|\.)' | grep -vE '(^|/)\.env\.example$'; then status=1; fi
+          if git ls-files | grep -Ei '\.(log|pem|key|p12|pfx)$'; then status=1; fi
+          if git grep -nE '(BEGIN (RSA|OPENSSH|EC) PRIVATE KEY|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9]{20,}|AIza[0-9A-Za-z_-]{30,})' -- ':!*.md' ':!frontend/package-lock.json' ':!.env.example'; then status=1; fi
+          exit $status
+
+      - name: Gravar resumo sem logs
+        if: always()
+        env:
+          BACKEND_DEPENDENCIES: ${{ steps.backend_dependencies.outcome }}
+          DJANGO_CHECK: ${{ steps.django_check.outcome }}
+          MIGRATIONS_CHECK: ${{ steps.migrations_check.outcome }}
+          MIGRATIONS_APPLY: ${{ steps.migrations_apply.outcome }}
+          BACKEND_TESTS: ${{ steps.backend_tests.outcome }}
+          FRONTEND_DEPENDENCIES: ${{ steps.frontend_dependencies.outcome }}
+          FRONTEND_TESTS: ${{ steps.frontend_tests.outcome }}
+          FRONTEND_BUILD: ${{ steps.frontend_build.outcome }}
+          DOCKER_CONFIG: ${{ steps.docker_config.outcome }}
+          WHITESPACE: ${{ steps.whitespace.outcome }}
+          SECRETS: ${{ steps.secrets.outcome }}
+        run: |
+          mkdir -p docs/validation
+          cat > docs/validation/PRODUCAO-INTEGRADA-CI.md <<EOF
+          # Validação automatizada — Gestão Integrada da Produção
+
+          Commit validado: \`${GITHUB_SHA}\`
+
+          | Verificação | Resultado |
+          | --- | --- |
+          | Dependências backend | ${BACKEND_DEPENDENCIES} |
+          | Django Check | ${DJANGO_CHECK} |
+          | Migrations sem divergência | ${MIGRATIONS_CHECK} |
+          | Aplicação das migrations | ${MIGRATIONS_APPLY} |
+          | Testes backend | ${BACKEND_TESTS} |
+          | Dependências frontend | ${FRONTEND_DEPENDENCIES} |
+          | Testes frontend | ${FRONTEND_TESTS} |
+          | Build TypeScript/Vite | ${FRONTEND_BUILD} |
+          | Docker Compose config | ${DOCKER_CONFIG} |
+          | Whitespace | ${WHITESPACE} |
+          | Arquivos e padrões sensíveis | ${SECRETS} |
+
+          O relatório contém somente estados dos passos. Logs e credenciais não são versionados.
+          EOF
+
+      - name: Publicar resumo na branch
+        if: always()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/validation/PRODUCAO-INTEGRADA-CI.md
+          if ! git diff --cached --quiet; then
+            git commit -m "ci: registrar validacao da sprint 13 [skip ci]"
+            git push
+          fi
