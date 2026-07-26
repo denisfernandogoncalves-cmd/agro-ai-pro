@@ -1,0 +1,92 @@
+:root {
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-size-xs: 0.75rem;
+  --font-size-sm: 0.875rem;
+  --font-size-md: 1rem;
+  --font-size-lg: 1.125rem;
+  --font-size-xl: 1.5rem;
+  --font-size-2xl: 2rem;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+  --shadow-sm: 0 1px 3px rgb(15 35 25 / 8%);
+  --shadow-md: 0 10px 30px rgb(15 35 25 / 10%);
+  --shadow-lg: 0 24px 60px rgb(15 35 25 / 16%);
+  --sidebar-width: 17rem;
+  --sidebar-collapsed-width: 5rem;
+  --header-height: 5rem;
+  --content-max: 1600px;
+  --transition-fast: 160ms ease;
+  --transition-normal: 240ms ease;
+  --color-bg: #f4f6f3;
+  --color-surface: #ffffff;
+  --color-surface-subtle: #eef2ed;
+  --color-surface-raised: #ffffff;
+  --color-text: #17231c;
+  --color-text-muted: #617067;
+  --color-border: #dbe3dc;
+  --color-primary: #246b45;
+  --color-primary-strong: #174c31;
+  --color-primary-soft: #e3f1e8;
+  --color-success: #237447;
+  --color-success-soft: #e4f4e9;
+  --color-warning: #a36b05;
+  --color-warning-soft: #fff3d8;
+  --color-danger: #a43e37;
+  --color-danger-soft: #ffebe8;
+  --color-info: #2d6479;
+  --color-info-soft: #e5f1f5;
+  --color-focus: #5b9f76;
+  --sidebar-bg: #142a20;
+  --sidebar-text: #dbe9e1;
+  --sidebar-muted: #8fac9d;
+  --sidebar-active: #2d7a50;
+  --map-property: #237447;
+  --map-field: #d59826;
+  --map-tile-filter: none;
+}
+
+:root[data-theme="dark"] {
+  --color-bg: #0d1511;
+  --color-surface: #152019;
+  --color-surface-subtle: #1b2921;
+  --color-surface-raised: #1d2b23;
+  --color-text: #edf5f0;
+  --color-text-muted: #a6b8ae;
+  --color-border: #2e4036;
+  --color-primary: #62b884;
+  --color-primary-strong: #8fd5a9;
+  --color-primary-soft: #203e2d;
+  --color-success: #67c18b;
+  --color-success-soft: #1c3a29;
+  --color-warning: #e3b85e;
+  --color-warning-soft: #3c321c;
+  --color-danger: #e68b83;
+  --color-danger-soft: #432522;
+  --color-info: #7fc1d9;
+  --color-info-soft: #1d3640;
+  --color-focus: #8bd0a5;
+  --sidebar-bg: #09110d;
+  --sidebar-text: #e5f0e9;
+  --sidebar-muted: #8da497;
+  --sidebar-active: #285e40;
+  --map-property: #6bc38d;
+  --map-field: #efbc56;
+  --map-tile-filter: brightness(0.62) saturate(0.75) contrast(1.2);
+  --shadow-sm: 0 1px 3px rgb(0 0 0 / 24%);
+  --shadow-md: 0 12px 34px rgb(0 0 0 / 28%);
+  --shadow-lg: 0 24px 64px rgb(0 0 0 / 36%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+}
