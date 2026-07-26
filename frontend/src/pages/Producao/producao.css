@@ -1,0 +1,154 @@
+.production-page {
+  display: grid;
+  gap: var(--space-5);
+}
+
+.production-tabs {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  padding: var(--space-1) 0 var(--space-2);
+  scrollbar-width: thin;
+}
+
+.production-tabs button {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.production-tabs button.is-active {
+  background: var(--color-primary);
+  box-shadow: var(--shadow-sm);
+  color: var(--color-on-primary);
+}
+
+.production-stat-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.production-columns,
+.production-workspace {
+  align-items: start;
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: minmax(300px, 0.85fr) minmax(0, 1.65fr);
+}
+
+.production-form {
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.production-form > button,
+.production-form > .production-form__full,
+.production-import-form label:last-of-type {
+  grid-column: 1 / -1;
+}
+
+.production-form label {
+  align-content: start;
+}
+
+.production-export-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.production-import-list {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.production-import-card {
+  align-items: center;
+  background: var(--color-surface-subtle);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  display: grid;
+  gap: var(--space-3);
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  padding: var(--space-4);
+}
+
+.production-import-card > div {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.production-import-card small,
+.production-page .data-table td small {
+  color: var(--color-text-muted);
+  display: block;
+  margin-top: var(--space-1);
+}
+
+.production-import-card ul {
+  color: var(--color-danger);
+  grid-column: 1 / -1;
+  margin: 0;
+  padding-left: var(--space-5);
+}
+
+.production-import-card button {
+  justify-self: end;
+}
+
+.production-page .data-table td strong {
+  display: block;
+}
+
+.production-page .filter-bar {
+  justify-content: flex-end;
+}
+
+.production-page input[type="file"] {
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+:root[data-theme="dark"] .production-import-card {
+  background: var(--color-surface-elevated);
+}
+
+@media (max-width: 1100px) {
+  .production-columns,
+  .production-workspace {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .production-page {
+    gap: var(--space-4);
+  }
+
+  .production-form {
+    grid-template-columns: 1fr;
+  }
+
+  .production-form > button,
+  .production-form > .production-form__full,
+  .production-import-form label:last-of-type {
+    grid-column: auto;
+  }
+
+  .production-import-card {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .production-import-card ul,
+  .production-import-card button {
+    grid-column: auto;
+  }
+
+  .production-import-card button {
+    justify-self: stretch;
+  }
+
+  .production-export-actions button {
+    flex: 1 1 100%;
+  }
+}
