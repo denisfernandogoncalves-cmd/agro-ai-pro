@@ -42,6 +42,10 @@ class ConfiguracaoClima(models.Model):
     falhas_consecutivas = models.PositiveIntegerField(default=0)
     total_chamadas = models.PositiveBigIntegerField(default=0)
     origem_coordenadas = models.CharField(max_length=24, blank=True)
+    latitude_usada = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
+    longitude_usada = models.DecimalField(max_digits=10, decimal_places=6, null=True, blank=True)
+    altitude_usada = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
+    dados_atuais = models.JSONField(default=dict, blank=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
     class Meta:
