@@ -149,7 +149,14 @@ export type DashboardProducao = {
   contratos: { abertos: number };
   por_propriedade: Array<{ propriedade_id: number; propriedade__nome: string; peso_kg: string; sacas: string }>;
   por_cadpro: Array<{ cadpro_id: number; cadpro__codigo: string; peso_kg: string; sacas: string }>;
-  por_talhao: Array<{ talhao_id: number; talhao__nome: string; peso_kg: string; sacas: string }>;
+  por_talhao: Array<{
+    talhao_id: number;
+    talhao__nome: string;
+    talhao__area_hectares: string;
+    peso_kg: string;
+    sacas: string;
+    produtividade_sacas_ha: string | null;
+  }>;
 };
 
 export type ImportacaoPlanilha = {
@@ -222,7 +229,19 @@ function params(propertyId = "", safraId = "") {
 
 export async function carregarProducaoIntegrada(propertyId = "", safraId = "") {
   const filterParams = params(propertyId, safraId);
-  const [dashboard, cadpros, culturas, safras, locais, parceiros, recebimentos, saldos, contratos, embarques] = await Promise.all([
+  const [
+    dashboard,
+    cadpros,
+    culturas,
+    safras,
+    locais,
+    parceiros,
+    recebimentos,
+    saldos,
+    contratos,
+    embarques,
+    importacoes,
+  ] = await Promise.all([
     api.get<DashboardProducao>("/producao/dashboard-integrado/", { params: filterParams }),
     api.get<CadPro[]>("/producao/cadpros/", { params: { propriedade: propertyId || undefined } }),
     api.get<CulturaProducao[]>("/producao/culturas/"),
@@ -233,6 +252,7 @@ export async function carregarProducaoIntegrada(propertyId = "", safraId = "") {
     api.get<SaldoGraos[]>("/producao/saldos-graos/", { params: filterParams }),
     api.get<ContratoProducao[]>("/producao/contratos/", { params: filterParams }),
     api.get<EmbarqueProducao[]>("/producao/embarques/", { params: filterParams }),
+    api.get<ImportacaoPlanilha[]>("/producao/importacoes/", { params: { propriedade: propertyId || undefined } }),
   ]);
   return {
     dashboard: dashboard.data,
@@ -245,6 +265,7 @@ export async function carregarProducaoIntegrada(propertyId = "", safraId = "") {
     saldos: saldos.data,
     contratos: contratos.data,
     embarques: embarques.data,
+    importacoes: importacoes.data,
   };
 }
 
@@ -290,15 +311,16 @@ export async function baixarRelatorio(
   formato: "csv" | "xlsx" | "pdf",
   propertyId = "",
   safraId = "",
+  type: "recebimentos" | "embarques" | "estoque" | "contratos" = "recebimentos",
 ) {
   const response = await api.get<Blob>("/producao/relatorios-integrados/", {
-    params: { ...params(propertyId, safraId), formato },
+    params: { ...params(propertyId, safraId), formato, tipo: type },
     responseType: "blob",
   });
   const url = URL.createObjectURL(response.data);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `producao.${formato}`;
+  link.download = `producao-${type}.${formato}`;
   link.click();
   URL.revokeObjectURL(url);
 }
