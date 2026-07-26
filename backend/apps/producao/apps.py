@@ -7,3 +7,4 @@ class ProducaoConfig(AppConfig):
 
     def ready(self):
         from . import grain_enterprise_admin  # noqa: F401
+        from . import grain_enterprise_signals  # noqa: F401
