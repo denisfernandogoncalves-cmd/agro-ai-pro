@@ -51,18 +51,32 @@ def dashboard_gerencial(*, propriedade=None, safra=""):
     fluxo = {}
     for item in meses:
         chave = item["mes"].isoformat()[:7]
-        fluxo.setdefault(chave, {"mes": chave, "entradas": Decimal("0"), "saidas": Decimal("0")})
-        campo = "entradas" if item["tipo"] == LancamentoFinanceiro.Tipo.RECEBER else "saidas"
+        fluxo.setdefault(
+            chave,
+            {"mes": chave, "entradas": Decimal("0"), "saidas": Decimal("0")},
+        )
+        campo = (
+            "entradas"
+            if item["tipo"] == LancamentoFinanceiro.Tipo.RECEBER
+            else "saidas"
+        )
         fluxo[chave][campo] = item["total"]
 
-    estoque = resumo_estoque()
+    estoque = resumo_estoque(propriedade=propriedade, safra=safra)
+    quantidade_propriedades = (
+        Propriedade.objects.filter(pk=propriedade).count()
+        if propriedade
+        else Propriedade.objects.count()
+    )
     return {
         "gerado_em": timezone.now(),
         "filtros": {"propriedade": propriedade, "safra": safra},
         "estrutura": {
-            "propriedades": Propriedade.objects.count() if not propriedade else 1,
+            "propriedades": quantidade_propriedades,
             "talhoes": talhoes.count(),
-            "area_talhoes": _decimal(talhoes.aggregate(total=Sum("area_hectares"))["total"]),
+            "area_talhoes": _decimal(
+                talhoes.aggregate(total=Sum("area_hectares"))["total"]
+            ),
         },
         "financeiro": financeiro,
         "estoque": estoque,
@@ -78,7 +92,9 @@ def dashboard_gerencial(*, propriedade=None, safra=""):
         "maquinas": {
             "total": maquinas.count(),
             "ativas": maquinas.filter(status=Maquina.Status.ATIVA).count(),
-            "em_manutencao": maquinas.filter(status=Maquina.Status.MANUTENCAO).count(),
+            "em_manutencao": maquinas.filter(
+                status=Maquina.Status.MANUTENCAO
+            ).count(),
             "manutencoes_pendentes": ManutencaoMaquina.objects.filter(
                 maquina__in=maquinas,
                 status=ManutencaoMaquina.Status.AGENDADA,

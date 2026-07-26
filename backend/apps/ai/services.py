@@ -7,7 +7,7 @@ from apps.maquinas.models import ManutencaoMaquina
 from apps.producao.models import OperacaoAgricola
 
 
-def gerar_insights(*, propriedade=None):
+def gerar_insights(*, propriedade=None, safra=""):
     hoje = timezone.localdate()
     insights = []
 
@@ -40,6 +40,9 @@ def gerar_insights(*, propriedade=None):
         operacoes = operacoes.filter(talhao__propriedade_id=propriedade)
         manutencoes = manutencoes.filter(maquina__propriedade_id=propriedade)
         clima = clima.filter(propriedade_id=propriedade)
+    if safra:
+        financeiros = financeiros.filter(safra=safra)
+        operacoes = operacoes.filter(talhao__safra=safra)
 
     if financeiros.exists():
         adicionar(
@@ -50,7 +53,7 @@ def gerar_insights(*, propriedade=None):
             "Revisar os vencimentos e registrar pagamento, recebimento ou renegociação.",
             "financeiro",
         )
-    estoque = resumo_estoque()
+    estoque = resumo_estoque(propriedade=propriedade, safra=safra)
     if estoque["lotes_vencidos"]:
         adicionar(
             "estoque_vencido",

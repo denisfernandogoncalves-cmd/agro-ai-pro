@@ -2,7 +2,7 @@ from datetime import timedelta
 from decimal import Decimal, InvalidOperation
 
 from django.db import transaction
-from django.db.models import Case, DecimalField, F, Sum, Value, When
+from django.db.models import Case, DecimalField, F, Q, Sum, Value, When
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
@@ -56,12 +56,56 @@ def registrar_movimentacao(*, usuario, **dados):
     return movimento
 
 
-def posicao_estoque(queryset=None):
-    lotes = queryset or LoteEstoque.objects.select_related("produto", "local")
+def _lotes_no_escopo(queryset=None, *, propriedade=None, safra=""):
+    lotes = queryset if queryset is not None else LoteEstoque.objects.all()
+    lotes = lotes.select_related("produto", "local")
+    if propriedade:
+        lotes = lotes.filter(local__propriedade_id=propriedade)
+    if safra:
+        lotes = lotes.filter(movimentacoes__safra=safra)
+    return lotes.distinct()
+
+
+def posicao_estoque(queryset=None, *, propriedade=None, safra=""):
+    lotes = _lotes_no_escopo(
+        queryset,
+        propriedade=propriedade,
+        safra=safra,
+    )
+    filtro_safra = Q()
+    if safra:
+        filtro_safra &= Q(movimentacoes__safra=safra)
+
+    campo_decimal = DecimalField(max_digits=14, decimal_places=3)
+    lotes = lotes.annotate(
+        total_entradas=Coalesce(
+            Sum(
+                "movimentacoes__quantidade",
+                filter=(
+                    filtro_safra
+                    & Q(movimentacoes__tipo=MovimentacaoEstoque.Tipo.ENTRADA)
+                ),
+            ),
+            Value(Decimal("0")),
+            output_field=campo_decimal,
+        ),
+        total_saidas=Coalesce(
+            Sum(
+                "movimentacoes__quantidade",
+                filter=(
+                    filtro_safra
+                    & Q(movimentacoes__tipo=MovimentacaoEstoque.Tipo.SAIDA)
+                ),
+            ),
+            Value(Decimal("0")),
+            output_field=campo_decimal,
+        ),
+    )
+
     resultado = []
     hoje = timezone.localdate()
     for lote in lotes:
-        saldo = saldo_lote(lote)
+        saldo = lote.total_entradas - lote.total_saidas
         if saldo == 0 and not lote.ativo:
             continue
         resultado.append(
@@ -87,10 +131,20 @@ def posicao_estoque(queryset=None):
     return resultado
 
 
-def resumo_estoque():
-    posicoes = posicao_estoque()
+def resumo_estoque(queryset=None, *, propriedade=None, safra=""):
+    posicoes = posicao_estoque(
+        queryset,
+        propriedade=propriedade,
+        safra=safra,
+    )
+    produtos_ativos = ProdutoEstoque.objects.filter(ativo=True)
+    if queryset is not None or propriedade or safra:
+        produtos_ativos = produtos_ativos.filter(
+            id__in={item["produto_id"] for item in posicoes}
+        )
+
     return {
-        "produtos_ativos": ProdutoEstoque.objects.filter(ativo=True).count(),
+        "produtos_ativos": produtos_ativos.count(),
         "lotes_com_saldo": sum(1 for item in posicoes if item["saldo"] > 0),
         "lotes_vencidos": sum(
             1 for item in posicoes if item["saldo"] > 0 and item["vencido"]
