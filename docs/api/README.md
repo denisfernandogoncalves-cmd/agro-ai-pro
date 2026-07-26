@@ -65,3 +65,8 @@ liquidação, filtros e resumo de fluxo de caixa. Consulte
 
 O módulo controla produtos, locais, lotes, entradas, saídas, validade, estoque
 mínimo e rastreabilidade. Consulte [Estoque](ESTOQUE.md).
+
+## Operações
+
+O módulo planeja, inicia, conclui e cancela operações por talhão, com custos e
+baixa transacional dos insumos utilizados. Consulte [Operações](OPERACOES.md).
