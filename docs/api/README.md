@@ -42,3 +42,9 @@ Consulte os exemplos e critérios completos em
 A documentação dos endpoints, histórico agronômico, filtros, paginação,
 validações de área, processamento KML e limitações geoespaciais está em
 [Talhões](TALHOES.md).
+
+## Clima
+
+O módulo oferece previsão de sete dias por propriedade, histórico local,
+temperatura, chuva, umidade, vento e alertas agrícolas. Consulte os endpoints e
+limites em [Clima](CLIMA.md).

@@ -13,6 +13,7 @@ import {
   sair,
 } from "./api/propriedades";
 import MapaPropriedade from "./components/MapaPropriedade";
+import ClimaPage from "./pages/Clima/ClimaPage";
 import TalhoesPage from "./pages/Talhoes/TalhoesPage";
 
 import "./styles.css";
@@ -45,7 +46,9 @@ function mensagemDoErro(erro: unknown) {
 
 export default function App() {
   const [autenticado, setAutenticado] = useState(estaAutenticado());
-  const [modulo, setModulo] = useState<"propriedades" | "talhoes">("propriedades");
+  const [modulo, setModulo] = useState<
+    "propriedades" | "talhoes" | "clima"
+  >("propriedades");
   const [credenciais, setCredenciais] = useState({ username: "", password: "" });
   const [propriedades, setPropriedades] = useState<Propriedade[]>([]);
   const [selecionada, setSelecionada] = useState<Propriedade | null>(null);
@@ -174,7 +177,13 @@ export default function App() {
       <header>
         <div>
           <span className="kicker">Gestão rural</span>
-          <h1>{modulo === "propriedades" ? "Propriedades" : "Talhões"}</h1>
+          <h1>
+            {modulo === "propriedades"
+              ? "Propriedades"
+              : modulo === "talhoes"
+                ? "Talhões"
+                : "Clima"}
+          </h1>
         </div>
         <button
           className="secundario"
@@ -200,10 +209,18 @@ export default function App() {
         >
           Talhões
         </button>
+        <button
+          className={modulo === "clima" ? "" : "secundario"}
+          onClick={() => setModulo("clima")}
+        >
+          Clima
+        </button>
       </nav>
 
       {modulo === "talhoes" ? (
         <TalhoesPage />
+      ) : modulo === "clima" ? (
+        <ClimaPage propriedades={propriedades} />
       ) : (
         <>
           {erro && <p className="erro card">{erro}</p>}

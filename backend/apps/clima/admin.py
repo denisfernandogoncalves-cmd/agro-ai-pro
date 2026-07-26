@@ -11,6 +11,8 @@ class PrevisaoClimaAdmin(admin.ModelAdmin):
         "temperatura_min",
         "temperatura_max",
         "chuva_mm",
+        "umidade",
+        "vento_kmh",
         "condicao",
     )
 
@@ -18,6 +20,8 @@ class PrevisaoClimaAdmin(admin.ModelAdmin):
         "propriedade__nome",
         "condicao",
     )
+
+    readonly_fields = ("criado_em", "atualizado_em")
 
     list_filter = (
         "data",

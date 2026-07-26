@@ -5,8 +5,8 @@ frontend React/TypeScript.
 
 ## Estado atual
 
-As Sprints 1 (Infraestrutura + Propriedades), 2 (Talhões) e 3
-(Geoprocessamento) estão concluídas.
+As Sprints 1 (Infraestrutura + Propriedades), 2 (Talhões), 3
+(Geoprocessamento) e 4 (Clima) estão concluídas.
 
 O sistema oferece:
 
@@ -27,6 +27,11 @@ declarada e enquadra geometrias complexas no mapa.
 Talhões com histórico agronômico possuem exclusão protegida. A API mantém
 compatibilidade com listagens antigas sem paginação e oferece respostas
 paginadas quando `page` ou `page_size` é informado.
+
+O módulo de Clima consulta gratuitamente a Open-Meteo, mantém previsão de sete
+dias por propriedade e apresenta temperaturas, chuva, umidade, vento e alertas
+agrícolas. As consultas persistidas continuam disponíveis durante falhas
+temporárias do provedor.
 
 O índice oficial de andamento está em
 [`documentos/SPRINTS.md`](documentos/SPRINTS.md).
@@ -86,5 +91,6 @@ Redis e backend; o frontend é executado separadamente nesta Sprint.
 - [Sprint 1](docs/sprints/SPRINT-01.md)
 - [Sprint 2](docs/sprints/SPRINT-02.md)
 - [Sprint 3](docs/sprints/SPRINT-03.md)
+- [Sprint 4](docs/sprints/SPRINT-04.md)
 - [API](docs/api/README.md)
 - [Arquitetura](ARCHITECTURE.md)

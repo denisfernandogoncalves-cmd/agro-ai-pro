@@ -5,7 +5,7 @@
 | 1 | Infraestrutura + Propriedades | Concluída em 25/07/2026 |
 | 2 | Talhões | Concluída em 25/07/2026 |
 | 3 | Geoprocessamento | Concluída em 25/07/2026 |
-| 4 | Clima | Pendente |
+| 4 | Clima | Concluída em 25/07/2026 |
 | 5 | Mercado | Pendente |
 | 6 | Financeiro | Pendente |
 | 7 | Estoque | Pendente |

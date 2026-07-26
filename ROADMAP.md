@@ -8,8 +8,13 @@
 - Documentar arquitetura e processo de contribuição
 
 ## Próximas sprints
-- Gestão de empresas e fazendas
-- Operação agrícola
-- Estoque e insumos
-- Financeiro e relatórios
-- IA e automação
+
+- [x] infraestrutura, propriedades, talhões e geoprocessamento;
+- [x] previsão climática por propriedade;
+- [ ] mercado e clima no Corn Belt;
+- [ ] financeiro;
+- [ ] estoque e insumos;
+- [ ] operações e máquinas;
+- [ ] relatórios e dashboards;
+- [ ] inteligência artificial e automação;
+- [ ] aplicativo.
