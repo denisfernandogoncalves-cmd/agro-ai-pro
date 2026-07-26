@@ -31,7 +31,7 @@ from .serializers import (
 from .services import (
     AtualizacaoClimaEmAndamento,
     ServicoClimaError,
-    atualizar_clima_propriedade,
+    atualizar_previsoes,
 )
 
 
@@ -89,7 +89,7 @@ class PrevisaoClimaViewSet(
             papeis=PAPEIS_OPERACAO,
         )
         try:
-            resultado = atualizar_clima_propriedade(propriedade, force=True)
+            previsoes = atualizar_previsoes(propriedade)
         except AtualizacaoClimaEmAndamento as exc:
             return Response(
                 {"detail": str(exc)},
@@ -100,8 +100,10 @@ class PrevisaoClimaViewSet(
                 {"detail": str(exc)},
                 status=status.HTTP_503_SERVICE_UNAVAILABLE,
             )
-        serializer = self.get_serializer(resultado["previsoes"], many=True)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        return Response(
+            self.get_serializer(previsoes, many=True).data,
+            status=status.HTTP_200_OK,
+        )
 
     @action(detail=False, methods=["get"])
     def status(self, request):
