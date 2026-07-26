@@ -16,6 +16,6 @@
 - [x] estoque e insumos;
 - [x] operações;
 - [x] máquinas;
-- [ ] relatórios e dashboards;
+- [x] relatórios e dashboards;
 - [ ] inteligência artificial e automação;
 - [ ] aplicativo.

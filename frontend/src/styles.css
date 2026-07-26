@@ -103,6 +103,15 @@ header { align-items: center; display: flex; justify-content: space-between; mar
 .linha-transicao label { min-width: 180px; }
 .modulo-maquinas { display: grid; gap: 1.4rem; }
 .maquinas-grade { grid-template-columns: repeat(2, minmax(310px, 1fr)); }
+.modulo-relatorios { display: grid; gap: 1.4rem; }
+.filtros-relatorio { align-items: end; display: grid; gap: 1rem; grid-template-columns: 2fr 1fr auto; }
+.relatorios-grade { grid-template-columns: repeat(2, 1fr); }
+.grafico-barras { align-items: end; display: flex; gap: 1rem; min-height: 160px; overflow-x: auto; }
+.grupo-barras { align-items: end; display: grid; gap: 3px; grid-template-columns: repeat(2, 18px); }
+.grupo-barras span { font-size: 0.7rem; grid-column: 1 / -1; writing-mode: vertical-rl; }
+.barra { border-radius: 4px 4px 0 0; width: 18px; }
+.barra.entrada { background: #237447; }
+.barra.saida { background: #a53a32; }
 
 @media (max-width: 860px) {
   .pagina { padding: 1rem; }
@@ -112,5 +121,5 @@ header { align-items: center; display: flex; justify-content: space-between; mar
   .item { align-items: flex-start; flex-direction: column; gap: 1rem; }
   .clima-controles { grid-template-columns: 1fr; }
   .mercado-controles { align-items: stretch; flex-direction: column; }
-  .financeiro-grade, .estoque-grade, .operacoes-grade, .maquinas-grade, .painel-filtros, .auxiliares-grade, .linha-insumo { grid-template-columns: 1fr; }
+  .financeiro-grade, .estoque-grade, .operacoes-grade, .maquinas-grade, .relatorios-grade, .filtros-relatorio, .painel-filtros, .auxiliares-grade, .linha-insumo { grid-template-columns: 1fr; }
 }

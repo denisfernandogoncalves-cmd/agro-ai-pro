@@ -66,7 +66,7 @@ Detalhes em `docs/sprints/SPRINT-03.md`.
 | 7 | Estoque | `[x]` — concluída em 25/07/2026 |
 | 8 | Operações | `[x]` — concluída em 25/07/2026 |
 | 9 | Máquinas | `[x]` — concluída em 25/07/2026 |
-| 10 | Relatórios | `[ ]` |
+| 10 | Relatórios | `[x]` — concluída em 25/07/2026 |
 | 11 | Inteligência Artificial | `[ ]` |
 | 12 | Aplicativo | `[ ]` |
 
