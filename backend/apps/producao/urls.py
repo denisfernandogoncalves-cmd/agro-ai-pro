@@ -1,6 +1,10 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
+from .grain_enterprise_report_views import (
+    ProducaoDashboardEnterpriseView,
+    RelatorioProducaoEnterpriseView,
+)
 from .grain_enterprise_views import (
     AuditoriaProducaoEnterpriseViewSet,
     CadProEnterpriseViewSet,
@@ -19,8 +23,6 @@ from .grain_views import (
     AcessoCadProViewSet,
     CulturaViewSet,
     MotoristaViewSet,
-    ProducaoDashboardView,
-    RelatorioProducaoView,
     SafraViewSet,
     SaldoGraosViewSet,
     VeiculoViewSet,
@@ -52,6 +54,14 @@ router.register("importacoes", ImportacaoPlanilhaEnterpriseViewSet, basename="im
 
 urlpatterns = [
     path("", include(router.urls)),
-    path("dashboard-integrado/", ProducaoDashboardView.as_view(), name="producao-dashboard-integrado"),
-    path("relatorios-integrados/", RelatorioProducaoView.as_view(), name="producao-relatorios-integrados"),
+    path(
+        "dashboard-integrado/",
+        ProducaoDashboardEnterpriseView.as_view(),
+        name="producao-dashboard-integrado",
+    ),
+    path(
+        "relatorios-integrados/",
+        RelatorioProducaoEnterpriseView.as_view(),
+        name="producao-relatorios-integrados",
+    ),
 ]
