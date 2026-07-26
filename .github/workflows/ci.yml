@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - codex/gestao-integrada-producao
 
 permissions:
   contents: read
@@ -52,7 +53,7 @@ jobs:
           set +e
           python manage.py test > test-output.log 2>&1
           status=$?
-          tail -n 180 test-output.log
+          tail -n 220 test-output.log
           exit $status
 
       - name: Publicar relatório de testes
@@ -104,10 +105,21 @@ jobs:
       - name: Validar whitespace
         run: git diff --check HEAD^
 
+      - name: Bloquear arquivos sensíveis
+        run: |
+          if git ls-files | grep -E '(^|/)\.env($|\.)' | grep -vE '(^|/)\.env\.example$'; then
+            echo "Arquivo de ambiente versionado indevidamente."
+            exit 1
+          fi
+          if git ls-files | grep -Ei '\.(log|pem|key|p12|pfx)$'; then
+            echo "Arquivo sensível ou log versionado indevidamente."
+            exit 1
+          fi
+
       - name: Verificar credenciais versionadas
         run: |
-          if git grep -nE '(BEGIN (RSA|OPENSSH|EC) PRIVATE KEY|AKIA[0-9A-Z]{16})' -- \
-            ':!*.md' ':!frontend/package-lock.json'; then
+          if git grep -nE '(BEGIN (RSA|OPENSSH|EC) PRIVATE KEY|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9]{20,}|AIza[0-9A-Za-z_-]{30,})' -- \
+            ':!*.md' ':!frontend/package-lock.json' ':!.env.example'; then
             echo "Possível segredo encontrado."
             exit 1
           fi
