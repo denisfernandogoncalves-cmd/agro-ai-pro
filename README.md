@@ -7,7 +7,7 @@ frontend React/TypeScript.
 
 As Sprints 1 (Infraestrutura + Propriedades), 2 (Talhões), 3
 (Geoprocessamento), 4 (Clima), 5 (Mercado), 6 (Financeiro), 7 (Estoque), 8
-(Operações) e 9 (Máquinas) estão concluídas.
+(Operações), 9 (Máquinas) e 10 (Relatórios) estão concluídas.
 
 O sistema oferece:
 
@@ -55,6 +55,9 @@ propriedade, safra e usuário.
 O módulo de Máquinas controla frota, propriedade, estado, horímetro, uso em
 operações, abastecimentos e manutenções. Leituras não podem regredir e os
 históricos de campo e combustível são imutáveis.
+
+O dashboard gerencial consolida estrutura, caixa, operações, estoque, máquinas,
+alertas e fluxo mensal, com filtros por propriedade e safra.
 
 O índice oficial de andamento está em
 [`documentos/SPRINTS.md`](documentos/SPRINTS.md).

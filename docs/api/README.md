@@ -75,3 +75,8 @@ baixa transacional dos insumos utilizados. Consulte [Operações](OPERACOES.md).
 
 O módulo controla frota, horímetro, uso em operações, abastecimentos e
 manutenções. Consulte [Máquinas](MAQUINAS.md).
+
+## Relatórios
+
+O dashboard consolida indicadores gerenciais de todos os módulos. Consulte
+[Relatórios](RELATORIOS.md).

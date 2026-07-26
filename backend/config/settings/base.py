@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     "apps.estoque",
     "apps.producao",
     "apps.maquinas",
+    "apps.relatorios",
     "apps.mercado",
     "apps.propriedades",
     "apps.talhoes",
