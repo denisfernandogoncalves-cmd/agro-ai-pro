@@ -1,200 +1,85 @@
 # Sprints — AGRO-AI-PRO
 
-Este documento organiza a evolução do projeto. Uma Sprint somente deve ser marcada como concluída quando seus critérios de aceite forem atendidos e as verificações relevantes forem executadas.
+Este documento detalha o índice operacional de `documentos/SPRINTS.md`. Uma
+Sprint somente é concluída quando seus critérios de aceite e validações
+aplicáveis estão atendidos.
 
 ## Legenda
 
-- `[x]` concluído e validado
-- `[~]` parcialmente implementado
-- `[ ]` pendente
-- `[!]` bloqueado
+- `[x]` concluída e validada;
+- `[~]` parcialmente implementada;
+- `[ ]` pendente;
+- `[!]` bloqueada.
 
-## Sprint 0 — Fundação do projeto
+## Sprint 1 — Infraestrutura + Propriedades
 
-**Status:** `[~]`
+**Status:** `[x]` — concluída em 25/07/2026
 
-### Objetivos
+- [x] backend Django, PostgreSQL e Redis em Docker;
+- [x] autenticação JWT;
+- [x] CRUD REST e interface de propriedades;
+- [x] busca, ordenação e validações;
+- [x] upload KML seguro e mapa;
+- [x] proteção de propriedades com talhões vinculados;
+- [x] migrations, testes e documentação validados.
 
-- estrutura Django modular;
-- configuração por ambiente;
-- PostgreSQL e Redis via Docker;
-- autenticação e API base;
-- documentação de instalação e operação;
-- regras permanentes para agentes de IA;
-- estratégia mínima de testes e integração contínua.
+Detalhes em `docs/sprints/SPRINT-01.md`.
 
-### Critérios de aceite
+## Sprint 2 — Talhões
 
-- [x] backend Django estruturado;
-- [x] Docker Compose com PostgreSQL, Redis e backend;
-- [x] Prompt Mestre documentado;
-- [x] `AGENTS.md` criado;
-- [x] exemplo de variáveis de ambiente disponível;
-- [ ] README operacional validado em ambiente limpo;
-- [ ] pipeline de integração contínua executando verificações essenciais;
-- [ ] cobertura mínima de testes definida e documentada.
+**Status:** `[x]` — concluída em 25/07/2026
 
-## Sprint 1 — Propriedades rurais
+- [x] CRUD REST autenticado e interface dedicada;
+- [x] vínculo com propriedade e integridade das áreas;
+- [x] cultura, safra e dados topográficos;
+- [x] produtividade esperada e realizada;
+- [x] histórico agronômico;
+- [x] upload KML e dados preparados para o mapa;
+- [x] busca, filtros, ordenação e paginação;
+- [x] migrations, testes e documentação validados.
 
-**Status:** `[~]`
+Detalhes em `docs/sprints/SPRINT-02.md`.
 
-### Objetivos
-
-- cadastro completo de propriedades;
-- API REST;
-- coordenadas geográficas;
-- upload de KML;
-- validação de dados;
-- testes do módulo.
-
-### Critérios de aceite
-
-- [x] model de propriedade criado;
-- [x] campos básicos, área, município, UF e coordenadas;
-- [x] campo para arquivo KML;
-- [ ] validação formal de latitude, longitude, UF, área e extensão do arquivo;
-- [ ] testes de model, serializer e endpoints;
-- [ ] documentação da API;
-- [ ] tratamento seguro de arquivos enviados.
-
-## Sprint 2 — Talhões e geoprocessamento
-
-**Status:** `[x]`
-
-### Objetivos
-
-- vincular talhões às propriedades;
-- registrar cultura, safra e produtividade esperada;
-- importar KML por talhão;
-- preparar cálculo de centroide, área e indicadores topográficos.
-
-### Critérios de aceite
-
-- [x] model de talhão criado;
-- [x] relacionamento com propriedade;
-- [x] campos agronômicos básicos;
-- [x] upload de KML;
-- [x] validação de área do talhão contra área da propriedade;
-- [x] processamento confiável do KML;
-- [x] testes de API e regras de negócio;
-- [x] perímetros preparados em GeoJSON para visualização no mapa.
-
-## Sprint 3 — Clima por propriedade
+## Sprint 3 — Geoprocessamento
 
 **Status:** `[~]`
 
-### Objetivos
+- [x] validação e armazenamento seguro de KML;
+- [x] Polygon e MultiPolygon em GeoJSON;
+- [x] centroide cartesiano para visualização;
+- [x] tratamento de erros de leitura e geometria;
+- [ ] cálculo geodésico da área em hectares;
+- [ ] comparação entre área calculada e declarada;
+- [ ] renderização completa de geometrias complexas no frontend;
+- [ ] estratégia formal de precisão e sistema de referência;
+- [ ] auditoria funcional e critérios de aceite.
 
-- previsão do tempo por propriedade;
-- histórico de consultas;
-- alertas climáticos;
-- armazenamento com origem e horário dos dados.
+Detalhes em `docs/sprints/SPRINT-03.md`.
 
-### Critérios de aceite
+## Sprints pendentes
 
-- [x] estrutura inicial do app de clima;
-- [x] endpoint inicial de previsões;
-- [ ] integração com provedor configurável;
-- [ ] cache e política de atualização;
-- [ ] testes;
-- [ ] alertas por risco climático.
+| Sprint | Escopo | Status |
+| --- | --- | --- |
+| 4 | Clima | `[ ]` |
+| 5 | Mercado | `[ ]` |
+| 6 | Financeiro | `[ ]` |
+| 7 | Estoque | `[ ]` |
+| 8 | Operações | `[ ]` |
+| 9 | Máquinas | `[ ]` |
+| 10 | Relatórios | `[ ]` |
+| 11 | Inteligência Artificial | `[ ]` |
+| 12 | Aplicativo | `[ ]` |
 
-## Sprint 4 — Frontend operacional
-
-**Status:** `[~]`
-
-### Objetivos
-
-- autenticação;
-- dashboard;
-- CRUD de propriedades e talhões;
-- mapas;
-- upload de KML;
-- consumo seguro da API.
-
-### Critérios de aceite
-
-- [x] estrutura inicial do frontend;
-- [x] componente inicial de mapa;
-- [ ] fluxo de autenticação validado;
-- [ ] telas completas de propriedades e talhões;
-- [ ] tratamento de carregamento e erros;
-- [ ] testes de componentes críticos;
-- [ ] build de produção validado.
-
-## Sprint 5 — Financeiro
-
-**Status:** `[ ]`
-
-- contas a pagar;
-- contas a receber;
-- categorias e centros de custo;
-- leitura de código de barras;
-- fluxo de caixa;
-- relatórios e conciliação futura.
-
-## Sprint 6 — Estoque e insumos
-
-**Status:** `[ ]`
-
-- produtos e unidades;
-- entradas, saídas e ajustes;
-- lançamentos com ou sem nota fiscal;
-- lotes e validade;
-- herbicidas, fungicidas, fertilizantes e demais insumos;
-- custo médio e inventário.
-
-## Sprint 7 — Produção agrícola
-
-**Status:** `[ ]`
-
-- culturas e safras;
-- planejamento por talhão;
-- operações agrícolas;
-- produtividade estimada e realizada;
-- média histórica por talhão;
-- custos de produção.
-
-## Sprint 8 — Mercado e Corn Belt
-
-**Status:** `[ ]`
-
-- soja, milho e trigo em Chicago;
-- petróleo Brent;
-- preços locais configuráveis;
-- clima no Corn Belt;
-- alertas e recomendações;
-- histórico e rastreabilidade das fontes.
-
-## Sprint 9 — Relatórios e inteligência
-
-**Status:** `[ ]`
-
-- dashboards gerenciais;
-- relatórios em PDF e planilha;
-- indicadores financeiros e produtivos;
-- alertas inteligentes;
-- apoio à tomada de decisão com explicações e fontes.
-
-## Sprint 10 — Segurança, produção e nuvem
-
-**Status:** `[ ]`
-
-- configuração segura de produção;
-- backups e restauração testados;
-- observabilidade e logs;
-- CI/CD;
-- domínio, HTTPS e armazenamento de arquivos;
-- política de permissões;
-- publicação em nuvem.
+Implementações preexistentes e isoladas nesses módulos não alteram o status de
+uma Sprint sem auditoria formal dos respectivos critérios de aceite.
 
 ## Regra de execução
 
 Quando uma tarefa não indicar Sprint específica, o agente deve:
 
 1. ler `AGENTS.md` e o Prompt Mestre;
-2. identificar a primeira Sprint com pendência relacionada ao objetivo;
-3. implementar uma entrega pequena, testável e reversível;
-4. atualizar este documento somente com evidências;
-5. abrir ou atualizar Pull Request;
-6. nunca fazer merge sem aprovação explícita do Product Owner.
+2. usar `documentos/SPRINTS.md` como índice operacional;
+3. identificar a primeira Sprint ainda não concluída;
+4. implementar uma entrega testável e compatível com o escopo;
+5. atualizar os documentos somente com evidências;
+6. nunca fazer commit, push ou merge sem a autorização aplicável.

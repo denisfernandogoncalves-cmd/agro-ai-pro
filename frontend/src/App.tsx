@@ -13,6 +13,7 @@ import {
   sair,
 } from "./api/propriedades";
 import MapaPropriedade from "./components/MapaPropriedade";
+import TalhoesPage from "./pages/Talhoes/TalhoesPage";
 
 import "./styles.css";
 
@@ -44,6 +45,7 @@ function mensagemDoErro(erro: unknown) {
 
 export default function App() {
   const [autenticado, setAutenticado] = useState(estaAutenticado());
+  const [modulo, setModulo] = useState<"propriedades" | "talhoes">("propriedades");
   const [credenciais, setCredenciais] = useState({ username: "", password: "" });
   const [propriedades, setPropriedades] = useState<Propriedade[]>([]);
   const [selecionada, setSelecionada] = useState<Propriedade | null>(null);
@@ -172,7 +174,7 @@ export default function App() {
       <header>
         <div>
           <span className="kicker">Gestão rural</span>
-          <h1>Propriedades</h1>
+          <h1>{modulo === "propriedades" ? "Propriedades" : "Talhões"}</h1>
         </div>
         <button
           className="secundario"
@@ -185,9 +187,28 @@ export default function App() {
         </button>
       </header>
 
-      {erro && <p className="erro card">{erro}</p>}
+      <nav className="navegacao-modulos" aria-label="Módulos agrícolas">
+        <button
+          className={modulo === "propriedades" ? "" : "secundario"}
+          onClick={() => setModulo("propriedades")}
+        >
+          Propriedades
+        </button>
+        <button
+          className={modulo === "talhoes" ? "" : "secundario"}
+          onClick={() => setModulo("talhoes")}
+        >
+          Talhões
+        </button>
+      </nav>
 
-      <section className="grade">
+      {modulo === "talhoes" ? (
+        <TalhoesPage />
+      ) : (
+        <>
+          {erro && <p className="erro card">{erro}</p>}
+
+          <section className="grade">
         <form className="card formulario" onSubmit={salvar}>
           <h2>{edicaoId ? "Editar propriedade" : "Nova propriedade"}</h2>
           <label>Nome<input required value={formulario.nome} onChange={(e) => setFormulario({ ...formulario, nome: e.target.value })} /></label>
@@ -242,7 +263,9 @@ export default function App() {
             />
           )}
         </section>
-      </section>
+          </section>
+        </>
+      )}
     </main>
   );
 }

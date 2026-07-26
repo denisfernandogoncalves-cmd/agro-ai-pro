@@ -3,7 +3,7 @@
 | Sprint | Escopo | Status |
 | --- | --- | --- |
 | 1 | Infraestrutura + Propriedades | Concluída em 25/07/2026 |
-| 2 | Talhões | Parcialmente implementada |
+| 2 | Talhões | Concluída em 25/07/2026 |
 | 3 | Geoprocessamento | Parcialmente implementada |
 | 4 | Clima | Pendente |
 | 5 | Mercado | Pendente |
