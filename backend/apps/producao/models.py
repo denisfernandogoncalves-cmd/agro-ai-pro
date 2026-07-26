@@ -189,3 +189,11 @@ from .grain_models import (  # noqa: E402,F401
     SaldoGraos,
     Veiculo,
 )
+from .grain_enterprise_models import (  # noqa: E402,F401
+    AuditoriaCadPro,
+    ConfiguracaoCultura,
+    DetalheLocalArmazenagem,
+    NotaFiscalProducao,
+    OrigemTerceiroRecebimento,
+    TransferenciaGraos,
+)
