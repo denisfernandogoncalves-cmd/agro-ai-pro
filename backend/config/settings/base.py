@@ -32,6 +32,7 @@ INSTALLED_APPS = [
     "apps.financeiro",
     "apps.estoque",
     "apps.producao",
+    "apps.maquinas",
     "apps.mercado",
     "apps.propriedades",
     "apps.talhoes",

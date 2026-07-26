@@ -13,7 +13,7 @@ Este é o índice operacional das Sprints. Os detalhes técnicos ficam em
 | 6 | Financeiro | Concluída em 25/07/2026 | `docs/sprints/SPRINT-06.md` |
 | 7 | Estoque | Concluída em 25/07/2026 | `docs/sprints/SPRINT-07.md` |
 | 8 | Operações | Concluída em 25/07/2026 | `docs/sprints/SPRINT-08.md` |
-| 9 | Máquinas | Pendente | A criar |
+| 9 | Máquinas | Concluída em 25/07/2026 | `docs/sprints/SPRINT-09.md` |
 | 10 | Relatórios | Pendente | A criar |
 | 11 | IA | Pendente | A criar |
 | 12 | Aplicativo | Pendente | A criar |

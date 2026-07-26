@@ -15,7 +15,7 @@
 - [x] financeiro;
 - [x] estoque e insumos;
 - [x] operações;
-- [ ] máquinas;
+- [x] máquinas;
 - [ ] relatórios e dashboards;
 - [ ] inteligência artificial e automação;
 - [ ] aplicativo.

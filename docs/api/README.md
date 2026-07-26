@@ -70,3 +70,8 @@ mínimo e rastreabilidade. Consulte [Estoque](ESTOQUE.md).
 
 O módulo planeja, inicia, conclui e cancela operações por talhão, com custos e
 baixa transacional dos insumos utilizados. Consulte [Operações](OPERACOES.md).
+
+## Máquinas
+
+O módulo controla frota, horímetro, uso em operações, abastecimentos e
+manutenções. Consulte [Máquinas](MAQUINAS.md).
