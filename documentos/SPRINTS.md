@@ -17,10 +17,11 @@ Este é o índice operacional das Sprints. Os detalhes técnicos ficam em
 | 10 | Relatórios | Concluída em 25/07/2026 | `docs/sprints/SPRINT-10.md` |
 | 11 | IA | Concluída em 25/07/2026 | `docs/sprints/SPRINT-11.md` |
 | 12 | Aplicativo | Concluída em 25/07/2026 | `docs/sprints/SPRINT-12.md` |
+| 13 | Gestão Integrada da Produção Agrícola | Em desenvolvimento | `docs/sprints/SPRINT-13.md` |
 
 ## Regra de continuidade
 
 Uma Sprint só deve ser marcada como concluída após implementação, migrations
 consistentes, execução dos testes aplicáveis e atualização da documentação.
-Os critérios técnicos, a estratégia de precisão e os resultados da Sprint 3
-estão registrados no documento correspondente.
+A Sprint 13 permanece em desenvolvimento até a aprovação do CI e a homologação
+local dos fluxos visuais e transacionais.
