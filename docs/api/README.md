@@ -20,6 +20,13 @@ Authorization: Bearer <access_token>
 
 O token pode ser renovado em `POST /api/auth/token/refresh/`.
 
+## Autorização
+
+As APIs protegidas usam os papéis administrador, gestor, operador e somente
+leitura por propriedade. A Gestão Integrada da Produção acrescenta escopo por
+CAD/PRO. Recursos externos ao usuário são ocultados com HTTP 404; ações
+incompatíveis com o papel retornam HTTP 403.
+
 ## Propriedades
 
 O endpoint `/api/propriedades/` oferece CRUD, busca textual e ordenação. Campos:
@@ -61,15 +68,21 @@ O módulo Financeiro oferece cadastros auxiliares, contas a pagar e receber,
 liquidação, filtros e resumo de fluxo de caixa. Consulte
 [Financeiro](FINANCEIRO.md).
 
-## Estoque
+## Estoque de insumos
 
 O módulo controla produtos, locais, lotes, entradas, saídas, validade, estoque
 mínimo e rastreabilidade. Consulte [Estoque](ESTOQUE.md).
 
-## Operações
+## Operações agrícolas
 
 O módulo planeja, inicia, conclui e cancela operações por talhão, com custos e
 baixa transacional dos insumos utilizados. Consulte [Operações](OPERACOES.md).
+
+## Gestão Integrada da Produção
+
+O módulo controla culturas, safras, CAD/PRO, recebimentos, qualidade, estoque de
+grãos, contratos, embarques, auditoria, importação e exportações. Consulte
+[Produção Integrada](PRODUCAO-INTEGRADA.md).
 
 ## Máquinas
 
