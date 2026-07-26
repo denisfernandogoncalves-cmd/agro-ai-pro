@@ -1,9 +1,7 @@
 from decimal import Decimal, ROUND_HALF_UP
 
-from django.core.exceptions import ValidationError
 from django.db import transaction
 from django.db.models import Sum
-from django.utils import timezone
 
 from apps.financeiro.models import CategoriaFinanceira, LancamentoFinanceiro
 
@@ -25,16 +23,21 @@ def _quantizar(valor, casas="0.001"):
     return Decimal(str(valor)).quantize(Decimal(casas), rounding=ROUND_HALF_UP)
 
 
+def _valor_auditavel(valor):
+    if isinstance(valor, Decimal):
+        return str(valor)
+    if hasattr(valor, "isoformat"):
+        return valor.isoformat()
+    if isinstance(valor, (str, int, float, bool, list, dict, type(None))):
+        return valor
+    return str(valor)
+
+
 def _dados_auditoria(objeto):
-    dados = {}
-    for campo in objeto._meta.concrete_fields:
-        valor = getattr(objeto, campo.attname)
-        if isinstance(valor, Decimal):
-            valor = str(valor)
-        elif hasattr(valor, "isoformat"):
-            valor = valor.isoformat()
-        dados[campo.name] = valor
-    return dados
+    return {
+        campo.name: _valor_auditavel(getattr(objeto, campo.attname))
+        for campo in objeto._meta.concrete_fields
+    }
 
 
 def registrar_auditoria(*, usuario, acao, objeto, anteriores=None, metadados=None):
