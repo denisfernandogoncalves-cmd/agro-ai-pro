@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 
 import {
@@ -9,24 +9,23 @@ import {
   excluirPropriedade,
   listarPropriedades,
   obterPermissoesUsuario,
-  PermissoesUsuario,
-  Propriedade,
-  PropriedadeInput,
+  type PermissoesUsuario,
+  type Propriedade,
+  type PropriedadeInput,
   sair,
 } from "./api/propriedades";
-import MapaPropriedade from "./components/MapaPropriedade";
+import ModuleRenderer from "./app/ModuleRenderer";
+import { NAVIGATION_ITEMS, type ModuleId } from "./app/navigation";
 import AplicativoStatus from "./components/AplicativoStatus";
-import ClimaPage from "./pages/Clima/ClimaPage";
-import EstoquePage from "./pages/Estoque/EstoquePage";
-import FinanceiroPage from "./pages/Financeiro/FinanceiroPage";
-import MercadoPage from "./pages/Mercado/MercadoPage";
-import MaquinasPage from "./pages/Maquinas/MaquinasPage";
-import OperacoesPage from "./pages/Operacoes/OperacoesPage";
-import RelatoriosPage from "./pages/Relatorios/RelatoriosPage";
-import InsightsPage from "./pages/Insights/InsightsPage";
-import TalhoesPage from "./pages/Talhoes/TalhoesPage";
+import AppShell from "./components/layout/AppShell";
+import MapaPropriedade from "./components/MapaPropriedade";
+import { AlertCard, EmptyState, PageHeader } from "./components/shared/ui";
+import { useTheme } from "./hooks/useTheme";
+import { getUserIdentity } from "./utils/session";
 
+import "./styles/tokens.css";
 import "./styles.css";
+import "./styles/enterprise.css";
 
 
 const formularioVazio: PropriedadeInput = {
@@ -52,6 +51,9 @@ function mensagemDoErro(erro: unknown) {
     if (erro.response?.status === 403 && !dados?.detail) {
       return "Seu perfil não permite concluir esta operação.";
     }
+    if (erro.response?.status === 404 && !dados?.detail) {
+      return "O registro não foi encontrado ou não pertence ao seu escopo autorizado.";
+    }
     if (typeof dados?.detail === "string") {
       return dados.detail;
     }
@@ -64,18 +66,18 @@ function mensagemDoErro(erro: unknown) {
 
 export default function App() {
   const [autenticado, setAutenticado] = useState(estaAutenticado());
-  const [modulo, setModulo] = useState<
-    "propriedades" | "talhoes" | "clima" | "mercado" | "financeiro" | "estoque" | "operacoes" | "maquinas" | "relatorios" | "insights"
-  >("propriedades");
+  const [modulo, setModulo] = useState<ModuleId>("dashboard");
   const [credenciais, setCredenciais] = useState({ username: "", password: "" });
   const [propriedades, setPropriedades] = useState<Propriedade[]>([]);
   const [permissoes, setPermissoes] = useState(permissoesVazias);
   const [selecionada, setSelecionada] = useState<Propriedade | null>(null);
+  const [safra, setSafra] = useState("");
   const [edicaoId, setEdicaoId] = useState<number | null>(null);
   const [formulario, setFormulario] = useState(formularioVazio);
   const [busca, setBusca] = useState("");
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
+  const { theme, toggleTheme } = useTheme();
 
   const carregar = useCallback(async (termo = "") => {
     setCarregando(true);
@@ -98,9 +100,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (autenticado) {
-      void carregar();
-    }
+    if (autenticado) void carregar();
   }, [autenticado, carregar]);
 
   async function enviarLogin(evento: FormEvent) {
@@ -109,6 +109,7 @@ export default function App() {
     try {
       await autenticar(credenciais.username, credenciais.password);
       setAutenticado(true);
+      setModulo("dashboard");
     } catch {
       setErro("Usuário ou senha inválidos.");
     }
@@ -119,11 +120,8 @@ export default function App() {
     setCarregando(true);
     setErro("");
     try {
-      if (edicaoId) {
-        await atualizarPropriedade(edicaoId, formulario);
-      } else {
-        await criarPropriedade(formulario);
-      }
+      if (edicaoId) await atualizarPropriedade(edicaoId, formulario);
+      else await criarPropriedade(formulario);
       setFormulario(formularioVazio);
       setEdicaoId(null);
       await carregar(busca);
@@ -150,6 +148,7 @@ export default function App() {
       observacoes: item.observacoes,
       arquivo_kml: null,
     });
+    setModulo("propriedades");
   }
 
   async function excluir(item: Propriedade) {
@@ -157,9 +156,7 @@ export default function App() {
       setErro("Somente administradores podem excluir propriedades.");
       return;
     }
-    if (!window.confirm(`Excluir a propriedade "${item.nome}"?`)) {
-      return;
-    }
+    if (!window.confirm(`Excluir a propriedade "${item.nome}"?`)) return;
     setErro("");
     try {
       await excluirPropriedade(item.id);
@@ -169,33 +166,120 @@ export default function App() {
     }
   }
 
+  function logout() {
+    sair();
+    setAutenticado(false);
+    setPermissoes(permissoesVazias);
+    setPropriedades([]);
+    setSelecionada(null);
+  }
+
+  const scopedProperties = selecionada ? [selecionada] : propriedades;
+  const roles = useMemo(
+    () => new Set(scopedProperties.map((item) => item.papel_usuario).filter(Boolean)),
+    [scopedProperties],
+  );
+  const canManage = permissoes.superusuario || roles.has("administrador") || roles.has("gestor");
+  const canOperate = canManage || roles.has("operador");
+  const roleLabel = permissoes.superusuario
+    ? "Superusuário"
+    : selecionada?.papel_usuario === "administrador"
+      ? "Administrador"
+      : selecionada?.papel_usuario === "gestor"
+        ? "Gestor"
+        : selecionada?.papel_usuario === "operador"
+          ? "Operador"
+          : "Somente leitura";
+  const navigationItems = NAVIGATION_ITEMS.filter(
+    (item) => !item.requiresProperty || propriedades.length > 0,
+  );
+  const identity = getUserIdentity();
+
+  const propertiesContent = (
+    <section className="properties-page">
+      <PageHeader
+        eyebrow="Estrutura rural"
+        title="Propriedades"
+        description="Cadastre, consulte e selecione as unidades rurais autorizadas."
+      />
+      {erro && <AlertCard title="Não foi possível concluir" tone="danger"><p>{erro}</p></AlertCard>}
+      <section className="grade">
+        {(permissoes.pode_criar_propriedade || edicaoId !== null) ? (
+          <form className="card formulario" onSubmit={salvar}>
+            <h2>{edicaoId ? "Editar propriedade" : "Nova propriedade"}</h2>
+            <label>Nome<input required value={formulario.nome} onChange={(event) => setFormulario({ ...formulario, nome: event.target.value })} /></label>
+            <label>Proprietário<input value={formulario.proprietario} onChange={(event) => setFormulario({ ...formulario, proprietario: event.target.value })} /></label>
+            <div className="linha">
+              <label>Município<input required value={formulario.municipio} onChange={(event) => setFormulario({ ...formulario, municipio: event.target.value })} /></label>
+              <label>UF<input maxLength={2} value={formulario.uf} onChange={(event) => setFormulario({ ...formulario, uf: event.target.value.toUpperCase() })} /></label>
+            </div>
+            <label>Área (ha)<input required min="0.01" step="0.01" type="number" value={formulario.area_hectares} onChange={(event) => setFormulario({ ...formulario, area_hectares: event.target.value })} /></label>
+            <div className="linha">
+              <label>Latitude<input step="any" type="number" value={formulario.latitude} onChange={(event) => setFormulario({ ...formulario, latitude: event.target.value })} /></label>
+              <label>Longitude<input step="any" type="number" value={formulario.longitude} onChange={(event) => setFormulario({ ...formulario, longitude: event.target.value })} /></label>
+            </div>
+            <label>KML (até 5 MB)<input accept=".kml" type="file" onChange={(event) => setFormulario({ ...formulario, arquivo_kml: event.target.files?.[0] ?? null })} /></label>
+            <label>Observações<textarea value={formulario.observacoes} onChange={(event) => setFormulario({ ...formulario, observacoes: event.target.value })} /></label>
+            <div className="acoes">
+              <button disabled={carregando} type="submit">Salvar</button>
+              {edicaoId && <button className="secundario" type="button" onClick={() => { setEdicaoId(null); setFormulario(formularioVazio); }}>Cancelar</button>}
+            </div>
+          </form>
+        ) : (
+          <AlertCard title="Acesso de consulta" tone="info"><p>Seu perfil permite consultar somente as propriedades autorizadas.</p></AlertCard>
+        )}
+
+        <section className="conteudo">
+          <form className="busca" onSubmit={(event) => { event.preventDefault(); void carregar(busca); }}>
+            <input aria-label="Buscar propriedades" placeholder="Buscar por nome, município ou proprietário" value={busca} onChange={(event) => setBusca(event.target.value)} />
+            <button type="submit">Buscar</button>
+          </form>
+          {carregando && propriedades.length === 0 ? (
+            <p>Carregando propriedades...</p>
+          ) : propriedades.length === 0 ? (
+            <EmptyState title="Nenhuma propriedade autorizada" />
+          ) : (
+            <div className="lista">
+              {propriedades.map((item) => (
+                <article className={`card item ${selecionada?.id === item.id ? "ativo" : ""}`} key={item.id} onClick={() => setSelecionada(item)}>
+                  <div>
+                    <h3>{item.nome}</h3>
+                    <p>{item.municipio}/{item.uf} · {item.area_hectares} ha declarados</p>
+                    <p className="metadado-geografico">Perfil: {item.papel_usuario ?? "superusuário"}</p>
+                    {item.area_calculada_hectares && <p className="metadado-geografico">{item.area_calculada_hectares} ha calculados{item.divergencia_area_percentual && ` · diferença ${item.divergencia_area_percentual}%`}</p>}
+                  </div>
+                  {(item.pode_editar || item.pode_excluir) && (
+                    <div className="acoes">
+                      {item.pode_editar && <button className="secundario" onClick={(event) => { event.stopPropagation(); editar(item); }}>Editar</button>}
+                      {item.pode_excluir && <button className="perigo" onClick={(event) => { event.stopPropagation(); void excluir(item); }}>Excluir</button>}
+                    </div>
+                  )}
+                </article>
+              ))}
+            </div>
+          )}
+          {selecionada?.latitude && selecionada.longitude && (
+            <MapaPropriedade
+              latitude={Number(selecionada.latitude)}
+              longitude={Number(selecionada.longitude)}
+              nome={selecionada.nome}
+              geometria={selecionada.geometria_geojson}
+            />
+          )}
+        </section>
+      </section>
+    </section>
+  );
+
   if (!autenticado) {
     return (
-      <main className="login">
+      <main className="login enterprise-login">
         <form className="card" onSubmit={enviarLogin}>
+          <span className="kicker">ERP agrícola</span>
           <h1>AGRO-AI-PRO</h1>
-          <p>Acesse o módulo de propriedades.</p>
-          <label>
-            Usuário
-            <input
-              value={credenciais.username}
-              onChange={(evento) =>
-                setCredenciais({ ...credenciais, username: evento.target.value })
-              }
-              required
-            />
-          </label>
-          <label>
-            Senha
-            <input
-              type="password"
-              value={credenciais.password}
-              onChange={(evento) =>
-                setCredenciais({ ...credenciais, password: evento.target.value })
-              }
-              required
-            />
-          </label>
+          <p>Gestão integrada, segura e orientada por dados.</p>
+          <label>Usuário<input autoComplete="username" value={credenciais.username} onChange={(event) => setCredenciais({ ...credenciais, username: event.target.value })} required /></label>
+          <label>Senha<input autoComplete="current-password" type="password" value={credenciais.password} onChange={(event) => setCredenciais({ ...credenciais, password: event.target.value })} required /></label>
           {erro && <p className="erro">{erro}</p>}
           <button type="submit">Entrar</button>
         </form>
@@ -204,176 +288,31 @@ export default function App() {
   }
 
   return (
-    <main className="pagina">
-      <header>
-        <div>
-          <span className="kicker">Gestão rural</span>
-          <h1>
-            {modulo === "propriedades"
-              ? "Propriedades"
-              : modulo === "talhoes"
-                ? "Talhões"
-                : modulo === "clima"
-                  ? "Clima"
-                  : modulo === "mercado"
-                    ? "Mercado"
-                    : modulo === "financeiro"
-                      ? "Financeiro"
-                      : modulo === "estoque"
-                        ? "Estoque"
-                        : modulo === "operacoes"
-                          ? "Operações"
-                          : modulo === "maquinas"
-                            ? "Máquinas"
-                            : modulo === "relatorios"
-                              ? "Relatórios"
-                              : "Assistente"}
-          </h1>
-        </div>
-        <div className="cabecalho-acoes">
-          <AplicativoStatus />
-          <button
-            className="secundario"
-            onClick={() => {
-              sair();
-              setAutenticado(false);
-              setPermissoes(permissoesVazias);
-            }}
-          >
-            Sair
-          </button>
-        </div>
-      </header>
-
-      <nav className="navegacao-modulos" aria-label="Módulos agrícolas">
-        <button className={modulo === "propriedades" ? "" : "secundario"} onClick={() => setModulo("propriedades")}>Propriedades</button>
-        <button className={modulo === "talhoes" ? "" : "secundario"} onClick={() => setModulo("talhoes")}>Talhões</button>
-        <button className={modulo === "clima" ? "" : "secundario"} onClick={() => setModulo("clima")}>Clima</button>
-        <button className={modulo === "mercado" ? "" : "secundario"} onClick={() => setModulo("mercado")}>Mercado</button>
-        <button className={modulo === "financeiro" ? "" : "secundario"} onClick={() => setModulo("financeiro")}>Financeiro</button>
-        <button className={modulo === "estoque" ? "" : "secundario"} onClick={() => setModulo("estoque")}>Estoque</button>
-        <button className={modulo === "operacoes" ? "" : "secundario"} onClick={() => setModulo("operacoes")}>Operações</button>
-        <button className={modulo === "maquinas" ? "" : "secundario"} onClick={() => setModulo("maquinas")}>Máquinas</button>
-        <button className={modulo === "relatorios" ? "" : "secundario"} onClick={() => setModulo("relatorios")}>Relatórios</button>
-        <button className={modulo === "insights" ? "" : "secundario"} onClick={() => setModulo("insights")}>Assistente</button>
-      </nav>
-
-      {modulo === "talhoes" ? (
-        <TalhoesPage />
-      ) : modulo === "clima" ? (
-        <ClimaPage propriedades={propriedades} />
-      ) : modulo === "mercado" ? (
-        <MercadoPage />
-      ) : modulo === "financeiro" ? (
-        <FinanceiroPage propriedades={propriedades} />
-      ) : modulo === "estoque" ? (
-        <EstoquePage propriedades={propriedades} />
-      ) : modulo === "operacoes" ? (
-        <OperacoesPage />
-      ) : modulo === "maquinas" ? (
-        <MaquinasPage propriedades={propriedades} />
-      ) : modulo === "relatorios" ? (
-        <RelatoriosPage propriedades={propriedades} />
-      ) : modulo === "insights" ? (
-        <InsightsPage propriedades={propriedades} />
-      ) : (
-        <>
-          {erro && <p className="erro card">{erro}</p>}
-
-          <section className="grade">
-            {(permissoes.pode_criar_propriedade || edicaoId !== null) ? (
-              <form className="card formulario" onSubmit={salvar}>
-                <h2>{edicaoId ? "Editar propriedade" : "Nova propriedade"}</h2>
-                <label>Nome<input required value={formulario.nome} onChange={(e) => setFormulario({ ...formulario, nome: e.target.value })} /></label>
-                <label>Proprietário<input value={formulario.proprietario} onChange={(e) => setFormulario({ ...formulario, proprietario: e.target.value })} /></label>
-                <div className="linha">
-                  <label>Município<input required value={formulario.municipio} onChange={(e) => setFormulario({ ...formulario, municipio: e.target.value })} /></label>
-                  <label>UF<input maxLength={2} value={formulario.uf} onChange={(e) => setFormulario({ ...formulario, uf: e.target.value.toUpperCase() })} /></label>
-                </div>
-                <label>Área (ha)<input required min="0.01" step="0.01" type="number" value={formulario.area_hectares} onChange={(e) => setFormulario({ ...formulario, area_hectares: e.target.value })} /></label>
-                <div className="linha">
-                  <label>Latitude<input step="any" type="number" value={formulario.latitude} onChange={(e) => setFormulario({ ...formulario, latitude: e.target.value })} /></label>
-                  <label>Longitude<input step="any" type="number" value={formulario.longitude} onChange={(e) => setFormulario({ ...formulario, longitude: e.target.value })} /></label>
-                </div>
-                <label>KML (até 5 MB)<input accept=".kml" type="file" onChange={(e) => setFormulario({ ...formulario, arquivo_kml: e.target.files?.[0] ?? null })} /></label>
-                <label>Observações<textarea value={formulario.observacoes} onChange={(e) => setFormulario({ ...formulario, observacoes: e.target.value })} /></label>
-                <div className="acoes">
-                  <button disabled={carregando} type="submit">Salvar</button>
-                  {edicaoId && (
-                    <button
-                      className="secundario"
-                      type="button"
-                      onClick={() => {
-                        setEdicaoId(null);
-                        setFormulario(formularioVazio);
-                      }}
-                    >
-                      Cancelar
-                    </button>
-                  )}
-                </div>
-              </form>
-            ) : (
-              <div className="card vazio">
-                Seu perfil permite consultar as propriedades autorizadas.
-              </div>
-            )}
-
-            <section className="conteudo">
-              <form className="busca" onSubmit={(e) => { e.preventDefault(); void carregar(busca); }}>
-                <input aria-label="Buscar propriedades" placeholder="Buscar por nome, município ou proprietário" value={busca} onChange={(e) => setBusca(e.target.value)} />
-                <button type="submit">Buscar</button>
-              </form>
-
-              {carregando && propriedades.length === 0 ? (
-                <p>Carregando propriedades...</p>
-              ) : propriedades.length === 0 ? (
-                <div className="card vazio">Nenhuma propriedade autorizada.</div>
-              ) : (
-                <div className="lista">
-                  {propriedades.map((item) => (
-                    <article className={`card item ${selecionada?.id === item.id ? "ativo" : ""}`} key={item.id} onClick={() => setSelecionada(item)}>
-                      <div>
-                        <h3>{item.nome}</h3>
-                        <p>{item.municipio}/{item.uf} · {item.area_hectares} ha declarados</p>
-                        <p className="metadado-geografico">
-                          Perfil: {item.papel_usuario ?? "superusuário"}
-                        </p>
-                        {item.area_calculada_hectares && (
-                          <p className="metadado-geografico">
-                            {item.area_calculada_hectares} ha calculados
-                            {item.divergencia_area_percentual &&
-                              ` · diferença ${item.divergencia_area_percentual}%`}
-                          </p>
-                        )}
-                      </div>
-                      {(item.pode_editar || item.pode_excluir) && (
-                        <div className="acoes">
-                          {item.pode_editar && (
-                            <button className="secundario" onClick={(e) => { e.stopPropagation(); editar(item); }}>Editar</button>
-                          )}
-                          {item.pode_excluir && (
-                            <button className="perigo" onClick={(e) => { e.stopPropagation(); void excluir(item); }}>Excluir</button>
-                          )}
-                        </div>
-                      )}
-                    </article>
-                  ))}
-                </div>
-              )}
-
-              {selecionada?.latitude && selecionada.longitude && (
-                <MapaPropriedade
-                  latitude={Number(selecionada.latitude)}
-                  longitude={Number(selecionada.longitude)}
-                  nome={selecionada.nome}
-                  geometria={selecionada.geometria_geojson}
-                />
-              )}
-            </section>
-          </section>
-        </>
-      )}
-    </main>
+    <AppShell
+      items={navigationItems}
+      activeModule={modulo}
+      onNavigate={setModulo}
+      properties={propriedades}
+      selectedPropertyId={selecionada ? String(selecionada.id) : ""}
+      onSelectedPropertyChange={(id) => setSelecionada(propriedades.find((item) => String(item.id) === id) ?? null)}
+      safra={safra}
+      onSafraChange={setSafra}
+      userLabel={identity.label}
+      roleLabel={roleLabel}
+      theme={theme}
+      onToggleTheme={toggleTheme}
+      onLogout={logout}
+      statusSlot={<AplicativoStatus />}
+    >
+      <ModuleRenderer
+        module={modulo}
+        properties={propriedades}
+        selectedProperty={selecionada}
+        safra={safra}
+        propertiesContent={propertiesContent}
+        canManage={canManage}
+        canOperate={canOperate}
+      />
+    </AppShell>
   );
 }
