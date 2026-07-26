@@ -55,6 +55,14 @@ responsável, área e custo. A conclusão baixa os insumos efetivamente usados n
 estoque de forma transacional e mantém a rastreabilidade entre operação, lote,
 propriedade, safra e usuário.
 
+O módulo oficial de Gestão da Produção Agrícola foi incorporado ao roadmap para
+substituir as planilhas de recebimento, qualidade, CAD/PRO, estoque físico de
+grãos, transferências, contratos, terceiros, notas fiscais e embarques. Sua
+arquitetura está documentada em
+[`docs/MODULO-GESTAO-PRODUCAO.md`](docs/MODULO-GESTAO-PRODUCAO.md). A implantação
+transacional será realizada em etapa própria para não misturar o domínio de
+grãos com o app existente de Operações ou com o estoque de insumos.
+
 O módulo de Máquinas controla frota, propriedade, estado, horímetro, uso em
 operações, abastecimentos e manutenções. Leituras não podem regredir e os
 históricos de campo e combustível são imutáveis.
@@ -129,6 +137,7 @@ Compose.
 ## Documentação
 
 - [Prompt Mestre](docs/PROMPT-MESTRE-AGRO-AI-PRO.md)
+- [Gestão da Produção Agrícola](docs/MODULO-GESTAO-PRODUCAO.md)
 - [Sprint 1](docs/sprints/SPRINT-01.md)
 - [Sprint 2](docs/sprints/SPRINT-02.md)
 - [Sprint 3](docs/sprints/SPRINT-03.md)
