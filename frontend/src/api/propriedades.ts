@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
 import { GeometriaGeoJSON } from "../utils/geometria";
 
 
@@ -33,10 +33,22 @@ export type PropriedadeInput = {
 };
 
 const TOKEN_KEY = "agro-ai-pro.access-token";
+const REFRESH_TOKEN_KEY = "agro-ai-pro.refresh-token";
+const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000/api";
+
+type RequisicaoComRetry = InternalAxiosRequestConfig & {
+  _retry?: boolean;
+};
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000/api",
+  baseURL: API_URL,
 });
+
+const apiSemAutenticacao = axios.create({
+  baseURL: API_URL,
+});
+
+let renovacaoEmAndamento: Promise<string> | null = null;
 
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem(TOKEN_KEY);
@@ -46,20 +58,75 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+async function renovarAccessToken() {
+  const refresh = localStorage.getItem(REFRESH_TOKEN_KEY);
+  if (!refresh) {
+    throw new Error("Refresh token não disponível.");
+  }
+  const response = await apiSemAutenticacao.post<{ access: string }>(
+    "/auth/token/refresh/",
+    { refresh },
+  );
+  localStorage.setItem(TOKEN_KEY, response.data.access);
+  return response.data.access;
+}
+
+api.interceptors.response.use(
+  (response) => response,
+  async (erro: AxiosError) => {
+    const requisicao = erro.config as RequisicaoComRetry | undefined;
+    const endpointAutenticacao = requisicao?.url?.includes("/auth/token/");
+    if (
+      erro.response?.status !== 401
+      || !requisicao
+      || requisicao._retry
+      || endpointAutenticacao
+    ) {
+      return Promise.reject(erro);
+    }
+
+    requisicao._retry = true;
+    try {
+      if (!renovacaoEmAndamento) {
+        renovacaoEmAndamento = renovarAccessToken().finally(() => {
+          renovacaoEmAndamento = null;
+        });
+      }
+      const token = await renovacaoEmAndamento;
+      requisicao.headers.Authorization = `Bearer ${token}`;
+      return api.request(requisicao);
+    } catch (erroRenovacao) {
+      sair();
+      if (typeof window !== "undefined") {
+        window.location.reload();
+      }
+      return Promise.reject(erroRenovacao);
+    }
+  },
+);
+
 export function estaAutenticado() {
-  return Boolean(localStorage.getItem(TOKEN_KEY));
+  return Boolean(
+    localStorage.getItem(TOKEN_KEY)
+    && localStorage.getItem(REFRESH_TOKEN_KEY),
+  );
 }
 
 export async function autenticar(username: string, password: string) {
-  const response = await api.post<{ access: string }>("/auth/token/", {
+  const response = await apiSemAutenticacao.post<{
+    access: string;
+    refresh: string;
+  }>("/auth/token/", {
     username,
     password,
   });
   localStorage.setItem(TOKEN_KEY, response.data.access);
+  localStorage.setItem(REFRESH_TOKEN_KEY, response.data.refresh);
 }
 
 export function sair() {
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
 }
 
 export async function listarPropriedades(search = "") {
