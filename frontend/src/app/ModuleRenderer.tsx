@@ -12,6 +12,7 @@ const MercadoPage = lazy(() => import("../pages/Mercado/MercadoPage"));
 const FinanceiroPage = lazy(() => import("../pages/Financeiro/FinanceiroPage"));
 const EstoquePage = lazy(() => import("../pages/Estoque/EstoquePage"));
 const OperacoesPage = lazy(() => import("../pages/Operacoes/OperacoesPage"));
+const ProducaoPage = lazy(() => import("../pages/Producao/ProducaoPage"));
 const MaquinasPage = lazy(() => import("../pages/Maquinas/MaquinasPage"));
 const RelatoriosPage = lazy(() => import("../pages/Relatorios/RelatoriosPage"));
 const InsightsPage = lazy(() => import("../pages/Insights/InsightsPage"));
@@ -52,6 +53,7 @@ export default function ModuleRenderer({
     case "financeiro": content = <FinanceiroPage propriedades={properties} />; break;
     case "estoque": content = <EstoquePage propriedades={properties} />; break;
     case "operacoes": content = <OperacoesPage />; break;
+    case "producao": content = <ProducaoPage properties={properties} selectedProperty={selectedProperty} safra={safra} />; break;
     case "maquinas": content = <MaquinasPage propriedades={properties} />; break;
     case "relatorios": content = <RelatoriosPage propriedades={properties} />; break;
     case "insights": content = <InsightsPage propriedades={properties} />; break;
