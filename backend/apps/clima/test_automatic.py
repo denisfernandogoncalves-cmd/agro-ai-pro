@@ -194,6 +194,7 @@ class ClimaAutomaticoServiceTests(TestCase):
         atualizar_mock.assert_called_once_with(limite=5)
 
 
+@override_settings(PROPERTY_ACCESS_LEGACY_TEST_MODE=False)
 class ClimaAutomaticoAPITests(APITestCase):
     def setUp(self):
         self.usuario = get_user_model().objects.create_user(
