@@ -12,7 +12,7 @@
 - [x] infraestrutura, propriedades, talhões e geoprocessamento;
 - [x] previsão climática por propriedade;
 - [x] mercado e clima no Corn Belt;
-- [ ] financeiro;
+- [x] financeiro;
 - [ ] estoque e insumos;
 - [ ] operações e máquinas;
 - [ ] relatórios e dashboards;

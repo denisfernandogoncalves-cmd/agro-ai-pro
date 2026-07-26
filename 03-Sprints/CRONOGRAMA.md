@@ -7,7 +7,7 @@
 | 3 | Geoprocessamento | Concluída em 25/07/2026 |
 | 4 | Clima | Concluída em 25/07/2026 |
 | 5 | Mercado | Concluída em 25/07/2026 |
-| 6 | Financeiro | Pendente |
+| 6 | Financeiro | Concluída em 25/07/2026 |
 | 7 | Estoque | Pendente |
 | 8 | Operações | Pendente |
 | 9 | Máquinas | Pendente |

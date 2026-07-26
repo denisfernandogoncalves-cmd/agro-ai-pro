@@ -32,6 +32,9 @@ try {
   const { default: GraficoMercado } = await servidor.ssrLoadModule(
     "/src/pages/Mercado/GraficoMercado.tsx",
   );
+  const { default: FinanceiroPage } = await servidor.ssrLoadModule(
+    "/src/pages/Financeiro/FinanceiroPage.tsx",
+  );
   const { converterGeometria, limitesGeometria } =
     await servidor.ssrLoadModule("/src/utils/geometria.ts");
 
@@ -205,7 +208,13 @@ try {
   assert.match(htmlGrafico, /Evolução histórica/);
   assert.match(htmlGrafico, /400.00/);
 
-  console.log("8 testes de componentes e geometria aprovados.");
+  const htmlFinanceiro = renderToStaticMarkup(
+    React.createElement(FinanceiroPage, { propriedades: [propriedade] }),
+  );
+  assert.match(htmlFinanceiro, /Novo lançamento/);
+  assert.match(htmlFinanceiro, /Cadastros auxiliares/);
+
+  console.log("9 testes de componentes e geometria aprovados.");
 } finally {
   await servidor.close();
 }
