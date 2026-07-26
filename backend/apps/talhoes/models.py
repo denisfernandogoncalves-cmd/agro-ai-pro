@@ -11,6 +11,16 @@ class Talhao(models.Model):
     class Meta:
         constraints = [
             models.CheckConstraint(check=models.Q(area_hectares__gt=0), name="talhao_area_positiva"),
+            models.CheckConstraint(
+                check=models.Q(produtividade_esperada__gte=0)
+                | models.Q(produtividade_esperada__isnull=True),
+                name="talhao_produtividade_esperada_nao_negativa",
+            ),
+            models.CheckConstraint(
+                check=models.Q(produtividade_realizada__gte=0)
+                | models.Q(produtividade_realizada__isnull=True),
+                name="talhao_produtividade_realizada_nao_negativa",
+            ),
         ]
 
     propriedade = models.ForeignKey(
@@ -86,7 +96,16 @@ class Talhao(models.Model):
         max_digits=10,
         decimal_places=2,
         null=True,
-        blank=True
+        blank=True,
+        validators=[MinValueValidator(Decimal("0"))],
+    )
+
+    produtividade_realizada = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0"))],
     )
 
     observacoes = models.TextField(
@@ -95,6 +114,10 @@ class Talhao(models.Model):
 
     criado_em = models.DateTimeField(
         auto_now_add=True
+    )
+
+    atualizado_em = models.DateTimeField(
+        auto_now=True
     )
 
     def __str__(self):
@@ -119,3 +142,69 @@ class Talhao(models.Model):
                 )
         if erros:
             raise ValidationError(erros)
+
+
+class HistoricoAgronomico(models.Model):
+    class Meta:
+        ordering = ("-data_referencia", "-id")
+        verbose_name = "histórico agronômico"
+        verbose_name_plural = "históricos agronômicos"
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(produtividade_esperada__gte=0)
+                | models.Q(produtividade_esperada__isnull=True),
+                name="historico_produtividade_esperada_nao_negativa",
+            ),
+            models.CheckConstraint(
+                check=models.Q(produtividade_realizada__gte=0)
+                | models.Q(produtividade_realizada__isnull=True),
+                name="historico_produtividade_realizada_nao_negativa",
+            ),
+        ]
+
+    talhao = models.ForeignKey(
+        Talhao,
+        on_delete=models.PROTECT,
+        related_name="historicos_agronomicos",
+    )
+    data_referencia = models.DateField()
+    cultura = models.CharField(max_length=50, blank=True)
+    safra = models.CharField(max_length=20, blank=True)
+    produtividade_esperada = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0"))],
+    )
+    produtividade_realizada = models.DecimalField(
+        max_digits=10,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0"))],
+    )
+    observacoes = models.TextField(blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        data = self.data_referencia
+        data_formatada = data.strftime("%d/%m/%Y") if hasattr(data, "strftime") else str(data)
+        return f"{self.talhao.nome} - {data_formatada}"
+
+    def clean(self):
+        super().clean()
+        possui_conteudo = any(
+            (
+                self.cultura.strip(),
+                self.safra.strip(),
+                self.produtividade_esperada is not None,
+                self.produtividade_realizada is not None,
+                self.observacoes.strip(),
+            )
+        )
+        if not possui_conteudo:
+            raise ValidationError(
+                "Informe ao menos um dado agronômico além da data de referência."
+            )

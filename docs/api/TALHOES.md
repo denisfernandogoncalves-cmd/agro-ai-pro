@@ -1,34 +1,75 @@
 # API de talhões
 
-## Endpoints preservados
+Todos os endpoints exigem autenticação JWT.
 
-- `GET /api/talhoes/talhoes/`: lista talhões;
-- `POST /api/talhoes/talhoes/`: cria um talhão (`multipart/form-data` quando houver KML);
-- `GET|PUT|PATCH|DELETE /api/talhoes/talhoes/{id}/`: consulta e mantém um talhão.
+## Talhões
 
-## Campos e validações
+- `GET /api/talhoes/talhoes/`: lista paginada;
+- `POST /api/talhoes/talhoes/`: cria um talhão;
+- `GET|PUT|PATCH|DELETE /api/talhoes/talhoes/{id}/`: consulta e mantém um
+  talhão.
 
-`propriedade`, `nome` e `area_hectares` são obrigatórios. A área deve ser positiva e a soma das áreas dos talhões não pode superar a área informada da propriedade. Latitude e longitude do centro aceitam, respectivamente, `-90..90` e `-180..180`.
+Use `multipart/form-data` quando houver KML.
 
-`arquivo_kml` é opcional, limitado a 5 MB e deve ter extensão `.kml`. XML com `DOCTYPE` ou entidades é recusado. O arquivo deve conter um polígono fechado, não degenerado, com ao menos três vértices distintos e coordenadas dentro dos limites geográficos.
+### Campos
 
-Respostas bem-sucedidas incluem `geometria_geojson` (`Polygon`) e `latitude_centro`/`longitude_centro`, dados preparados para renderização no mapa. Erros de validação retornam HTTP 400 e mensagens em português associadas ao campo.
+`propriedade`, `nome` e `area_hectares` são obrigatórios. Também estão
+disponíveis:
 
-## Limitação geoespacial
+- `cultura_atual`, `safra`, `tipo_solo` e `observacoes`;
+- `altitude_media` e `declividade_media`;
+- `produtividade_esperada` e `produtividade_realizada`;
+- `arquivo_kml`;
+- `geometria_geojson`, `latitude_centro` e `longitude_centro`, somente leitura.
 
-O centroide é uma aproximação cartesiana destinada **somente ao posicionamento visual**. A API não calcula área oficial a partir de graus de latitude/longitude. Como o projeto não dispõe nesta Sprint de cálculo geodésico/projeção apropriada, `area_hectares` continua sendo a área declarada pelo usuário, sujeita às validações de consistência descritas acima.
+A área deve ser positiva e a soma das áreas dos talhões não pode superar a área
+da propriedade. As produtividades, quando informadas, não podem ser negativas.
 
-## Exemplo de resposta
+### Consulta
 
-```json
-{
-  "id": 1,
-  "propriedade": 1,
-  "propriedade_nome": "Fazenda Modelo",
-  "nome": "Talhão Norte",
-  "area_hectares": "20.00",
-  "latitude_centro": "-20.333333",
-  "longitude_centro": "-49.333333",
-  "geometria_geojson": {"type": "Polygon", "coordinates": [[[-50, -20], [-49, -20], [-49, -21], [-50, -20]]]}
-}
-```
+Parâmetros suportados:
+
+- `search`: nome do talhão ou propriedade, cultura, safra e tipo de solo;
+- `propriedade`: identificador exato da propriedade;
+- `cultura` e `safra`: filtros exatos, sem diferença entre maiúsculas e
+  minúsculas;
+- `ordering`: nome, área, cultura, safra, produtividades e datas;
+- `page` e `page_size`: paginação, limitada a 100 registros por página.
+
+Quando `page` ou `page_size` é informado, a resposta contém `count`, `next`,
+`previous` e `results`. Sem esses parâmetros, a API preserva o contrato
+anterior e retorna uma lista simples.
+
+## Histórico agronômico
+
+- `GET /api/talhoes/historicos-agronomicos/`;
+- `POST /api/talhoes/historicos-agronomicos/`;
+- `GET|PUT|PATCH|DELETE
+  /api/talhoes/historicos-agronomicos/{id}/`.
+
+Cada registro contém `talhao`, `data_referencia`, `cultura`, `safra`,
+produtividade esperada, produtividade realizada e observações. A listagem
+aceita `talhao`, `search`, `ordering`, `page` e `page_size`.
+
+Um histórico deve conter pelo menos um dado agronômico além da data. Talhões
+com histórico não podem ser excluídos; a API retorna HTTP 409 até que os
+registros relacionados sejam tratados explicitamente.
+
+Os valores de produtividade são decimais não negativos. A API não converte
+unidades: valores comparados dentro da mesma cultura e safra devem usar a mesma
+unidade operacional.
+
+## KML e geoprocessamento
+
+O arquivo é opcional, limitado a 5 MB e deve usar extensão `.kml`. XML com
+`DOCTYPE` ou entidades é recusado. O KML deve conter um polígono fechado, não
+degenerado, com pelo menos três vértices distintos e coordenadas geográficas
+válidas.
+
+Respostas bem-sucedidas incluem `geometria_geojson` (`Polygon` ou
+`MultiPolygon`) e o centroide visual. Erros de validação retornam HTTP 400 com
+mensagens associadas aos campos.
+
+O centroide é uma aproximação cartesiana destinada somente ao posicionamento
+visual. A API não calcula área oficial a partir das coordenadas; o cálculo
+geodésico permanece no escopo da Sprint 3.

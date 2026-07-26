@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.test import TestCase
 
 from apps.propriedades.models import Propriedade
-from apps.talhoes.models import Talhao
+from apps.talhoes.models import HistoricoAgronomico, Talhao
 
 
 class TalhaoModelTests(TestCase):
@@ -28,3 +28,29 @@ class TalhaoModelTests(TestCase):
         talhao = Talhao.objects.create(propriedade=self.propriedade, nome="Norte", area_hectares=100)
         talhao.nome = "Norte atualizado"
         talhao.full_clean()
+
+    def test_rejeita_produtividade_realizada_negativa(self):
+        with self.assertRaisesMessage(ValidationError, "maior ou igual a 0"):
+            Talhao(
+                propriedade=self.propriedade,
+                nome="Norte",
+                area_hectares=10,
+                produtividade_realizada=Decimal("-1"),
+            ).full_clean()
+
+    def test_registra_historico_agronomico(self):
+        talhao = Talhao.objects.create(
+            propriedade=self.propriedade,
+            nome="Norte",
+            area_hectares=10,
+        )
+        historico = HistoricoAgronomico.objects.create(
+            talhao=talhao,
+            data_referencia="2026-07-25",
+            cultura="Soja",
+            safra="2025/2026",
+            produtividade_realizada=Decimal("61.50"),
+        )
+
+        self.assertEqual(talhao.historicos_agronomicos.get(), historico)
+        self.assertIn("Norte", str(historico))

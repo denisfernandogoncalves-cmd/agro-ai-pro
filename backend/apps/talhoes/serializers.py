@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
-from .models import Talhao
+from .models import HistoricoAgronomico, Talhao
 from .services import processar_kml
 
 
@@ -40,3 +40,21 @@ class TalhaoSerializer(serializers.ModelSerializer):
     @transaction.atomic
     def update(self, instance, validated_data):
         return super().update(instance, validated_data)
+
+
+class HistoricoAgronomicoSerializer(serializers.ModelSerializer):
+    talhao_nome = serializers.CharField(source="talhao.nome", read_only=True)
+
+    class Meta:
+        model = HistoricoAgronomico
+        fields = "__all__"
+
+    def validate(self, attrs):
+        instancia = self.instance or HistoricoAgronomico()
+        for campo, valor in attrs.items():
+            setattr(instancia, campo, valor)
+        try:
+            instancia.clean()
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.messages) from None
+        return attrs

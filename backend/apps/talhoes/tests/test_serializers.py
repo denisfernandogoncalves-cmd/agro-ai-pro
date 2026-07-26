@@ -1,9 +1,11 @@
+from decimal import Decimal
 from tempfile import TemporaryDirectory
 
 from django.test import TestCase
 
 from apps.propriedades.models import Propriedade
-from apps.talhoes.serializers import TalhaoSerializer
+from apps.talhoes.serializers import HistoricoAgronomicoSerializer, TalhaoSerializer
+from apps.talhoes.models import Talhao
 from apps.talhoes.tests.factories import kml_upload
 
 
@@ -29,3 +31,53 @@ class TalhaoSerializerTests(TestCase):
         serializer = TalhaoSerializer(data={"nome": "Norte", "area_hectares": "101", "propriedade": self.propriedade.pk})
         self.assertFalse(serializer.is_valid())
         self.assertIn("soma das áreas", str(serializer.errors))
+
+    def test_aceita_produtividade_realizada(self):
+        serializer = TalhaoSerializer(
+            data={
+                "nome": "Norte",
+                "area_hectares": "20",
+                "propriedade": self.propriedade.pk,
+                "produtividade_esperada": "65.50",
+                "produtividade_realizada": "62.75",
+            }
+        )
+
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(
+            serializer.save().produtividade_realizada,
+            Decimal("62.75"),
+        )
+
+    def test_valida_produtividade_do_historico(self):
+        talhao = Talhao.objects.create(
+            nome="Norte",
+            area_hectares=20,
+            propriedade=self.propriedade,
+        )
+        serializer = HistoricoAgronomicoSerializer(
+            data={
+                "talhao": talhao.pk,
+                "data_referencia": "2026-07-25",
+                "produtividade_realizada": "-1",
+            }
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("produtividade_realizada", serializer.errors)
+
+    def test_rejeita_historico_sem_dados_agronomicos(self):
+        talhao = Talhao.objects.create(
+            nome="Norte",
+            area_hectares=20,
+            propriedade=self.propriedade,
+        )
+        serializer = HistoricoAgronomicoSerializer(
+            data={
+                "talhao": talhao.pk,
+                "data_referencia": "2026-07-25",
+            }
+        )
+
+        self.assertFalse(serializer.is_valid())
+        self.assertIn("ao menos um dado agronômico", str(serializer.errors))

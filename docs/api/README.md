@@ -36,7 +36,8 @@ pode ser excluída; nesse caso, a API responde HTTP 409.
 Consulte os exemplos e critérios completos em
 [`docs/sprints/SPRINT-01.md`](../sprints/SPRINT-01.md).
 
-## Talhões e geoprocessamento
+## Talhões
 
-A documentação dos endpoints, validações de área, processamento KML e limitações
-geoespaciais está em [Talhões e geoprocessamento](TALHOES.md).
+A documentação dos endpoints, histórico agronômico, filtros, paginação,
+validações de área, processamento KML e limitações geoespaciais está em
+[Talhões](TALHOES.md).

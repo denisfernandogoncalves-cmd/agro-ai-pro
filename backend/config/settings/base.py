@@ -1,3 +1,4 @@
+from datetime import timedelta
 from pathlib import Path
 import os
 from dotenv import load_dotenv
@@ -8,7 +9,10 @@ for env_path in [BASE_DIR / ".env", BASE_DIR.parent / ".env"]:
         load_dotenv(env_path)
         break
 
-SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "change-me")
+SECRET_KEY = os.getenv(
+    "DJANGO_SECRET_KEY",
+    "development-only-change-me-at-least-32-characters",
+)
 DEBUG = os.getenv("DJANGO_DEBUG", "False") == "True"
 ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 
@@ -86,8 +90,8 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    "ACCESS_TOKEN_LIFETIME": 60 * 60,
-    "REFRESH_TOKEN_LIFETIME": 7 * 24 * 60 * 60,
+    "ACCESS_TOKEN_LIFETIME": timedelta(hours=1),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
 }
 
 CORS_ALLOWED_ORIGINS = [

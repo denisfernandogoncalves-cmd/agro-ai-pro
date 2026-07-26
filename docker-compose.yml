@@ -31,7 +31,7 @@ services:
     container_name: agro-backend
     environment:
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings.development}
-      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-change-me}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-development-only-change-me-at-least-32-characters}
       DJANGO_DEBUG: ${DJANGO_DEBUG:-True}
       DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
       POSTGRES_DB: ${POSTGRES_DB:-agro_ai_pro}
