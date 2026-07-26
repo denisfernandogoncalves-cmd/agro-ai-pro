@@ -11,7 +11,7 @@ Este é o índice operacional das Sprints. Os detalhes técnicos ficam em
 | 4 | Clima | Concluída em 25/07/2026 | `docs/sprints/SPRINT-04.md` |
 | 5 | Mercado | Concluída em 25/07/2026 | `docs/sprints/SPRINT-05.md` |
 | 6 | Financeiro | Concluída em 25/07/2026 | `docs/sprints/SPRINT-06.md` |
-| 7 | Estoque | Pendente | A criar |
+| 7 | Estoque | Concluída em 25/07/2026 | `docs/sprints/SPRINT-07.md` |
 | 8 | Operações | Pendente | A criar |
 | 9 | Máquinas | Pendente | A criar |
 | 10 | Relatórios | Pendente | A criar |

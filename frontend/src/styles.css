@@ -84,6 +84,16 @@ header { align-items: center; display: flex; justify-content: space-between; mar
 .cadastros-auxiliares summary { cursor: pointer; font-size: 1.1rem; font-weight: 750; }
 .auxiliares-grade { display: grid; gap: 1rem; grid-template-columns: repeat(3, 1fr); padding-top: 1rem; }
 .auxiliares-grade section { display: grid; gap: 0.6rem; }
+.sucesso { background: #e9f7ed; border-color: #9fcbaa; color: #1d653b; }
+.modulo-estoque { display: grid; gap: 1.4rem; }
+.resumos-estoque { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+.resumos-estoque article { display: grid; gap: 0.4rem; }
+.resumos-estoque strong { font-size: 1.35rem; }
+.estoque-grade { grid-template-columns: minmax(310px, 420px) 1fr; }
+.alerta-estoque { border-color: #e3b36a; background: #fffaf0; }
+.posicao, .movimento-estoque { border-bottom: 1px solid #e2e8e3; padding: 0.75rem; }
+.posicao small, .movimento-estoque small { color: #6c7d73; }
+.posicao strong, .movimento-estoque strong { white-space: nowrap; }
 
 @media (max-width: 860px) {
   .pagina { padding: 1rem; }
@@ -93,5 +103,5 @@ header { align-items: center; display: flex; justify-content: space-between; mar
   .item { align-items: flex-start; flex-direction: column; gap: 1rem; }
   .clima-controles { grid-template-columns: 1fr; }
   .mercado-controles { align-items: stretch; flex-direction: column; }
-  .financeiro-grade, .painel-filtros, .auxiliares-grade { grid-template-columns: 1fr; }
+  .financeiro-grade, .estoque-grade, .painel-filtros, .auxiliares-grade { grid-template-columns: 1fr; }
 }

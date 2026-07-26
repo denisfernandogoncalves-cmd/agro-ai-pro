@@ -6,7 +6,8 @@ frontend React/TypeScript.
 ## Estado atual
 
 As Sprints 1 (Infraestrutura + Propriedades), 2 (Talhões), 3
-(Geoprocessamento), 4 (Clima), 5 (Mercado) e 6 (Financeiro) estão concluídas.
+(Geoprocessamento), 4 (Clima), 5 (Mercado), 6 (Financeiro) e 7 (Estoque) estão
+concluídas.
 
 O sistema oferece:
 
@@ -40,6 +41,11 @@ Corn Belt e reúne notícias cadastradas com fontes HTTPS.
 O módulo Financeiro controla contas a pagar e receber, categorias, parceiros,
 centros de custo, propriedades e safras, com liquidação, atrasos e resumo de
 fluxo de caixa.
+
+O módulo de Estoque controla insumos, defensivos, fertilizantes e sementes por
+local e lote. Entradas e saídas preservam custo, documento fiscal opcional,
+propriedade, safra e usuário responsável. O sistema bloqueia saídas sem saldo e
+alerta sobre validade e estoque mínimo.
 
 O índice oficial de andamento está em
 [`documentos/SPRINTS.md`](documentos/SPRINTS.md).

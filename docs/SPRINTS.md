@@ -63,7 +63,7 @@ Detalhes em `docs/sprints/SPRINT-03.md`.
 | 4 | Clima | `[x]` — concluída em 25/07/2026 |
 | 5 | Mercado | `[x]` — concluída em 25/07/2026 |
 | 6 | Financeiro | `[x]` — concluída em 25/07/2026 |
-| 7 | Estoque | `[ ]` |
+| 7 | Estoque | `[x]` — concluída em 25/07/2026 |
 | 8 | Operações | `[ ]` |
 | 9 | Máquinas | `[ ]` |
 | 10 | Relatórios | `[ ]` |
