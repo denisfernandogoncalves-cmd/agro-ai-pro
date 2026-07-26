@@ -7,7 +7,7 @@ frontend React/TypeScript.
 
 As Sprints 1 (Infraestrutura + Propriedades), 2 (Talhões), 3
 (Geoprocessamento), 4 (Clima), 5 (Mercado), 6 (Financeiro), 7 (Estoque), 8
-(Operações), 9 (Máquinas) e 10 (Relatórios) estão concluídas.
+(Operações), 9 (Máquinas), 10 (Relatórios) e 11 (IA) estão concluídas.
 
 O sistema oferece:
 
@@ -58,6 +58,9 @@ históricos de campo e combustível são imutáveis.
 
 O dashboard gerencial consolida estrutura, caixa, operações, estoque, máquinas,
 alertas e fluxo mensal, com filtros por propriedade e safra.
+
+O assistente gerencial gera insights explicáveis a partir de alertas e
+pendências do próprio sistema, sem compartilhar dados com serviços externos.
 
 O índice oficial de andamento está em
 [`documentos/SPRINTS.md`](documentos/SPRINTS.md).

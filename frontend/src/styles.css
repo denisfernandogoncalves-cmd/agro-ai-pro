@@ -112,6 +112,12 @@ header { align-items: center; display: flex; justify-content: space-between; mar
 .barra { border-radius: 4px 4px 0 0; width: 18px; }
 .barra.entrada { background: #237447; }
 .barra.saida { background: #a53a32; }
+.modulo-insights { display: grid; gap: 1.4rem; }
+.controles-insights { align-items: end; display: grid; gap: 1rem; grid-template-columns: 2fr 1fr auto; }
+.lista-insights { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.insight.critico { border-left: 5px solid #a53a32; }
+.insight.atencao { border-left: 5px solid #d7a633; }
+.insight.informativo { border-left: 5px solid #237447; }
 
 @media (max-width: 860px) {
   .pagina { padding: 1rem; }
@@ -121,5 +127,5 @@ header { align-items: center; display: flex; justify-content: space-between; mar
   .item { align-items: flex-start; flex-direction: column; gap: 1rem; }
   .clima-controles { grid-template-columns: 1fr; }
   .mercado-controles { align-items: stretch; flex-direction: column; }
-  .financeiro-grade, .estoque-grade, .operacoes-grade, .maquinas-grade, .relatorios-grade, .filtros-relatorio, .painel-filtros, .auxiliares-grade, .linha-insumo { grid-template-columns: 1fr; }
+  .financeiro-grade, .estoque-grade, .operacoes-grade, .maquinas-grade, .relatorios-grade, .filtros-relatorio, .controles-insights, .painel-filtros, .auxiliares-grade, .linha-insumo { grid-template-columns: 1fr; }
 }

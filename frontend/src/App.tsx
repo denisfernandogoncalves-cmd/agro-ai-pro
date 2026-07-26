@@ -20,6 +20,7 @@ import MercadoPage from "./pages/Mercado/MercadoPage";
 import MaquinasPage from "./pages/Maquinas/MaquinasPage";
 import OperacoesPage from "./pages/Operacoes/OperacoesPage";
 import RelatoriosPage from "./pages/Relatorios/RelatoriosPage";
+import InsightsPage from "./pages/Insights/InsightsPage";
 import TalhoesPage from "./pages/Talhoes/TalhoesPage";
 
 import "./styles.css";
@@ -53,7 +54,7 @@ function mensagemDoErro(erro: unknown) {
 export default function App() {
   const [autenticado, setAutenticado] = useState(estaAutenticado());
   const [modulo, setModulo] = useState<
-    "propriedades" | "talhoes" | "clima" | "mercado" | "financeiro" | "estoque" | "operacoes" | "maquinas" | "relatorios"
+    "propriedades" | "talhoes" | "clima" | "mercado" | "financeiro" | "estoque" | "operacoes" | "maquinas" | "relatorios" | "insights"
   >("propriedades");
   const [credenciais, setCredenciais] = useState({ username: "", password: "" });
   const [propriedades, setPropriedades] = useState<Propriedade[]>([]);
@@ -196,7 +197,7 @@ export default function App() {
                       ? "Financeiro"
                       : modulo === "estoque"
                         ? "Estoque"
-                        : modulo === "operacoes" ? "Operações" : modulo === "maquinas" ? "Máquinas" : "Relatórios"}
+                        : modulo === "operacoes" ? "Operações" : modulo === "maquinas" ? "Máquinas" : modulo === "relatorios" ? "Relatórios" : "Assistente"}
           </h1>
         </div>
         <button
@@ -255,6 +256,7 @@ export default function App() {
         </button>
         <button className={modulo === "maquinas" ? "" : "secundario"} onClick={() => setModulo("maquinas")}>Máquinas</button>
         <button className={modulo === "relatorios" ? "" : "secundario"} onClick={() => setModulo("relatorios")}>Relatórios</button>
+        <button className={modulo === "insights" ? "" : "secundario"} onClick={() => setModulo("insights")}>Assistente</button>
       </nav>
 
       {modulo === "talhoes" ? (
@@ -273,6 +275,8 @@ export default function App() {
         <MaquinasPage propriedades={propriedades} />
       ) : modulo === "relatorios" ? (
         <RelatoriosPage propriedades={propriedades} />
+      ) : modulo === "insights" ? (
+        <InsightsPage propriedades={propriedades} />
       ) : (
         <>
           {erro && <p className="erro card">{erro}</p>}
