@@ -15,8 +15,18 @@
 - adiciona importação CSV/XLSX/XLSM com detecção de colunas, prévia e confirmação;
 - integra insights explicáveis de produção, produtividade, estoque, qualidade e contratos;
 - ativa shell Enterprise, sidebar responsiva, temas e carregamento sob demanda;
-- adiciona testes de saldo, permissões, integração financeira, importação e exportações;
-- não utiliza serviço pago, telemetria ou processamento externo de arquivos.
+- evolui o Clima para atualização automática por propriedade a cada três horas;
+- adiciona estado atual, previsão horária e previsão diária de sete dias;
+- utiliza Redis local para cache, deduplicação e lock de atualizações;
+- resolve localização por coordenadas ou geometria processada, sem inventar dados;
+- adiciona alertas internos, riscos de deriva e lavagem e condições para pulverização e colheita;
+- preserva a última previsão válida e aplica backoff progressivo em falhas;
+- registra auditoria, contagem de chamadas e horários da próxima atualização;
+- adiciona worker climático local ao Docker Compose;
+- mantém o provedor configurável e não expõe chamadas externas no frontend;
+- adiciona testes de saldo, permissões, integração financeira, importação, exportações e clima automático;
+- não utiliza serviço pago, telemetria ou processamento externo de arquivos;
+- documenta que o endpoint público gratuito do Open-Meteo é restrito a uso não comercial.
 
 ## Em desenvolvimento — manutenção da versão 1.0
 
