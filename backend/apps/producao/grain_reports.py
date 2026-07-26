@@ -15,6 +15,7 @@ from .grain_models import (
 
 
 REPORT_COLUMNS = (
+    ("tipo", "Tipo"),
     ("data", "Data"),
     ("propriedade", "Propriedade"),
     ("cadpro", "CAD/PRO"),
@@ -22,38 +23,47 @@ REPORT_COLUMNS = (
     ("cultura", "Cultura"),
     ("safra", "Safra"),
     ("local", "Local de armazenagem"),
-    ("peso_liquido_kg", "Peso líquido (kg)"),
+    ("comprador", "Comprador"),
+    ("contrato", "Contrato"),
+    ("motorista", "Motorista"),
+    ("placa", "Placa"),
+    ("romaneio", "Romaneio"),
+    ("quantidade_kg", "Quantidade (kg)"),
     ("sacas", "Sacas"),
+    ("preco_saca", "Preço por saca"),
+    ("valor", "Valor"),
     ("umidade", "Umidade (%)"),
     ("impureza", "Impureza (%)"),
     ("defeitos", "Defeitos (%)"),
-    ("romaneio", "Romaneio"),
+    ("status", "Status"),
 )
 
 
-def _apply_filters(queryset, params):
-    filters = {}
-    for param, field in (
+def _value(params, name):
+    return str(params.get(name, "")).strip()
+
+
+def _apply_common_filters(queryset, params, *, date_field=None):
+    for parameter, field in (
         ("propriedade", "propriedade_id"),
         ("cadpro", "cadpro_id"),
-        ("talhao", "talhao_id"),
         ("cultura", "cultura_id"),
         ("safra", "safra_id"),
-        ("local", "local_armazenagem_id"),
     ):
-        value = str(params.get(param, "")).strip()
+        value = _value(params, parameter)
         if value:
-            filters[field] = value
-    start = str(params.get("data_inicio", "")).strip()
-    end = str(params.get("data_fim", "")).strip()
-    if start:
-        filters["data__date__gte"] = start
-    if end:
-        filters["data__date__lte"] = end
-    return queryset.filter(**filters)
+            queryset = queryset.filter(**{field: value})
+    if date_field:
+        start = _value(params, "data_inicio")
+        end = _value(params, "data_fim")
+        if start:
+            queryset = queryset.filter(**{f"{date_field}__gte": start})
+        if end:
+            queryset = queryset.filter(**{f"{date_field}__lte": end})
+    return queryset
 
 
-def production_queryset(user, params):
+def _receipts_queryset(user, params):
     queryset = RecebimentoProducao.objects.select_related(
         "propriedade",
         "cadpro",
@@ -61,31 +71,125 @@ def production_queryset(user, params):
         "cultura",
         "safra",
         "local_armazenagem",
+        "motorista",
+        "veiculo",
     ).filter(status=RecebimentoProducao.Status.CONFIRMADO)
     queryset = filtrar_queryset_por_cadpro(queryset, user)
-    return _apply_filters(queryset, params)
+    queryset = _apply_common_filters(queryset, params, date_field="data__date")
+    for parameter, field in (
+        ("talhao", "talhao_id"),
+        ("local", "local_armazenagem_id"),
+        ("motorista", "motorista_id"),
+    ):
+        value = _value(params, parameter)
+        if value:
+            queryset = queryset.filter(**{field: value})
+    placa = _value(params, "placa")
+    if placa:
+        queryset = queryset.filter(veiculo__placa__icontains=placa) | queryset.filter(
+            placa_informada__icontains=placa
+        )
+    return queryset.distinct()
+
+
+def _shipments_queryset(user, params):
+    queryset = EmbarqueProducao.objects.select_related(
+        "propriedade",
+        "cadpro",
+        "cultura",
+        "safra",
+        "local_armazenagem",
+        "comprador",
+        "contrato",
+        "motorista",
+        "veiculo",
+    )
+    queryset = filtrar_queryset_por_cadpro(queryset, user)
+    queryset = _apply_common_filters(queryset, params, date_field="data__date")
+    for parameter, field in (
+        ("local", "local_armazenagem_id"),
+        ("comprador", "comprador_id"),
+        ("contrato", "contrato_id"),
+        ("motorista", "motorista_id"),
+        ("status", "status"),
+    ):
+        value = _value(params, parameter)
+        if value:
+            queryset = queryset.filter(**{field: value})
+    placa = _value(params, "placa")
+    if placa:
+        queryset = queryset.filter(veiculo__placa__icontains=placa) | queryset.filter(
+            placa_informada__icontains=placa
+        )
+    return queryset.distinct()
+
+
+def _balances_queryset(user, params):
+    queryset = SaldoGraos.objects.select_related(
+        "propriedade",
+        "cadpro",
+        "talhao",
+        "cultura",
+        "safra",
+        "local_armazenagem",
+    )
+    queryset = filtrar_queryset_por_cadpro(queryset, user)
+    queryset = _apply_common_filters(queryset, params)
+    for parameter, field in (
+        ("talhao", "talhao_id"),
+        ("local", "local_armazenagem_id"),
+    ):
+        value = _value(params, parameter)
+        if value:
+            queryset = queryset.filter(**{field: value})
+    return queryset
+
+
+def _contracts_queryset(user, params):
+    queryset = ContratoProducao.objects.select_related(
+        "propriedade",
+        "cadpro",
+        "cultura",
+        "safra",
+        "comprador",
+    ).prefetch_related("embarques")
+    queryset = filtrar_queryset_por_cadpro(queryset, user)
+    queryset = _apply_common_filters(queryset, params, date_field="data_contrato")
+    for parameter, field in (
+        ("comprador", "comprador_id"),
+        ("status", "status"),
+    ):
+        value = _value(params, parameter)
+        if value:
+            queryset = queryset.filter(**{field: value})
+    contract = _value(params, "contrato")
+    if contract:
+        queryset = queryset.filter(id=contract)
+    return queryset
+
+
+def production_queryset(user, params):
+    report_type = _value(params, "tipo") or "recebimentos"
+    factories = {
+        "recebimentos": _receipts_queryset,
+        "embarques": _shipments_queryset,
+        "estoque": _balances_queryset,
+        "contratos": _contracts_queryset,
+    }
+    if report_type not in factories:
+        raise ValueError("Tipo inválido. Use recebimentos, embarques, estoque ou contratos.")
+    return factories[report_type](user, params)
 
 
 def dashboard_data(user, params):
-    receipts = production_queryset(user, params)
-    balances = filtrar_queryset_por_cadpro(
-        SaldoGraos.objects.select_related("propriedade", "cadpro", "cultura", "safra"),
-        user,
+    receipts = _receipts_queryset(user, params)
+    balances = _balances_queryset(user, params)
+    shipments = _shipments_queryset(user, params).filter(
+        status=EmbarqueProducao.Status.CONFIRMADO
     )
-    shipments = filtrar_queryset_por_cadpro(
-        EmbarqueProducao.objects.filter(status=EmbarqueProducao.Status.CONFIRMADO),
-        user,
+    contracts = _contracts_queryset(user, params).filter(
+        status=ContratoProducao.Status.ABERTO
     )
-    contracts = filtrar_queryset_por_cadpro(
-        ContratoProducao.objects.filter(status=ContratoProducao.Status.ABERTO),
-        user,
-    )
-    for params_name, field in (("propriedade", "propriedade_id"), ("cadpro", "cadpro_id"), ("cultura", "cultura_id"), ("safra", "safra_id")):
-        value = str(params.get(params_name, "")).strip()
-        if value:
-            balances = balances.filter(**{field: value})
-            shipments = shipments.filter(**{field: value})
-            contracts = contracts.filter(**{field: value})
 
     totals = receipts.aggregate(
         producao_kg=Sum("peso_liquido_kg"),
@@ -101,6 +205,20 @@ def dashboard_data(user, params):
         embarques=Count("id"),
     )
     stock_kg = balances.aggregate(total=Sum("quantidade_kg"))["total"] or Decimal("0")
+
+    by_field = []
+    for item in (
+        receipts.exclude(talhao=None)
+        .values("talhao_id", "talhao__nome", "talhao__area_hectares")
+        .annotate(peso_kg=Sum("peso_liquido_kg"), sacas=Sum("quantidade_sacas"))
+        .order_by("talhao__nome")
+    ):
+        area = Decimal(str(item["talhao__area_hectares"] or 0))
+        item["produtividade_sacas_ha"] = (
+            item["sacas"] / area if area > 0 and item["sacas"] is not None else None
+        )
+        by_field.append(item)
+
     return {
         "producao": {
             "peso_liquido_kg": totals["producao_kg"] or Decimal("0"),
@@ -129,32 +247,94 @@ def dashboard_data(user, params):
             .annotate(peso_kg=Sum("peso_liquido_kg"), sacas=Sum("quantidade_sacas"))
             .order_by("cadpro__codigo")
         ),
-        "por_talhao": list(
-            receipts.exclude(talhao=None)
-            .values("talhao_id", "talhao__nome")
-            .annotate(peso_kg=Sum("peso_liquido_kg"), sacas=Sum("quantidade_sacas"))
-            .order_by("talhao__nome")
-        ),
+        "por_talhao": by_field,
     }
+
+
+def _empty_row(report_type):
+    return {key: "" for key, _ in REPORT_COLUMNS} | {"tipo": report_type}
 
 
 def report_rows(queryset):
     for item in queryset:
-        yield {
-            "data": item.data.date().isoformat(),
-            "propriedade": item.propriedade.nome,
-            "cadpro": item.cadpro.codigo,
-            "talhao": item.talhao.nome if item.talhao_id else "",
-            "cultura": item.cultura.nome,
-            "safra": item.safra.nome,
-            "local": item.local_armazenagem.nome,
-            "peso_liquido_kg": item.peso_liquido_kg,
-            "sacas": item.quantidade_sacas,
-            "umidade": item.umidade_percentual,
-            "impureza": item.impureza_percentual,
-            "defeitos": item.defeitos_percentual,
-            "romaneio": item.romaneio,
-        }
+        if isinstance(item, RecebimentoProducao):
+            row = _empty_row("Recebimento")
+            row.update(
+                data=item.data.date().isoformat(),
+                propriedade=item.propriedade.nome,
+                cadpro=item.cadpro.codigo,
+                talhao=item.talhao.nome if item.talhao_id else "",
+                cultura=item.cultura.nome,
+                safra=item.safra.nome,
+                local=item.local_armazenagem.nome,
+                motorista=item.motorista.nome if item.motorista_id else "",
+                placa=item.veiculo.placa if item.veiculo_id else item.placa_informada,
+                romaneio=item.romaneio,
+                quantidade_kg=item.peso_liquido_kg,
+                sacas=item.quantidade_sacas,
+                umidade=item.umidade_percentual,
+                impureza=item.impureza_percentual,
+                defeitos=item.defeitos_percentual,
+                status=item.status,
+            )
+        elif isinstance(item, EmbarqueProducao):
+            row = _empty_row("Embarque")
+            row.update(
+                data=item.data.date().isoformat(),
+                propriedade=item.propriedade.nome,
+                cadpro=item.cadpro.codigo,
+                cultura=item.cultura.nome,
+                safra=item.safra.nome,
+                local=item.local_armazenagem.nome,
+                comprador=item.comprador.nome,
+                contrato=item.contrato.numero if item.contrato_id else "",
+                motorista=item.motorista.nome if item.motorista_id else "",
+                placa=item.veiculo.placa if item.veiculo_id else item.placa_informada,
+                romaneio=item.romaneio,
+                quantidade_kg=item.quantidade_kg,
+                sacas=item.quantidade_sacas,
+                preco_saca=item.preco_saca,
+                valor=item.valor_total,
+                status=item.status,
+            )
+        elif isinstance(item, SaldoGraos):
+            row = _empty_row("Estoque")
+            row.update(
+                propriedade=item.propriedade.nome,
+                cadpro=item.cadpro.codigo,
+                talhao=item.talhao.nome if item.talhao_id else "",
+                cultura=item.cultura.nome,
+                safra=item.safra.nome,
+                local=item.local_armazenagem.nome,
+                quantidade_kg=item.quantidade_kg,
+                sacas=item.quantidade_sacas,
+                status="disponível",
+            )
+        else:
+            row = _empty_row("Contrato")
+            shipped = sum(
+                (
+                    shipment.quantidade_kg
+                    for shipment in item.embarques.all()
+                    if shipment.status == EmbarqueProducao.Status.CONFIRMADO
+                ),
+                start=Decimal("0"),
+            )
+            row.update(
+                data=item.data_contrato.isoformat(),
+                propriedade=item.propriedade.nome,
+                cadpro=item.cadpro.codigo,
+                cultura=item.cultura.nome,
+                safra=item.safra.nome,
+                comprador=item.comprador.nome,
+                contrato=item.numero,
+                quantidade_kg=item.quantidade_kg,
+                sacas=item.quantidade_kg / item.cultura.peso_saca_kg,
+                preco_saca=item.preco_saca,
+                valor=(item.quantidade_kg / item.cultura.peso_saca_kg) * item.preco_saca,
+                status=f"{item.status}; embarcado {shipped} kg",
+            )
+        yield row
 
 
 def export_csv(rows):
@@ -183,11 +363,11 @@ def _pdf_escape(value):
 
 
 def export_pdf(rows):
-    lines = ["AGRO-AI-PRO - Relatório de Produção"]
+    lines = ["AGRO-AI-PRO - Relatório Integrado de Produção"]
     for row in rows:
         lines.append(
-            f"{row['data']} | {row['propriedade']} | {row['cadpro']} | {row['cultura']} | "
-            f"{row['safra']} | {row['peso_liquido_kg']} kg | {row['sacas']} sc"
+            f"{row['tipo']} | {row['data']} | {row['propriedade']} | {row['cadpro']} | "
+            f"{row['cultura']} | {row['safra']} | {row['quantidade_kg']} kg | {row['status']}"
         )
     pages = [lines[index:index + 45] for index in range(0, len(lines), 45)] or [[]]
     objects = []
@@ -207,14 +387,14 @@ def export_pdf(rows):
         next_id += 2
         content_entries.append((content_id, stream))
         page_ids.append(page_id)
-    objects.append((1, f"<< /Type /Catalog /Pages 2 0 R >>".encode()))
+    objects.append((1, b"<< /Type /Catalog /Pages 2 0 R >>"))
     kids = " ".join(f"{page_id} 0 R" for page_id in page_ids)
     objects.append((2, f"<< /Type /Pages /Kids [{kids}] /Count {len(page_ids)} >>".encode()))
     objects.append((font_id, b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"))
     for (content_id, stream), page_id in zip(content_entries, page_ids):
         objects.append((content_id, b"<< /Length %d >>\nstream\n" % len(stream) + stream + b"\nendstream"))
         objects.append((page_id, f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 {font_id} 0 R >> >> /Contents {content_id} 0 R >>".encode()))
-    objects.sort(key=lambda item: item[0])
+    objects.sort(key=lambda value: value[0])
     output = io.BytesIO()
     output.write(b"%PDF-1.4\n")
     offsets = {0: 0}
