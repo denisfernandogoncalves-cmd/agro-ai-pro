@@ -26,6 +26,10 @@ class TalhaoSerializerTests(TestCase):
         talhao = serializer.save()
         self.assertEqual(talhao.geometria_geojson["type"], "Polygon")
         self.assertIsNotNone(talhao.latitude_centro)
+        self.assertIsNotNone(talhao.area_calculada_hectares)
+        dados = TalhaoSerializer(talhao).data
+        self.assertIn("diferenca_area_hectares", dados)
+        self.assertIn("divergencia_area_percentual", dados)
 
     def test_mensagem_clara_quando_area_excede_propriedade(self):
         serializer = TalhaoSerializer(data={"nome": "Norte", "area_hectares": "101", "propriedade": self.propriedade.pk})

@@ -14,6 +14,7 @@ class TalhaoAdmin(admin.ModelAdmin):
         "nome",
         "propriedade",
         "area_hectares",
+        "area_calculada_hectares",
         "cultura_atual",
         "safra",
         "tipo_solo",
@@ -34,6 +35,8 @@ class TalhaoAdmin(admin.ModelAdmin):
     )
 
     readonly_fields = (
+        "geometria_geojson",
+        "area_calculada_hectares",
         "criado_em",
         "atualizado_em",
     )

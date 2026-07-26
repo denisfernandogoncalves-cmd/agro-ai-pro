@@ -8,6 +8,15 @@ def atualizar_coordenadas_kml(propriedade):
     resultado = extrair_centroide_kml(propriedade.arquivo_kml)
     propriedade.latitude = resultado["latitude"]
     propriedade.longitude = resultado["longitude"]
-    propriedade.save(update_fields=["latitude", "longitude"])
+    propriedade.geometria_geojson = resultado["geometria_geojson"]
+    propriedade.area_calculada_hectares = resultado["area_calculada_hectares"]
+    propriedade.save(
+        update_fields=[
+            "latitude",
+            "longitude",
+            "geometria_geojson",
+            "area_calculada_hectares",
+        ]
+    )
 
     return resultado

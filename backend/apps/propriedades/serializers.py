@@ -3,12 +3,31 @@ from rest_framework import serializers
 from .kml_service import KMLInvalidoError, extrair_centroide_kml
 from .models import Propriedade
 from .services import atualizar_coordenadas_kml
+from apps.talhoes.services import comparar_areas
 
 
 class PropriedadeSerializer(serializers.ModelSerializer):
+    diferenca_area_hectares = serializers.SerializerMethodField()
+    divergencia_area_percentual = serializers.SerializerMethodField()
+
     class Meta:
         model = Propriedade
         fields = "__all__"
+        read_only_fields = (
+            "geometria_geojson",
+            "area_calculada_hectares",
+            "diferenca_area_hectares",
+            "divergencia_area_percentual",
+        )
+
+    def _comparacao(self, obj):
+        return comparar_areas(obj.area_hectares, obj.area_calculada_hectares)
+
+    def get_diferenca_area_hectares(self, obj):
+        return self._comparacao(obj)["diferenca_hectares"]
+
+    def get_divergencia_area_percentual(self, obj):
+        return self._comparacao(obj)["divergencia_percentual"]
 
     def validate_area_hectares(self, value):
         if value <= 0:

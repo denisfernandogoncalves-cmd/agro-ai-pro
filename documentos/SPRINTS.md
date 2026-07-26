@@ -7,7 +7,7 @@ Este é o índice operacional das Sprints. Os detalhes técnicos ficam em
 | --- | --- | --- | --- |
 | 1 | Infraestrutura + Propriedades | Concluída em 25/07/2026 | `docs/sprints/SPRINT-01.md` |
 | 2 | Talhões | Concluída em 25/07/2026 | `docs/sprints/SPRINT-02.md` |
-| 3 | Geoprocessamento | Parcialmente implementada | `docs/sprints/SPRINT-03.md` |
+| 3 | Geoprocessamento | Concluída em 25/07/2026 | `docs/sprints/SPRINT-03.md` |
 | 4 | Clima | Pendente | A criar |
 | 5 | Mercado | Pendente | A criar |
 | 6 | Financeiro | Pendente | A criar |
@@ -22,6 +22,5 @@ Este é o índice operacional das Sprints. Os detalhes técnicos ficam em
 
 Uma Sprint só deve ser marcada como concluída após implementação, migrations
 consistentes, execução dos testes aplicáveis e atualização da documentação.
-A Sprint 3 possui entregas técnicas aproveitáveis, mas ainda não atende
-integralmente ao escopo oficial. Os itens remanescentes estão registrados no
-documento correspondente.
+Os critérios técnicos, a estratégia de precisão e os resultados da Sprint 3
+estão registrados no documento correspondente.

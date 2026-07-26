@@ -7,6 +7,7 @@ import { createServer } from "vite";
 
 const servidor = await createServer({
   appType: "custom",
+  configLoader: "runner",
   logLevel: "silent",
   server: { middlewareMode: true },
 });
@@ -22,6 +23,8 @@ try {
     await servidor.ssrLoadModule(
       "/src/pages/Talhoes/HistoricoAgronomicoPanel.tsx",
     );
+  const { converterGeometria, limitesGeometria } =
+    await servidor.ssrLoadModule("/src/utils/geometria.ts");
 
   const propriedade = {
     id: 1,
@@ -33,6 +36,10 @@ try {
     latitude: null,
     longitude: null,
     arquivo_kml: null,
+    geometria_geojson: null,
+    area_calculada_hectares: null,
+    diferenca_area_hectares: null,
+    divergencia_area_percentual: null,
     observacoes: "",
     criado_em: "2026-07-25T00:00:00Z",
   };
@@ -59,6 +66,9 @@ try {
     latitude_centro: null,
     longitude_centro: null,
     geometria_geojson: null,
+    area_calculada_hectares: null,
+    diferenca_area_hectares: null,
+    divergencia_area_percentual: null,
     criado_em: "2026-07-25T00:00:00Z",
     atualizado_em: "2026-07-25T00:00:00Z",
   };
@@ -134,7 +144,22 @@ try {
   assert.match(htmlHistorico, /Realizada: 62.50/);
   assert.match(htmlHistorico, /Colheita encerrada|Soja/);
 
-  console.log("3 testes de componentes aprovados.");
+  const multipoligono = {
+    type: "MultiPolygon",
+    coordinates: [
+      [[[-50, -20], [-49, -20], [-49, -19], [-50, -20]]],
+      [[[-48, -18], [-47, -18], [-47, -17], [-48, -18]]],
+    ],
+  };
+  const posicoes = converterGeometria(multipoligono);
+  assert.equal(posicoes.length, 2);
+  assert.deepEqual(posicoes[0][0][0], [-20, -50]);
+  assert.deepEqual(limitesGeometria(multipoligono), [
+    [-20, -50],
+    [-17, -47],
+  ]);
+
+  console.log("5 testes de componentes e geometria aprovados.");
 } finally {
   await servidor.close();
 }

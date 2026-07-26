@@ -244,7 +244,17 @@ export default function App() {
             <div className="lista">
               {propriedades.map((item) => (
                 <article className={`card item ${selecionada?.id === item.id ? "ativo" : ""}`} key={item.id} onClick={() => setSelecionada(item)}>
-                  <div><h3>{item.nome}</h3><p>{item.municipio}/{item.uf} · {item.area_hectares} ha</p></div>
+                  <div>
+                    <h3>{item.nome}</h3>
+                    <p>{item.municipio}/{item.uf} · {item.area_hectares} ha declarados</p>
+                    {item.area_calculada_hectares && (
+                      <p className="metadado-geografico">
+                        {item.area_calculada_hectares} ha calculados
+                        {item.divergencia_area_percentual &&
+                          ` · diferença ${item.divergencia_area_percentual}%`}
+                      </p>
+                    )}
+                  </div>
                   <div className="acoes">
                     <button className="secundario" onClick={(e) => { e.stopPropagation(); editar(item); }}>Editar</button>
                     <button className="perigo" onClick={(e) => { e.stopPropagation(); void excluir(item); }}>Excluir</button>
@@ -259,7 +269,7 @@ export default function App() {
               latitude={Number(selecionada.latitude)}
               longitude={Number(selecionada.longitude)}
               nome={selecionada.nome}
-              kml={selecionada.arquivo_kml}
+              geometria={selecionada.geometria_geojson}
             />
           )}
         </section>

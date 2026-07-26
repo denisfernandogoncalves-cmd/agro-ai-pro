@@ -30,8 +30,9 @@ O endpoint `/api/propriedades/` oferece CRUD, busca textual e ordenação. Campo
 - `arquivo_kml`: polígono `.kml` opcional, com limite de 5 MB.
 
 Quando um KML é enviado, o backend valida o XML e o polígono e substitui as
-coordenadas pelo centroide calculado. Uma propriedade vinculada a talhões não
-pode ser excluída; nesse caso, a API responde HTTP 409.
+coordenadas pelo centroide calculado. A resposta também inclui GeoJSON, área
+geodésica aproximada e a diferença para a área declarada. Uma propriedade
+vinculada a talhões não pode ser excluída; nesse caso, a API responde HTTP 409.
 
 Consulte os exemplos e critérios completos em
 [`docs/sprints/SPRINT-01.md`](../sprints/SPRINT-01.md).

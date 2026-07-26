@@ -20,7 +20,9 @@ disponíveis:
 - `altitude_media` e `declividade_media`;
 - `produtividade_esperada` e `produtividade_realizada`;
 - `arquivo_kml`;
-- `geometria_geojson`, `latitude_centro` e `longitude_centro`, somente leitura.
+- `geometria_geojson`, `latitude_centro` e `longitude_centro`, somente leitura;
+- `area_calculada_hectares`, `diferenca_area_hectares` e
+  `divergencia_area_percentual`, somente leitura.
 
 A área deve ser positiva e a soma das áreas dos talhões não pode superar a área
 da propriedade. As produtividades, quando informadas, não podem ser negativas.
@@ -67,9 +69,14 @@ degenerado, com pelo menos três vértices distintos e coordenadas geográficas
 válidas.
 
 Respostas bem-sucedidas incluem `geometria_geojson` (`Polygon` ou
-`MultiPolygon`) e o centroide visual. Erros de validação retornam HTTP 400 com
+`MultiPolygon`), centroide visual, área calculada em hectares e a diferença
+assinada para a área declarada. Erros de validação retornam HTTP 400 com
 mensagens associadas aos campos.
 
+O KML usa coordenadas WGS84. A área é calculada sobre a esfera autálica WGS84,
+com quatro casas decimais em hectares. Anéis internos são descontados e
+polígonos múltiplos são somados. A comparação não bloqueia o cadastro.
+
 O centroide é uma aproximação cartesiana destinada somente ao posicionamento
-visual. A API não calcula área oficial a partir das coordenadas; o cálculo
-geodésico permanece no escopo da Sprint 3.
+visual. A medição de área atende à conferência operacional e não substitui
+levantamento topográfico certificado.

@@ -46,6 +46,20 @@ class Propriedade(models.Model):
         blank=True
     )
 
+    geometria_geojson = models.JSONField(
+        null=True,
+        blank=True,
+        editable=False
+    )
+
+    area_calculada_hectares = models.DecimalField(
+        max_digits=14,
+        decimal_places=4,
+        null=True,
+        blank=True,
+        editable=False
+    )
+
     observacoes = models.TextField(
         blank=True
     )

@@ -1,4 +1,5 @@
 import axios from "axios";
+import { GeometriaGeoJSON } from "../utils/geometria";
 
 
 export type Propriedade = {
@@ -11,6 +12,10 @@ export type Propriedade = {
   latitude: string | null;
   longitude: string | null;
   arquivo_kml: string | null;
+  geometria_geojson: GeometriaGeoJSON | null;
+  area_calculada_hectares: string | null;
+  diferenca_area_hectares: string | null;
+  divergencia_area_percentual: string | null;
   observacoes: string;
   criado_em: string;
 };
