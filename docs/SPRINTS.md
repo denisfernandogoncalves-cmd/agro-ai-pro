@@ -42,17 +42,17 @@ Detalhes em `docs/sprints/SPRINT-02.md`.
 
 ## Sprint 3 — Geoprocessamento
 
-**Status:** `[~]`
+**Status:** `[x]` — concluída em 25/07/2026
 
 - [x] validação e armazenamento seguro de KML;
 - [x] Polygon e MultiPolygon em GeoJSON;
 - [x] centroide cartesiano para visualização;
 - [x] tratamento de erros de leitura e geometria;
-- [ ] cálculo geodésico da área em hectares;
-- [ ] comparação entre área calculada e declarada;
-- [ ] renderização completa de geometrias complexas no frontend;
-- [ ] estratégia formal de precisão e sistema de referência;
-- [ ] auditoria funcional e critérios de aceite.
+- [x] cálculo geodésico aproximado da área em hectares;
+- [x] comparação entre área calculada e declarada;
+- [x] renderização completa de geometrias complexas no frontend;
+- [x] estratégia formal de precisão e sistema de referência;
+- [x] auditoria funcional e critérios de aceite.
 
 Detalhes em `docs/sprints/SPRINT-03.md`.
 

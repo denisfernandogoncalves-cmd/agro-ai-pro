@@ -2,10 +2,12 @@ from rest_framework import serializers
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from .models import HistoricoAgronomico, Talhao
-from .services import processar_kml
+from .services import comparar_areas, processar_kml
 
 
 class TalhaoSerializer(serializers.ModelSerializer):
+    diferenca_area_hectares = serializers.SerializerMethodField()
+    divergencia_area_percentual = serializers.SerializerMethodField()
 
     propriedade_nome = serializers.CharField(
         source="propriedade.nome",
@@ -15,7 +17,23 @@ class TalhaoSerializer(serializers.ModelSerializer):
     class Meta:
         model = Talhao
         fields = "__all__"
-        read_only_fields = ("geometria_geojson", "latitude_centro", "longitude_centro")
+        read_only_fields = (
+            "geometria_geojson",
+            "latitude_centro",
+            "longitude_centro",
+            "area_calculada_hectares",
+            "diferenca_area_hectares",
+            "divergencia_area_percentual",
+        )
+
+    def _comparacao(self, obj):
+        return comparar_areas(obj.area_hectares, obj.area_calculada_hectares)
+
+    def get_diferenca_area_hectares(self, obj):
+        return self._comparacao(obj)["diferenca_hectares"]
+
+    def get_divergencia_area_percentual(self, obj):
+        return self._comparacao(obj)["divergencia_percentual"]
 
     def validate(self, attrs):
         instancia = self.instance or Talhao()

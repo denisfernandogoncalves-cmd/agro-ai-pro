@@ -10,6 +10,7 @@ class PropriedadeAdmin(admin.ModelAdmin):
         "municipio",
         "uf",
         "area_hectares",
+        "area_calculada_hectares",
         "criado_em",
     )
 
@@ -17,4 +18,9 @@ class PropriedadeAdmin(admin.ModelAdmin):
         "nome",
         "municipio",
         "proprietario",
+    )
+
+    readonly_fields = (
+        "geometria_geojson",
+        "area_calculada_hectares",
     )

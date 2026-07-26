@@ -1,11 +1,7 @@
 import { api } from "./propriedades";
+import { GeometriaGeoJSON } from "../utils/geometria";
 
-
-export type Coordenada = [number, number];
-
-export type GeometriaTalhao =
-  | { type: "Polygon"; coordinates: Coordenada[][] }
-  | { type: "MultiPolygon"; coordinates: Coordenada[][][] };
+export type GeometriaTalhao = GeometriaGeoJSON;
 
 export type Talhao = {
   id: number;
@@ -17,6 +13,9 @@ export type Talhao = {
   latitude_centro: string | null;
   longitude_centro: string | null;
   geometria_geojson: GeometriaTalhao | null;
+  area_calculada_hectares: string | null;
+  diferenca_area_hectares: string | null;
+  divergencia_area_percentual: string | null;
   cultura_atual: string;
   safra: string;
   tipo_solo: string;

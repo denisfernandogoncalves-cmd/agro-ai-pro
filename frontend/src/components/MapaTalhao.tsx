@@ -1,7 +1,9 @@
-import { LatLngExpression } from "leaflet";
+import { useEffect } from "react";
 import { CircleMarker, MapContainer, Polygon, Popup, TileLayer } from "react-leaflet";
+import { useMap } from "react-leaflet";
 
 import { GeometriaTalhao } from "../api/talhoes";
+import { converterGeometria, limitesGeometria } from "../utils/geometria";
 
 
 type Props = {
@@ -11,15 +13,12 @@ type Props = {
   nome: string;
 };
 
-function converterAnel(anel: [number, number][]): LatLngExpression[] {
-  return anel.map(([longitude, latitude]) => [latitude, longitude]);
-}
-
-function converterGeometria(geometria: GeometriaTalhao) {
-  if (geometria.type === "Polygon") {
-    return geometria.coordinates.map(converterAnel);
-  }
-  return geometria.coordinates.map((poligono) => poligono.map(converterAnel));
+function AjustarEnquadramento({ geometria }: { geometria: GeometriaTalhao }) {
+  const mapa = useMap();
+  useEffect(() => {
+    mapa.fitBounds(limitesGeometria(geometria), { padding: [24, 24] });
+  }, [geometria, mapa]);
+  return null;
 }
 
 export default function MapaTalhao({
@@ -43,6 +42,7 @@ export default function MapaTalhao({
         <Popup>{nome}</Popup>
       </CircleMarker>
       <Polygon positions={converterGeometria(geometria)} />
+      <AjustarEnquadramento geometria={geometria} />
     </MapContainer>
   );
 }

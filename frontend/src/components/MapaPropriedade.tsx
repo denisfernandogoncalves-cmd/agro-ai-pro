@@ -1,81 +1,37 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import {
   CircleMarker,
   MapContainer,
   Polygon,
   Popup,
   TileLayer,
+  useMap,
 } from "react-leaflet";
 
-import "leaflet/dist/leaflet.css";
+import { GeometriaGeoJSON, converterGeometria, limitesGeometria } from "../utils/geometria";
 
 
 type Props = {
   latitude: number;
   longitude: number;
   nome: string;
-  kml?: string | null;
+  geometria?: GeometriaGeoJSON | null;
 };
 
-function extrairPoligonoKml(conteudo: string): [number, number][] {
-  const xml = new DOMParser().parseFromString(conteudo, "application/xml");
-  if (xml.querySelector("parsererror")) {
-    throw new Error("KML inválido");
-  }
-  const coordenadas = xml.querySelector("coordinates")?.textContent;
-  if (!coordenadas) {
-    return [];
-  }
-  return coordenadas
-    .trim()
-    .split(/\s+/)
-    .map((coordenada) => coordenada.split(",").map(Number))
-    .filter(([longitudeKml, latitudeKml]) =>
-      Number.isFinite(longitudeKml) && Number.isFinite(latitudeKml)
-    )
-    .map(([longitudeKml, latitudeKml]) => [latitudeKml, longitudeKml]);
+function AjustarEnquadramento({ geometria }: { geometria: GeometriaGeoJSON }) {
+  const mapa = useMap();
+  useEffect(() => {
+    mapa.fitBounds(limitesGeometria(geometria), { padding: [24, 24] });
+  }, [geometria, mapa]);
+  return null;
 }
 
 export default function MapaPropriedade({
   latitude,
   longitude,
   nome,
-  kml,
+  geometria,
 }: Props) {
-  const [poligono, setPoligono] = useState<[number, number][]>([]);
-
-  useEffect(() => {
-    let ativo = true;
-    setPoligono([]);
-    if (!kml) {
-      return () => {
-        ativo = false;
-      };
-    }
-
-    fetch(kml)
-      .then((resposta) => {
-        if (!resposta.ok) {
-          throw new Error("Não foi possível carregar o KML.");
-        }
-        return resposta.text();
-      })
-      .then((conteudo) => {
-        if (ativo) {
-          setPoligono(extrairPoligonoKml(conteudo));
-        }
-      })
-      .catch(() => {
-        if (ativo) {
-          setPoligono([]);
-        }
-      });
-
-    return () => {
-      ativo = false;
-    };
-  }, [kml]);
-
   return (
     <MapContainer
       center={[latitude, longitude]}
@@ -90,7 +46,12 @@ export default function MapaPropriedade({
       <CircleMarker center={[latitude, longitude]} radius={8}>
         <Popup>{nome}</Popup>
       </CircleMarker>
-      {poligono.length >= 3 && <Polygon positions={poligono} />}
+      {geometria && (
+        <>
+          <Polygon positions={converterGeometria(geometria)} />
+          <AjustarEnquadramento geometria={geometria} />
+        </>
+      )}
     </MapContainer>
   );
 }

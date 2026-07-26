@@ -5,9 +5,8 @@ frontend React/TypeScript.
 
 ## Estado atual
 
-As Sprints 1 (Infraestrutura + Propriedades) e 2 (Talhões) estão concluídas. A
-Sprint 3 (Geoprocessamento) está parcialmente implementada e ainda não foi
-aprovada como concluída.
+As Sprints 1 (Infraestrutura + Propriedades), 2 (Talhões) e 3
+(Geoprocessamento) estão concluídas.
 
 O sistema oferece:
 
@@ -21,9 +20,9 @@ O sistema oferece:
 
 O módulo de Talhões oferece CRUD autenticado, produtividade esperada e
 realizada, histórico agronômico, filtros, busca, ordenação, paginação, interface
-dedicada e mapa. O processamento seguro de KML, GeoJSON e centroide visual já
-está disponível, mas o cálculo geodésico de área permanece no escopo da
-Sprint 3.
+dedicada e mapa. O geoprocessamento valida KML, preserva Polygon e MultiPolygon
+em GeoJSON, calcula a área geodésica aproximada, compara a medição com a área
+declarada e enquadra geometrias complexas no mapa.
 
 Talhões com histórico agronômico possuem exclusão protegida. A API mantém
 compatibilidade com listagens antigas sem paginação e oferece respostas
@@ -86,6 +85,6 @@ Redis e backend; o frontend é executado separadamente nesta Sprint.
 - [Prompt Mestre](docs/PROMPT-MESTRE-AGRO-AI-PRO.md)
 - [Sprint 1](docs/sprints/SPRINT-01.md)
 - [Sprint 2](docs/sprints/SPRINT-02.md)
-- [Sprint 3 — parcial](docs/sprints/SPRINT-03.md)
+- [Sprint 3](docs/sprints/SPRINT-03.md)
 - [API](docs/api/README.md)
 - [Arquitetura](ARCHITECTURE.md)

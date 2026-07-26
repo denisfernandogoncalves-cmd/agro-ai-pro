@@ -20,6 +20,8 @@ def _processar(arquivo):
     return {
         "longitude": resultado["longitude_centro"],
         "latitude": resultado["latitude_centro"],
+        "geometria_geojson": resultado["geometria_geojson"],
+        "area_calculada_hectares": resultado["area_calculada_hectares"],
     }
 
 

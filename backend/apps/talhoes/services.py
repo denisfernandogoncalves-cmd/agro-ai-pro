@@ -1,11 +1,16 @@
-"""Serviços seguros de leitura e validação de KML de talhões."""
+"""Serviços seguros de leitura, validação e medição de geometrias KML."""
 
+from decimal import Decimal, ROUND_HALF_UP
+from math import pi, sin
 from pathlib import Path
 from xml.etree import ElementTree
 
 from django.core.exceptions import ValidationError
 
 MAX_KML_SIZE = 5 * 1024 * 1024
+# Raio da esfera autálica do WGS84. A esfera autálica preserva áreas e evita
+# escolher uma projeção UTM inadequada para geometrias que cruzem zonas.
+RAIO_AUTALICO_WGS84_METROS = 6_371_007.1809
 
 
 def _ler_upload(arquivo):
@@ -54,6 +59,70 @@ def _centroide_visual(pontos):
     return {"longitude": cx / (3 * area_dupla), "latitude": cy / (3 * area_dupla)}
 
 
+def _delta_longitude_radianos(longitude_inicial, longitude_final):
+    """Normaliza o arco para lidar com anéis próximos ao antimeridiano."""
+    delta = (longitude_final - longitude_inicial) * pi / 180
+    if delta > pi:
+        return delta - 2 * pi
+    if delta < -pi:
+        return delta + 2 * pi
+    return delta
+
+
+def _area_anel_metros_quadrados(pontos):
+    """Calcula a área geodésica aproximada de um anel na esfera autálica."""
+    acumulado = 0.0
+    for atual, seguinte in zip(pontos, pontos[1:]):
+        latitude_atual = atual[1] * pi / 180
+        latitude_seguinte = seguinte[1] * pi / 180
+        acumulado += _delta_longitude_radianos(atual[0], seguinte[0]) * (
+            2 + sin(latitude_atual) + sin(latitude_seguinte)
+        )
+    return abs(acumulado) * RAIO_AUTALICO_WGS84_METROS**2 / 2
+
+
+def _area_poligono_metros_quadrados(aneis):
+    area_externa = _area_anel_metros_quadrados(aneis[0])
+    area_interna = sum(_area_anel_metros_quadrados(anel) for anel in aneis[1:])
+    area = area_externa - area_interna
+    if area <= 0:
+        raise ValidationError(
+            "Os anéis internos do KML não podem ocupar toda a área do polígono."
+        )
+    return area
+
+
+def calcular_area_hectares(poligonos):
+    """Soma polígonos e desconta seus anéis internos, retornando hectares."""
+    metros_quadrados = sum(
+        _area_poligono_metros_quadrados(aneis) for aneis in poligonos
+    )
+    return Decimal(str(metros_quadrados / 10_000)).quantize(
+        Decimal("0.0001"),
+        rounding=ROUND_HALF_UP,
+    )
+
+
+def comparar_areas(area_declarada, area_calculada):
+    """Retorna diferença assinada e percentual sem impor limite de aceitação."""
+    if area_declarada is None or area_calculada is None:
+        return {"diferenca_hectares": None, "divergencia_percentual": None}
+    declarada = Decimal(area_declarada)
+    calculada = Decimal(area_calculada)
+    diferenca = (calculada - declarada).quantize(
+        Decimal("0.0001"),
+        rounding=ROUND_HALF_UP,
+    )
+    percentual = (diferenca / declarada * 100).quantize(
+        Decimal("0.01"),
+        rounding=ROUND_HALF_UP,
+    )
+    return {
+        "diferenca_hectares": diferenca,
+        "divergencia_percentual": percentual,
+    }
+
+
 def processar_kml(arquivo):
     try:
         raiz = ElementTree.fromstring(_ler_upload(arquivo))
@@ -78,4 +147,5 @@ def processar_kml(arquivo):
         "geometria_geojson": geometria,
         "latitude_centro": centroide["latitude"],
         "longitude_centro": centroide["longitude"],
+        "area_calculada_hectares": calcular_area_hectares(poligonos),
     }

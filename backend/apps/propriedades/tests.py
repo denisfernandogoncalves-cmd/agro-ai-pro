@@ -117,6 +117,9 @@ class PropriedadeAPITests(APITestCase):
         propriedade = Propriedade.objects.get(pk=resposta.data["id"])
         self.assertAlmostEqual(float(propriedade.latitude), -19.5, places=5)
         self.assertAlmostEqual(float(propriedade.longitude), -49.5, places=5)
+        self.assertIsNotNone(propriedade.area_calculada_hectares)
+        self.assertEqual(resposta.data["geometria_geojson"]["type"], "Polygon")
+        self.assertIn("divergencia_area_percentual", resposta.data)
 
     def test_rejeita_upload_kml_invalido(self):
         self.client.force_authenticate(self.usuario)

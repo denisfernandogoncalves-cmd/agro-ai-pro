@@ -324,6 +324,14 @@ export default function TalhoesPage() {
 
           {selecionado && (
             <section className="detalhes">
+              {selecionado.area_calculada_hectares && (
+                <p className="card metadado-geografico">
+                  Área declarada: {selecionado.area_hectares} ha · Área
+                  geodésica calculada: {selecionado.area_calculada_hectares} ha
+                  {selecionado.divergencia_area_percentual &&
+                    ` · Diferença: ${selecionado.divergencia_area_percentual}%`}
+                </p>
+              )}
               {selecionado.geometria_geojson &&
                 selecionado.latitude_centro &&
                 selecionado.longitude_centro && (
