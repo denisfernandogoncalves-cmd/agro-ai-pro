@@ -1,6 +1,7 @@
 # AGRO-AI-PRO
 
-**Versão funcional:** 1.0
+**Versão funcional:** 1.0  
+**Em desenvolvimento:** 1.1 — Gestão Integrada da Produção Agrícola
 
 Plataforma modular de gestão agrícola com backend Django REST Framework e
 frontend React/TypeScript.
@@ -10,17 +11,19 @@ frontend React/TypeScript.
 As Sprints 1 (Infraestrutura + Propriedades), 2 (Talhões), 3
 (Geoprocessamento), 4 (Clima), 5 (Mercado), 6 (Financeiro), 7 (Estoque), 8
 (Operações), 9 (Máquinas), 10 (Relatórios), 11 (IA) e 12 (Aplicativo) estão
-concluídas.
+concluídas. A Sprint 13 implementa a Gestão Integrada da Produção Agrícola.
 
 O sistema oferece:
 
 - autenticação JWT;
+- controle multiusuário por propriedade e CAD/PRO;
 - CRUD autenticado de propriedades;
 - busca, ordenação e validação dos dados;
 - upload e validação de polígonos KML;
 - mapa com OpenStreetMap;
 - proteção dos vínculos entre propriedades e talhões;
-- testes automatizados da API.
+- testes automatizados da API;
+- shell Enterprise responsivo, temas claro e escuro e carregamento sob demanda.
 
 O módulo de Talhões oferece CRUD autenticado, produtividade esperada e
 realizada, histórico agronômico, filtros, busca, ordenação, paginação, interface
@@ -55,12 +58,34 @@ responsável, área e custo. A conclusão baixa os insumos efetivamente usados n
 estoque de forma transacional e mantém a rastreabilidade entre operação, lote,
 propriedade, safra e usuário.
 
+## Gestão Integrada da Produção
+
+O novo domínio controla o fluxo físico e comercial após a colheita:
+
+- múltiplos CAD/PRO por propriedade;
+- culturas e safras;
+- recebimentos com peso bruto, tara, peso líquido e classificação de qualidade;
+- saldo de grãos por propriedade, CAD/PRO, talhão, cultura, safra e armazenagem;
+- entradas, saídas, transferências, ajustes e estornos sem saldo negativo;
+- compradores, motoristas, veículos, terceiros e contratos;
+- embarques com romaneio, notas fiscais, quantidade, preço e destino;
+- baixa transacional do estoque e criação automática de conta a receber;
+- auditoria imutável;
+- dashboard e relatórios JSON, CSV, XLSX e PDF;
+- assistente de importação de planilhas com detecção de colunas, mapeamento,
+  prévia e confirmação;
+- insights explicáveis de produção, produtividade, qualidade, estoque e
+  contratos.
+
+As planilhas são processadas localmente. Nenhum arquivo ou dado é enviado a
+serviços externos. Consulte [Gestão Integrada da Produção](docs/GESTAO-INTEGRADA-PRODUCAO.md).
+
 O módulo de Máquinas controla frota, propriedade, estado, horímetro, uso em
 operações, abastecimentos e manutenções. Leituras não podem regredir e os
 históricos de campo e combustível são imutáveis.
 
 O dashboard gerencial consolida estrutura, caixa, operações, estoque, máquinas,
-alertas e fluxo mensal, com filtros por propriedade e safra.
+produção, alertas e fluxo mensal, com filtros por propriedade e safra.
 
 O assistente gerencial gera insights explicáveis a partir de alertas e
 pendências do próprio sistema, sem compartilhar dados com serviços externos.
@@ -88,8 +113,8 @@ Configure as variáveis a partir de `.env.example`, inicialize o PostgreSQL e:
 ```powershell
 cd backend
 ..\.venv\Scripts\python.exe manage.py migrate
-..\.venv\Scripts\python.exe manage.py createsuperuser
-..\.venv\Scripts\python.exe manage.py runserver
+..\.venv\Scripts\python.exe createsuperuser
+..\.venv\Scripts\python.exe runserver
 ```
 
 Para testes não é necessário PostgreSQL:
@@ -129,11 +154,9 @@ Compose.
 ## Documentação
 
 - [Prompt Mestre](docs/PROMPT-MESTRE-AGRO-AI-PRO.md)
-- [Sprint 1](docs/sprints/SPRINT-01.md)
-- [Sprint 2](docs/sprints/SPRINT-02.md)
-- [Sprint 3](docs/sprints/SPRINT-03.md)
-- [Sprint 4](docs/sprints/SPRINT-04.md)
-- [Sprint 5](docs/sprints/SPRINT-05.md)
-- [Sprint 6](docs/sprints/SPRINT-06.md)
-- [API](docs/api/README.md)
 - [Arquitetura](ARCHITECTURE.md)
+- [Gestão Integrada da Produção](docs/GESTAO-INTEGRADA-PRODUCAO.md)
+- [API da Produção Integrada](docs/api/PRODUCAO-INTEGRADA.md)
+- [Segurança multiusuário](docs/SEGURANCA-MULTIUSUARIO.md)
+- [Índice de APIs](docs/api/README.md)
+- [Índice de Sprints](documentos/SPRINTS.md)
