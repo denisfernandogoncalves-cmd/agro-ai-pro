@@ -4,6 +4,7 @@ from django.db.models import Count, Sum
 from django.db.models.functions import TruncMonth
 from django.utils import timezone
 
+from apps.estoque.models import LoteEstoque
 from apps.estoque.services import resumo_estoque
 from apps.financeiro.models import LancamentoFinanceiro
 from apps.financeiro.services import resumo_financeiro
@@ -17,16 +18,29 @@ def _decimal(valor):
     return valor or Decimal("0")
 
 
-def dashboard_gerencial(*, propriedade=None, safra=""):
+def dashboard_gerencial(*, propriedade=None, safra="", propriedades=None):
+    propriedades_qs = Propriedade.objects.all()
     lancamentos = LancamentoFinanceiro.objects.all()
     operacoes = OperacaoAgricola.objects.select_related("talhao__propriedade")
     talhoes = Talhao.objects.all()
     maquinas = Maquina.objects.all()
+    lotes = LoteEstoque.objects.select_related("produto", "local")
+
+    if propriedades is not None:
+        ids = list(propriedades)
+        propriedades_qs = propriedades_qs.filter(pk__in=ids)
+        lancamentos = lancamentos.filter(propriedade_id__in=ids)
+        operacoes = operacoes.filter(talhao__propriedade_id__in=ids)
+        talhoes = talhoes.filter(propriedade_id__in=ids)
+        maquinas = maquinas.filter(propriedade_id__in=ids)
+        lotes = lotes.filter(local__propriedade_id__in=ids)
     if propriedade:
+        propriedades_qs = propriedades_qs.filter(pk=propriedade)
         lancamentos = lancamentos.filter(propriedade_id=propriedade)
         operacoes = operacoes.filter(talhao__propriedade_id=propriedade)
         talhoes = talhoes.filter(propriedade_id=propriedade)
         maquinas = maquinas.filter(propriedade_id=propriedade)
+        lotes = lotes.filter(local__propriedade_id=propriedade)
     if safra:
         lancamentos = lancamentos.filter(safra=safra)
         operacoes = operacoes.filter(talhao__safra=safra)
@@ -62,17 +76,16 @@ def dashboard_gerencial(*, propriedade=None, safra=""):
         )
         fluxo[chave][campo] = item["total"]
 
-    estoque = resumo_estoque(propriedade=propriedade, safra=safra)
-    quantidade_propriedades = (
-        Propriedade.objects.filter(pk=propriedade).count()
-        if propriedade
-        else Propriedade.objects.count()
+    estoque = resumo_estoque(
+        lotes,
+        propriedade=propriedade,
+        safra=safra,
     )
     return {
         "gerado_em": timezone.now(),
         "filtros": {"propriedade": propriedade, "safra": safra},
         "estrutura": {
-            "propriedades": quantidade_propriedades,
+            "propriedades": propriedades_qs.count(),
             "talhoes": talhoes.count(),
             "area_talhoes": _decimal(
                 talhoes.aggregate(total=Sum("area_hectares"))["total"]

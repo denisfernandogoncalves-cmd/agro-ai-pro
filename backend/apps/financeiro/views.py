@@ -3,8 +3,13 @@ from datetime import date
 from django.db.models.deletion import ProtectedError
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+
+from apps.core.access import PAPEIS_GESTAO
+from apps.core.viewsets import (
+    EscopoGlobalViewSetMixin,
+    EscopoPropriedadeViewSetMixin,
+)
 
 from .models import (
     CategoriaFinanceira,
@@ -27,8 +32,7 @@ from .services import (
 
 
 class CadastroFinanceiroMixin:
-    permission_classes = [IsAuthenticated]
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    filter_backends = (filters.SearchFilter, filters.OrderingFilter)
     ordering = ("nome",)
     ordering_fields = ("nome", "criado_em")
     search_fields = ("nome",)
@@ -43,24 +47,43 @@ class CadastroFinanceiroMixin:
             )
 
 
-class CategoriaFinanceiraViewSet(CadastroFinanceiroMixin, viewsets.ModelViewSet):
+class CategoriaFinanceiraViewSet(
+    EscopoGlobalViewSetMixin,
+    CadastroFinanceiroMixin,
+    viewsets.ModelViewSet,
+):
     queryset = CategoriaFinanceira.objects.all()
     serializer_class = CategoriaFinanceiraSerializer
 
 
-class ParceiroFinanceiroViewSet(CadastroFinanceiroMixin, viewsets.ModelViewSet):
+class ParceiroFinanceiroViewSet(
+    EscopoGlobalViewSetMixin,
+    CadastroFinanceiroMixin,
+    viewsets.ModelViewSet,
+):
     queryset = ParceiroFinanceiro.objects.all()
     serializer_class = ParceiroFinanceiroSerializer
     search_fields = ("nome", "documento", "email")
 
 
-class CentroCustoViewSet(CadastroFinanceiroMixin, viewsets.ModelViewSet):
+class CentroCustoViewSet(
+    EscopoPropriedadeViewSetMixin,
+    CadastroFinanceiroMixin,
+    viewsets.ModelViewSet,
+):
     queryset = CentroCusto.objects.select_related("propriedade").all()
     serializer_class = CentroCustoSerializer
+    property_filter = "propriedade_id"
+    property_path = "propriedade"
+    property_input_path = "propriedade"
+    write_roles = PAPEIS_GESTAO
     search_fields = ("nome", "safra", "propriedade__nome")
 
 
-class LancamentoFinanceiroViewSet(viewsets.ModelViewSet):
+class LancamentoFinanceiroViewSet(
+    EscopoPropriedadeViewSetMixin,
+    viewsets.ModelViewSet,
+):
     queryset = LancamentoFinanceiro.objects.select_related(
         "categoria",
         "parceiro",
@@ -68,8 +91,15 @@ class LancamentoFinanceiroViewSet(viewsets.ModelViewSet):
         "propriedade",
     )
     serializer_class = LancamentoFinanceiroSerializer
-    permission_classes = [IsAuthenticated]
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    property_filter = "propriedade_id"
+    property_path = "propriedade"
+    property_input_path = "propriedade"
+    write_roles = PAPEIS_GESTAO
+    action_roles = {
+        "liquidar": PAPEIS_GESTAO,
+        "cancelar": PAPEIS_GESTAO,
+    }
+    filter_backends = (filters.SearchFilter, filters.OrderingFilter)
     search_fields = ("descricao", "parceiro__nome", "observacoes", "safra")
     ordering_fields = ("data_vencimento", "valor", "descricao", "status", "tipo")
     ordering = ("data_vencimento", "id")

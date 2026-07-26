@@ -1,13 +1,14 @@
 from django.utils import timezone
 
 from apps.clima.models import PrevisaoClima
+from apps.estoque.models import LoteEstoque
 from apps.estoque.services import resumo_estoque
 from apps.financeiro.models import LancamentoFinanceiro
 from apps.maquinas.models import ManutencaoMaquina
 from apps.producao.models import OperacaoAgricola
 
 
-def gerar_insights(*, propriedade=None, safra=""):
+def gerar_insights(*, propriedade=None, safra="", propriedades=None):
     hoje = timezone.localdate()
     insights = []
 
@@ -24,22 +25,36 @@ def gerar_insights(*, propriedade=None, safra=""):
         )
 
     financeiros = LancamentoFinanceiro.objects.filter(
-        status="pendente", data_vencimento__lt=hoje
+        status="pendente",
+        data_vencimento__lt=hoje,
     )
     operacoes = OperacaoAgricola.objects.filter(
-        status="planejada", data_planejada__lt=hoje
+        status="planejada",
+        data_planejada__lt=hoje,
     )
     manutencoes = ManutencaoMaquina.objects.filter(
-        status="agendada", data_prevista__lt=hoje
+        status="agendada",
+        data_prevista__lt=hoje,
     )
     clima = PrevisaoClima.objects.filter(
-        data__gte=hoje, alerta_agricola__gt=""
+        data__gte=hoje,
+        alerta_agricola__gt="",
     )
+    lotes = LoteEstoque.objects.select_related("produto", "local")
+
+    if propriedades is not None:
+        ids = list(propriedades)
+        financeiros = financeiros.filter(propriedade_id__in=ids)
+        operacoes = operacoes.filter(talhao__propriedade_id__in=ids)
+        manutencoes = manutencoes.filter(maquina__propriedade_id__in=ids)
+        clima = clima.filter(propriedade_id__in=ids)
+        lotes = lotes.filter(local__propriedade_id__in=ids)
     if propriedade:
         financeiros = financeiros.filter(propriedade_id=propriedade)
         operacoes = operacoes.filter(talhao__propriedade_id=propriedade)
         manutencoes = manutencoes.filter(maquina__propriedade_id=propriedade)
         clima = clima.filter(propriedade_id=propriedade)
+        lotes = lotes.filter(local__propriedade_id=propriedade)
     if safra:
         financeiros = financeiros.filter(safra=safra)
         operacoes = operacoes.filter(talhao__safra=safra)
@@ -53,7 +68,11 @@ def gerar_insights(*, propriedade=None, safra=""):
             "Revisar os vencimentos e registrar pagamento, recebimento ou renegociação.",
             "financeiro",
         )
-    estoque = resumo_estoque(propriedade=propriedade, safra=safra)
+    estoque = resumo_estoque(
+        lotes,
+        propriedade=propriedade,
+        safra=safra,
+    )
     if estoque["lotes_vencidos"]:
         adicionar(
             "estoque_vencido",

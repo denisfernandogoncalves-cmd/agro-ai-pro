@@ -2,6 +2,13 @@
 
 ## Em desenvolvimento — manutenção da versão 1.0
 
+- adiciona controle multiusuário por propriedade;
+- cria papéis de administrador, gestor, operador e somente leitura;
+- isola consultas, filtros, relatórios e insights por usuário;
+- bloqueia acesso direto a IDs de outras propriedades;
+- preserva superusuários com acesso completo;
+- inclui migration segura e vinculação automática de superusuários;
+- oculta ações não permitidas na tela de propriedades;
 - corrige o isolamento dos indicadores de estoque por propriedade e safra;
 - corrige os alertas de estoque do assistente gerencial;
 - valida filtros de propriedade e evita erro interno com parâmetros inválidos;

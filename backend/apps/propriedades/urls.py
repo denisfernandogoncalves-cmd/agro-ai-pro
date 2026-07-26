@@ -1,18 +1,11 @@
-from django.urls import path, include
+from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
-from .views import PropriedadeViewSet
+from .views import AcessoPropriedadeViewSet, PropriedadeViewSet
 
 
 router = DefaultRouter()
+router.register("acessos", AcessoPropriedadeViewSet, basename="acesso-propriedade")
+router.register("", PropriedadeViewSet, basename="propriedade")
 
-router.register(
-    "",
-    PropriedadeViewSet,
-    basename="propriedade"
-)
-
-
-urlpatterns = [
-    path("", include(router.urls)),
-]
+urlpatterns = [path("", include(router.urls))]

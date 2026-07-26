@@ -123,6 +123,28 @@ header { align-items: center; display: flex; justify-content: space-between; mar
 .insight.atencao { border-left: 5px solid #d7a633; }
 .insight.informativo { border-left: 5px solid #237447; }
 
+body[data-pode-gerenciar="false"] .modulo-financeiro .formulario,
+body[data-pode-gerenciar="false"] .modulo-financeiro .cadastros-auxiliares,
+body[data-pode-gerenciar="false"] .modulo-financeiro .lista .acoes,
+body[data-pode-gerenciar="false"] .modulo-talhoes .talhoes-grade > .formulario,
+body[data-pode-gerenciar="false"] .modulo-talhoes .conteudo > .lista .acoes,
+body[data-pode-gerenciar="false"] .modulo-estoque .cadastros-auxiliares,
+body[data-pode-gerenciar="false"] .modulo-maquinas .maquinas-grade > .formulario:first-child {
+  display: none;
+}
+
+body[data-pode-operar="false"] .modulo-clima .clima-controles button,
+body[data-pode-operar="false"] .modulo-estoque .estoque-grade > .formulario,
+body[data-pode-operar="false"] .modulo-operacoes .operacoes-grade > .formulario,
+body[data-pode-operar="false"] .modulo-operacoes .linha-insumo,
+body[data-pode-operar="false"] .modulo-operacoes .linha-transicao,
+body[data-pode-operar="false"] .modulo-maquinas .maquinas-grade > .formulario,
+body[data-pode-operar="false"] .modulo-maquinas .lista button,
+body[data-pode-operar="false"] .modulo-talhoes .historico-form,
+body[data-pode-operar="false"] .modulo-talhoes .historico-lista .acoes {
+  display: none;
+}
+
 @media (max-width: 860px) {
   .pagina { padding: 1rem; }
   header { align-items: flex-start; gap: 1rem; }

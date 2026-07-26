@@ -1,10 +1,12 @@
 from datetime import date
 
 from django.core.exceptions import ValidationError as DjangoValidationError
-from rest_framework import filters, status, viewsets
+from rest_framework import filters, serializers, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+
+from apps.core.access import PAPEIS_GESTAO, PAPEIS_OPERACAO
+from apps.core.viewsets import EscopoPropriedadeViewSetMixin
 
 from .models import InsumoOperacao, OperacaoAgricola
 from .serializers import InsumoOperacaoSerializer, OperacaoAgricolaSerializer
@@ -16,13 +18,21 @@ from .services import (
 )
 
 
-class OperacaoAgricolaViewSet(viewsets.ModelViewSet):
+class OperacaoAgricolaViewSet(
+    EscopoPropriedadeViewSetMixin,
+    viewsets.ModelViewSet,
+):
     queryset = OperacaoAgricola.objects.select_related(
-        "talhao__propriedade", "criado_por"
+        "talhao__propriedade",
+        "criado_por",
     ).prefetch_related("insumos__lote__produto", "insumos__lote__local")
     serializer_class = OperacaoAgricolaSerializer
-    permission_classes = [IsAuthenticated]
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    property_filter = "talhao__propriedade_id"
+    property_path = "talhao.propriedade"
+    property_input_path = "talhao.propriedade"
+    write_roles = PAPEIS_OPERACAO
+    action_roles = {"destroy": PAPEIS_GESTAO}
+    filter_backends = (filters.SearchFilter, filters.OrderingFilter)
     search_fields = ("descricao", "responsavel", "talhao__nome", "observacoes")
     ordering_fields = ("data_planejada", "tipo", "status", "custo_estimado")
     ordering = ("data_planejada", "id")
@@ -91,13 +101,21 @@ class OperacaoAgricolaViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(operacao).data)
 
 
-class InsumoOperacaoViewSet(viewsets.ModelViewSet):
+class InsumoOperacaoViewSet(
+    EscopoPropriedadeViewSetMixin,
+    viewsets.ModelViewSet,
+):
     queryset = InsumoOperacao.objects.select_related(
-        "operacao", "lote__produto", "lote__local"
+        "operacao__talhao__propriedade",
+        "lote__produto",
+        "lote__local__propriedade",
     )
     serializer_class = InsumoOperacaoSerializer
-    permission_classes = [IsAuthenticated]
-    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    property_filter = "operacao__talhao__propriedade_id"
+    property_path = "operacao.talhao.propriedade"
+    property_input_path = "operacao.talhao.propriedade"
+    write_roles = PAPEIS_OPERACAO
+    filter_backends = (filters.SearchFilter, filters.OrderingFilter)
     search_fields = ("lote__produto__nome", "lote__codigo", "operacao__descricao")
     ordering_fields = ("quantidade_planejada", "criado_em")
 
@@ -105,6 +123,32 @@ class InsumoOperacaoViewSet(viewsets.ModelViewSet):
         queryset = super().get_queryset()
         operacao = self.request.query_params.get("operacao", "").strip()
         return queryset.filter(operacao_id=operacao) if operacao else queryset
+
+    def _validar_lote(self, serializer):
+        operacao = serializer.validated_data.get(
+            "operacao",
+            getattr(serializer.instance, "operacao", None),
+        )
+        lote = serializer.validated_data.get(
+            "lote",
+            getattr(serializer.instance, "lote", None),
+        )
+        if (
+            operacao
+            and lote
+            and operacao.talhao.propriedade_id != lote.local.propriedade_id
+        ):
+            raise serializers.ValidationError(
+                {"lote": "O lote deve pertencer à propriedade da operação."}
+            )
+
+    def perform_create(self, serializer):
+        self._validar_lote(serializer)
+        super().perform_create(serializer)
+
+    def perform_update(self, serializer):
+        self._validar_lote(serializer)
+        super().perform_update(serializer)
 
     def update(self, request, *args, **kwargs):
         if self.get_object().operacao.status not in {
