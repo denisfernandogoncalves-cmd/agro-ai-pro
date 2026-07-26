@@ -43,6 +43,14 @@ services:
       POSTGRES_PORT: ${POSTGRES_PORT:-5432}
       REDIS_HOST: redis
       REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_CACHE_URL: ${REDIS_CACHE_URL:-redis://redis:6379/1}
+      CLIMA_PROVIDER_BASE_URL: ${CLIMA_PROVIDER_BASE_URL:-https://api.open-meteo.com/v1/forecast}
+      CLIMA_PROVIDER_TIMEOUT_SECONDS: ${CLIMA_PROVIDER_TIMEOUT_SECONDS:-15}
+      CLIMA_PROVIDER_CACHE_SECONDS: ${CLIMA_PROVIDER_CACHE_SECONDS:-900}
+      CLIMA_UPDATE_LOCK_SECONDS: ${CLIMA_UPDATE_LOCK_SECONDS:-180}
+      CLIMA_UPDATE_INTERVAL_SECONDS: ${CLIMA_UPDATE_INTERVAL_SECONDS:-10800}
+      CLIMA_MAX_UPDATES_PER_CYCLE: ${CLIMA_MAX_UPDATES_PER_CYCLE:-100}
+      CLIMA_AUTOMATIC_UPDATE_ENABLED: ${CLIMA_AUTOMATIC_UPDATE_ENABLED:-True}
     depends_on:
       postgres:
         condition: service_healthy
@@ -59,6 +67,38 @@ services:
       timeout: 5s
       retries: 10
       start_period: 20s
+
+  clima-worker:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    environment:
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings.development}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-development-only-change-me-at-least-32-characters}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-True}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
+      POSTGRES_DB: ${POSTGRES_DB:-agro_ai_pro}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      REDIS_CACHE_URL: ${REDIS_CACHE_URL:-redis://redis:6379/1}
+      CLIMA_PROVIDER_BASE_URL: ${CLIMA_PROVIDER_BASE_URL:-https://api.open-meteo.com/v1/forecast}
+      CLIMA_PROVIDER_TIMEOUT_SECONDS: ${CLIMA_PROVIDER_TIMEOUT_SECONDS:-15}
+      CLIMA_PROVIDER_CACHE_SECONDS: ${CLIMA_PROVIDER_CACHE_SECONDS:-900}
+      CLIMA_UPDATE_LOCK_SECONDS: ${CLIMA_UPDATE_LOCK_SECONDS:-180}
+      CLIMA_UPDATE_INTERVAL_SECONDS: ${CLIMA_UPDATE_INTERVAL_SECONDS:-10800}
+      CLIMA_MAX_UPDATES_PER_CYCLE: ${CLIMA_MAX_UPDATES_PER_CYCLE:-100}
+      CLIMA_AUTOMATIC_UPDATE_ENABLED: ${CLIMA_AUTOMATIC_UPDATE_ENABLED:-True}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: sh -c "cd /app/backend && python manage.py atualizar_clima --continuous --interval-seconds $${CLIMA_UPDATE_INTERVAL_SECONDS:-10800}"
+    restart: unless-stopped
 
   frontend:
     build:
