@@ -1,18 +1,20 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
+from .grain_safe_views import (
+    EmbarqueProducaoSeguroViewSet,
+    ImportacaoPlanilhaSeguraViewSet,
+    RecebimentoProducaoSeguroViewSet,
+)
 from .grain_views import (
     AcessoCadProViewSet,
     AuditoriaProducaoViewSet,
     CadProViewSet,
     ContratoProducaoViewSet,
     CulturaViewSet,
-    EmbarqueProducaoViewSet,
-    ImportacaoPlanilhaViewSet,
     MotoristaViewSet,
     MovimentacaoGraosViewSet,
     ProducaoDashboardView,
-    RecebimentoProducaoViewSet,
     RelatorioProducaoView,
     SafraViewSet,
     SaldoGraosViewSet,
@@ -31,12 +33,12 @@ router.register("acessos-cadpro", AcessoCadProViewSet, basename="acessos-cadpro"
 router.register("motoristas", MotoristaViewSet, basename="motoristas")
 router.register("veiculos", VeiculoViewSet, basename="veiculos")
 router.register("contratos", ContratoProducaoViewSet, basename="contratos-producao")
-router.register("recebimentos", RecebimentoProducaoViewSet, basename="recebimentos-producao")
-router.register("embarques", EmbarqueProducaoViewSet, basename="embarques-producao")
+router.register("recebimentos", RecebimentoProducaoSeguroViewSet, basename="recebimentos-producao")
+router.register("embarques", EmbarqueProducaoSeguroViewSet, basename="embarques-producao")
 router.register("movimentacoes-graos", MovimentacaoGraosViewSet, basename="movimentacoes-graos")
 router.register("saldos-graos", SaldoGraosViewSet, basename="saldos-graos")
 router.register("auditoria", AuditoriaProducaoViewSet, basename="auditoria-producao")
-router.register("importacoes", ImportacaoPlanilhaViewSet, basename="importacoes-producao")
+router.register("importacoes", ImportacaoPlanilhaSeguraViewSet, basename="importacoes-producao")
 
 urlpatterns = [
     path("", include(router.urls)),
