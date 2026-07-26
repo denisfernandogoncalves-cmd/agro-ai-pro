@@ -118,8 +118,13 @@ Com o Docker Desktop ativo:
 docker compose up --build
 ```
 
-O backend fica em `http://127.0.0.1:8000`. O Compose atual inicia PostgreSQL,
-Redis e backend; o frontend é executado separadamente nesta Sprint.
+O sistema fica disponível em `http://127.0.0.1:5173` e o backend também pode
+ser consultado em `http://127.0.0.1:8000/api/health/`. O Compose inicia
+PostgreSQL, Redis, backend e frontend, aguardando os healthchecks dos serviços.
+
+Se alguma porta já estiver em uso, defina `POSTGRES_PORT_EXPOSED`,
+`REDIS_PORT_EXPOSED`, `BACKEND_PORT` e `FRONTEND_PORT` antes de executar o
+Compose.
 
 ## Documentação
 

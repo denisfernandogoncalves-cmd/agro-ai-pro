@@ -1,13 +1,12 @@
 services:
   postgres:
     image: postgres:17
-    container_name: agro-postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-agro_ai_pro}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
-      - "5432:5432"
+      - "${POSTGRES_PORT_EXPOSED:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -18,17 +17,20 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: agro-redis
     ports:
-      - "6379:6379"
+      - "${REDIS_PORT_EXPOSED:-6379}:6379"
     volumes:
       - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   backend:
     build:
       context: .
       dockerfile: docker/backend/Dockerfile
-    container_name: agro-backend
     environment:
       DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings.development}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-development-only-change-me-at-least-32-characters}
@@ -45,12 +47,35 @@ services:
       postgres:
         condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
     ports:
-      - "8000:8000"
+      - "${BACKEND_PORT:-8000}:8000"
     volumes:
       - .:/app
     command: sh -c "cd /app/backend && python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health/', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+      args:
+        VITE_API_URL: /api
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-5173}:80"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   postgres_data:
