@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 
 import {
@@ -9,27 +9,30 @@ import {
   excluirPropriedade,
   listarPropriedades,
   obterPermissoesUsuario,
-  PermissoesUsuario,
-  Propriedade,
-  PropriedadeInput,
+  type PermissoesUsuario,
+  type Propriedade,
+  type PropriedadeInput,
   sair,
 } from "./api/propriedades";
-import MapaPropriedade from "./components/MapaPropriedade";
+import ModuleRenderer from "./app/ModuleRenderer";
+import { NAVIGATION_ITEMS, type ModuleId } from "./app/navigation";
+import AppShell from "./components/layout/AppShell";
+import AgriculturalMap, { type AgriculturalMapFeature } from "./components/maps/AgriculturalMap";
 import AplicativoStatus from "./components/AplicativoStatus";
-import ClimaPage from "./pages/Clima/ClimaPage";
-import EstoquePage from "./pages/Estoque/EstoquePage";
-import FinanceiroPage from "./pages/Financeiro/FinanceiroPage";
-import MercadoPage from "./pages/Mercado/MercadoPage";
-import MaquinasPage from "./pages/Maquinas/MaquinasPage";
-import OperacoesPage from "./pages/Operacoes/OperacoesPage";
-import RelatoriosPage from "./pages/Relatorios/RelatoriosPage";
-import InsightsPage from "./pages/Insights/InsightsPage";
-import TalhoesPage from "./pages/Talhoes/TalhoesPage";
+import {
+  ConfirmDialog,
+  EmptyState,
+  LoadingState,
+  PageHeader,
+  PermissionGuard,
+  SearchInput,
+} from "./components/shared/ui";
+import { useTheme } from "./hooks/useTheme";
+import { getUserIdentity } from "./utils/session";
 
 import "./styles.css";
 
-
-const formularioVazio: PropriedadeInput = {
+const emptyForm: PropriedadeInput = {
   nome: "",
   proprietario: "",
   municipio: "",
@@ -41,105 +44,115 @@ const formularioVazio: PropriedadeInput = {
   arquivo_kml: null,
 };
 
-const permissoesVazias: PermissoesUsuario = {
+const emptyPermissions: PermissoesUsuario = {
   pode_criar_propriedade: false,
   superusuario: false,
 };
 
-function mensagemDoErro(erro: unknown) {
-  if (axios.isAxiosError(erro)) {
-    const dados = erro.response?.data;
-    if (erro.response?.status === 403 && !dados?.detail) {
+const roleLabels = {
+  administrador: "Administrador",
+  gestor: "Gestor",
+  operador: "Operador",
+  leitura: "Somente leitura",
+} as const;
+
+function errorMessage(error: unknown) {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data;
+    if (error.response?.status === 403 && !data?.detail) {
       return "Seu perfil não permite concluir esta operação.";
     }
-    if (typeof dados?.detail === "string") {
-      return dados.detail;
+    if (error.response?.status === 404 && !data?.detail) {
+      return "O recurso solicitado não foi encontrado ou não pertence às suas propriedades autorizadas.";
     }
-    if (dados && typeof dados === "object") {
-      return Object.values(dados).flat().join(" ");
-    }
+    if (typeof data?.detail === "string") return data.detail;
+    if (data && typeof data === "object") return Object.values(data).flat().join(" ");
   }
   return "Não foi possível concluir a operação.";
 }
 
 export default function App() {
-  const [autenticado, setAutenticado] = useState(estaAutenticado());
-  const [modulo, setModulo] = useState<
-    "propriedades" | "talhoes" | "clima" | "mercado" | "financeiro" | "estoque" | "operacoes" | "maquinas" | "relatorios" | "insights"
-  >("propriedades");
-  const [credenciais, setCredenciais] = useState({ username: "", password: "" });
-  const [propriedades, setPropriedades] = useState<Propriedade[]>([]);
-  const [permissoes, setPermissoes] = useState(permissoesVazias);
-  const [selecionada, setSelecionada] = useState<Propriedade | null>(null);
-  const [edicaoId, setEdicaoId] = useState<number | null>(null);
-  const [formulario, setFormulario] = useState(formularioVazio);
-  const [busca, setBusca] = useState("");
-  const [carregando, setCarregando] = useState(false);
-  const [erro, setErro] = useState("");
+  const [authenticated, setAuthenticated] = useState(estaAutenticado());
+  const [module, setModule] = useState<ModuleId>("dashboard");
+  const [credentials, setCredentials] = useState({ username: "", password: "" });
+  const [properties, setProperties] = useState<Propriedade[]>([]);
+  const [permissions, setPermissions] = useState(emptyPermissions);
+  const [selected, setSelected] = useState<Propriedade | null>(null);
+  const [harvest, setHarvest] = useState("");
+  const [editId, setEditId] = useState<number | null>(null);
+  const [form, setForm] = useState(emptyForm);
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [deleteTarget, setDeleteTarget] = useState<Propriedade | null>(null);
+  const { theme, toggleTheme } = useTheme();
 
-  const carregar = useCallback(async (termo = "") => {
-    setCarregando(true);
-    setErro("");
+  const loadProperties = useCallback(async (term = "") => {
+    setLoading(true);
+    setError("");
     try {
-      const [dados, perfil] = await Promise.all([
-        listarPropriedades(termo),
+      const [data, profile] = await Promise.all([
+        listarPropriedades(term),
         obterPermissoesUsuario(),
       ]);
-      setPropriedades(dados);
-      setPermissoes(perfil);
-      setSelecionada((atual) =>
-        dados.find((item) => item.id === atual?.id) ?? dados[0] ?? null
-      );
-    } catch (falha) {
-      setErro(mensagemDoErro(falha));
+      setProperties(data);
+      setPermissions(profile);
+      setSelected((current) => data.find((item) => item.id === current?.id) ?? data[0] ?? null);
+    } catch (failure) {
+      setError(errorMessage(failure));
     } finally {
-      setCarregando(false);
+      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (autenticado) {
-      void carregar();
-    }
-  }, [autenticado, carregar]);
+    if (authenticated) void loadProperties();
+  }, [authenticated, loadProperties]);
 
-  async function enviarLogin(evento: FormEvent) {
-    evento.preventDefault();
-    setErro("");
+  const availableNavigation = useMemo(() => {
+    const hasPropertyScope = permissions.superusuario || properties.length > 0;
+    return NAVIGATION_ITEMS.filter((item) => !item.requiresProperty || hasPropertyScope);
+  }, [permissions.superusuario, properties.length]);
+
+  useEffect(() => {
+    if (!availableNavigation.some((item) => item.id === module)) setModule("dashboard");
+  }, [availableNavigation, module]);
+
+  async function submitLogin(event: FormEvent) {
+    event.preventDefault();
+    setError("");
     try {
-      await autenticar(credenciais.username, credenciais.password);
-      setAutenticado(true);
+      await autenticar(credentials.username, credentials.password);
+      setAuthenticated(true);
+      setModule("dashboard");
     } catch {
-      setErro("Usuário ou senha inválidos.");
+      setError("Usuário ou senha inválidos.");
     }
   }
 
-  async function salvar(evento: FormEvent) {
-    evento.preventDefault();
-    setCarregando(true);
-    setErro("");
+  async function saveProperty(event: FormEvent) {
+    event.preventDefault();
+    setLoading(true);
+    setError("");
     try {
-      if (edicaoId) {
-        await atualizarPropriedade(edicaoId, formulario);
-      } else {
-        await criarPropriedade(formulario);
-      }
-      setFormulario(formularioVazio);
-      setEdicaoId(null);
-      await carregar(busca);
-    } catch (falha) {
-      setErro(mensagemDoErro(falha));
-      setCarregando(false);
+      if (editId) await atualizarPropriedade(editId, form);
+      else await criarPropriedade(form);
+      setForm(emptyForm);
+      setEditId(null);
+      await loadProperties(search);
+    } catch (failure) {
+      setError(errorMessage(failure));
+      setLoading(false);
     }
   }
 
-  function editar(item: Propriedade) {
+  function editProperty(item: Propriedade) {
     if (!item.pode_editar) {
-      setErro("Seu perfil não permite editar esta propriedade.");
+      setError("Seu perfil não permite editar esta propriedade.");
       return;
     }
-    setEdicaoId(item.id);
-    setFormulario({
+    setEditId(item.id);
+    setForm({
       nome: item.nome,
       proprietario: item.proprietario,
       municipio: item.municipio,
@@ -150,230 +163,154 @@ export default function App() {
       observacoes: item.observacoes,
       arquivo_kml: null,
     });
+    setModule("propriedades");
   }
 
-  async function excluir(item: Propriedade) {
+  function requestDelete(item: Propriedade) {
     if (!item.pode_excluir) {
-      setErro("Somente administradores podem excluir propriedades.");
+      setError("Somente administradores podem excluir propriedades.");
       return;
     }
-    if (!window.confirm(`Excluir a propriedade "${item.nome}"?`)) {
-      return;
-    }
-    setErro("");
+    setDeleteTarget(item);
+  }
+
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    setError("");
     try {
-      await excluirPropriedade(item.id);
-      await carregar(busca);
-    } catch (falha) {
-      setErro(mensagemDoErro(falha));
+      await excluirPropriedade(deleteTarget.id);
+      setDeleteTarget(null);
+      await loadProperties(search);
+    } catch (failure) {
+      setError(errorMessage(failure));
     }
   }
 
-  if (!autenticado) {
+  function logout() {
+    sair();
+    setAuthenticated(false);
+    setPermissions(emptyPermissions);
+    setProperties([]);
+    setSelected(null);
+    setModule("dashboard");
+  }
+
+  if (!authenticated) {
     return (
-      <main className="login">
-        <form className="card" onSubmit={enviarLogin}>
-          <h1>AGRO-AI-PRO</h1>
-          <p>Acesse o módulo de propriedades.</p>
-          <label>
-            Usuário
-            <input
-              value={credenciais.username}
-              onChange={(evento) =>
-                setCredenciais({ ...credenciais, username: evento.target.value })
-              }
-              required
-            />
-          </label>
-          <label>
-            Senha
-            <input
-              type="password"
-              value={credenciais.password}
-              onChange={(evento) =>
-                setCredenciais({ ...credenciais, password: evento.target.value })
-              }
-              required
-            />
-          </label>
-          {erro && <p className="erro">{erro}</p>}
+      <main className="login enterprise-login">
+        <form className="card" onSubmit={submitLogin}>
+          <div className="enterprise-login__brand"><span>A</span><div><h1>AGRO-AI-PRO</h1><p>ERP agrícola inteligente</p></div></div>
+          <label>Usuário<input autoComplete="username" value={credentials.username} onChange={(event) => setCredentials({ ...credentials, username: event.target.value })} required /></label>
+          <label>Senha<input autoComplete="current-password" type="password" value={credentials.password} onChange={(event) => setCredentials({ ...credentials, password: event.target.value })} required /></label>
+          {error && <p className="erro">{error}</p>}
           <button type="submit">Entrar</button>
         </form>
       </main>
     );
   }
 
+  const identity = getUserIdentity();
+  const roleLabel = permissions.superusuario
+    ? "Superusuário"
+    : selected?.papel_usuario
+      ? roleLabels[selected.papel_usuario]
+      : "Acesso autenticado";
+  const selectedFeatures: AgriculturalMapFeature[] = selected ? [{
+    id: selected.id,
+    kind: "propriedade",
+    name: selected.nome,
+    subtitle: `${selected.municipio}/${selected.uf}`,
+    latitude: selected.latitude === null ? null : Number(selected.latitude),
+    longitude: selected.longitude === null ? null : Number(selected.longitude),
+    geometry: selected.geometria_geojson,
+  }] : [];
+
+  const propertiesContent = (
+    <section className="properties-page">
+      <PageHeader eyebrow="Cadastros rurais" title="Propriedades" description="Consulte e gerencie somente as propriedades autorizadas para o seu perfil." />
+      {error && <p className="erro card" role="alert">{error}</p>}
+      <section className="grade properties-grid">
+        <PermissionGuard
+          allowed={permissions.pode_criar_propriedade || editId !== null}
+          fallback={<div className="card vazio">Seu perfil permite consultar as propriedades autorizadas, sem criar ou editar cadastros.</div>}
+        >
+          <form className="card formulario" onSubmit={saveProperty}>
+            <h2>{editId ? "Editar propriedade" : "Nova propriedade"}</h2>
+            <label>Nome<input required value={form.nome} onChange={(event) => setForm({ ...form, nome: event.target.value })} /></label>
+            <label>Proprietário<input value={form.proprietario} onChange={(event) => setForm({ ...form, proprietario: event.target.value })} /></label>
+            <div className="linha">
+              <label>Município<input required value={form.municipio} onChange={(event) => setForm({ ...form, municipio: event.target.value })} /></label>
+              <label>UF<input maxLength={2} value={form.uf} onChange={(event) => setForm({ ...form, uf: event.target.value.toUpperCase() })} /></label>
+            </div>
+            <label>Área (ha)<input required min="0.01" step="0.01" type="number" value={form.area_hectares} onChange={(event) => setForm({ ...form, area_hectares: event.target.value })} /></label>
+            <div className="linha">
+              <label>Latitude<input step="any" type="number" value={form.latitude} onChange={(event) => setForm({ ...form, latitude: event.target.value })} /></label>
+              <label>Longitude<input step="any" type="number" value={form.longitude} onChange={(event) => setForm({ ...form, longitude: event.target.value })} /></label>
+            </div>
+            <label>KML (até 5 MB)<input accept=".kml" type="file" onChange={(event) => setForm({ ...form, arquivo_kml: event.target.files?.[0] ?? null })} /></label>
+            <label>Observações<textarea value={form.observacoes} onChange={(event) => setForm({ ...form, observacoes: event.target.value })} /></label>
+            <div className="acoes">
+              <button disabled={loading} type="submit">{loading ? "Salvando..." : "Salvar"}</button>
+              {editId && <button className="secundario" type="button" onClick={() => { setEditId(null); setForm(emptyForm); }}>Cancelar</button>}
+            </div>
+          </form>
+        </PermissionGuard>
+
+        <section className="conteudo">
+          <form className="busca" onSubmit={(event) => { event.preventDefault(); void loadProperties(search); }}>
+            <SearchInput aria-label="Buscar propriedades" placeholder="Buscar por nome, município ou proprietário" value={search} onChange={(event) => setSearch(event.target.value)} />
+            <button type="submit">Buscar</button>
+          </form>
+          {loading && properties.length === 0 ? <LoadingState label="Carregando propriedades..." /> : properties.length === 0 ? <EmptyState title="Nenhuma propriedade autorizada" description="Solicite um vínculo ou cadastre a primeira propriedade, quando permitido." /> : (
+            <div className="lista">
+              {properties.map((item) => (
+                <article className={`card item ${selected?.id === item.id ? "ativo" : ""}`} key={item.id} onClick={() => setSelected(item)}>
+                  <div>
+                    <h3>{item.nome}</h3>
+                    <p>{item.municipio}/{item.uf} · {item.area_hectares} ha declarados</p>
+                    <p className="metadado-geografico">Perfil: {item.papel_usuario ? roleLabels[item.papel_usuario] : "Superusuário"}</p>
+                    {item.area_calculada_hectares && <p className="metadado-geografico">{item.area_calculada_hectares} ha calculados{item.divergencia_area_percentual && ` · diferença ${item.divergencia_area_percentual}%`}</p>}
+                  </div>
+                  {(item.pode_editar || item.pode_excluir) && <div className="acoes">
+                    {item.pode_editar && <button className="secundario" onClick={(event) => { event.stopPropagation(); editProperty(item); }}>Editar</button>}
+                    {item.pode_excluir && <button className="perigo" onClick={(event) => { event.stopPropagation(); requestDelete(item); }}>Excluir</button>}
+                  </div>}
+                </article>
+              ))}
+            </div>
+          )}
+          <AgriculturalMap features={selectedFeatures} emptyMessage="A propriedade selecionada ainda não possui coordenadas ou KML processado." />
+        </section>
+      </section>
+    </section>
+  );
+
   return (
-    <main className="pagina">
-      <header>
-        <div>
-          <span className="kicker">Gestão rural</span>
-          <h1>
-            {modulo === "propriedades"
-              ? "Propriedades"
-              : modulo === "talhoes"
-                ? "Talhões"
-                : modulo === "clima"
-                  ? "Clima"
-                  : modulo === "mercado"
-                    ? "Mercado"
-                    : modulo === "financeiro"
-                      ? "Financeiro"
-                      : modulo === "estoque"
-                        ? "Estoque"
-                        : modulo === "operacoes"
-                          ? "Operações"
-                          : modulo === "maquinas"
-                            ? "Máquinas"
-                            : modulo === "relatorios"
-                              ? "Relatórios"
-                              : "Assistente"}
-          </h1>
-        </div>
-        <div className="cabecalho-acoes">
-          <AplicativoStatus />
-          <button
-            className="secundario"
-            onClick={() => {
-              sair();
-              setAutenticado(false);
-              setPermissoes(permissoesVazias);
-            }}
-          >
-            Sair
-          </button>
-        </div>
-      </header>
-
-      <nav className="navegacao-modulos" aria-label="Módulos agrícolas">
-        <button className={modulo === "propriedades" ? "" : "secundario"} onClick={() => setModulo("propriedades")}>Propriedades</button>
-        <button className={modulo === "talhoes" ? "" : "secundario"} onClick={() => setModulo("talhoes")}>Talhões</button>
-        <button className={modulo === "clima" ? "" : "secundario"} onClick={() => setModulo("clima")}>Clima</button>
-        <button className={modulo === "mercado" ? "" : "secundario"} onClick={() => setModulo("mercado")}>Mercado</button>
-        <button className={modulo === "financeiro" ? "" : "secundario"} onClick={() => setModulo("financeiro")}>Financeiro</button>
-        <button className={modulo === "estoque" ? "" : "secundario"} onClick={() => setModulo("estoque")}>Estoque</button>
-        <button className={modulo === "operacoes" ? "" : "secundario"} onClick={() => setModulo("operacoes")}>Operações</button>
-        <button className={modulo === "maquinas" ? "" : "secundario"} onClick={() => setModulo("maquinas")}>Máquinas</button>
-        <button className={modulo === "relatorios" ? "" : "secundario"} onClick={() => setModulo("relatorios")}>Relatórios</button>
-        <button className={modulo === "insights" ? "" : "secundario"} onClick={() => setModulo("insights")}>Assistente</button>
-      </nav>
-
-      {modulo === "talhoes" ? (
-        <TalhoesPage />
-      ) : modulo === "clima" ? (
-        <ClimaPage propriedades={propriedades} />
-      ) : modulo === "mercado" ? (
-        <MercadoPage />
-      ) : modulo === "financeiro" ? (
-        <FinanceiroPage propriedades={propriedades} />
-      ) : modulo === "estoque" ? (
-        <EstoquePage propriedades={propriedades} />
-      ) : modulo === "operacoes" ? (
-        <OperacoesPage />
-      ) : modulo === "maquinas" ? (
-        <MaquinasPage propriedades={propriedades} />
-      ) : modulo === "relatorios" ? (
-        <RelatoriosPage propriedades={propriedades} />
-      ) : modulo === "insights" ? (
-        <InsightsPage propriedades={propriedades} />
-      ) : (
-        <>
-          {erro && <p className="erro card">{erro}</p>}
-
-          <section className="grade">
-            {(permissoes.pode_criar_propriedade || edicaoId !== null) ? (
-              <form className="card formulario" onSubmit={salvar}>
-                <h2>{edicaoId ? "Editar propriedade" : "Nova propriedade"}</h2>
-                <label>Nome<input required value={formulario.nome} onChange={(e) => setFormulario({ ...formulario, nome: e.target.value })} /></label>
-                <label>Proprietário<input value={formulario.proprietario} onChange={(e) => setFormulario({ ...formulario, proprietario: e.target.value })} /></label>
-                <div className="linha">
-                  <label>Município<input required value={formulario.municipio} onChange={(e) => setFormulario({ ...formulario, municipio: e.target.value })} /></label>
-                  <label>UF<input maxLength={2} value={formulario.uf} onChange={(e) => setFormulario({ ...formulario, uf: e.target.value.toUpperCase() })} /></label>
-                </div>
-                <label>Área (ha)<input required min="0.01" step="0.01" type="number" value={formulario.area_hectares} onChange={(e) => setFormulario({ ...formulario, area_hectares: e.target.value })} /></label>
-                <div className="linha">
-                  <label>Latitude<input step="any" type="number" value={formulario.latitude} onChange={(e) => setFormulario({ ...formulario, latitude: e.target.value })} /></label>
-                  <label>Longitude<input step="any" type="number" value={formulario.longitude} onChange={(e) => setFormulario({ ...formulario, longitude: e.target.value })} /></label>
-                </div>
-                <label>KML (até 5 MB)<input accept=".kml" type="file" onChange={(e) => setFormulario({ ...formulario, arquivo_kml: e.target.files?.[0] ?? null })} /></label>
-                <label>Observações<textarea value={formulario.observacoes} onChange={(e) => setFormulario({ ...formulario, observacoes: e.target.value })} /></label>
-                <div className="acoes">
-                  <button disabled={carregando} type="submit">Salvar</button>
-                  {edicaoId && (
-                    <button
-                      className="secundario"
-                      type="button"
-                      onClick={() => {
-                        setEdicaoId(null);
-                        setFormulario(formularioVazio);
-                      }}
-                    >
-                      Cancelar
-                    </button>
-                  )}
-                </div>
-              </form>
-            ) : (
-              <div className="card vazio">
-                Seu perfil permite consultar as propriedades autorizadas.
-              </div>
-            )}
-
-            <section className="conteudo">
-              <form className="busca" onSubmit={(e) => { e.preventDefault(); void carregar(busca); }}>
-                <input aria-label="Buscar propriedades" placeholder="Buscar por nome, município ou proprietário" value={busca} onChange={(e) => setBusca(e.target.value)} />
-                <button type="submit">Buscar</button>
-              </form>
-
-              {carregando && propriedades.length === 0 ? (
-                <p>Carregando propriedades...</p>
-              ) : propriedades.length === 0 ? (
-                <div className="card vazio">Nenhuma propriedade autorizada.</div>
-              ) : (
-                <div className="lista">
-                  {propriedades.map((item) => (
-                    <article className={`card item ${selecionada?.id === item.id ? "ativo" : ""}`} key={item.id} onClick={() => setSelecionada(item)}>
-                      <div>
-                        <h3>{item.nome}</h3>
-                        <p>{item.municipio}/{item.uf} · {item.area_hectares} ha declarados</p>
-                        <p className="metadado-geografico">
-                          Perfil: {item.papel_usuario ?? "superusuário"}
-                        </p>
-                        {item.area_calculada_hectares && (
-                          <p className="metadado-geografico">
-                            {item.area_calculada_hectares} ha calculados
-                            {item.divergencia_area_percentual &&
-                              ` · diferença ${item.divergencia_area_percentual}%`}
-                          </p>
-                        )}
-                      </div>
-                      {(item.pode_editar || item.pode_excluir) && (
-                        <div className="acoes">
-                          {item.pode_editar && (
-                            <button className="secundario" onClick={(e) => { e.stopPropagation(); editar(item); }}>Editar</button>
-                          )}
-                          {item.pode_excluir && (
-                            <button className="perigo" onClick={(e) => { e.stopPropagation(); void excluir(item); }}>Excluir</button>
-                          )}
-                        </div>
-                      )}
-                    </article>
-                  ))}
-                </div>
-              )}
-
-              {selecionada?.latitude && selecionada.longitude && (
-                <MapaPropriedade
-                  latitude={Number(selecionada.latitude)}
-                  longitude={Number(selecionada.longitude)}
-                  nome={selecionada.nome}
-                  geometria={selecionada.geometria_geojson}
-                />
-              )}
-            </section>
-          </section>
-        </>
-      )}
-    </main>
+    <AppShell
+      items={availableNavigation}
+      activeModule={module}
+      onNavigate={setModule}
+      properties={properties}
+      selectedPropertyId={selected ? String(selected.id) : ""}
+      onSelectedPropertyChange={(id) => setSelected(id ? properties.find((item) => item.id === Number(id)) ?? null : null)}
+      safra={harvest}
+      onSafraChange={setHarvest}
+      userLabel={identity.label}
+      roleLabel={roleLabel}
+      theme={theme}
+      onToggleTheme={toggleTheme}
+      onLogout={logout}
+      statusSlot={<AplicativoStatus />}
+    >
+      <ModuleRenderer module={module} properties={properties} selectedProperty={selected} safra={harvest} propertiesContent={propertiesContent} />
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="Excluir propriedade"
+        description={`Confirma a exclusão de “${deleteTarget?.nome ?? ""}”? As proteções do backend continuam ativas.`}
+        confirmLabel="Excluir"
+        onCancel={() => setDeleteTarget(null)}
+        onConfirm={() => void confirmDelete()}
+      />
+    </AppShell>
   );
 }

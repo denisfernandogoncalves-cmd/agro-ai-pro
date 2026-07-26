@@ -2,6 +2,13 @@
 
 ## Em desenvolvimento — manutenção da versão 1.0
 
+- inicia a primeira entrega da interface enterprise em branch isolada;
+- adiciona shell responsivo com sidebar fixa, recolhível e drawer móvel;
+- adiciona Dashboard Executivo usando exclusivamente APIs existentes;
+- centraliza design tokens e temas claro/escuro com preferência persistida;
+- adiciona componentes compartilhados e carregamento sob demanda dos módulos;
+- consolida mapas de propriedades e talhões com GeoJSON, marcadores, escala e legenda;
+- preserva o controle multiusuário e os bloqueios visuais da PR #16;
 - adiciona controle multiusuário por propriedade;
 - cria papéis de administrador, gestor, operador e somente leitura;
 - isola consultas, filtros, relatórios e insights por usuário;

@@ -1,138 +1,110 @@
-:root {
-  color: #18332a;
-  background: #f2f5ee;
-  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
-  font-synthesis: none;
-}
+@import "./styles/tokens.css";
+@import "./styles/enterprise.css";
 
+:root { color: var(--color-text); background: var(--color-bg); font-family: var(--font-sans); font-synthesis: none; }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; }
 button, input, select, textarea { font: inherit; }
-button { border: 0; border-radius: 8px; background: #237447; color: white; cursor: pointer; padding: 0.7rem 1rem; }
+button { border: 0; border-radius: var(--radius-sm); background: var(--color-primary); color: white; cursor: pointer; padding: 0.7rem 1rem; }
 button:disabled { cursor: wait; opacity: 0.65; }
-button.secundario { background: #e5ece6; color: #264a39; }
-button.perigo { background: #a53a32; }
-input, select, textarea { border: 1px solid #bdcbbf; border-radius: 8px; padding: 0.7rem; width: 100%; }
+button.secundario { background: var(--color-surface-subtle); color: var(--color-text); border: 1px solid var(--color-border); }
+button.perigo { background: var(--color-danger); }
+input, select, textarea { border: 1px solid var(--color-border); border-radius: var(--radius-sm); padding: 0.7rem; width: 100%; background: var(--color-surface); color: var(--color-text); }
 textarea { min-height: 90px; resize: vertical; }
 label { display: grid; gap: 0.35rem; font-size: 0.9rem; font-weight: 650; }
 h1, h2, h3, p { margin-top: 0; }
-
 .pagina { margin: 0 auto; max-width: 1440px; padding: 2rem; }
-header { align-items: center; display: flex; justify-content: space-between; margin-bottom: 1.5rem; }
 .cabecalho-acoes, .status-aplicativo { align-items: center; display: flex; gap: 0.7rem; }
 .status-aplicativo span { border-radius: 999px; font-size: 0.75rem; font-weight: 750; padding: 0.4rem 0.65rem; }
-.status-aplicativo .online { background: #e2f3e6; color: #1d653b; }
-.status-aplicativo .offline { background: #fff0ee; color: #8b2922; }
-.kicker { color: #5b7467; font-size: 0.75rem; font-weight: 750; letter-spacing: 0.12em; text-transform: uppercase; }
+.status-aplicativo .online { background: var(--color-success-soft); color: var(--color-success); }
+.status-aplicativo .offline { background: var(--color-danger-soft); color: var(--color-danger); }
+.kicker { color: var(--color-text-muted); font-size: 0.75rem; font-weight: 750; letter-spacing: 0.12em; text-transform: uppercase; }
 .navegacao-modulos { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
-.card { background: white; border: 1px solid #d9e2da; border-radius: 12px; box-shadow: 0 8px 30px rgb(25 52 42 / 7%); padding: 1.2rem; }
+.card { background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-md); box-shadow: var(--shadow-sm); padding: 1.2rem; }
 .grade { align-items: start; display: grid; gap: 1.5rem; grid-template-columns: minmax(280px, 360px) 1fr; }
-.formulario { display: grid; gap: 1rem; position: sticky; top: 1rem; }
+.formulario { display: grid; gap: 1rem; position: sticky; top: calc(var(--header-height) + var(--space-4)); }
 .linha { display: grid; gap: 0.8rem; grid-template-columns: 1fr 1fr; }
 .acoes { display: flex; gap: 0.5rem; }
 .conteudo { display: grid; gap: 1rem; }
 .busca { display: flex; gap: 0.5rem; }
 .lista { display: grid; gap: 0.7rem; }
 .item { align-items: center; cursor: pointer; display: flex; justify-content: space-between; }
-.item.ativo { border-color: #237447; box-shadow: 0 0 0 2px rgb(35 116 71 / 12%); }
+.item.ativo { border-color: var(--color-primary); box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 18%, transparent); }
 .item h3 { margin-bottom: 0.25rem; }
-.item p { color: #5d6f65; margin-bottom: 0; }
-.mapa { border-radius: 12px; height: 440px; width: 100%; }
-.modulo-talhoes { display: grid; gap: 1rem; }
+.item p { color: var(--color-text-muted); margin-bottom: 0; }
+.mapa { border-radius: var(--radius-md); height: 440px; width: 100%; }
+.modulo-talhoes, .modulo-clima, .modulo-mercado, .modulo-financeiro, .modulo-estoque, .modulo-operacoes, .modulo-maquinas, .modulo-relatorios, .modulo-insights { display: grid; gap: 1.4rem; }
 .talhoes-grade { grid-template-columns: minmax(320px, 420px) 1fr; }
 .painel-filtros { display: grid; gap: 0.65rem; grid-template-columns: 2fr repeat(4, minmax(110px, 1fr)) auto; }
 .paginacao { align-items: center; display: flex; gap: 0.8rem; justify-content: center; }
-.detalhes { display: grid; gap: 1rem; }
-.historico { display: grid; gap: 1rem; }
-.historico-form { display: grid; gap: 0.8rem; }
-.historico-lista { display: grid; gap: 0.6rem; }
-.historico-lista article { align-items: center; border-top: 1px solid #e2e8e3; display: flex; gap: 1rem; justify-content: space-between; padding-top: 0.8rem; }
-.historico-lista p { color: #5d6f65; margin: 0.2rem 0; }
-.erro { background: #fff0ee; border-color: #e9b1aa; color: #8b2922; }
-.vazio { color: #607168; text-align: center; }
+.detalhes, .historico, .historico-form, .historico-lista { display: grid; gap: 1rem; }
+.historico-lista article { align-items: center; border-top: 1px solid var(--color-border); display: flex; gap: 1rem; justify-content: space-between; padding-top: 0.8rem; }
+.historico-lista p { color: var(--color-text-muted); margin: 0.2rem 0; }
+.erro { background: var(--color-danger-soft); border-color: var(--color-danger); color: var(--color-danger); }
+.vazio { color: var(--color-text-muted); text-align: center; }
 .login { align-items: center; display: grid; min-height: 100vh; padding: 1rem; }
 .login form { display: grid; gap: 1rem; margin: auto; max-width: 400px; width: 100%; }
-.modulo-clima { display: grid; gap: 1rem; }
+.enterprise-login { background: radial-gradient(circle at 20% 10%, color-mix(in srgb, var(--color-primary) 20%, transparent), transparent 36%), var(--color-bg); }
+.enterprise-login__brand { display: flex; align-items: center; gap: var(--space-3); }
+.enterprise-login__brand > span { width: 3rem; height: 3rem; display: grid; place-items: center; border-radius: var(--radius-md); background: var(--color-primary); color: white; font-weight: 850; }
+.enterprise-login__brand h1, .enterprise-login__brand p { margin-bottom: 0; }
 .clima-controles { align-items: end; display: grid; gap: 1rem; grid-template-columns: minmax(240px, 420px) auto; }
-.previsoes-grade { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.previsoes-grade, .resumos-mercado, .corn-belt-grade, .noticias-mercado, .resumos-financeiros, .resumos-estoque, .lista-insights { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 .previsao-card { display: grid; gap: 0.7rem; }
 .previsao-card h3, .previsao-card p { margin-bottom: 0; }
 .temperaturas { font-size: 1.25rem; font-weight: 750; }
 .previsao-card dl { display: grid; gap: 0.5rem; margin: 0; }
 .previsao-card dl div { display: flex; justify-content: space-between; }
-.previsao-card dt { color: #5d6f65; }
+.previsao-card dt, .previsao-card small { color: var(--color-text-muted); }
 .previsao-card dd { font-weight: 700; margin: 0; }
-.alerta-clima { background: #fff3d6; border: 1px solid #efd18b; border-radius: 8px; color: #76520a; padding: 0.7rem; }
-.previsao-card small { color: #6c7d73; }
-.modulo-mercado { display: grid; gap: 1.4rem; }
+.alerta-clima { background: var(--color-warning-soft); border: 1px solid var(--color-warning); border-radius: var(--radius-sm); color: var(--color-warning); padding: 0.7rem; }
 .mercado-controles { align-items: center; display: flex; justify-content: space-between; }
-.resumos-mercado, .corn-belt-grade, .noticias-mercado { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 .resumos-mercado h3 { font-size: 1.7rem; margin-bottom: 0.3rem; }
-.variacao-positiva { color: #237447; font-weight: 750; }
-.variacao-negativa { color: #a53a32; font-weight: 750; }
+.variacao-positiva { color: var(--color-success); font-weight: 750; }
+.variacao-negativa { color: var(--color-danger); font-weight: 750; }
 .seletor-produto { margin-bottom: 0.8rem; max-width: 360px; }
 .grafico-mercado { margin: 0; overflow: hidden; }
-.grafico-mercado svg { background: linear-gradient(#f8fbf8, #fff); display: block; width: 100%; }
-.grafico-mercado figcaption { color: #607168; font-size: 0.85rem; padding-top: 0.5rem; }
-.alerta-clima { background: #fff3d6; border-radius: 8px; color: #76520a; padding: 0.7rem; }
-.noticias-mercado a { color: #237447; font-weight: 700; }
-.aviso-mercado { border-left: 4px solid #d7a633; color: #5f522e; }
-.modulo-financeiro { display: grid; gap: 1.4rem; }
-.resumos-financeiros { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
-.resumos-financeiros article { display: grid; gap: 0.4rem; }
-.resumos-financeiros strong { font-size: 1.3rem; }
-.alerta-financeiro { border-color: #e9b1aa; }
+.grafico-mercado svg { background: linear-gradient(var(--color-surface-subtle), var(--color-surface)); display: block; width: 100%; }
+.grafico-mercado figcaption, .posicao small, .movimento-estoque small { color: var(--color-text-muted); font-size: 0.85rem; padding-top: 0.5rem; }
+.noticias-mercado a { color: var(--color-primary); font-weight: 700; }
+.aviso-mercado { border-left: 4px solid var(--color-warning); color: var(--color-text-muted); }
+.resumos-financeiros article, .resumos-estoque article { display: grid; gap: 0.4rem; }
+.resumos-financeiros strong, .resumos-estoque strong { font-size: 1.3rem; }
+.alerta-financeiro { border-color: var(--color-danger); }
 .financeiro-grade { grid-template-columns: minmax(300px, 420px) 1fr; }
-.painel-filtros { display: grid; gap: 0.6rem; grid-template-columns: 2fr 1fr 1fr auto; }
-.lancamento.atrasado { border-color: #d78476; }
+.lancamento.atrasado { border-color: var(--color-danger); }
 .cadastros-auxiliares summary { cursor: pointer; font-size: 1.1rem; font-weight: 750; }
 .auxiliares-grade { display: grid; gap: 1rem; grid-template-columns: repeat(3, 1fr); padding-top: 1rem; }
 .auxiliares-grade section { display: grid; gap: 0.6rem; }
-.sucesso { background: #e9f7ed; border-color: #9fcbaa; color: #1d653b; }
-.modulo-estoque { display: grid; gap: 1.4rem; }
-.resumos-estoque { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
-.resumos-estoque article { display: grid; gap: 0.4rem; }
-.resumos-estoque strong { font-size: 1.35rem; }
-.estoque-grade { grid-template-columns: minmax(310px, 420px) 1fr; }
-.alerta-estoque { border-color: #e3b36a; background: #fffaf0; }
-.posicao, .movimento-estoque { border-bottom: 1px solid #e2e8e3; padding: 0.75rem; }
-.posicao small, .movimento-estoque small { color: #6c7d73; }
+.sucesso { background: var(--color-success-soft); border-color: var(--color-success); color: var(--color-success); }
+.estoque-grade, .operacoes-grade { grid-template-columns: minmax(310px, 420px) 1fr; }
+.alerta-estoque { border-color: var(--color-warning); background: var(--color-warning-soft); }
+.posicao, .movimento-estoque { border-bottom: 1px solid var(--color-border); padding: 0.75rem; }
 .posicao strong, .movimento-estoque strong { white-space: nowrap; }
-.modulo-operacoes { display: grid; gap: 1.4rem; }
-.operacoes-grade { grid-template-columns: minmax(310px, 420px) 1fr; }
 .detalhe-operacao { display: grid; gap: 1rem; }
-.insumos-operacao { border-top: 1px solid #e2e8e3; padding-top: 1rem; }
+.insumos-operacao { border-top: 1px solid var(--color-border); padding-top: 1rem; }
 .linha-insumo { display: grid; gap: 0.6rem; grid-template-columns: 2fr 1fr 1fr auto; }
 .linha-transicao { align-items: end; display: flex; flex-wrap: wrap; gap: 0.7rem; }
 .linha-transicao label { min-width: 180px; }
-.modulo-maquinas { display: grid; gap: 1.4rem; }
-.maquinas-grade { grid-template-columns: repeat(2, minmax(310px, 1fr)); }
-.modulo-relatorios { display: grid; gap: 1.4rem; }
+.maquinas-grade, .relatorios-grade { grid-template-columns: repeat(2, minmax(310px, 1fr)); }
 .filtros-relatorio { align-items: end; display: grid; gap: 1rem; grid-template-columns: 2fr 1fr auto; }
-.relatorios-grade { grid-template-columns: repeat(2, 1fr); }
 .grafico-barras { align-items: end; display: flex; gap: 1rem; min-height: 160px; overflow-x: auto; }
 .grupo-barras { align-items: end; display: grid; gap: 3px; grid-template-columns: repeat(2, 18px); }
 .grupo-barras span { font-size: 0.7rem; grid-column: 1 / -1; writing-mode: vertical-rl; }
 .barra { border-radius: 4px 4px 0 0; width: 18px; }
-.barra.entrada { background: #237447; }
-.barra.saida { background: #a53a32; }
-.modulo-insights { display: grid; gap: 1.4rem; }
+.barra.entrada { background: var(--color-success); }
+.barra.saida { background: var(--color-danger); }
 .controles-insights { align-items: end; display: grid; gap: 1rem; grid-template-columns: 2fr 1fr auto; }
-.lista-insights { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
-.insight.critico { border-left: 5px solid #a53a32; }
-.insight.atencao { border-left: 5px solid #d7a633; }
-.insight.informativo { border-left: 5px solid #237447; }
-
+.insight.critico { border-left: 5px solid var(--color-danger); }
+.insight.atencao { border-left: 5px solid var(--color-warning); }
+.insight.informativo { border-left: 5px solid var(--color-primary); }
 body[data-pode-gerenciar="false"] .modulo-financeiro .formulario,
 body[data-pode-gerenciar="false"] .modulo-financeiro .cadastros-auxiliares,
 body[data-pode-gerenciar="false"] .modulo-financeiro .lista .acoes,
 body[data-pode-gerenciar="false"] .modulo-talhoes .talhoes-grade > .formulario,
 body[data-pode-gerenciar="false"] .modulo-talhoes .conteudo > .lista .acoes,
 body[data-pode-gerenciar="false"] .modulo-estoque .cadastros-auxiliares,
-body[data-pode-gerenciar="false"] .modulo-maquinas .maquinas-grade > .formulario:first-child {
-  display: none;
-}
-
+body[data-pode-gerenciar="false"] .modulo-maquinas .maquinas-grade > .formulario:first-child { display: none; }
 body[data-pode-operar="false"] .modulo-clima .clima-controles button,
 body[data-pode-operar="false"] .modulo-estoque .estoque-grade > .formulario,
 body[data-pode-operar="false"] .modulo-operacoes .operacoes-grade > .formulario,
@@ -141,16 +113,9 @@ body[data-pode-operar="false"] .modulo-operacoes .linha-transicao,
 body[data-pode-operar="false"] .modulo-maquinas .maquinas-grade > .formulario,
 body[data-pode-operar="false"] .modulo-maquinas .lista button,
 body[data-pode-operar="false"] .modulo-talhoes .historico-form,
-body[data-pode-operar="false"] .modulo-talhoes .historico-lista .acoes {
-  display: none;
-}
-
+body[data-pode-operar="false"] .modulo-talhoes .historico-lista .acoes { display: none; }
 @media (max-width: 860px) {
   .pagina { padding: 1rem; }
-  header { align-items: flex-start; gap: 1rem; }
-  .cabecalho-acoes { align-items: flex-end; flex-direction: column-reverse; }
-  .navegacao-modulos { overflow-x: auto; padding-bottom: 0.4rem; }
-  .navegacao-modulos button { flex: 0 0 auto; }
   .grade { grid-template-columns: 1fr; }
   .painel-filtros { grid-template-columns: 1fr; }
   .formulario { position: static; }
