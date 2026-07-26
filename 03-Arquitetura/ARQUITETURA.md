@@ -1,8 +1,7 @@
-# Arquitetura
+# Arquitetura — índice histórico
 
-Camadas:
-- Frontend
-- API REST
-- Serviços
-- Banco de Dados
-- IA
+Consulte [`ARCHITECTURE.md`](../ARCHITECTURE.md), fonte canônica da arquitetura.
+
+A solução atual separa frontend React/PWA, API Django REST Framework, serviços
+de domínio e persistência PostgreSQL. Alterações dessas fronteiras devem ser
+registradas em `docs/decisoes/`.

@@ -56,7 +56,7 @@ Detalhes em `docs/sprints/SPRINT-02.md`.
 
 Detalhes em `docs/sprints/SPRINT-03.md`.
 
-## Sprints pendentes
+## Resumo das Sprints
 
 | Sprint | Escopo | Status |
 | --- | --- | --- |
@@ -70,8 +70,8 @@ Detalhes em `docs/sprints/SPRINT-03.md`.
 | 11 | Inteligência Artificial | `[x]` — concluída em 25/07/2026 |
 | 12 | Aplicativo | `[x]` — concluída em 25/07/2026 |
 
-Implementações preexistentes e isoladas nesses módulos não alteram o status de
-uma Sprint sem auditoria formal dos respectivos critérios de aceite.
+A conclusão funcional das Sprints não substitui a auditoria de prontidão para
+produção, acompanhada separadamente em `docs/auditoria/`.
 
 Detalhes das Sprints concluídas ficam em `docs/sprints/`.
 

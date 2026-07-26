@@ -1,11 +1,15 @@
 # AGRO-AI-PRO
 
-**Versão funcional:** 1.0
+**Versão funcional:** 1.0 — em auditoria de prontidão para produção
 
 Plataforma modular de gestão agrícola com backend Django REST Framework e
 frontend React/TypeScript.
 
 ## Estado atual
+
+A conclusão das Sprints registra o escopo funcional. Segurança, infraestrutura,
+observabilidade e demais critérios de produção são acompanhados separadamente
+em [`docs/auditoria/`](docs/auditoria/README.md).
 
 As Sprints 1 (Infraestrutura + Propriedades), 2 (Talhões), 3
 (Geoprocessamento), 4 (Clima), 5 (Mercado), 6 (Financeiro), 7 (Estoque), 8
@@ -128,6 +132,9 @@ Compose.
 
 ## Documentação
 
+- [Requisitos](docs/REQUISITOS.md)
+- [Índice operacional de Sprints](documentos/SPRINTS.md)
+- [Auditoria de produção](docs/auditoria/README.md)
 - [Prompt Mestre](docs/PROMPT-MESTRE-AGRO-AI-PRO.md)
 - [Sprint 1](docs/sprints/SPRINT-01.md)
 - [Sprint 2](docs/sprints/SPRINT-02.md)

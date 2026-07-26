@@ -1,7 +1,8 @@
 # Sprints do AGRO-AI-PRO
 
-Este é o índice operacional das Sprints. Os detalhes técnicos ficam em
-`docs/sprints/`.
+Este é o índice operacional canônico das Sprints. Os detalhes técnicos ficam
+em `docs/sprints/`. Documentos históricos devem apontar para este índice e não
+manter status divergentes.
 
 | Sprint | Escopo | Status | Documento |
 | --- | --- | --- | --- |
@@ -24,3 +25,9 @@ Uma Sprint só deve ser marcada como concluída após implementação, migration
 consistentes, execução dos testes aplicáveis e atualização da documentação.
 Os critérios técnicos, a estratégia de precisão e os resultados da Sprint 3
 estão registrados no documento correspondente.
+
+## Escopo funcional e produção
+
+A marcação “Concluída” registra entrega do escopo funcional da Sprint. A
+prontidão para produção é avaliada separadamente em `docs/auditoria/` e não deve
+ser inferida apenas deste quadro.

@@ -1,32 +1,69 @@
 # Arquitetura do AGRO-AI-PRO
 
-## Visão geral
-O AGRO-AI-PRO será um ERP agrícola modular, estruturado em camadas bem definidas para evolução incremental.
+Este é o documento arquitetural canônico do projeto. Documentos históricos em
+`01-Arquitetura/` e `03-Arquitetura/` devem apenas apontar para este arquivo e
+não definir tecnologias ou decisões divergentes.
+
+## Estado da solução
+
+O AGRO-AI-PRO é um ERP agrícola modular com API Django REST Framework e
+interface React/TypeScript. A versão 1.0 é funcional, mas a prontidão para
+produção depende da conclusão da auditoria registrada em `docs/auditoria/`.
 
 ## Componentes principais
 
-- Backend: Django 5 + Django REST Framework
-- Autenticação: JWT com Simple JWT
-- Frontend: React 19 + Vite + TypeScript
-- Mapas: React Leaflet + OpenStreetMap
-- Banco de dados: PostgreSQL 17
-- Testes locais: SQLite em memória
-- Infraestrutura: Docker Compose e Redis; Nginx está preparado para evolução
+- **Backend:** Django 5 e Django REST Framework.
+- **Autenticação:** JWT com Simple JWT.
+- **Frontend:** React 19, Vite e TypeScript.
+- **Aplicativo:** PWA produzida pelo mesmo frontend React.
+- **Mapas:** React Leaflet e OpenStreetMap.
+- **Banco de dados:** PostgreSQL 17 em desenvolvimento e produção.
+- **Testes locais:** SQLite em memória quando o teste não exige recursos
+  específicos do PostgreSQL.
+- **Infraestrutura:** Docker Compose, Redis e preparação para proxy reverso.
 
-## Estrutura proposta
-- backend/: aplicação Django principal
-- frontend/: aplicação React principal
-- docker/: arquivos de containerização
-- docs/: documentação técnica e de produto
-- database/: persistência e dumps
-- backups/: backups e exportações
+React Native não faz parte da arquitetura implementada da versão 1.0. Uma
+aplicação móvel nativa somente deve ser adicionada após decisão arquitetural e
+entrada explícita no roadmap.
 
-## Decisões da Sprint 1
+## Estrutura do repositório
 
-- A API usa autenticação por padrão para evitar exposição acidental de dados.
-- Propriedades com talhões usam integridade referencial `PROTECT`; a exclusão
-  retorna HTTP 409 em vez de apagar talhões em cascata.
-- O parser KML usa apenas a biblioteca padrão do Python. Isso reduz dependências
-  e atende à necessidade atual de validar o polígono e calcular o centroide.
-- O arquivo `config/settings/test.py` usa SQLite em memória para tornar a suíte
-  reproduzível sem depender do PostgreSQL de desenvolvimento.
+- `backend/`: aplicação Django, módulos de domínio, API e testes.
+- `frontend/`: aplicação React, PWA, componentes e integração com a API.
+- `docker/`: arquivos auxiliares de containerização.
+- `docs/`: documentação técnica, requisitos, API, Sprints e auditorias.
+- `documentos/SPRINTS.md`: índice operacional canônico das Sprints.
+- `database/`: documentação e artefatos auxiliares; migrations pertencem aos
+  apps Django.
+- `scripts/`: automações de desenvolvimento e validação.
+
+## Limites e dependências
+
+Cada app Django representa um domínio de negócio. Views e serializers devem
+orquestrar entrada e saída; regras transacionais relevantes devem permanecer
+em serviços de domínio. Consultas reutilizadas e complexas podem ser isoladas
+em selectors ou QuerySets, sem criar uma camada de repositório genérica sobre
+o ORM do Django.
+
+O frontend acessa o backend exclusivamente pela API. Segredos, credenciais e
+regras de autorização nunca devem ser confiados ao cliente.
+
+## Decisões vigentes
+
+- A API exige autenticação por padrão para evitar exposição acidental.
+- Propriedades com talhões vinculados usam integridade referencial protegida;
+  exclusões inválidas retornam conflito em vez de apagar dados em cascata.
+- O processamento KML atual prioriza validação segura, preservação de Polygon e
+  MultiPolygon e cálculo geodésico aproximado documentado.
+- `config/settings/test.py` usa SQLite em memória para manter a suíte básica
+  reproduzível sem PostgreSQL.
+- O aplicativo entregue na versão 1.0 é uma PWA; suporte nativo é evolução
+  futura, não requisito concluído.
+
+## Governança arquitetural
+
+Mudanças de tecnologia, fronteiras de domínio, persistência, autenticação ou
+estratégia de aplicativo devem ser registradas como decisão em
+`docs/decisoes/` e refletidas neste documento. O código executável é a evidência
+final; documentos de Sprint não podem declarar prontidão superior à validada
+por testes e pela auditoria.
