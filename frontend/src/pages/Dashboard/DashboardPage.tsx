@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { listarPrevisoes, type PrevisaoClima } from "../../api/clima";
+import { listarPrevisoes, obterStatusClima, type PrevisaoClima, type StatusClima } from "../../api/clima";
 import { obterInsights } from "../../api/insights";
 import { carregarPainelMercado } from "../../api/mercado";
 import type { Propriedade } from "../../api/propriedades";
@@ -16,11 +16,15 @@ import {
   StatCard,
 } from "../../components/shared/ui";
 
+
 type MarketPanel = Awaited<ReturnType<typeof carregarPainelMercado>>;
 type InsightPanel = Awaited<ReturnType<typeof obterInsights>>;
 
 const currency = (value: string | number) => Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const hectares = (value: number) => `${value.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} ha`;
+const dataHora = (value: string | null | undefined) => value
+  ? new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }).format(new Date(value))
+  : "Não disponível";
 
 export default function DashboardPage({
   properties,
@@ -35,6 +39,7 @@ export default function DashboardPage({
   const [market, setMarket] = useState<MarketPanel | null>(null);
   const [insights, setInsights] = useState<InsightPanel | null>(null);
   const [weather, setWeather] = useState<PrevisaoClima[]>([]);
+  const [weatherStatus, setWeatherStatus] = useState<StatusClima | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -46,13 +51,15 @@ export default function DashboardPage({
       obterDashboard(propertyId, safra),
       carregarPainelMercado(),
       obterInsights(propertyId),
-      selectedProperty ? listarPrevisoes(selectedProperty.id) : Promise.resolve([]),
+      selectedProperty ? listarPrevisoes(selectedProperty.id) : Promise.resolve([] as PrevisaoClima[]),
+      selectedProperty ? obterStatusClima(selectedProperty.id) : Promise.resolve(null),
     ]);
     const nextErrors: string[] = [];
     if (results[0].status === "fulfilled") setDashboard(results[0].value); else { setDashboard(null); nextErrors.push("Indicadores gerenciais indisponíveis."); }
     if (results[1].status === "fulfilled") setMarket(results[1].value); else { setMarket(null); nextErrors.push("Resumo de mercado indisponível."); }
     if (results[2].status === "fulfilled") setInsights(results[2].value); else { setInsights(null); nextErrors.push("Insights do assistente indisponíveis."); }
-    if (results[3].status === "fulfilled") setWeather(results[3].value); else { setWeather([]); nextErrors.push("Alertas climáticos indisponíveis."); }
+    if (results[3].status === "fulfilled") setWeather(results[3].value); else { setWeather([]); nextErrors.push("Previsão diária indisponível."); }
+    if (results[4].status === "fulfilled") setWeatherStatus(results[4].value); else { setWeatherStatus(null); nextErrors.push("Clima atual indisponível."); }
     setErrors(nextErrors);
     setLoading(false);
   }, [safra, selectedProperty]);
@@ -69,6 +76,7 @@ export default function DashboardPage({
     [scopedProperties],
   );
   const weatherAlerts = weather.filter((item) => item.alerta_agricola.trim());
+  const nextRain = weather.reduce((sum, item) => sum + Number(item.chuva_mm || 0), 0);
 
   if (loading && !dashboard) {
     return (
@@ -103,6 +111,8 @@ export default function DashboardPage({
         {dashboard && <StatCard label="Em andamento" value={dashboard.operacoes.em_execucao} tone={dashboard.operacoes.em_execucao > 0 ? "warning" : "neutral"} />}
         {dashboard && <StatCard label="Concluídas" value={dashboard.operacoes.concluidas} tone="success" />}
         {dashboard && <StatCard label="Máquinas em manutenção" value={dashboard.maquinas.em_manutencao} tone={dashboard.maquinas.em_manutencao > 0 ? "warning" : "neutral"} />}
+        {weatherStatus && <StatCard label="Temperatura atual" value={`${weatherStatus.atual.temperatura ?? "—"} °C`} detail={String(weatherStatus.atual.condicao ?? "Clima atual")} tone="info" />}
+        {selectedProperty && weather.length > 0 && <StatCard label="Chuva prevista · 7 dias" value={`${nextRain.toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mm`} />}
       </ResponsiveGrid>
 
       {dashboard && (
@@ -121,23 +131,35 @@ export default function DashboardPage({
             {dashboard && dashboard.estoque.lotes_vencidos > 0 && <AlertCard title="Lotes vencidos" tone="danger"><p>{dashboard.estoque.lotes_vencidos} lote(s) vencido(s).</p></AlertCard>}
             {dashboard && dashboard.maquinas.manutencoes_pendentes > 0 && <AlertCard title="Manutenções pendentes"><p>{dashboard.maquinas.manutencoes_pendentes} manutenção(ões) pendente(s).</p></AlertCard>}
             {weatherAlerts.map((item) => <AlertCard key={item.id} title={`Clima · ${item.propriedade_nome}`}><p>{item.alerta_agricola}</p></AlertCard>)}
-            {dashboard && dashboard.estoque.itens_abaixo_minimo === 0 && dashboard.estoque.lotes_vencidos === 0 && dashboard.maquinas.manutencoes_pendentes === 0 && weatherAlerts.length === 0 && <p className="muted">Nenhum alerta disponível no filtro atual.</p>}
+            {weatherStatus && weatherStatus.alertas_ativos > 0 && <AlertCard title="Notificações climáticas" tone="warning"><p>{weatherStatus.alertas_ativos} alerta(s) ativo(s) na propriedade selecionada.</p></AlertCard>}
+            {dashboard && dashboard.estoque.itens_abaixo_minimo === 0 && dashboard.estoque.lotes_vencidos === 0 && dashboard.maquinas.manutencoes_pendentes === 0 && weatherAlerts.length === 0 && !weatherStatus?.alertas_ativos && <p className="muted">Nenhum alerta disponível no filtro atual.</p>}
           </div>
         </SectionCard>
 
-        <SectionCard title="Mercado" description="Resumo global cadastrado no módulo Mercado.">
-          <div className="market-summary-list">
-            {market?.resumos.length ? market.resumos.map((item) => (
-              <article key={item.produto}>
-                <span>{item.produto_nome}</span>
-                <strong>{Number(item.valor).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}</strong>
-                <small>{item.unidade}</small>
-                {item.variacao_percentual !== null && <Badge tone={Number(item.variacao_percentual) >= 0 ? "success" : "danger"}>{Number(item.variacao_percentual).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%</Badge>}
-              </article>
-            )) : <p className="muted">Nenhum resumo de mercado disponível.</p>}
-          </div>
+        <SectionCard title="Clima automático" description={selectedProperty ? `Condições atuais de ${selectedProperty.nome}.` : "Selecione uma propriedade para detalhar o clima."}>
+          {weatherStatus ? (
+            <div className="market-summary-list">
+              <article><span>Condição</span><strong>{String(weatherStatus.atual.condicao ?? "—")}</strong><small>Atualização {dataHora(weatherStatus.configuracao.ultima_atualizacao)}</small></article>
+              <article><span>Pulverização</span><strong>{weatherStatus.proxima_hora?.condicao_pulverizacao || "—"}</strong><small>Próxima hora</small></article>
+              <article><span>Colheita</span><strong>{weatherStatus.proxima_hora?.condicao_colheita || "—"}</strong><small>Próxima hora</small></article>
+              <article><span>Próxima atualização</span><strong>{dataHora(weatherStatus.configuracao.proxima_atualizacao)}</strong><small>{weatherStatus.configuracao.desatualizado ? "Dados desatualizados" : "Sincronizado"}</small></article>
+            </div>
+          ) : <p className="muted">Clima detalhado disponível após selecionar uma propriedade localizada.</p>}
         </SectionCard>
       </div>
+
+      <SectionCard title="Mercado" description="Resumo global cadastrado no módulo Mercado.">
+        <div className="market-summary-list">
+          {market?.resumos.length ? market.resumos.map((item) => (
+            <article key={item.produto}>
+              <span>{item.produto_nome}</span>
+              <strong>{Number(item.valor).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}</strong>
+              <small>{item.unidade}</small>
+              {item.variacao_percentual !== null && <Badge tone={Number(item.variacao_percentual) >= 0 ? "success" : "danger"}>{Number(item.variacao_percentual).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%</Badge>}
+            </article>
+          )) : <p className="muted">Nenhum resumo de mercado disponível.</p>}
+        </div>
+      </SectionCard>
 
       <SectionCard title="Insights do assistente" description="Sugestões explicáveis produzidas com dados internos.">
         <ResponsiveGrid className="insight-grid">
