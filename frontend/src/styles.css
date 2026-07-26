@@ -19,6 +19,10 @@ h1, h2, h3, p { margin-top: 0; }
 
 .pagina { margin: 0 auto; max-width: 1440px; padding: 2rem; }
 header { align-items: center; display: flex; justify-content: space-between; margin-bottom: 1.5rem; }
+.cabecalho-acoes, .status-aplicativo { align-items: center; display: flex; gap: 0.7rem; }
+.status-aplicativo span { border-radius: 999px; font-size: 0.75rem; font-weight: 750; padding: 0.4rem 0.65rem; }
+.status-aplicativo .online { background: #e2f3e6; color: #1d653b; }
+.status-aplicativo .offline { background: #fff0ee; color: #8b2922; }
 .kicker { color: #5b7467; font-size: 0.75rem; font-weight: 750; letter-spacing: 0.12em; text-transform: uppercase; }
 .navegacao-modulos { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
 .card { background: white; border: 1px solid #d9e2da; border-radius: 12px; box-shadow: 0 8px 30px rgb(25 52 42 / 7%); padding: 1.2rem; }
@@ -121,6 +125,10 @@ header { align-items: center; display: flex; justify-content: space-between; mar
 
 @media (max-width: 860px) {
   .pagina { padding: 1rem; }
+  header { align-items: flex-start; gap: 1rem; }
+  .cabecalho-acoes { align-items: flex-end; flex-direction: column-reverse; }
+  .navegacao-modulos { overflow-x: auto; padding-bottom: 0.4rem; }
+  .navegacao-modulos button { flex: 0 0 auto; }
   .grade { grid-template-columns: 1fr; }
   .painel-filtros { grid-template-columns: 1fr; }
   .formulario { position: static; }

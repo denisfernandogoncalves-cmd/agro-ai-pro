@@ -18,4 +18,8 @@
 - [x] máquinas;
 - [x] relatórios e dashboards;
 - [x] inteligência artificial e automação;
-- [ ] aplicativo.
+- [x] aplicativo.
+
+## Versão 1.0
+
+Todas as Sprints planejadas para a versão 1.0 foram concluídas.

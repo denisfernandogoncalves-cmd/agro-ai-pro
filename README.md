@@ -1,5 +1,7 @@
 # AGRO-AI-PRO
 
+**Versão funcional:** 1.0
+
 Plataforma modular de gestão agrícola com backend Django REST Framework e
 frontend React/TypeScript.
 
@@ -7,7 +9,8 @@ frontend React/TypeScript.
 
 As Sprints 1 (Infraestrutura + Propriedades), 2 (Talhões), 3
 (Geoprocessamento), 4 (Clima), 5 (Mercado), 6 (Financeiro), 7 (Estoque), 8
-(Operações), 9 (Máquinas), 10 (Relatórios) e 11 (IA) estão concluídas.
+(Operações), 9 (Máquinas), 10 (Relatórios), 11 (IA) e 12 (Aplicativo) estão
+concluídas.
 
 O sistema oferece:
 
@@ -61,6 +64,10 @@ alertas e fluxo mensal, com filtros por propriedade e safra.
 
 O assistente gerencial gera insights explicáveis a partir de alertas e
 pendências do próprio sistema, sem compartilhar dados com serviços externos.
+
+O frontend pode ser instalado como aplicativo web em navegadores compatíveis.
+O shell visual funciona offline; consultas e alterações continuam protegidas e
+dependem de conexão com a API.
 
 O índice oficial de andamento está em
 [`documentos/SPRINTS.md`](documentos/SPRINTS.md).

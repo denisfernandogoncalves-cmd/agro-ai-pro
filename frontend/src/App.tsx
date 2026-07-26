@@ -13,6 +13,7 @@ import {
   sair,
 } from "./api/propriedades";
 import MapaPropriedade from "./components/MapaPropriedade";
+import AplicativoStatus from "./components/AplicativoStatus";
 import ClimaPage from "./pages/Clima/ClimaPage";
 import EstoquePage from "./pages/Estoque/EstoquePage";
 import FinanceiroPage from "./pages/Financeiro/FinanceiroPage";
@@ -200,15 +201,10 @@ export default function App() {
                         : modulo === "operacoes" ? "Operações" : modulo === "maquinas" ? "Máquinas" : modulo === "relatorios" ? "Relatórios" : "Assistente"}
           </h1>
         </div>
-        <button
-          className="secundario"
-          onClick={() => {
-            sair();
-            setAutenticado(false);
-          }}
-        >
-          Sair
-        </button>
+        <div className="cabecalho-acoes">
+          <AplicativoStatus />
+          <button className="secundario" onClick={() => { sair(); setAutenticado(false); }}>Sair</button>
+        </div>
       </header>
 
       <nav className="navegacao-modulos" aria-label="Módulos agrícolas">
