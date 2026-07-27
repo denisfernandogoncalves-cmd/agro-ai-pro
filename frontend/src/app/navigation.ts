@@ -9,6 +9,7 @@ export type ModuleId =
   | "estoque"
   | "operacoes"
   | "producao"
+  | "lotes_conjuntos"
   | "maquinas"
   | "relatorios"
   | "insights";
@@ -46,6 +47,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
   { id: "estoque", label: "Estoque", icon: "stock", requiresProperty: true },
   { id: "operacoes", label: "Operações", icon: "operations", requiresProperty: true },
   { id: "producao", label: "Produção", icon: "production", requiresProperty: true },
+  { id: "lotes_conjuntos", label: "Lotes conjuntos", icon: "production", requiresProperty: true },
   { id: "maquinas", label: "Máquinas", icon: "machines", requiresProperty: true },
   { id: "relatorios", label: "Relatórios", icon: "reports", requiresProperty: true },
   { id: "insights", label: "Assistente", icon: "assistant", requiresProperty: true },
