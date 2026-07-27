@@ -1,6 +1,7 @@
 import type { Propriedade } from "../../api/propriedades";
 import ImportacaoHistory from "./ImportacaoHistory";
 import ProducaoPage from "./ProducaoPage";
+import ProductivitySummary from "./ProductivitySummary";
 
 export default function ProducaoIntegratedPage(props: {
   properties: Propriedade[];
@@ -12,6 +13,10 @@ export default function ProducaoIntegratedPage(props: {
   return (
     <div className="production-integrated-page">
       <ProducaoPage {...props} />
+      <ProductivitySummary
+        selectedProperty={props.selectedProperty}
+        safra={props.shellSafra}
+      />
       <ImportacaoHistory
         selectedProperty={props.selectedProperty}
         canManage={props.canManage}
