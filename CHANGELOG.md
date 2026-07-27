@@ -15,6 +15,16 @@
 - adiciona importação CSV/XLSX/XLSM com detecção de colunas, prévia e confirmação;
 - integra insights explicáveis de produção, produtividade, estoque, qualidade e contratos;
 - ativa shell Enterprise, sidebar responsiva, temas e carregamento sob demanda;
+- adiciona lotes conjuntos originados de duas ou mais propriedades sem inventar produção individual;
+- registra propriedades, talhões, áreas efetivamente colhidas, CAD/PRO, cargas, motoristas, placas e transportadoras por lote conjunto;
+- mantém saldo conjunto separado até rateio explícito e confiável;
+- adiciona rateio proporcional pela área e rateio manual em kg, toneladas ou sacas;
+- preserva exatamente o total distribuído com ajuste controlado de arredondamento;
+- integra a distribuição ao saldo individual existente por propriedade e CAD/PRO;
+- adiciona saídas, transferências, ajustes e estornos do saldo conjunto sem permitir saldo negativo;
+- registra saldos anteriores e posteriores e bloqueia edição direta após confirmação;
+- adiciona tela responsiva em dez etapas, carregada sob demanda pelo shell Enterprise;
+- adiciona relatórios de lotes, áreas, produção, produtividade, cargas, motoristas, placas e saldo não distribuído em CSV, XLSX e PDF;
 - evolui o Clima para atualização automática por propriedade a cada três horas;
 - adiciona estado atual, previsão horária e previsão diária de sete dias;
 - utiliza Redis local para cache, deduplicação e lock de atualizações;
@@ -24,7 +34,7 @@
 - registra auditoria, contagem de chamadas e horários da próxima atualização;
 - adiciona worker climático local ao Docker Compose;
 - mantém o provedor configurável e não expõe chamadas externas no frontend;
-- adiciona testes de saldo, permissões, integração financeira, importação, exportações e clima automático;
+- adiciona testes de saldo, permissões, integração financeira, importação, exportações, clima automático e lotes conjuntos;
 - não utiliza serviço pago, telemetria ou processamento externo de arquivos;
 - documenta que o endpoint público gratuito do Open-Meteo é restrito a uso não comercial.
 
