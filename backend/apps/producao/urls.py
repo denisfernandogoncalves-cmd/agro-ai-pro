@@ -21,6 +21,7 @@ from .grain_views import (
     VeiculoViewSet,
 )
 from .joint_safe_views import LoteConjuntoProducaoSeguroViewSet
+from .joint_transport_reports import RelatorioTransporteLoteConjuntoView
 from .joint_views import (
     CargaLoteConjuntoViewSet,
     MovimentacaoLoteConjuntoViewSet,
@@ -58,4 +59,5 @@ urlpatterns = [
     path("dashboard-integrado/", ProducaoDashboardView.as_view(), name="producao-dashboard-integrado"),
     path("relatorios-integrados/", RelatorioProducaoView.as_view(), name="producao-relatorios-integrados"),
     path("relatorios-lotes-conjuntos/", RelatorioLoteConjuntoView.as_view(), name="producao-relatorios-lotes-conjuntos"),
+    path("relatorios-transportes-conjuntos/", RelatorioTransporteLoteConjuntoView.as_view(), name="producao-relatorios-transportes-conjuntos"),
 ]
