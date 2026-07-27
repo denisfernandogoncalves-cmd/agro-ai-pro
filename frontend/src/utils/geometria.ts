@@ -1,7 +1,8 @@
-import { LatLngBoundsExpression, LatLngExpression } from "leaflet";
+import { LatLngExpression } from "leaflet";
 
 
 export type Coordenada = [number, number];
+export type LimitesGeometria = [[number, number], [number, number]];
 
 export type GeometriaGeoJSON =
   | { type: "Polygon"; coordinates: Coordenada[][] }
@@ -28,7 +29,7 @@ export function converterGeometria(
 
 export function limitesGeometria(
   geometria: GeometriaGeoJSON,
-): LatLngBoundsExpression {
+): LimitesGeometria {
   const poligonos =
     geometria.type === "Polygon"
       ? [geometria.coordinates]
