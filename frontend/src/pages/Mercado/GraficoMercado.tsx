@@ -55,7 +55,10 @@ export default function GraficoMercado({ pontos = [], titulo = "Evolução hist�
         <line x1={margem} y1={margem} x2={margem} y2={altura - margem} className="market-chart__axis" />
         <line x1={margem} y1={altura - margem} x2={largura - margem} y2={altura - margem} className="market-chart__axis" />
         <polyline fill="none" points={linha} className="market-chart__line" />
-        {coordenadas.map(({ x, y, item }) => <circle key={item.id} cx={x} cy={y} r="4" className="market-chart__point"><title>{new Date(item.data_hora).toLocaleString("pt-BR")}: {formatar(Number(item.fechamento))}</title></circle>)}
+        {coordenadas.map(({ x, y, item }) => {
+          const detalhe = `${new Date(item.data_hora).toLocaleString("pt-BR")}: ${formatar(Number(item.fechamento))}`;
+          return <circle key={item.id} cx={x} cy={y} r="4" className="market-chart__point"><title>{detalhe}</title></circle>;
+        })}
       </svg>
       <figcaption>
         <strong>{cotacoes.length ? "Evolução histórica" : tituloExibido}</strong>
