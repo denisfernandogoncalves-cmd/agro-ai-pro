@@ -89,7 +89,20 @@ jobs:
         run: npm test
 
       - name: Compilar produção
-        run: npm run build
+        run: |
+          set +e
+          npm run build > build-output.log 2>&1
+          status=$?
+          tail -n 160 build-output.log
+          exit $status
+
+      - name: Publicar diagnóstico do build
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build-output
+          path: frontend/build-output.log
+          retention-days: 1
 
   infraestrutura:
     name: Infraestrutura e segurança
