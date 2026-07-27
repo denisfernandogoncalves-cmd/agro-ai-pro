@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { listarPrevisoes, obterStatusClima, type PrevisaoClima, type StatusClima } from "../../api/clima";
 import { obterInsights } from "../../api/insights";
-import { carregarPainelMercado } from "../../api/mercado";
+import { carregarPainelMercado, carregarPainelMercadoEnterprise } from "../../api/mercado";
 import type { Propriedade } from "../../api/propriedades";
 import { obterDashboard, type Dashboard } from "../../api/relatorios";
 import {
@@ -18,6 +18,7 @@ import {
 
 
 type MarketPanel = Awaited<ReturnType<typeof carregarPainelMercado>>;
+type MarketEnterprisePanel = Awaited<ReturnType<typeof carregarPainelMercadoEnterprise>>;
 type InsightPanel = Awaited<ReturnType<typeof obterInsights>>;
 
 const currency = (value: string | number) => Number(value).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -37,6 +38,7 @@ export default function DashboardPage({
 }) {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [market, setMarket] = useState<MarketPanel | null>(null);
+  const [marketEnterprise, setMarketEnterprise] = useState<MarketEnterprisePanel | null>(null);
   const [insights, setInsights] = useState<InsightPanel | null>(null);
   const [weather, setWeather] = useState<PrevisaoClima[]>([]);
   const [weatherStatus, setWeatherStatus] = useState<StatusClima | null>(null);
@@ -49,6 +51,7 @@ export default function DashboardPage({
     const propertyId = selectedProperty ? String(selectedProperty.id) : "";
     const dashboardPromise = obterDashboard(propertyId, safra);
     const marketPromise = carregarPainelMercado();
+    const marketEnterprisePromise = carregarPainelMercadoEnterprise(selectedProperty?.id);
     const insightsPromise = obterInsights(propertyId);
     const weatherPromise: Promise<PrevisaoClima[]> = selectedProperty
       ? listarPrevisoes(selectedProperty.id)
@@ -56,16 +59,18 @@ export default function DashboardPage({
     const weatherStatusPromise: Promise<StatusClima | null> = selectedProperty
       ? obterStatusClima(selectedProperty.id)
       : Promise.resolve(null);
-    const [dashboardResult, marketResult, insightsResult, weatherResult, weatherStatusResult] = await Promise.allSettled([
+    const [dashboardResult, marketResult, marketEnterpriseResult, insightsResult, weatherResult, weatherStatusResult] = await Promise.allSettled([
       dashboardPromise,
       marketPromise,
+      marketEnterprisePromise,
       insightsPromise,
       weatherPromise,
       weatherStatusPromise,
     ] as const);
     const nextErrors: string[] = [];
     if (dashboardResult.status === "fulfilled") setDashboard(dashboardResult.value); else { setDashboard(null); nextErrors.push("Indicadores gerenciais indisponíveis."); }
-    if (marketResult.status === "fulfilled") setMarket(marketResult.value); else { setMarket(null); nextErrors.push("Resumo de mercado indisponível."); }
+    if (marketResult.status === "fulfilled") setMarket(marketResult.value); else { setMarket(null); nextErrors.push("Resumo legado de mercado indisponível."); }
+    if (marketEnterpriseResult.status === "fulfilled") setMarketEnterprise(marketEnterpriseResult.value); else { setMarketEnterprise(null); nextErrors.push("Cotações automáticas indisponíveis."); }
     if (insightsResult.status === "fulfilled") setInsights(insightsResult.value); else { setInsights(null); nextErrors.push("Insights do assistente indisponíveis."); }
     if (weatherResult.status === "fulfilled") setWeather(weatherResult.value); else { setWeather([]); nextErrors.push("Previsão diária indisponível."); }
     if (weatherStatusResult.status === "fulfilled") setWeatherStatus(weatherStatusResult.value); else { setWeatherStatus(null); nextErrors.push("Clima atual indisponível."); }
@@ -86,6 +91,7 @@ export default function DashboardPage({
   );
   const weatherAlerts = weather.filter((item) => item.alerta_agricola.trim());
   const nextRain = weather.reduce((sum, item) => sum + Number(item.chuva_mm || 0), 0);
+  const enterpriseAssets = marketEnterprise?.ativos.filter((item) => item.disponivel).slice(0, 7) ?? [];
 
   if (loading && !dashboard) {
     return (
@@ -157,17 +163,25 @@ export default function DashboardPage({
         </SectionCard>
       </div>
 
-      <SectionCard title="Mercado" description="Resumo global cadastrado no módulo Mercado.">
+      <SectionCard title="Mercado automático" description={marketEnterprise ? `Tendência integrada: ${marketEnterprise.analise.tendencia_curto_prazo}.` : "Fallback para os registros legados do módulo Mercado."}>
         <div className="market-summary-list">
-          {market?.resumos.length ? market.resumos.map((item) => (
+          {enterpriseAssets.length ? enterpriseAssets.map((item) => (
+            <article key={item.ativo}>
+              <span>{item.ativo_nome}</span>
+              <strong>{Number(item.cotacao_atual).toLocaleString("pt-BR", { maximumFractionDigits: 4 })}</strong>
+              <small>{item.unidade} · {dataHora(item.ultima_atualizacao)}</small>
+              {item.variacao_diaria !== null && item.variacao_diaria !== undefined && <Badge tone={Number(item.variacao_diaria) >= 0 ? "success" : "danger"}>{Number(item.variacao_diaria).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%</Badge>}
+            </article>
+          )) : market?.resumos.length ? market.resumos.map((item) => (
             <article key={item.produto}>
               <span>{item.produto_nome}</span>
               <strong>{Number(item.valor).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}</strong>
               <small>{item.unidade}</small>
               {item.variacao_percentual !== null && <Badge tone={Number(item.variacao_percentual) >= 0 ? "success" : "danger"}>{Number(item.variacao_percentual).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%</Badge>}
             </article>
-          )) : <p className="muted">Nenhum resumo de mercado disponível.</p>}
+          )) : <p className="muted">Nenhuma cotação disponível.</p>}
         </div>
+        {marketEnterprise?.analise.recomendacao_operacional && <AlertCard title="Comercialização" tone="info"><p>{marketEnterprise.analise.recomendacao_operacional}</p></AlertCard>}
       </SectionCard>
 
       <SectionCard title="Insights do assistente" description="Sugestões explicáveis produzidas com dados internos.">
