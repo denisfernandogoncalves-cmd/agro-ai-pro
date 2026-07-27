@@ -166,7 +166,7 @@ class ClimaAutomaticoServiceTests(TestCase):
         self.propriedade.geometria_geojson = None
         self.propriedade.save()
         transport = Mock(return_value=resposta_completa())
-        with self.assertRaisesMessage(ServicoClimaError, "coordenadas"):
+        with self.assertRaisesMessage(ServicoClimaError, "latitude e longitude"):
             atualizar_clima_propriedade(self.propriedade, transport=transport, force=True)
         self.assertFalse(transport.called)
         self.assertEqual(
