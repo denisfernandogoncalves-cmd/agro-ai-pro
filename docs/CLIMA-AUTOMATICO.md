@@ -64,12 +64,15 @@ nomes nem inventa coordenadas. Sem localização válida, registra o estado
 O serviço Docker `clima-worker` executa:
 
 ```bash
-python manage.py atualizar_clima --continuous --interval-seconds 10800
+python manage.py atualizar_clima --continuous --interval-seconds 300
 ```
 
-A frequência padrão por propriedade é de 180 minutos. O ciclo do worker verifica
-as configurações individuais e consulta apenas propriedades vencidas para
-atualização.
+O processo verifica pendências a cada cinco minutos. A frequência padrão de chamada
+por propriedade é de 180 minutos. Cada ciclo lê a configuração individual e consulta
+somente propriedades cuja `proxima_atualizacao` esteja vencida.
+
+Essa separação permite configurar uma propriedade para intervalos menores ou maiores
+sem gerar chamadas a cada verificação do worker.
 
 Para executar um único ciclo:
 
@@ -77,10 +80,10 @@ Para executar um único ciclo:
 python manage.py atualizar_clima
 ```
 
-Para alterar o intervalo de verificação do processo:
+Para alterar somente o intervalo de verificação do processo:
 
 ```bash
-python manage.py atualizar_clima --continuous --interval-seconds 3600
+python manage.py atualizar_clima --continuous --interval-seconds 600
 ```
 
 O intervalo do processo não força chamadas. A propriedade só é consultada quando
@@ -139,7 +142,10 @@ Persistido em `ConfiguracaoClima.dados_atuais`:
 
 ### Previsão diária
 
-`PrevisaoClima` mantém sete dias com:
+`PrevisaoClima` mantém o histórico persistido. O frontend seleciona exatamente os
+próximos sete dias para a previsão operacional.
+
+Cada dia inclui:
 
 - temperaturas mínima e máxima;
 - sensações mínima e máxima;
@@ -191,7 +197,7 @@ CLIMA_PROVIDER_BASE_URL=https://api.open-meteo.com/v1/forecast
 CLIMA_PROVIDER_TIMEOUT_SECONDS=15
 CLIMA_PROVIDER_CACHE_SECONDS=900
 CLIMA_UPDATE_LOCK_SECONDS=180
-CLIMA_UPDATE_INTERVAL_SECONDS=10800
+CLIMA_UPDATE_INTERVAL_SECONDS=300
 CLIMA_MAX_UPDATES_PER_CYCLE=100
 CLIMA_AUTOMATIC_UPDATE_ENABLED=True
 ```
