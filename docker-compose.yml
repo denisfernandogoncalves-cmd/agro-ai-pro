@@ -51,6 +51,12 @@ services:
       CLIMA_UPDATE_INTERVAL_SECONDS: ${CLIMA_UPDATE_INTERVAL_SECONDS:-300}
       CLIMA_MAX_UPDATES_PER_CYCLE: ${CLIMA_MAX_UPDATES_PER_CYCLE:-100}
       CLIMA_AUTOMATIC_UPDATE_ENABLED: ${CLIMA_AUTOMATIC_UPDATE_ENABLED:-True}
+      MERCADO_PROVIDER_CACHE_SECONDS: ${MERCADO_PROVIDER_CACHE_SECONDS:-600}
+      MERCADO_UPDATE_LOCK_SECONDS: ${MERCADO_UPDATE_LOCK_SECONDS:-300}
+      MERCADO_UPDATE_INTERVAL_SECONDS: ${MERCADO_UPDATE_INTERVAL_SECONDS:-300}
+      MERCADO_UPDATE_FREQUENCY_MINUTES: ${MERCADO_UPDATE_FREQUENCY_MINUTES:-15}
+      MERCADO_MAX_UPDATES_PER_CYCLE: ${MERCADO_MAX_UPDATES_PER_CYCLE:-20}
+      MERCADO_AUTOMATIC_UPDATE_ENABLED: ${MERCADO_AUTOMATIC_UPDATE_ENABLED:-True}
     depends_on:
       postgres:
         condition: service_healthy
@@ -98,6 +104,37 @@ services:
     volumes:
       - .:/app
     command: sh -c "cd /app/backend && python manage.py atualizar_clima --continuous --interval-seconds $${CLIMA_UPDATE_INTERVAL_SECONDS:-300}"
+    restart: unless-stopped
+
+  mercado-worker:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    environment:
+      DJANGO_SETTINGS_MODULE: ${DJANGO_SETTINGS_MODULE:-config.settings.development}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-development-only-change-me-at-least-32-characters}
+      DJANGO_DEBUG: ${DJANGO_DEBUG:-True}
+      DJANGO_ALLOWED_HOSTS: ${DJANGO_ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
+      POSTGRES_DB: ${POSTGRES_DB:-agro_ai_pro}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: ${POSTGRES_PORT:-5432}
+      REDIS_CACHE_URL: ${REDIS_CACHE_URL:-redis://redis:6379/1}
+      MERCADO_PROVIDER_CACHE_SECONDS: ${MERCADO_PROVIDER_CACHE_SECONDS:-600}
+      MERCADO_UPDATE_LOCK_SECONDS: ${MERCADO_UPDATE_LOCK_SECONDS:-300}
+      MERCADO_UPDATE_INTERVAL_SECONDS: ${MERCADO_UPDATE_INTERVAL_SECONDS:-300}
+      MERCADO_UPDATE_FREQUENCY_MINUTES: ${MERCADO_UPDATE_FREQUENCY_MINUTES:-15}
+      MERCADO_MAX_UPDATES_PER_CYCLE: ${MERCADO_MAX_UPDATES_PER_CYCLE:-20}
+      MERCADO_AUTOMATIC_UPDATE_ENABLED: ${MERCADO_AUTOMATIC_UPDATE_ENABLED:-True}
+    depends_on:
+      backend:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: sh -c "cd /app/backend && python manage.py atualizar_mercado --continuous --interval-seconds $${MERCADO_UPDATE_INTERVAL_SECONDS:-300}"
     restart: unless-stopped
 
   frontend:
