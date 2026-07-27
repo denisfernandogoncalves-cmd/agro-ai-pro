@@ -1,6 +1,6 @@
 # Validação automatizada — Gestão Integrada da Produção
 
-Commit validado: `4427400e83b8a387d1410b26cd13b442c440556a`
+Commit validado: `c33eb428d11a81afe32dfd7270eb8982586ccc80`
 
 | Verificação | Resultado |
 | --- | --- |
@@ -11,7 +11,7 @@ Commit validado: `4427400e83b8a387d1410b26cd13b442c440556a`
 | Testes backend | success |
 | Dependências frontend | success |
 | Testes frontend | failure |
-| Build TypeScript/Vite | failure |
+| Build TypeScript/Vite | success |
 | Docker Compose config | success |
 | Whitespace | success |
 | Arquivos e padrões sensíveis | success |
