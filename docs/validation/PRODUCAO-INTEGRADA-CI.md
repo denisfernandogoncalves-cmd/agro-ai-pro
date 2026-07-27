@@ -1,12 +1,12 @@
 # Validação automatizada — Gestão Integrada da Produção
 
-Commit validado: `7e1df34ad80638dce343df3e70cb997c47797a30`
+Commit validado: `0844aaa2dbbd21bff97056f10674958f7dbe36f8`
 
 | Verificação | Resultado |
 | --- | --- |
 | Dependências backend | success |
 | Django Check | success |
-| Migrations sem divergência | success |
+| Migrations sem divergência | failure |
 | Aplicação das migrations | success |
 | Testes backend | success |
 | Dependências frontend | success |
