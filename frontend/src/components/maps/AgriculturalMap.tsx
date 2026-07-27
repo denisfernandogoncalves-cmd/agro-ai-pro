@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { Fragment, useEffect } from "react";
 import { latLngBounds } from "leaflet";
 import {
   CircleMarker,
@@ -79,7 +79,7 @@ export default function AgriculturalMap({
         />
         <ScaleControl imperial={false} />
         {visible.map((feature) => (
-          <span key={`${feature.kind}-${feature.id}`}>
+          <Fragment key={`${feature.kind}-${feature.id}`}>
             {feature.geometry && (
               <Polygon
                 positions={converterGeometria(feature.geometry)}
@@ -101,7 +101,7 @@ export default function AgriculturalMap({
                 <Popup><strong>{feature.name}</strong>{feature.subtitle && <><br />{feature.subtitle}</>}</Popup>
               </CircleMarker>
             )}
-          </span>
+          </Fragment>
         ))}
         <FitFeatures features={visible} />
       </MapContainer>
