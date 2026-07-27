@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc -b && vite --configLoader runner build",
     "preview": "vite preview",
-    "test": "node scripts/test-components.mjs && node scripts/test-auth.mjs && node scripts/test-permissions.mjs && node scripts/test-enterprise.mjs && node scripts/test-climate.mjs && node scripts/test-production.mjs && node scripts/test-joint-production.mjs"
+    "test": "node scripts/test-components.mjs && node scripts/test-auth.mjs && node scripts/test-permissions.mjs && node scripts/test-enterprise.mjs && node scripts/test-climate.mjs && node scripts/test-production.mjs && node scripts/test-joint-production.mjs && node scripts/test-market-enterprise.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "latest",
