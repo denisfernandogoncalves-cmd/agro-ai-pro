@@ -9,6 +9,7 @@ on:
 
 permissions:
   contents: write
+  statuses: write
 
 jobs:
   validate:
@@ -108,6 +109,47 @@ jobs:
           if git ls-files | grep -Ei '\.(log|pem|key|p12|pfx)$'; then status=1; fi
           if git grep -nE '(BEGIN (RSA|OPENSSH|EC) PRIVATE KEY|AKIA[0-9A-Z]{16}|gh[pousr]_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9]{20,}|AIza[0-9A-Za-z_-]{30,})' -- ':!*.md' ':!frontend/package-lock.json' ':!.env.example'; then status=1; fi
           exit $status
+
+      - name: Publicar status com link da execução
+        if: always()
+        uses: actions/github-script@v7
+        env:
+          BACKEND_DEPENDENCIES: ${{ steps.backend_dependencies.outcome }}
+          DJANGO_CHECK: ${{ steps.django_check.outcome }}
+          MIGRATIONS_CHECK: ${{ steps.migrations_check.outcome }}
+          MIGRATIONS_APPLY: ${{ steps.migrations_apply.outcome }}
+          BACKEND_TESTS: ${{ steps.backend_tests.outcome }}
+          FRONTEND_DEPENDENCIES: ${{ steps.frontend_dependencies.outcome }}
+          FRONTEND_TESTS: ${{ steps.frontend_tests.outcome }}
+          FRONTEND_BUILD: ${{ steps.frontend_build.outcome }}
+          DOCKER_CONFIG: ${{ steps.docker_config.outcome }}
+          WHITESPACE: ${{ steps.whitespace.outcome }}
+          SECRETS: ${{ steps.secrets.outcome }}
+        with:
+          script: |
+            const resultados = [
+              process.env.BACKEND_DEPENDENCIES,
+              process.env.DJANGO_CHECK,
+              process.env.MIGRATIONS_CHECK,
+              process.env.MIGRATIONS_APPLY,
+              process.env.BACKEND_TESTS,
+              process.env.FRONTEND_DEPENDENCIES,
+              process.env.FRONTEND_TESTS,
+              process.env.FRONTEND_BUILD,
+              process.env.DOCKER_CONFIG,
+              process.env.WHITESPACE,
+              process.env.SECRETS,
+            ];
+            const aprovado = resultados.every((resultado) => resultado === 'success');
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: context.sha,
+              state: aprovado ? 'success' : 'failure',
+              context: 'AGRO-AI-PRO/branch-validation',
+              description: aprovado ? 'Validação completa aprovada' : 'Há verificações que precisam de correção',
+              target_url: `https://github.com/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+            });
 
       - name: Gravar resumo sem logs
         if: always()
