@@ -8,6 +8,7 @@ export type ModuleId =
   | "financeiro"
   | "estoque"
   | "operacoes"
+  | "producao"
   | "maquinas"
   | "relatorios"
   | "insights";
@@ -22,6 +23,7 @@ export type NavigationIcon =
   | "finance"
   | "stock"
   | "operations"
+  | "production"
   | "machines"
   | "reports"
   | "assistant";
@@ -43,6 +45,7 @@ export const NAVIGATION_ITEMS: NavigationItem[] = [
   { id: "financeiro", label: "Financeiro", icon: "finance", requiresProperty: true },
   { id: "estoque", label: "Estoque", icon: "stock", requiresProperty: true },
   { id: "operacoes", label: "Operações", icon: "operations", requiresProperty: true },
+  { id: "producao", label: "Produção", icon: "production", requiresProperty: true },
   { id: "maquinas", label: "Máquinas", icon: "machines", requiresProperty: true },
   { id: "relatorios", label: "Relatórios", icon: "reports", requiresProperty: true },
   { id: "insights", label: "Assistente", icon: "assistant", requiresProperty: true },
