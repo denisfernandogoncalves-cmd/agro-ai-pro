@@ -126,7 +126,20 @@ export default function MercadoPage({ selectedProperty = null }: { selectedPrope
     return [...grupos.values()];
   }, [clima]);
 
-  if (loading && !painel) return <LoadingState label="Carregando mercado e fatores integrados..." />;
+  if (loading && !painel) {
+    return (
+      <section className="market-enterprise-page">
+        <PageHeader
+          eyebrow="Mercado e comercialização"
+          title="Painel de mercado"
+          description="Cotações automáticas, clima e fatores integrados."
+          actions={<button disabled type="button">Atualizar cotações</button>}
+        />
+        <LoadingState label="Carregando mercado e fatores integrados..." />
+        <p className="muted">Os indicadores não constituem recomendação automática de compra ou venda.</p>
+      </section>
+    );
+  }
   if (!painel && error) return <ErrorState description={error} onRetry={() => void carregar()} />;
 
   return (
