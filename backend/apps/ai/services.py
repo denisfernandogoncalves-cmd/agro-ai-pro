@@ -253,7 +253,7 @@ def gerar_insights(*, propriedade=None, safra="", propriedades=None):
     insights.sort(key=lambda item: ordem[item["nivel"]])
     return {
         "gerado_em": timezone.now(),
-        "metodo": "regras_explicaveis_v2",
+        "metodo": "regras_explicaveis_v1",
         "insights": insights,
         "aviso": (
             "Apoio gerencial automatizado. Não substitui avaliação agronômica, "
