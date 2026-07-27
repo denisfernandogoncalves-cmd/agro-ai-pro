@@ -4,6 +4,7 @@ import hashlib
 from django.conf import settings
 from django.core.cache import cache
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from .enterprise_models import (
@@ -98,7 +99,6 @@ def _salvar_ponto(configuracao, intervalo, dados):
     )[0]
 
 
-@transaction.atomic
 def atualizar_ativo(
     ativo,
     *,
@@ -107,7 +107,7 @@ def atualizar_ativo(
     json_transport=obter_json,
 ):
     inicializar_configuracoes()
-    configuracao = ConfiguracaoAtivoMercado.objects.select_for_update().get(ativo=ativo)
+    configuracao = ConfiguracaoAtivoMercado.objects.get(ativo=ativo)
     agora = timezone.now()
     if not configuracao.habilitado:
         configuracao.status = ConfiguracaoAtivoMercado.Status.DESATIVADO
@@ -138,37 +138,39 @@ def atualizar_ativo(
             text_transport=text_transport,
             json_transport=json_transport,
         )
-        ponto_snapshot = _salvar_ponto(
-            configuracao,
-            CotacaoAtivoMercado.Intervalo.SNAPSHOT,
-            snapshot,
-        )
-        for diario in diarios:
-            _salvar_ponto(
+        with transaction.atomic():
+            configuracao = ConfiguracaoAtivoMercado.objects.select_for_update().get(ativo=ativo)
+            ponto_snapshot = _salvar_ponto(
                 configuracao,
-                CotacaoAtivoMercado.Intervalo.DIARIO,
-                diario,
+                CotacaoAtivoMercado.Intervalo.SNAPSHOT,
+                snapshot,
             )
-        fim = timezone.now()
-        configuracao.ultima_atualizacao = fim
-        configuracao.proxima_atualizacao = fim + timedelta(minutes=configuracao.frequencia_minutos)
-        configuracao.status = ConfiguracaoAtivoMercado.Status.ATUALIZADO
-        configuracao.mensagem_erro = ""
-        configuracao.falhas_consecutivas = 0
-        configuracao.total_chamadas += chamadas
-        configuracao.total_atualizacoes += 1
-        configuracao.save()
-        AtualizacaoMercado.objects.create(
-            ativo=ativo,
-            status=AtualizacaoMercado.Status.CACHE if cache_hit else AtualizacaoMercado.Status.SUCESSO,
-            iniciada_em=inicio,
-            finalizada_em=fim,
-            provedor=configuracao.provedor,
-            chamadas_realizadas=chamadas,
-            pontos_snapshot=1,
-            pontos_diarios=len(diarios),
-            utilizou_cache=cache_hit,
-        )
+            for diario in diarios:
+                _salvar_ponto(
+                    configuracao,
+                    CotacaoAtivoMercado.Intervalo.DIARIO,
+                    diario,
+                )
+            fim = timezone.now()
+            configuracao.ultima_atualizacao = fim
+            configuracao.proxima_atualizacao = fim + timedelta(minutes=configuracao.frequencia_minutos)
+            configuracao.status = ConfiguracaoAtivoMercado.Status.ATUALIZADO
+            configuracao.mensagem_erro = ""
+            configuracao.falhas_consecutivas = 0
+            configuracao.total_chamadas += chamadas
+            configuracao.total_atualizacoes += 1
+            configuracao.save()
+            AtualizacaoMercado.objects.create(
+                ativo=ativo,
+                status=AtualizacaoMercado.Status.CACHE if cache_hit else AtualizacaoMercado.Status.SUCESSO,
+                iniciada_em=inicio,
+                finalizada_em=fim,
+                provedor=configuracao.provedor,
+                chamadas_realizadas=chamadas,
+                pontos_snapshot=1,
+                pontos_diarios=len(diarios),
+                utilizou_cache=cache_hit,
+            )
         return {
             "ignorada": False,
             "ativo": ativo,
@@ -178,24 +180,26 @@ def atualizar_ativo(
         }
     except (ProvedorMercadoError, ValueError, TypeError, KeyError) as exc:
         fim = timezone.now()
-        configuracao.falhas_consecutivas += 1
-        espera = min(
-            configuracao.frequencia_minutos,
-            5 * (2 ** min(configuracao.falhas_consecutivas - 1, 5)),
-        )
-        configuracao.proxima_atualizacao = fim + timedelta(minutes=espera)
-        configuracao.status = ConfiguracaoAtivoMercado.Status.ERRO
-        configuracao.mensagem_erro = _sanitizar_erro(exc)
-        configuracao.save()
-        AtualizacaoMercado.objects.create(
-            ativo=ativo,
-            status=AtualizacaoMercado.Status.ERRO,
-            iniciada_em=inicio,
-            finalizada_em=fim,
-            provedor=configuracao.provedor,
-            tipo_erro=type(exc).__name__,
-            mensagem_erro=_sanitizar_erro(exc),
-        )
+        with transaction.atomic():
+            configuracao = ConfiguracaoAtivoMercado.objects.select_for_update().get(ativo=ativo)
+            configuracao.falhas_consecutivas += 1
+            espera = min(
+                configuracao.frequencia_minutos,
+                5 * (2 ** min(configuracao.falhas_consecutivas - 1, 5)),
+            )
+            configuracao.proxima_atualizacao = fim + timedelta(minutes=espera)
+            configuracao.status = ConfiguracaoAtivoMercado.Status.ERRO
+            configuracao.mensagem_erro = _sanitizar_erro(exc)
+            configuracao.save()
+            AtualizacaoMercado.objects.create(
+                ativo=ativo,
+                status=AtualizacaoMercado.Status.ERRO,
+                iniciada_em=inicio,
+                finalizada_em=fim,
+                provedor=configuracao.provedor,
+                tipo_erro=type(exc).__name__,
+                mensagem_erro=_sanitizar_erro(exc),
+            )
         raise ServicoMercadoEnterpriseError(
             f"Não foi possível atualizar {configuracao.get_ativo_display()}. A última cotação válida foi preservada."
         ) from exc
@@ -206,13 +210,10 @@ def atualizar_ativo(
 def atualizar_mercado_pendente(*, limite=None):
     inicializar_configuracoes()
     agora = timezone.now()
-    queryset = ConfiguracaoAtivoMercado.objects.filter(habilitado=True).filter(
-        proxima_atualizacao__isnull=True
-    ) | ConfiguracaoAtivoMercado.objects.filter(
+    queryset = ConfiguracaoAtivoMercado.objects.filter(
+        Q(proxima_atualizacao__isnull=True) | Q(proxima_atualizacao__lte=agora),
         habilitado=True,
-        proxima_atualizacao__lte=agora,
-    )
-    queryset = queryset.order_by("proxima_atualizacao", "ativo")
+    ).order_by("proxima_atualizacao", "ativo")
     if limite:
         queryset = queryset[:limite]
     resultado = {"atualizadas": 0, "ignoradas": 0, "erros": 0}
