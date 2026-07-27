@@ -95,3 +95,11 @@ class NoticiaMercado(models.Model):
 
     def __str__(self):
         return self.titulo
+
+
+from .enterprise_models import (  # noqa: E402,F401
+    AtivoMercado,
+    AtualizacaoMercado,
+    ConfiguracaoAtivoMercado,
+    CotacaoAtivoMercado,
+)
