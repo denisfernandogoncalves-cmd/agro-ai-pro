@@ -19,6 +19,7 @@
 - registra propriedades, talhões, áreas efetivamente colhidas, CAD/PRO, cargas, motoristas, placas e transportadoras por lote conjunto;
 - mantém saldo conjunto separado até rateio explícito e confiável;
 - adiciona rateio proporcional pela área e rateio manual em kg, toneladas ou sacas;
+- confirma o lote com intenção de rateio manual mantendo o saldo conjunto até o usuário informar valores e justificativa;
 - preserva exatamente o total distribuído com ajuste controlado de arredondamento;
 - integra a distribuição ao saldo individual existente por propriedade e CAD/PRO;
 - adiciona saídas, transferências, ajustes e estornos do saldo conjunto sem permitir saldo negativo;
