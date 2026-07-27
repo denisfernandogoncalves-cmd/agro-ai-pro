@@ -26,6 +26,7 @@
 - registra saldos anteriores e posteriores e bloqueia edição direta após confirmação;
 - adiciona tela responsiva em dez etapas, carregada sob demanda pelo shell Enterprise;
 - adiciona relatórios de lotes, áreas, produção, produtividade, cargas, motoristas, placas e saldo não distribuído em CSV, XLSX e PDF;
+- adiciona exportações dedicadas de transporte por motorista, placa, período, lote, destino e transportadora;
 - evolui o Clima para atualização automática por propriedade a cada três horas;
 - adiciona estado atual, previsão horária e previsão diária de sete dias;
 - utiliza Redis local para cache, deduplicação e lock de atualizações;
