@@ -20,6 +20,14 @@ from .grain_views import (
     SaldoGraosViewSet,
     VeiculoViewSet,
 )
+from .joint_views import (
+    CargaLoteConjuntoViewSet,
+    LoteConjuntoProducaoViewSet,
+    MovimentacaoLoteConjuntoViewSet,
+    RelatorioLoteConjuntoView,
+    SaidaLoteConjuntoViewSet,
+    SaldoLoteConjuntoViewSet,
+)
 from .views import InsumoOperacaoViewSet, OperacaoAgricolaViewSet
 
 
@@ -39,9 +47,15 @@ router.register("movimentacoes-graos", MovimentacaoGraosViewSet, basename="movim
 router.register("saldos-graos", SaldoGraosViewSet, basename="saldos-graos")
 router.register("auditoria", AuditoriaProducaoViewSet, basename="auditoria-producao")
 router.register("importacoes", ImportacaoPlanilhaSeguraViewSet, basename="importacoes-producao")
+router.register("lotes-conjuntos", LoteConjuntoProducaoViewSet, basename="lotes-conjuntos")
+router.register("cargas-lotes-conjuntos", CargaLoteConjuntoViewSet, basename="cargas-lotes-conjuntos")
+router.register("saidas-lotes-conjuntos", SaidaLoteConjuntoViewSet, basename="saidas-lotes-conjuntos")
+router.register("saldos-lotes-conjuntos", SaldoLoteConjuntoViewSet, basename="saldos-lotes-conjuntos")
+router.register("movimentacoes-lotes-conjuntos", MovimentacaoLoteConjuntoViewSet, basename="movimentacoes-lotes-conjuntos")
 
 urlpatterns = [
     path("", include(router.urls)),
     path("dashboard-integrado/", ProducaoDashboardView.as_view(), name="producao-dashboard-integrado"),
     path("relatorios-integrados/", RelatorioProducaoView.as_view(), name="producao-relatorios-integrados"),
+    path("relatorios-lotes-conjuntos/", RelatorioLoteConjuntoView.as_view(), name="producao-relatorios-lotes-conjuntos"),
 ]
