@@ -1,6 +1,6 @@
 # Validação automatizada — Gestão Integrada da Produção
 
-Commit validado: `c2ca439e87a7205a8cf32706013d96e0a0a39a4b`
+Commit validado: `0a0eab2a686770fd0669742073ec864b30232ec2`
 
 | Verificação | Resultado |
 | --- | --- |
