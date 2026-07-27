@@ -20,9 +20,9 @@ from .grain_views import (
     SaldoGraosViewSet,
     VeiculoViewSet,
 )
+from .joint_safe_views import LoteConjuntoProducaoSeguroViewSet
 from .joint_views import (
     CargaLoteConjuntoViewSet,
-    LoteConjuntoProducaoViewSet,
     MovimentacaoLoteConjuntoViewSet,
     RelatorioLoteConjuntoView,
     SaidaLoteConjuntoViewSet,
@@ -47,7 +47,7 @@ router.register("movimentacoes-graos", MovimentacaoGraosViewSet, basename="movim
 router.register("saldos-graos", SaldoGraosViewSet, basename="saldos-graos")
 router.register("auditoria", AuditoriaProducaoViewSet, basename="auditoria-producao")
 router.register("importacoes", ImportacaoPlanilhaSeguraViewSet, basename="importacoes-producao")
-router.register("lotes-conjuntos", LoteConjuntoProducaoViewSet, basename="lotes-conjuntos")
+router.register("lotes-conjuntos", LoteConjuntoProducaoSeguroViewSet, basename="lotes-conjuntos")
 router.register("cargas-lotes-conjuntos", CargaLoteConjuntoViewSet, basename="cargas-lotes-conjuntos")
 router.register("saidas-lotes-conjuntos", SaidaLoteConjuntoViewSet, basename="saidas-lotes-conjuntos")
 router.register("saldos-lotes-conjuntos", SaldoLoteConjuntoViewSet, basename="saldos-lotes-conjuntos")
