@@ -123,13 +123,6 @@ def _debitar_rateado(
     safra,
     local,
 ):
-    """Debita uma saída consolidada sem criar um saldo agregado duplicado.
-
-    Quando o movimento informa talhão, mantém o comportamento exato anterior.
-    Quando não informa, consome deterministicamente as posições detalhadas do
-    mesmo CAD/PRO, cultura, safra e local. O rateio retornado é auditado e usado
-    no estorno para restaurar exatamente as posições originais.
-    """
     quantidade = _quantizar(quantidade)
     if talhao is not None:
         saldo = _debitar(
@@ -304,7 +297,7 @@ def registrar_movimentacao(
     elif tipo == MovimentacaoGraos.Tipo.ESTORNO:
         if not estorno_de:
             raise ProducaoError("Informe a movimentação que será estornada.")
-        if hasattr(estorno_de, "estorno"):
+        if MovimentacaoGraos.objects.filter(estorno_de=estorno_de).exists():
             raise ProducaoError("Esta movimentação já foi estornada.")
         base_original = {
             "propriedade": estorno_de.propriedade,
