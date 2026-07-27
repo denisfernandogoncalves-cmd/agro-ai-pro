@@ -108,11 +108,25 @@ export type StatusClima = {
   alertas_ativos: number;
 };
 
+function hojeEmSaoPaulo() {
+  const partes = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const valores = Object.fromEntries(
+    partes.filter((parte) => parte.type !== "literal").map((parte) => [parte.type, parte.value]),
+  );
+  return `${valores.year}-${valores.month}-${valores.day}`;
+}
+
 export async function listarPrevisoes(propriedade: number) {
   const resposta = await api.get<PrevisaoClima[]>("/clima/previsoes/", {
     params: { propriedade, ordering: "data" },
   });
-  return resposta.data;
+  const hoje = hojeEmSaoPaulo();
+  return resposta.data.filter((item) => item.data >= hoje).slice(0, 7);
 }
 
 export async function listarPrevisoesHorarias(propriedade: number) {
