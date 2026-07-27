@@ -16,6 +16,7 @@ const ICON_PATHS: Record<NavigationIcon, string> = {
   finance: "M12 2v20M17 6H9a3 3 0 0 0 0 6h6a3 3 0 0 1 0 6H6",
   stock: "M4 7l8-4 8 4-8 4zM4 7v10l8 4 8-4V7M12 11v10",
   operations: "M4 6h16M4 12h16M4 18h10M2 6h.01M2 12h.01M2 18h.01",
+  production: "M3 19h18M5 16h14V9H5zM8 9V6h8v3M7 13h2M11 13h2M15 13h2",
   machines: "M5 16h14l2 3H3zM7 16V8h10v8M9 8V5h6v3M7 12h10",
   reports: "M5 3h14v18H5zM8 16l3-4 3 2 3-5",
   assistant: "M12 3a7 7 0 0 0-4 13v4l4-2 4 2v-4a7 7 0 0 0-4-13zM9 10h.01M15 10h.01M10 14h4",
