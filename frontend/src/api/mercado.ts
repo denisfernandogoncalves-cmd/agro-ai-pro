@@ -2,6 +2,15 @@ import { api } from "./propriedades";
 
 
 export type ProdutoMercado = "soja" | "milho" | "trigo" | "brent";
+export type AtivoMercado =
+  | "soja_cbot"
+  | "milho_cbot"
+  | "trigo_cbot"
+  | "farelo_soja"
+  | "oleo_soja"
+  | "brent"
+  | "dolar";
+export type JanelaMercado = "intraday" | "5d" | "30d";
 
 export type CotacaoMercado = {
   id: number;
@@ -46,6 +55,77 @@ export type NoticiaMercado = {
   ativa: boolean;
 };
 
+export type PontoMercadoEnterprise = {
+  id: number;
+  ativo: AtivoMercado;
+  ativo_nome: string;
+  intervalo: "snapshot" | "diario";
+  data_hora: string;
+  abertura: string | null;
+  maxima: string | null;
+  minima: string | null;
+  fechamento: string;
+  volume: string | null;
+  unidade: string;
+  moeda: string;
+  fonte: string;
+  simbolo_origem: string;
+};
+
+export type ResumoAtivoEnterprise = {
+  ativo: AtivoMercado;
+  ativo_nome: string;
+  disponivel: boolean;
+  cotacao_atual?: string;
+  abertura?: string | null;
+  maxima?: string | null;
+  minima?: string | null;
+  variacao_diaria?: string | null;
+  data_hora?: string;
+  unidade?: string;
+  moeda?: string;
+  fonte?: string;
+  status: string;
+  ultima_atualizacao?: string | null;
+  proxima_atualizacao?: string | null;
+  desatualizado?: boolean;
+  mensagem?: string;
+};
+
+export type AnaliseMercadoEnterprise = {
+  gerado_em: string;
+  impactos: Array<{ fator: string; direcao: "alta" | "baixa"; descricao: string }>;
+  fatores_alta: string[];
+  fatores_baixa: string[];
+  tendencia_curto_prazo: "alta" | "baixa" | "mista";
+  recomendacao_operacional: string;
+  contexto_producao: {
+    estoque_kg?: string;
+    contratado_aberto_kg?: string;
+    saldo_conjunto_kg?: string;
+  };
+  corn_belt: {
+    chuva_media: string | null;
+    temperatura_minima: string | null;
+    temperatura_maxima: string | null;
+    alertas: string[];
+  };
+  aviso: string;
+};
+
+export type PainelMercadoEnterprise = {
+  ativos: ResumoAtivoEnterprise[];
+  analise: AnaliseMercadoEnterprise;
+  atualizacoes: Array<{
+    ativo: AtivoMercado;
+    status: string;
+    ultima_atualizacao: string | null;
+    proxima_atualizacao: string | null;
+    mensagem_erro: string;
+    total_chamadas: number;
+  }>;
+};
+
 export async function carregarPainelMercado() {
   const [cotacoes, resumos, clima, noticias] = await Promise.all([
     api.get<CotacaoMercado[]>("/mercado/cotacoes/", {
@@ -65,6 +145,22 @@ export async function carregarPainelMercado() {
     clima: clima.data,
     noticias: noticias.data,
   };
+}
+
+export async function carregarPainelMercadoEnterprise(propertyId?: number | null) {
+  return (await api.get<PainelMercadoEnterprise>("/mercado/cotacoes-enterprise/painel/", {
+    params: { propriedade: propertyId || undefined },
+  })).data;
+}
+
+export async function carregarSerieMercado(ativo: AtivoMercado, janela: JanelaMercado) {
+  return (await api.get<PontoMercadoEnterprise[]>("/mercado/cotacoes-enterprise/serie/", {
+    params: { ativo, janela },
+  })).data;
+}
+
+export async function atualizarMercadoEnterprise(ativo?: AtivoMercado) {
+  return (await api.post("/mercado/cotacoes-enterprise/atualizar/", ativo ? { ativo } : {})).data;
 }
 
 export async function atualizarCotacoes() {
