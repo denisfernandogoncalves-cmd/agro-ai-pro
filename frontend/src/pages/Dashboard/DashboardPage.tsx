@@ -179,7 +179,7 @@ export default function DashboardPage({
               <small>{item.unidade}</small>
               {item.variacao_percentual !== null && <Badge tone={Number(item.variacao_percentual) >= 0 ? "success" : "danger"}>{Number(item.variacao_percentual).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}%</Badge>}
             </article>
-          )) : <p className="muted">Nenhuma cotação disponível.</p>}
+          )) : <p className="muted">Nenhum resumo de mercado disponível.</p>}
         </div>
         {marketEnterprise?.analise.recomendacao_operacional && <AlertCard title="Comercialização" tone="info"><p>{marketEnterprise.analise.recomendacao_operacional}</p></AlertCard>}
       </SectionCard>
