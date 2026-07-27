@@ -153,13 +153,17 @@ leitura.
 O serviço local executa:
 
 ```bash
-python manage.py atualizar_clima --continuous --interval-seconds 10800
+python manage.py atualizar_clima --continuous --interval-seconds 300
 ```
 
 No Docker Compose, o serviço é `clima-worker`.
 
-A frequência padrão por propriedade é 180 minutos. Cache e lock usam Redis local
-quando configurado, com fallback para cache em memória em testes.
+O worker verifica pendências a cada cinco minutos. A frequência padrão de chamada
+por propriedade é 180 minutos. Cache e lock usam Redis local quando configurado,
+com fallback para cache em memória em testes.
+
+O polling de cinco minutos não gera uma chamada em cada ciclo: propriedades cuja
+`proxima_atualizacao` ainda não venceu são ignoradas.
 
 ## Coordenadas
 
