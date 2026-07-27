@@ -189,3 +189,13 @@ from .grain_models import (  # noqa: E402,F401
     SaldoGraos,
     Veiculo,
 )
+from .joint_models import (  # noqa: E402,F401
+    CadProLoteConjunto,
+    CargaLoteConjunto,
+    LoteConjuntoProducao,
+    MovimentacaoLoteConjunto,
+    ParticipanteLoteConjunto,
+    SaidaLoteConjunto,
+    SaldoLoteConjunto,
+    TalhaoParticipanteLoteConjunto,
+)
