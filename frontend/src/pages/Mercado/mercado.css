@@ -1,0 +1,35 @@
+.market-enterprise-page { display: grid; gap: var(--space-6); }
+.market-actions, .market-window-tabs { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+.market-asset-grid { grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); }
+.market-asset-card { display: grid; gap: var(--space-2); min-height: 9.5rem; padding: var(--space-4); text-align: left; color: var(--color-text); background: var(--color-surface); border: 1px solid var(--color-border); border-radius: var(--radius-lg); box-shadow: var(--shadow-sm); }
+.market-asset-card:hover, .market-asset-card.is-active { border-color: var(--color-primary); box-shadow: var(--shadow-md); transform: translateY(-1px); }
+.market-asset-card span { color: var(--color-text-muted); font-size: var(--font-size-sm); }
+.market-asset-card strong { font-size: var(--font-size-xl); }
+.market-asset-card small { color: var(--color-text-muted); }
+.market-detail-grid { grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); }
+.market-chart { margin: 0; display: grid; gap: var(--space-3); }
+.market-chart svg { width: 100%; min-height: 15rem; border-radius: var(--radius-md); background: linear-gradient(180deg, var(--color-primary-soft), transparent); }
+.market-chart__axis { stroke: var(--color-border); stroke-width: 1.5; }
+.market-chart__line { stroke: var(--color-primary); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.market-chart__point { fill: var(--color-surface); stroke: var(--color-primary); stroke-width: 3; }
+.market-chart figcaption { display: flex; justify-content: space-between; gap: var(--space-3); color: var(--color-text-muted); }
+.market-chart figcaption strong { color: var(--color-text); }
+.market-analysis-columns { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(18rem, .85fr); gap: var(--space-5); }
+.market-impact-list, .market-news-grid { display: grid; gap: var(--space-3); margin-top: var(--space-4); }
+.market-impact-list article { display: flex; gap: var(--space-3); align-items: flex-start; padding: var(--space-3); background: var(--color-surface-subtle); border-radius: var(--radius-md); }
+.market-impact-list p { margin: var(--space-1) 0 0; color: var(--color-text-muted); }
+.market-factor-columns { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-5); }
+.market-factor-columns h3 { margin-top: 0; }
+.market-factor-columns ul { padding-left: var(--space-5); }
+.market-factor-columns li { margin-bottom: var(--space-2); }
+.market-corn-grid { grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); }
+.market-corn-card { display: grid; gap: var(--space-2); padding: var(--space-4); background: var(--color-surface-subtle); border-radius: var(--radius-md); }
+.market-corn-card span, .market-corn-card small { color: var(--color-text-muted); }
+.market-corn-card strong { font-size: var(--font-size-xl); }
+.market-news-grid { grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); }
+.market-news-grid article { display: grid; gap: var(--space-2); padding: var(--space-4); background: var(--color-surface-subtle); border-radius: var(--radius-md); }
+.market-news-grid article span { color: var(--color-text-muted); font-size: var(--font-size-sm); }
+.market-news-grid article p { margin: 0; color: var(--color-text-muted); }
+.market-news-grid article a { color: var(--color-primary); font-weight: 700; }
+@media (max-width: 900px) { .market-analysis-columns { grid-template-columns: 1fr; } }
+@media (max-width: 640px) { .market-factor-columns { grid-template-columns: 1fr; } .market-chart figcaption { flex-direction: column; } .market-actions button, .market-window-tabs button { flex: 1 1 9rem; } }
