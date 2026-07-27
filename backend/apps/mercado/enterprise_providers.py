@@ -157,7 +157,8 @@ def buscar_ptax(*, transport=obter_json, dias=35):
         "$top": 10000,
         "$orderby": "dataHoraCotacao asc",
     }
-    url = f"{BCB_PTAX_URL}?{urlencode(parametros, safe="'@$,")}" 
+    query = urlencode(parametros, safe="'@$, ")
+    url = f"{BCB_PTAX_URL}?{query}"
     try:
         payload = transport(url)
         valores = payload.get("value", [])
