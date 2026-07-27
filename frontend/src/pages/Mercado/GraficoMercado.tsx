@@ -9,6 +9,12 @@ type CotacaoLegada = {
   produto_nome?: string;
 };
 
+type PontoGrafico = {
+  id: number;
+  data_hora: string;
+  fechamento: string;
+};
+
 type Props = {
   pontos?: PontoMercadoEnterprise[];
   titulo?: string;
@@ -18,21 +24,13 @@ type Props = {
 const formatar = (valor: number) => valor.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
 
 export default function GraficoMercado({ pontos = [], titulo = "Evolução histórica", cotacoes = [] }: Props) {
-  const serie: PontoMercadoEnterprise[] = pontos.length ? pontos : cotacoes.map((item) => ({
-    id: item.id,
-    ativo: "soja_cbot",
-    intervalo: "diario",
-    data_hora: `${item.data}T12:00:00Z`,
-    abertura: null,
-    maxima: null,
-    minima: null,
-    fechamento: String(item.valor),
-    volume: null,
-    unidade: "",
-    moeda: "",
-    fonte: "legado",
-    criado_em: `${item.data}T12:00:00Z`,
-  }));
+  const serie: PontoGrafico[] = pontos.length
+    ? pontos.map((item) => ({ id: item.id, data_hora: item.data_hora, fechamento: item.fechamento }))
+    : cotacoes.map((item) => ({
+        id: item.id,
+        data_hora: `${item.data}T12:00:00Z`,
+        fechamento: String(item.valor),
+      }));
   const tituloExibido = pontos.length ? titulo : cotacoes[0]?.produto_nome || titulo;
   if (serie.length < 2) {
     return <EmptyState title="Histórico insuficiente" description="A série será exibida após duas ou mais atualizações válidas." />;
