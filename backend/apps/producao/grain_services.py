@@ -65,6 +65,17 @@ def _saldo_kwargs(*, propriedade, cadpro, talhao, cultura, safra, local):
     }
 
 
+def _saldo_kwargs_id(*, propriedade, cadpro, talhao_id, cultura, safra, local):
+    return {
+        "propriedade": propriedade,
+        "cadpro": cadpro,
+        "talhao_id": talhao_id,
+        "cultura": cultura,
+        "safra": safra,
+        "local_armazenagem": local,
+    }
+
+
 def _obter_saldo_bloqueado(**kwargs):
     saldo, _ = SaldoGraos.objects.select_for_update().get_or_create(
         **kwargs,
@@ -92,6 +103,129 @@ def _debitar(*, quantidade, **kwargs):
     saldo.full_clean()
     saldo.save(update_fields=("quantidade_kg", "atualizado_em"))
     return saldo
+
+
+def _serializar_rateio(saldo, quantidade):
+    return {
+        "saldo_id": saldo.pk,
+        "talhao_id": saldo.talhao_id,
+        "quantidade_kg": str(_quantizar(quantidade)),
+    }
+
+
+def _debitar_rateado(
+    *,
+    quantidade,
+    propriedade,
+    cadpro,
+    talhao,
+    cultura,
+    safra,
+    local,
+):
+    """Debita uma saída consolidada sem criar um saldo agregado duplicado.
+
+    Quando o movimento informa talhão, mantém o comportamento exato anterior.
+    Quando não informa, consome deterministicamente as posições detalhadas do
+    mesmo CAD/PRO, cultura, safra e local. O rateio retornado é auditado e usado
+    no estorno para restaurar exatamente as posições originais.
+    """
+    quantidade = _quantizar(quantidade)
+    if talhao is not None:
+        saldo = _debitar(
+            quantidade=quantidade,
+            **_saldo_kwargs(
+                propriedade=propriedade,
+                cadpro=cadpro,
+                talhao=talhao,
+                cultura=cultura,
+                safra=safra,
+                local=local,
+            ),
+        )
+        return [_serializar_rateio(saldo, quantidade)]
+
+    saldos = list(
+        SaldoGraos.objects.select_for_update()
+        .filter(
+            propriedade=propriedade,
+            cadpro=cadpro,
+            cultura=cultura,
+            safra=safra,
+            local_armazenagem=local,
+            quantidade_kg__gt=0,
+        )
+        .order_by("talhao_id", "id")
+    )
+    disponivel = sum((saldo.quantidade_kg for saldo in saldos), start=Decimal("0"))
+    if disponivel < quantidade:
+        raise ProducaoError(
+            f"Saldo insuficiente. Disponível: {disponivel} kg; solicitado: {quantidade} kg."
+        )
+
+    restante = quantidade
+    rateio = []
+    for saldo in saldos:
+        if restante <= 0:
+            break
+        consumido = min(saldo.quantidade_kg, restante)
+        saldo.quantidade_kg = _quantizar(saldo.quantidade_kg - consumido)
+        saldo.full_clean()
+        saldo.save(update_fields=("quantidade_kg", "atualizado_em"))
+        rateio.append(_serializar_rateio(saldo, consumido))
+        restante = _quantizar(restante - consumido)
+
+    if restante != 0:
+        raise ProducaoError("Não foi possível concluir o rateio do estoque de grãos.")
+    return rateio
+
+
+def _creditar_rateio(*, rateio, propriedade, cadpro, cultura, safra, local):
+    for item in rateio:
+        quantidade = _quantizar(item["quantidade_kg"])
+        _creditar(
+            quantidade=quantidade,
+            **_saldo_kwargs_id(
+                propriedade=propriedade,
+                cadpro=cadpro,
+                talhao_id=item.get("talhao_id"),
+                cultura=cultura,
+                safra=safra,
+                local=local,
+            ),
+        )
+
+
+def _debitar_rateio_exato(*, rateio, propriedade, cadpro, cultura, safra, local):
+    for item in rateio:
+        quantidade = _quantizar(item["quantidade_kg"])
+        _debitar(
+            quantidade=quantidade,
+            **_saldo_kwargs_id(
+                propriedade=propriedade,
+                cadpro=cadpro,
+                talhao_id=item.get("talhao_id"),
+                cultura=cultura,
+                safra=safra,
+                local=local,
+            ),
+        )
+
+
+def _rateio_movimentacao(movimento):
+    auditoria = (
+        AuditoriaProducao.objects.filter(
+            acao="movimentacao_criada",
+            entidade=movimento._meta.label,
+            entidade_id=movimento.pk,
+        )
+        .order_by("-id")
+        .first()
+    )
+    if not auditoria or not isinstance(auditoria.metadados, dict):
+        return []
+    rateio = auditoria.metadados.get("rateio", [])
+    return rateio if isinstance(rateio, list) else []
 
 
 @transaction.atomic
@@ -142,30 +276,110 @@ def registrar_movimentacao(
         "cultura": cultura,
         "safra": safra,
     }
+    metadados = {}
     if tipo in {MovimentacaoGraos.Tipo.ENTRADA, MovimentacaoGraos.Tipo.AJUSTE_ENTRADA}:
         _creditar(quantidade=quantidade, **_saldo_kwargs(local=local_destino, **base))
     elif tipo in {MovimentacaoGraos.Tipo.SAIDA, MovimentacaoGraos.Tipo.AJUSTE_SAIDA}:
-        _debitar(quantidade=quantidade, **_saldo_kwargs(local=local_origem, **base))
+        rateio = _debitar_rateado(
+            quantidade=quantidade,
+            local=local_origem,
+            **base,
+        )
+        metadados["rateio"] = rateio
     elif tipo == MovimentacaoGraos.Tipo.TRANSFERENCIA:
-        _debitar(quantidade=quantidade, **_saldo_kwargs(local=local_origem, **base))
-        _creditar(quantidade=quantidade, **_saldo_kwargs(local=local_destino, **base))
+        rateio = _debitar_rateado(
+            quantidade=quantidade,
+            local=local_origem,
+            **base,
+        )
+        _creditar_rateio(
+            rateio=rateio,
+            propriedade=propriedade,
+            cadpro=cadpro,
+            cultura=cultura,
+            safra=safra,
+            local=local_destino,
+        )
+        metadados["rateio"] = rateio
     elif tipo == MovimentacaoGraos.Tipo.ESTORNO:
         if not estorno_de:
             raise ProducaoError("Informe a movimentação que será estornada.")
         if hasattr(estorno_de, "estorno"):
             raise ProducaoError("Esta movimentação já foi estornada.")
-        if estorno_de.tipo in {MovimentacaoGraos.Tipo.ENTRADA, MovimentacaoGraos.Tipo.AJUSTE_ENTRADA}:
-            _debitar(quantidade=quantidade, **_saldo_kwargs(local=estorno_de.local_destino, **base))
-        elif estorno_de.tipo in {MovimentacaoGraos.Tipo.SAIDA, MovimentacaoGraos.Tipo.AJUSTE_SAIDA}:
-            _creditar(quantidade=quantidade, **_saldo_kwargs(local=estorno_de.local_origem, **base))
+        base_original = {
+            "propriedade": estorno_de.propriedade,
+            "cadpro": estorno_de.cadpro,
+            "talhao": estorno_de.talhao,
+            "cultura": estorno_de.cultura,
+            "safra": estorno_de.safra,
+        }
+        rateio_original = _rateio_movimentacao(estorno_de)
+        if estorno_de.tipo in {
+            MovimentacaoGraos.Tipo.ENTRADA,
+            MovimentacaoGraos.Tipo.AJUSTE_ENTRADA,
+        }:
+            _debitar(
+                quantidade=quantidade,
+                **_saldo_kwargs(local=estorno_de.local_destino, **base_original),
+            )
+        elif estorno_de.tipo in {
+            MovimentacaoGraos.Tipo.SAIDA,
+            MovimentacaoGraos.Tipo.AJUSTE_SAIDA,
+        }:
+            if rateio_original:
+                _creditar_rateio(
+                    rateio=rateio_original,
+                    propriedade=estorno_de.propriedade,
+                    cadpro=estorno_de.cadpro,
+                    cultura=estorno_de.cultura,
+                    safra=estorno_de.safra,
+                    local=estorno_de.local_origem,
+                )
+            else:
+                _creditar(
+                    quantidade=quantidade,
+                    **_saldo_kwargs(local=estorno_de.local_origem, **base_original),
+                )
         elif estorno_de.tipo == MovimentacaoGraos.Tipo.TRANSFERENCIA:
-            _debitar(quantidade=quantidade, **_saldo_kwargs(local=estorno_de.local_destino, **base))
-            _creditar(quantidade=quantidade, **_saldo_kwargs(local=estorno_de.local_origem, **base))
+            if rateio_original:
+                _debitar_rateio_exato(
+                    rateio=rateio_original,
+                    propriedade=estorno_de.propriedade,
+                    cadpro=estorno_de.cadpro,
+                    cultura=estorno_de.cultura,
+                    safra=estorno_de.safra,
+                    local=estorno_de.local_destino,
+                )
+                _creditar_rateio(
+                    rateio=rateio_original,
+                    propriedade=estorno_de.propriedade,
+                    cadpro=estorno_de.cadpro,
+                    cultura=estorno_de.cultura,
+                    safra=estorno_de.safra,
+                    local=estorno_de.local_origem,
+                )
+            else:
+                _debitar(
+                    quantidade=quantidade,
+                    **_saldo_kwargs(local=estorno_de.local_destino, **base_original),
+                )
+                _creditar(
+                    quantidade=quantidade,
+                    **_saldo_kwargs(local=estorno_de.local_origem, **base_original),
+                )
         else:
             raise ProducaoError("Movimentações de estorno não podem ser estornadas novamente.")
+        metadados["estorno_de"] = estorno_de.pk
+        if rateio_original:
+            metadados["rateio_restaurado"] = rateio_original
 
     movimento.save()
-    registrar_auditoria(usuario=usuario, acao="movimentacao_criada", objeto=movimento)
+    registrar_auditoria(
+        usuario=usuario,
+        acao="movimentacao_criada",
+        objeto=movimento,
+        metadados=metadados,
+    )
     return movimento
 
 
