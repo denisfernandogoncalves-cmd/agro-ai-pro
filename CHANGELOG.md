@@ -37,7 +37,15 @@
 - registra auditoria, contagem de chamadas e horários da próxima atualização;
 - adiciona worker climático local ao Docker Compose;
 - mantém o provedor configurável e não expõe chamadas externas no frontend;
-- adiciona testes de saldo, permissões, integração financeira, importação, exportações, clima automático e lotes conjuntos;
+- substitui dados estáticos na interface principal de Mercado por snapshots automáticos e séries diárias persistidas;
+- adiciona soja, milho, trigo, farelo, óleo de soja, Brent e PTAX ao painel Enterprise;
+- adiciona gráficos intradiário, cinco dias e trinta dias, atualização manual e worker local;
+- integra Corn Belt, Brent, dólar, estoque, lotes conjuntos e contratos em análise operacional explicável;
+- preserva séries mensais legadas como fallback e não apaga o último valor válido em falhas;
+- adiciona cache, lock, backoff, auditoria de chamadas e estado de atualização por ativo;
+- integra cotações e recomendação de comercialização ao Dashboard;
+- documenta a licença aberta ODbL da PTAX e mantém commodities restritas a desenvolvimento/homologação até autorização de licença comercial;
+- adiciona testes de saldo, permissões, integração financeira, importação, exportações, clima automático, mercado automático e lotes conjuntos;
 - não utiliza serviço pago, telemetria ou processamento externo de arquivos;
 - documenta que o endpoint público gratuito do Open-Meteo é restrito a uso não comercial.
 
