@@ -3,6 +3,7 @@ import io
 from decimal import Decimal
 
 from django.db.models import Avg, Count, Sum
+from django.db.models.functions import TruncDate
 from django.http import HttpResponse
 from openpyxl import Workbook
 from rest_framework.permissions import IsAuthenticated
@@ -55,7 +56,7 @@ def _linhas(queryset, agrupamento):
         valores = ("veiculo_cavalo_id", "veiculo_cavalo__placa", "placa_cavalo_informada")
         rotulo = lambda item: item["veiculo_cavalo__placa"] or item["placa_cavalo_informada"] or "Não informada"
     elif agrupamento == "periodo":
-        queryset = queryset.annotate(data_referencia=models.functions.TruncDate("data_hora"))
+        queryset = queryset.annotate(data_referencia=TruncDate("data_hora"))
         valores = ("data_referencia",)
         rotulo = lambda item: str(item["data_referencia"])
     elif agrupamento == "destino":
