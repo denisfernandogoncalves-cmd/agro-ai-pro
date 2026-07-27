@@ -39,9 +39,10 @@ paginadas quando `page` ou `page_size` é informado.
 ## Clima automático
 
 O módulo de Clima mantém estado atual, previsão horária e previsão para sete
-dias por propriedade. Um worker local verifica atualizações vencidas a cada
-três horas por padrão, usa Redis para cache e deduplicação, registra auditoria e
-preserva a última previsão válida quando o provedor estiver indisponível.
+dias por propriedade. Um worker local verifica pendências a cada cinco minutos,
+mas cada propriedade consulta o provedor a cada três horas por padrão. Redis é
+usado para cache e deduplicação, a auditoria registra as tentativas e a última
+previsão válida é preservada quando o provedor estiver indisponível.
 
 A localização usa as coordenadas cadastradas ou, na ausência delas, o centro da
 geometria GeoJSON processada da propriedade ou de um talhão. Nenhuma coordenada
