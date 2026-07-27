@@ -83,35 +83,6 @@ DATABASES = {
     }
 }
 
-REDIS_CACHE_URL = os.getenv("REDIS_CACHE_URL", "").strip()
-if REDIS_CACHE_URL:
-    CACHES = {
-        "default": {
-            "BACKEND": "django.core.cache.backends.redis.RedisCache",
-            "LOCATION": REDIS_CACHE_URL,
-            "TIMEOUT": 900,
-        }
-    }
-else:
-    CACHES = {
-        "default": {
-            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-            "LOCATION": "agro-ai-pro-local-cache",
-            "TIMEOUT": 900,
-        }
-    }
-
-CLIMA_PROVIDER_BASE_URL = os.getenv(
-    "CLIMA_PROVIDER_BASE_URL",
-    "https://api.open-meteo.com/v1/forecast",
-)
-CLIMA_PROVIDER_TIMEOUT_SECONDS = int(os.getenv("CLIMA_PROVIDER_TIMEOUT_SECONDS", "15"))
-CLIMA_PROVIDER_CACHE_SECONDS = int(os.getenv("CLIMA_PROVIDER_CACHE_SECONDS", "900"))
-CLIMA_UPDATE_LOCK_SECONDS = int(os.getenv("CLIMA_UPDATE_LOCK_SECONDS", "180"))
-CLIMA_UPDATE_INTERVAL_SECONDS = int(os.getenv("CLIMA_UPDATE_INTERVAL_SECONDS", "10800"))
-CLIMA_MAX_UPDATES_PER_CYCLE = int(os.getenv("CLIMA_MAX_UPDATES_PER_CYCLE", "100"))
-CLIMA_AUTOMATIC_UPDATE_ENABLED = os.getenv("CLIMA_AUTOMATIC_UPDATE_ENABLED", "True") == "True"
-
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "rest_framework_simplejwt.authentication.JWTAuthentication",
