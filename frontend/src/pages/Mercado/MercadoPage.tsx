@@ -136,7 +136,7 @@ export default function MercadoPage({ selectedProperty = null }: { selectedPrope
           actions={<button disabled type="button">Atualizar cotações</button>}
         />
         <LoadingState label="Carregando mercado e fatores integrados..." />
-        <p className="muted">Os indicadores não constituem recomendação automática de compra ou venda.</p>
+        <p className="muted">Não constituem recomendação automática de compra ou venda.</p>
       </section>
     );
   }
