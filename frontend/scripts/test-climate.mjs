@@ -60,9 +60,10 @@ try {
   const compose = await readFile(new URL("../../docker-compose.yml", import.meta.url), "utf8");
   assert.match(compose, /clima-worker:/);
   assert.match(compose, /atualizar_clima --continuous/);
-  assert.match(compose, /CLIMA_UPDATE_INTERVAL_SECONDS:-10800/);
+  assert.match(compose, /CLIMA_UPDATE_INTERVAL_SECONDS:-300/);
+  assert.match(compose, /frequencia_minutos|CLIMA_PROVIDER_CACHE_SECONDS/);
 
-  console.log("12 verificações do clima automático aprovadas.");
+  console.log("13 verificações do clima automático aprovadas.");
 } finally {
   await servidor.close();
 }
