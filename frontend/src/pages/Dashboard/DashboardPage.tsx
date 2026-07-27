@@ -47,19 +47,28 @@ export default function DashboardPage({
     setLoading(true);
     setErrors([]);
     const propertyId = selectedProperty ? String(selectedProperty.id) : "";
-    const results = await Promise.allSettled([
-      obterDashboard(propertyId, safra),
-      carregarPainelMercado(),
-      obterInsights(propertyId),
-      selectedProperty ? listarPrevisoes(selectedProperty.id) : Promise.resolve([] as PrevisaoClima[]),
-      selectedProperty ? obterStatusClima(selectedProperty.id) : Promise.resolve(null),
-    ]);
+    const dashboardPromise = obterDashboard(propertyId, safra);
+    const marketPromise = carregarPainelMercado();
+    const insightsPromise = obterInsights(propertyId);
+    const weatherPromise: Promise<PrevisaoClima[]> = selectedProperty
+      ? listarPrevisoes(selectedProperty.id)
+      : Promise.resolve([]);
+    const weatherStatusPromise: Promise<StatusClima | null> = selectedProperty
+      ? obterStatusClima(selectedProperty.id)
+      : Promise.resolve(null);
+    const [dashboardResult, marketResult, insightsResult, weatherResult, weatherStatusResult] = await Promise.allSettled([
+      dashboardPromise,
+      marketPromise,
+      insightsPromise,
+      weatherPromise,
+      weatherStatusPromise,
+    ] as const);
     const nextErrors: string[] = [];
-    if (results[0].status === "fulfilled") setDashboard(results[0].value); else { setDashboard(null); nextErrors.push("Indicadores gerenciais indisponíveis."); }
-    if (results[1].status === "fulfilled") setMarket(results[1].value); else { setMarket(null); nextErrors.push("Resumo de mercado indisponível."); }
-    if (results[2].status === "fulfilled") setInsights(results[2].value); else { setInsights(null); nextErrors.push("Insights do assistente indisponíveis."); }
-    if (results[3].status === "fulfilled") setWeather(results[3].value); else { setWeather([]); nextErrors.push("Previsão diária indisponível."); }
-    if (results[4].status === "fulfilled") setWeatherStatus(results[4].value); else { setWeatherStatus(null); nextErrors.push("Clima atual indisponível."); }
+    if (dashboardResult.status === "fulfilled") setDashboard(dashboardResult.value); else { setDashboard(null); nextErrors.push("Indicadores gerenciais indisponíveis."); }
+    if (marketResult.status === "fulfilled") setMarket(marketResult.value); else { setMarket(null); nextErrors.push("Resumo de mercado indisponível."); }
+    if (insightsResult.status === "fulfilled") setInsights(insightsResult.value); else { setInsights(null); nextErrors.push("Insights do assistente indisponíveis."); }
+    if (weatherResult.status === "fulfilled") setWeather(weatherResult.value); else { setWeather([]); nextErrors.push("Previsão diária indisponível."); }
+    if (weatherStatusResult.status === "fulfilled") setWeatherStatus(weatherStatusResult.value); else { setWeatherStatus(null); nextErrors.push("Clima atual indisponível."); }
     setErrors(nextErrors);
     setLoading(false);
   }, [safra, selectedProperty]);
