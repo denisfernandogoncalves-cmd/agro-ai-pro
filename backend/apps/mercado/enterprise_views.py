@@ -81,21 +81,16 @@ class CotacaoAtivoMercadoViewSet(viewsets.ReadOnlyModelViewSet):
 class ConfiguracaoAtivoMercadoViewSet(viewsets.ModelViewSet):
     queryset = ConfiguracaoAtivoMercado.objects.all()
     serializer_class = ConfiguracaoAtivoMercadoSerializer
+    http_method_names = ("get", "patch", "head", "options")
 
     def get_permissions(self):
-        if self.action in {"update", "partial_update"}:
+        if self.action == "partial_update":
             return [IsAdminUser()]
         return [IsAuthenticated()]
 
     def get_queryset(self):
         inicializar_configuracoes()
         return super().get_queryset()
-
-    def perform_create(self, serializer):
-        raise PermissionError("As configurações são criadas automaticamente.")
-
-    def perform_destroy(self, instance):
-        raise PermissionError("Desative o ativo em vez de excluir sua configuração.")
 
 
 class AtualizacaoMercadoViewSet(viewsets.ReadOnlyModelViewSet):
