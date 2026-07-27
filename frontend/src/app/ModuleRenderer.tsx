@@ -50,7 +50,7 @@ export default function ModuleRenderer({
     case "talhoes": content = <TalhoesPage />; break;
     case "geoprocessamento": content = <GeoprocessamentoPage properties={properties} selectedProperty={selectedProperty} safra={safra} />; break;
     case "clima": content = <ClimaPage propriedades={properties} />; break;
-    case "mercado": content = <MercadoPage />; break;
+    case "mercado": content = <MercadoPage selectedProperty={selectedProperty} />; break;
     case "financeiro": content = <FinanceiroPage propriedades={properties} />; break;
     case "estoque": content = <EstoquePage propriedades={properties} />; break;
     case "operacoes": content = <OperacoesPage />; break;
