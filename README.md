@@ -15,6 +15,7 @@ concluídas.
 O sistema oferece:
 
 - autenticação JWT;
+- logout JWT idempotente com rotação e blacklist oficial de refresh tokens;
 - CRUD autenticado de propriedades;
 - busca, ordenação e validação dos dados;
 - upload e validação de polígonos KML;
@@ -121,6 +122,10 @@ docker compose up --build
 O sistema fica disponível em `http://127.0.0.1:5173` e o backend também pode
 ser consultado em `http://127.0.0.1:8000/api/health/`. O Compose inicia
 PostgreSQL, Redis, backend e frontend, aguardando os healthchecks dos serviços.
+
+Login, refresh e logout não são armazenados em cache. O access token expira em
+15 minutos e o refresh em 7 dias. Cada renovação devolve um novo refresh e
+bloqueia o anterior; o logout não invalida access tokens já emitidos.
 
 Se alguma porta já estiver em uso, defina `POSTGRES_PORT_EXPOSED`,
 `REDIS_PORT_EXPOSED`, `BACKEND_PORT` e `FRONTEND_PORT` antes de executar o

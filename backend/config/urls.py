@@ -4,7 +4,22 @@ from django.urls import include, path
 from django.conf import settings
 from django.conf.urls.static import static
 
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
+from drf_yasg import openapi
+from drf_yasg.views import get_schema_view
+from rest_framework.permissions import AllowAny
+
+from apps.accounts.views import LoginView, RefreshView
+
+
+schema_view = get_schema_view(
+    openapi.Info(
+        title="AGRO-AI-PRO API",
+        default_version="v1",
+        description="API da versão funcional 1.0 do AGRO-AI-PRO.",
+    ),
+    public=True,
+    permission_classes=(AllowAny,),
+)
 
 
 def health_view(request):
@@ -41,25 +56,43 @@ urlpatterns = [
     # Autenticação JWT
     path(
         "api/auth/token/",
-        TokenObtainPairView.as_view(),
+        LoginView.as_view(),
         name="token_obtain_pair"
     ),
 
     path(
         "api/auth/token/refresh/",
-        TokenRefreshView.as_view(),
+        RefreshView.as_view(),
         name="token_refresh"
+    ),
+
+    path(
+        "api/auth/",
+        include("apps.accounts.urls")
+    ),
+
+    path(
+        "api/schema.json",
+        schema_view.without_ui(cache_timeout=0),
+        name="schema-json",
+    ),
+
+    path(
+        "api/swagger/",
+        schema_view.with_ui("swagger", cache_timeout=0),
+        name="schema-swagger-ui",
+    ),
+
+    path(
+        "api/redoc/",
+        schema_view.with_ui("redoc", cache_timeout=0),
+        name="schema-redoc",
     ),
 
     # APIs dos módulos
     path(
         "api/core/",
         include("apps.core.urls")
-    ),
-
-    path(
-        "api/accounts/",
-        include("apps.accounts.urls")
     ),
 
     path(

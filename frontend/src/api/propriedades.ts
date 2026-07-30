@@ -1,4 +1,17 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from "axios";
+import {
+  atualizarSessao,
+  capturarSessao,
+  estaAutenticado,
+  geracaoSessaoValida,
+  invalidarSessao,
+  logoutExplicitoAtivo,
+  obterAccessToken,
+  obterGeracaoSessao,
+  obterRefreshToken,
+  registrarLoginExplicito,
+  registrarLogoutExplicito,
+} from "../auth/sessionCoordinator";
 import { GeometriaGeoJSON } from "../utils/geometria";
 
 
@@ -32,12 +45,11 @@ export type PropriedadeInput = {
   arquivo_kml: File | null;
 };
 
-const TOKEN_KEY = "agro-ai-pro.access-token";
-const REFRESH_TOKEN_KEY = "agro-ai-pro.refresh-token";
 const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000/api";
 
 type RequisicaoComRetry = InternalAxiosRequestConfig & {
   _retry?: boolean;
+  _sessionGeneration?: string;
 };
 
 export const api = axios.create({
@@ -48,71 +60,131 @@ const apiSemAutenticacao = axios.create({
   baseURL: API_URL,
 });
 
-let renovacaoEmAndamento: Promise<string> | null = null;
+let renovacaoEmAndamento: {
+  generation: string;
+  promise: Promise<string>;
+} | null = null;
+let encerramentoEmAndamento: Promise<boolean> | null = null;
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem(TOKEN_KEY);
+  const generation = obterGeracaoSessao();
+  (config as RequisicaoComRetry)._sessionGeneration = generation;
+  const token = obterAccessToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
   return config;
 });
 
-async function renovarAccessToken() {
-  const refresh = localStorage.getItem(REFRESH_TOKEN_KEY);
-  if (!refresh) {
+async function renovarAccessToken(
+  generation: string,
+  expectedRefresh: string,
+) {
+  if (
+    encerramentoEmAndamento
+    || logoutExplicitoAtivo()
+    || !geracaoSessaoValida(generation)
+  ) {
+    throw new Error("Logout em andamento.");
+  }
+  if (obterRefreshToken() !== expectedRefresh) {
     throw new Error("Refresh token não disponível.");
   }
-  const response = await apiSemAutenticacao.post<{ access: string }>(
+  const response = await apiSemAutenticacao.post<{
+    access: string;
+    refresh: string;
+  }>(
     "/auth/token/refresh/",
-    { refresh },
+    { refresh: expectedRefresh },
   );
-  localStorage.setItem(TOKEN_KEY, response.data.access);
+  if (
+    encerramentoEmAndamento
+    || logoutExplicitoAtivo()
+    || !geracaoSessaoValida(generation)
+    || !atualizarSessao(
+      generation,
+      expectedRefresh,
+      response.data.access,
+      response.data.refresh,
+    )
+  ) {
+    throw new Error("Sessão encerrada durante a renovação.");
+  }
   return response.data.access;
 }
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    const request = response.config as RequisicaoComRetry;
+    if (
+      request._sessionGeneration
+      && !geracaoSessaoValida(request._sessionGeneration)
+    ) {
+      return Promise.reject(
+        new axios.CanceledError("Resposta privada de sessão antiga."),
+      );
+    }
+    return response;
+  },
   async (erro: AxiosError) => {
     const requisicao = erro.config as RequisicaoComRetry | undefined;
-    const endpointAutenticacao = requisicao?.url?.includes("/auth/token/");
+    const endpointAutenticacao = requisicao?.url?.includes("/auth/");
     if (
       erro.response?.status !== 401
       || !requisicao
       || requisicao._retry
       || endpointAutenticacao
+      || logoutExplicitoAtivo()
+      || !requisicao._sessionGeneration
+      || !geracaoSessaoValida(requisicao._sessionGeneration)
     ) {
       return Promise.reject(erro);
     }
 
     requisicao._retry = true;
+    const generation = requisicao._sessionGeneration;
+    const refresh = obterRefreshToken();
+    if (!refresh) {
+      return Promise.reject(erro);
+    }
+
     try {
-      if (!renovacaoEmAndamento) {
-        renovacaoEmAndamento = renovarAccessToken().finally(() => {
-          renovacaoEmAndamento = null;
+      if (
+        !renovacaoEmAndamento
+        || renovacaoEmAndamento.generation !== generation
+      ) {
+        const promise = renovarAccessToken(generation, refresh).finally(() => {
+          if (renovacaoEmAndamento?.promise === promise) {
+            renovacaoEmAndamento = null;
+          }
         });
+        renovacaoEmAndamento = { generation, promise };
       }
-      const token = await renovacaoEmAndamento;
+      const token = await renovacaoEmAndamento.promise;
+      if (!geracaoSessaoValida(generation)) {
+        throw new Error("Sessão encerrada antes da repetição.");
+      }
       requisicao.headers.Authorization = `Bearer ${token}`;
       return api.request(requisicao);
     } catch (erroRenovacao) {
-      sair();
-      if (typeof window !== "undefined") {
-        window.location.reload();
+      if (
+        !logoutExplicitoAtivo()
+        && obterGeracaoSessao() === generation
+      ) {
+        invalidarSessao(generation);
       }
       return Promise.reject(erroRenovacao);
     }
   },
 );
 
-export function estaAutenticado() {
-  return Boolean(
-    localStorage.getItem(TOKEN_KEY)
-    && localStorage.getItem(REFRESH_TOKEN_KEY),
-  );
-}
+export { estaAutenticado };
 
 export async function autenticar(username: string, password: string) {
+  if (encerramentoEmAndamento) {
+    await encerramentoEmAndamento;
+  }
+  const { generation } = capturarSessao();
   const response = await apiSemAutenticacao.post<{
     access: string;
     refresh: string;
@@ -120,13 +192,37 @@ export async function autenticar(username: string, password: string) {
     username,
     password,
   });
-  localStorage.setItem(TOKEN_KEY, response.data.access);
-  localStorage.setItem(REFRESH_TOKEN_KEY, response.data.refresh);
+  if (
+    !registrarLoginExplicito(
+      generation,
+      response.data.access,
+      response.data.refresh,
+    )
+  ) {
+    throw new Error("Sessão alterada durante o login.");
+  }
 }
 
 export function sair() {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(REFRESH_TOKEN_KEY);
+  if (encerramentoEmAndamento) {
+    return encerramentoEmAndamento;
+  }
+  const refresh = registrarLogoutExplicito();
+  if (!refresh) {
+    return Promise.resolve(true);
+  }
+
+  encerramentoEmAndamento = (async () => {
+    try {
+      await apiSemAutenticacao.post("/auth/logout/", { refresh });
+      return true;
+    } catch {
+      return false;
+    } finally {
+      encerramentoEmAndamento = null;
+    }
+  })();
+  return encerramentoEmAndamento;
 }
 
 export async function listarPropriedades(search = "") {
