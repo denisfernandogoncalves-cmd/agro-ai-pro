@@ -51,6 +51,10 @@ local e lote. Entradas e saídas preservam custo, documento fiscal opcional,
 propriedade, safra e usuário responsável. O sistema bloqueia saídas sem saldo e
 alerta sobre validade e estoque mínimo.
 
+O módulo de Grãos mantém armazéns e lotes por propriedade, cultura e safra.
+Entradas, saídas e transferências formam um histórico imutável, com bloqueio de
+saldo negativo, controle de capacidade e idempotência para integrações futuras.
+
 O módulo de Operações planeja e acompanha atividades agrícolas por talhão,
 responsável, área e custo. A conclusão baixa os insumos efetivamente usados no
 estoque de forma transacional e mantém a rastreabilidade entre operação, lote,
