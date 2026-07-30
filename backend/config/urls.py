@@ -111,6 +111,11 @@ urlpatterns = [
     ),
 
     path(
+        "api/graos/",
+        include("apps.graos.urls")
+    ),
+
+    path(
         "api/maquinas/",
         include("apps.maquinas.urls")
     ),
