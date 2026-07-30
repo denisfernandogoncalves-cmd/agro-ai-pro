@@ -2,6 +2,10 @@
 
 ## Em desenvolvimento — manutenção da versão 1.0
 
+- adiciona logout JWT idempotente com blacklist oficial do Simple JWT;
+- reduz o access token para 15 minutos e habilita rotação segura do refresh;
+- protege autenticação e APIs privadas contra armazenamento em cache;
+- adapta o PWA ao novo refresh rotacionado e ao logout remoto;
 - corrige o isolamento dos indicadores de estoque por propriedade e safra;
 - corrige os alertas de estoque do assistente gerencial;
 - valida filtros de propriedade e evita erro interno com parâmetros inválidos;

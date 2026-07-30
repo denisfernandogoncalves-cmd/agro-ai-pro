@@ -18,7 +18,69 @@ Envie o access token nas chamadas protegidas:
 Authorization: Bearer <access_token>
 ```
 
-O token pode ser renovado em `POST /api/auth/token/refresh/`.
+O token pode ser renovado em `POST /api/auth/token/refresh/`. A renovação
+retorna um novo `access` e um novo `refresh`; o refresh apresentado fica
+bloqueado e não pode ser reutilizado.
+
+### Logout
+
+```http
+POST /api/auth/logout/
+Content-Type: application/json
+
+{"refresh": "<refresh_token_ficticio_e_truncado...>"}
+```
+
+O logout não exige access token. Ele revoga somente o refresh apresentado e é
+idempotente:
+
+- `204 No Content`: refresh revogado, já revogado ou expirado validado;
+- `400 Bad Request`: campo ausente, token malformado, assinatura inválida ou
+  tipo de token incorreto.
+
+Login, refresh e logout retornam `Cache-Control: no-store, private`. Respostas
+das APIs privadas também incluem `Vary: Authorization`.
+
+A blacklist não invalida access tokens emitidos anteriormente. A janela
+residual máxima é de 15 minutos. O cliente deve impedir novas renovações
+durante o logout, remover access e refresh localmente, descartar dados privados
+em memória e não armazenar tokens no service worker ou no Cache Storage.
+
+Em falha de rede, o logout local pode ser concluído, mas a revogação remota não
+deve ser considerada confirmada. O PWA mantém apenas o shell público em cache.
+
+O schema e as interfaces interativas estão disponíveis em:
+
+- `GET /api/schema.json`;
+- `GET /api/swagger/`;
+- `GET /api/redoc/`.
+
+### Limpeza da blacklist
+
+O comando oficial do Simple JWT 5.5.1 deve ser executado diariamente:
+
+```powershell
+python manage.py flushexpiredtokens
+```
+
+No ambiente Compose:
+
+```powershell
+docker compose exec -T backend sh -c "cd /app/backend && python manage.py flushexpiredtokens"
+```
+
+O repositório não possui Celery Beat ou outro agendador operacional. O deploy
+deve configurar esse comando no cron, Windows Task Scheduler ou agendador já
+adotado pelo ambiente. Não é necessário introduzir Celery para essa manutenção.
+
+### Backup e rollback
+
+Antes das migrations oficiais, deve ser criado e validado um backup do
+PostgreSQL pelo processo normal da infraestrutura. O rollback preferencial é
+restaurar a configuração anterior e manter as tabelas oficiais sem uso.
+Executar `migrate token_blacklist zero` removeria o histórico da blacklist e
+somente pode ser considerado após novo backup e autorização destrutiva
+específica.
 
 ## Propriedades
 

@@ -3,15 +3,13 @@ import axios from "axios";
 
 import {
   atualizarPropriedade,
-  autenticar,
   criarPropriedade,
-  estaAutenticado,
   excluirPropriedade,
   listarPropriedades,
   Propriedade,
   PropriedadeInput,
-  sair,
 } from "./api/propriedades";
+import { useAuth } from "./auth/AuthContext";
 import MapaPropriedade from "./components/MapaPropriedade";
 import AplicativoStatus from "./components/AplicativoStatus";
 import ClimaPage from "./pages/Clima/ClimaPage";
@@ -52,12 +50,75 @@ function mensagemDoErro(erro: unknown) {
   return "Não foi possível concluir a operação.";
 }
 
-export default function App() {
-  const [autenticado, setAutenticado] = useState(estaAutenticado());
+type LoginProps = {
+  authenticate: (username: string, password: string) => Promise<void>;
+};
+
+function Login({ authenticate }: LoginProps) {
+  const [credentials, setCredentials] = useState({
+    username: "",
+    password: "",
+  });
+  const [error, setError] = useState("");
+
+  async function submitLogin(event: FormEvent) {
+    event.preventDefault();
+    setError("");
+    try {
+      await authenticate(credentials.username, credentials.password);
+      setCredentials({ username: "", password: "" });
+    } catch {
+      setError("Usuário ou senha inválidos.");
+    }
+  }
+
+  return (
+    <main className="login">
+      <form className="card" onSubmit={submitLogin}>
+        <h1>AGRO-AI-PRO</h1>
+        <p>Acesse o módulo de propriedades.</p>
+        <label>
+          Usuário
+          <input
+            value={credentials.username}
+            onChange={(event) =>
+              setCredentials({
+                ...credentials,
+                username: event.target.value,
+              })
+            }
+            required
+          />
+        </label>
+        <label>
+          Senha
+          <input
+            type="password"
+            value={credentials.password}
+            onChange={(event) =>
+              setCredentials({
+                ...credentials,
+                password: event.target.value,
+              })
+            }
+            required
+          />
+        </label>
+        {error && <p className="erro">{error}</p>}
+        <button type="submit">Entrar</button>
+      </form>
+    </main>
+  );
+}
+
+type PrivateAreaProps = {
+  sair: () => Promise<boolean>;
+};
+
+function PrivateArea({ sair }: PrivateAreaProps) {
   const [modulo, setModulo] = useState<
     "propriedades" | "talhoes" | "clima" | "mercado" | "financeiro" | "estoque" | "operacoes" | "maquinas" | "relatorios" | "insights"
   >("propriedades");
-  const [credenciais, setCredenciais] = useState({ username: "", password: "" });
   const [propriedades, setPropriedades] = useState<Propriedade[]>([]);
   const [selecionada, setSelecionada] = useState<Propriedade | null>(null);
   const [edicaoId, setEdicaoId] = useState<number | null>(null);
@@ -83,21 +144,8 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (autenticado) {
-      void carregar();
-    }
-  }, [autenticado, carregar]);
-
-  async function enviarLogin(evento: FormEvent) {
-    evento.preventDefault();
-    setErro("");
-    try {
-      await autenticar(credenciais.username, credenciais.password);
-      setAutenticado(true);
-    } catch {
-      setErro("Usuário ou senha inválidos.");
-    }
-  }
+    void carregar();
+  }, [carregar]);
 
   async function salvar(evento: FormEvent) {
     evento.preventDefault();
@@ -146,38 +194,16 @@ export default function App() {
     }
   }
 
-  if (!autenticado) {
-    return (
-      <main className="login">
-        <form className="card" onSubmit={enviarLogin}>
-          <h1>AGRO-AI-PRO</h1>
-          <p>Acesse o módulo de propriedades.</p>
-          <label>
-            Usuário
-            <input
-              value={credenciais.username}
-              onChange={(evento) =>
-                setCredenciais({ ...credenciais, username: evento.target.value })
-              }
-              required
-            />
-          </label>
-          <label>
-            Senha
-            <input
-              type="password"
-              value={credenciais.password}
-              onChange={(evento) =>
-                setCredenciais({ ...credenciais, password: evento.target.value })
-              }
-              required
-            />
-          </label>
-          {erro && <p className="erro">{erro}</p>}
-          <button type="submit">Entrar</button>
-        </form>
-      </main>
-    );
+  async function encerrarSessao() {
+    setErro("");
+    setModulo("propriedades");
+    setPropriedades([]);
+    setSelecionada(null);
+    setEdicaoId(null);
+    setFormulario(formularioVazio);
+    setBusca("");
+    setCarregando(false);
+    await sair();
   }
 
   return (
@@ -203,7 +229,7 @@ export default function App() {
         </div>
         <div className="cabecalho-acoes">
           <AplicativoStatus />
-          <button className="secundario" onClick={() => { sair(); setAutenticado(false); }}>Sair</button>
+          <button className="secundario" onClick={() => { void encerrarSessao(); }}>Sair</button>
         </div>
       </header>
 
@@ -347,4 +373,19 @@ export default function App() {
       )}
     </main>
   );
+}
+
+export default function App() {
+  const {
+    autenticado,
+    autenticar,
+    geracao,
+    sair,
+  } = useAuth();
+
+  if (!autenticado) {
+    return <Login key={`login-${geracao}`} authenticate={autenticar} />;
+  }
+
+  return <PrivateArea key={`private-${geracao}`} sair={sair} />;
 }
