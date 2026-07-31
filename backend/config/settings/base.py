@@ -35,6 +35,7 @@ INSTALLED_APPS = [
     "apps.estoque",
     "apps.producao",
     "apps.graos",
+    "apps.importacoes",
     "apps.maquinas",
     "apps.relatorios",
     "apps.ai",
