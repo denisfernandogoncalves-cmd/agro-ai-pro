@@ -116,6 +116,11 @@ urlpatterns = [
     ),
 
     path(
+        "api/importacoes/",
+        include("apps.importacoes.urls")
+    ),
+
+    path(
         "api/maquinas/",
         include("apps.maquinas.urls")
     ),

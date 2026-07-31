@@ -134,6 +134,13 @@ O módulo de Grãos controla armazéns, lotes, entradas, saídas, transferência
 capacidade, saldo físico e idempotência para integrações futuras. Consulte
 [Grãos](GRAOS.md).
 
+## Importações
+
+O módulo de Importações gera um preview auditável de planilhas XLSX, com
+normalização, erros, advertências, prevenção de duplicidade e associação
+preliminar com Grãos, sem criar movimentações ou alterar saldos. Consulte
+[Importações](IMPORTACOES.md).
+
 ## Operações
 
 O módulo planeja, inicia, conclui e cancela operações por talhão, com custos e

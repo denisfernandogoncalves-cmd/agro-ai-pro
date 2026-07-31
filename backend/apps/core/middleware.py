@@ -7,6 +7,7 @@ PRIVATE_API_PREFIXES = (
     "/api/clima/",
     "/api/estoque/",
     "/api/financeiro/",
+    "/api/importacoes/",
     "/api/maquinas/",
     "/api/mercado/",
     "/api/producao/",
