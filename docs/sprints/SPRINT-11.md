@@ -15,3 +15,16 @@ Concluída em 25/07/2026.
 
 A versão 1 usa regras determinísticas auditáveis, não envia dados a terceiros,
 não usa modelos externos e não gera custos. Não cria migration nem dependência.
+
+## Evolução da V1 — 04/08/2026
+
+O motor passou a consumir também o ledger oficial de grãos, sem alterar o
+contrato público `regras_explicaveis_v1`. A integração acrescenta saldo por
+propriedade e safra, alerta para lotes inativos com saldo e alerta de ocupação
+de armazém a partir de 90%. A capacidade considera todos os lotes do armazém,
+mesmo quando o saldo exibido está filtrado por safra.
+
+A evolução não cria migration, dependência ou integração externa. Os testes
+cobrem geração das regras, isolamento por propriedade e safra, limite de 90%,
+saldo zero, capacidade compartilhada entre safras e saldos negativos. Déficits
+inconsistentes não reduzem a ocupação calculada e geram alerta crítico próprio.

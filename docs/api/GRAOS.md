@@ -134,9 +134,13 @@ dados existentes.
 
 ## Escopo desta entrega
 
-Esta entrega contém somente o núcleo Backend de grãos. Não inclui interface,
-planilhas, importadores, estoque de insumos, regras fiscais ou contábeis, nem
-integração com o Assistente Agrícola.
+O núcleo de grãos fornece saldo consolidado, ocupação dos armazéns e situação
+dos lotes para as regras explicáveis do Assistente Agrícola V1. A integração
+não altera o ledger nem classifica a qualidade do produto. Para não mascarar a
+ocupação física, saldos negativos não reduzem saldos positivos de outros lotes
+e são apresentados pelo Assistente como inconsistência explícita.
+
+O módulo ainda não inclui interface dedicada, regras fiscais ou contábeis.
 
 ## Validação
 

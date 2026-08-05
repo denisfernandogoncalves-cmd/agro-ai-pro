@@ -6,6 +6,8 @@ from apps.financeiro.models import LancamentoFinanceiro
 from apps.maquinas.models import ManutencaoMaquina
 from apps.producao.models import OperacaoAgricola
 
+from .grain_insights import adicionar_insights_graos
+
 
 def gerar_insights(*, propriedade=None, safra=""):
     hoje = timezone.localdate()
@@ -99,6 +101,11 @@ def gerar_insights(*, propriedade=None, safra=""):
             "Confirmar a previsão atual antes de executar atividades sensíveis ao clima.",
             "clima",
         )
+    adicionar_insights_graos(
+        adicionar=adicionar,
+        propriedade=propriedade,
+        safra=safra,
+    )
     if not insights:
         adicionar(
             "sem_alertas",
