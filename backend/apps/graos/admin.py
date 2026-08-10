@@ -2,6 +2,8 @@ from django.contrib import admin
 
 from .models import (
     ArmazemGraos,
+    CargaColhida,
+    GrupoColheita,
     LoteGraos,
     MovimentacaoGraos,
     OrigemSaldoGraos,
@@ -22,6 +24,35 @@ class LoteGraosAdmin(admin.ModelAdmin):
     list_display = ("codigo", "cad_pro", "cultura", "safra", "classificacao_codigo", "armazem", "ativo")
     list_filter = ("ativo", "cultura", "safra", "classificacao_codigo", "armazem")
     search_fields = ("codigo", "cultura", "safra", "armazem__nome")
+
+
+@admin.register(GrupoColheita)
+class GrupoColheitaAdmin(admin.ModelAdmin):
+    list_display = ("nome", "propriedade", "cad_pro", "cultura", "safra", "ativo")
+    list_filter = ("ativo", "cultura", "safra", "propriedade")
+    search_fields = ("nome", "propriedade__nome", "cad_pro__codigo")
+
+
+@admin.register(CargaColhida)
+class CargaColhidaAdmin(admin.ModelAdmin):
+    list_display = (
+        "data_colheita",
+        "placa",
+        "grupo_colheita",
+        "armazem",
+        "peso_bruto_kg",
+        "peso_liquido_kg",
+        "sacas_60kg",
+    )
+    list_filter = ("data_colheita", "destinado_semente", "grupo_colheita", "armazem")
+    search_fields = ("placa", "grupo_colheita__nome", "local_colheita")
+    readonly_fields = tuple(campo.name for campo in CargaColhida._meta.fields)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(MovimentacaoGraos)
