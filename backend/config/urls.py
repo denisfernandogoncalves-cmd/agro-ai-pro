@@ -121,6 +121,11 @@ urlpatterns = [
     ),
 
     path(
+        "api/cadpros/",
+        include("apps.cadpro.urls")
+    ),
+
+    path(
         "api/maquinas/",
         include("apps.maquinas.urls")
     ),
