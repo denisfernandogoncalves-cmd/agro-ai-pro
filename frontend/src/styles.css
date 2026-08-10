@@ -122,6 +122,27 @@ header { align-items: center; display: flex; justify-content: space-between; mar
 .insight.critico { border-left: 5px solid #a53a32; }
 .insight.atencao { border-left: 5px solid #d7a633; }
 .insight.informativo { border-left: 5px solid #237447; }
+.modulo-cargas { display: grid; gap: 1.4rem; }
+.cargas-cabecalho { align-items: center; display: flex; gap: 1rem; justify-content: space-between; }
+.cargas-cabecalho h2 { margin: 0.2rem 0; }
+.cargas-grade { grid-template-columns: minmax(340px, 470px) 1fr; }
+.grupo-colheita-form { position: static; }
+.regras-desconto { display: grid; gap: 0.8rem; grid-template-columns: repeat(3, 1fr); }
+.regras-desconto fieldset { border: 1px solid #d9e3db; border-radius: 10px; display: grid; gap: 0.6rem; margin: 0; padding: 0.8rem; }
+.regras-desconto legend { color: #284f39; font-weight: 750; padding: 0 0.3rem; }
+.opcao-checkbox { align-items: center; display: flex; flex-direction: row; gap: 0.5rem; padding-top: 1.8rem; }
+.opcao-checkbox input { width: auto; }
+.resumo-peso { background: #edf6ef; border: 1px solid #bdd6c4; border-radius: 10px; display: grid; gap: 0.55rem; grid-template-columns: repeat(3, 1fr); padding: 0.8rem; }
+.resumo-peso span { color: #577064; display: grid; font-size: 0.78rem; gap: 0.2rem; }
+.resumo-peso strong { color: #173f2a; font-size: 0.95rem; }
+.cargas-lista { gap: 0.8rem; }
+.carga-item { display: grid; gap: 0.9rem; }
+.carga-item-topo { align-items: flex-start; display: flex; gap: 1rem; justify-content: space-between; }
+.carga-item-topo h3 { margin: 0.2rem 0; }
+.carga-item-topo > strong { color: #246b40; font-size: 1.2rem; white-space: nowrap; }
+.carga-metricas { background: #f6f8f6; border-radius: 8px; display: grid; gap: 0.6rem; grid-template-columns: repeat(3, 1fr); padding: 0.7rem; }
+.carga-metricas span { color: #607168; display: grid; font-size: 0.75rem; gap: 0.2rem; }
+.carga-metricas strong { color: #263c30; font-size: 0.9rem; }
 
 @media (max-width: 860px) {
   .pagina { padding: 1rem; }
@@ -135,5 +156,7 @@ header { align-items: center; display: flex; justify-content: space-between; mar
   .item { align-items: flex-start; flex-direction: column; gap: 1rem; }
   .clima-controles { grid-template-columns: 1fr; }
   .mercado-controles { align-items: stretch; flex-direction: column; }
-  .financeiro-grade, .estoque-grade, .operacoes-grade, .maquinas-grade, .relatorios-grade, .filtros-relatorio, .controles-insights, .painel-filtros, .auxiliares-grade, .linha-insumo { grid-template-columns: 1fr; }
+  .financeiro-grade, .estoque-grade, .operacoes-grade, .cargas-grade, .maquinas-grade, .relatorios-grade, .filtros-relatorio, .controles-insights, .painel-filtros, .auxiliares-grade, .linha-insumo, .regras-desconto { grid-template-columns: 1fr; }
+  .cargas-cabecalho { align-items: stretch; flex-direction: column; }
+  .resumo-peso, .carga-metricas { grid-template-columns: 1fr; }
 }
