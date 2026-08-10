@@ -13,7 +13,6 @@ import { useAuth } from "./auth/AuthContext";
 import MapaPropriedade from "./components/MapaPropriedade";
 import AplicativoStatus from "./components/AplicativoStatus";
 import ClimaPage from "./pages/Clima/ClimaPage";
-import CargasColhidasPage from "./pages/CargasColhidas/CargasColhidasPage";
 import EstoquePage from "./pages/Estoque/EstoquePage";
 import FinanceiroPage from "./pages/Financeiro/FinanceiroPage";
 import MercadoPage from "./pages/Mercado/MercadoPage";
@@ -118,7 +117,7 @@ type PrivateAreaProps = {
 
 function PrivateArea({ sair }: PrivateAreaProps) {
   const [modulo, setModulo] = useState<
-    "propriedades" | "talhoes" | "cargas" | "clima" | "mercado" | "financeiro" | "estoque" | "operacoes" | "maquinas" | "relatorios" | "insights"
+    "propriedades" | "talhoes" | "clima" | "mercado" | "financeiro" | "estoque" | "operacoes" | "maquinas" | "relatorios" | "insights"
   >("propriedades");
   const [propriedades, setPropriedades] = useState<Propriedade[]>([]);
   const [selecionada, setSelecionada] = useState<Propriedade | null>(null);
@@ -202,4 +201,191 @@ function PrivateArea({ sair }: PrivateAreaProps) {
     setSelecionada(null);
     setEdicaoId(null);
     setFormulario(formularioVazio);
- ïMº¶‰ËkºwµçVBÖ„ÆVæwFƒ×³‡ÒÆ6V†öÆFW#Ò$$3C#2"fÇVS×¶6&vçÆ6Òöä6†ævS×²†R’Óâ6WD6&v‡²ââæ6&vÂÆ6¢RçF&vWBçfÇVRçFõWW$66R‚’Ò—ÒóãÂöÆ&VÃà¢ÂöF—cà¢ÆÆ&VÃäÆö6ÂFR6öÆ†V—FÆ–çWBÆ6V†öÆFW#Ò%FÆŒ:6òÂvÆV&÷RöçFòFR÷&–vVÒ"fÇVS×¶6&væÆö6Åö6öÆ†V—FÒöä6†ævS×²†R’Óâ6WD6&v‡²ââæ6&vÂÆö6Åö6öÆ†V—F¢RçF&vWBçfÇVRÒ—ÒóãÂöÆ&VÃà¢ÆÆ&VÃåW6ò''WFò†¶r“Æ–çWB&WV—&VBÖ–ãÒ#ã"7FWÒ#ã"G—SÒ&çVÖ&W""fÇVS×¶6&vçW6õö''WFõö¶wÒöä6†ævS×²†R’Óâ6WD6&v‡²ââæ6&vÂW6õö''WFõö¶s¢RçF&vWBçfÇVRÒ—ÒóãÂöÆ&VÃà¢ÆF—b6Æ74æÖSÒ&Æ–æ†#à¢ÆÆ&VÃåVÖ–FFR‚R“Æ–çWB&WV—&VBÖ–ãÒ#"ÖƒÒ#"7FWÒ#ã"G—SÒ&çVÖ&W""fÇVS×¶6&vçVÖ–FFU÷W&6VçGVÇÒöä6†ævS×²†R’Óâ6WD6&v‡²ââæ6&vÂVÖ–FFU÷W&6VçGVÃ¢RçF&vWBçfÇVRÒ—ÒóãÂöÆ&VÃà¢ÆÆ&VÃä–×W&W¦‚R“Æ–çWB&WV—&VBÖ–ãÒ#"ÖƒÒ#"7FWÒ#ã"G—SÒ&çVÖ&W""fÇVS×¶6&væ–×W&W¦÷W&6VçGVÇÒöä6†ævS×²†R’Óâ6WD6&v‡²ââæ6&vÂ–×W&W¦÷W&6VçGVÃ¢RçF&vWBçfÇVRÒ—ÒóãÂöÆ&VÃà¢ÆÆ&VÃäFVfV—F÷2‚R“Æ–çWB&WV—&VBÖ–ãÒ#"ÖƒÒ#"7FWÒ#ã"G—SÒ&çVÖ&W""fÇVS×¶6&væFVfV—F÷5÷W&6VçGVÇÒöä6†ævS×²†R’Óâ6WD6&v‡²ââæ6&vÂFVfV—F÷5÷W&6VçGVÃ¢RçF&vWBçfÇVRÒ—ÒóãÂöÆ&VÃà¢ÂöF—cà¢ÆF—b6Æ74æÖSÒ&Æ–æ†#à¢ÆÆ&VÃåƒÆ–çWBÖ–ãÒ#"ÖƒÒ#"7FWÒ#ã"G—SÒ&çVÖ&W""fÇVS×¶6&vç‡Òöä6†ævS×²†R’Óâ6WD6&v‡²ââæ6&vÂƒ¢RçF&vWBçfÇVRÒ—ÒóãÂöÆ&VÃà¢ÆÆ&VÂ6Æ74æÖSÒ&÷6òÖ6†V6¶&÷‚#ãÆ–çWBG—SÒ&6†V6¶&÷‚"6†V6¶VC×¶6&væFW7F–æFõ÷6VÖVçFWÒöä6†ævS×²†R’Óâ6WD6&v‡²ââæ6&vÂFW7F–æFõ÷6VÖVçFS¢RçF&vWBæ6†V6¶VBÒ—ÒóâFW7F–æF6VÖVçFSÂöÆ&VÃà¢ÂöF—cà¢ÆÆ&VÃäö'6W'f:|;VW3ÇFW‡F&VfÇVS×¶6&væö'6W'f6öW7Òöä6†ævS×²†R’Óâ6WD6&v‡²ââæ6&vÂö'6W'f6öW3¢RçF&vWBçfÇVRÒ—ÒóãÂöÆ&VÃà¢ÆF—b6Æ74æÖSÒ'&W7VÖò×W6ò"&–ÖÆ—fSÒ'öÆ—FR#à¢Ç7ãäFW66öçFòÇ7G&öæsç¶6Æ7VÆòçW&6VçGVÂçFôf—†VBƒ2—ÒSÂ÷7G&öæsãÂ÷7ãà¢Ç7ãåW6òÌ:×V–FòÇ7G&öæsç¶6Æ7VÆòæÆ—V–FòçFôÆö6ÆU7G&–ær‚'BÔ%""Â²Ö†–×VÔg&7F–öäF–v—G3¢2Ò—Ò¶sÂ÷7G&öæsãÂ÷7ãà¢Ç7ãä6öçfW'<:6òÇ7G&öæsç¶6Æ7VÆòç662çFôÆö6ÆU7G&–ær‚'BÔ%""Â²Ö†–×VÔg&7F–öäF–v—G3¢2Ò—Ò663Â÷7G&öæsãÂ÷7ãà¢ÂöF—cà¢Æ'WGFöâF—6&ÆVC×¶6'&VvæFòÇÂ6Æ7VÆòçW&6VçGVÂãÒÒG—SÒ'7V&Ö—B#å&Vv—7G&"R7&VF—F"6ÆFóÂö'WGFöãà¢Âöf÷&Óà ¢Ç6V7F–öâ6Æ74æÖSÒ&6öçFWVFò#à¢ÆF—b6Æ74æÖSÒ'–æVÂÖf–ÇG&÷2#à¢Æ–çWB&–ÖÆ&VÃÒ$'W66"6&v2"Æ6V†öÆFW#Ò$'W66"Æ6Â&÷&–VFFRÂw'WòÂ4Bõ$ò÷RÆö6Â"fÇVS×¶'W66Òöä6†ævS×²†R’Óâ6WD'W66†RçF&vWBçfÇVR—Òóà¢Æ'WGFöâG—SÒ&'WGFöâ"öä6Æ–6³×²‚’Óâfö–B6'&Vv"‚—ÓäGVÆ—¦#Âö'WGFöãà¢ÂöF—cà¢ÆF—b6Æ74æÖSÒ&Æ—7F6&v2ÖÆ—7F#à¢¶6&v4f–ÇG&F2æÆVæwF‚ÓÓÒòÆF—b6Æ74æÖSÒ&6&Bf¦–ò#äæVæ‡VÖ6&v6öÆ†–F&Vv—7G&FãÂöF—câ¢6&v4f–ÇG&F2æÖ‚†—FVÒ’Óâ€¢Æ'F–6ÆR6Æ74æÖSÒ&6&B6&vÖ—FVÒ"¶W“×¶—FVÒæ–GÓà¢ÆF—b6Æ74æÖSÒ&6&vÖ—FVÒ×F÷ò#ãÆF—cãÇ7â6Æ74æÖSÒ&¶–6¶W"#ç¶—FVÒæFFö6öÆ†V—FÒ+r¶—FVÒçÆ6ÓÂ÷7ããÆƒ3ç¶—FVÒç&÷&–VFFUöæöÖWÓÂöƒ3ãÇç¶—FVÒæw'Wõö6öÆ†V—FöæöÖWÒ+r4Bõ$ò¶—FVÒæ6E÷&õö6öF–v÷Ò+r¶—FVÒæ&Ö¦VÕöæöÖWÓÂ÷ãÂöF—cãÇ7G&öæsç¶çVÖW&ò†—FVÒç665óc¶r’çFôÆö6ÆU7G&–ær‚'BÔ%""Â²Ö†–×VÔg&7F–öäF–v—G3¢2Ò—Ò63Â÷7G&öæsãÂöF—cà¢ÆF—b6Æ74æÖSÒ&6&vÖÖWG&–62#ãÇ7ãä''WFòÇ7G&öæsç¶çVÖW&ò†—FVÒçW6õö''WFõö¶r’çFôÆö6ÆU7G&–ær‚'BÔ%""—Ò¶sÂ÷7G&öæsãÂ÷7ããÇ7ãäFW66öçFòÇ7G&öæsç¶—FVÒæFW66öçFõ÷F÷FÅ÷W&6VçGVÇÒSÂ÷7G&öæsãÂ÷7ããÇ7ãäÌ:×V–FòÇ7G&öæsç¶çVÖW&ò†—FVÒçW6õöÆ—V–Fõö¶r’çFôÆö6ÆU7G&–ær‚'BÔ%""—Ò¶sÂ÷7G&öæsãÂ÷7ããÂöF—cà¢Ç6ÖÆÃåVÖ–FFR¶—FVÒçVÖ–FFU÷W&6VçGVÇÒR+r–×W&W¦¶—FVÒæ–×W&W¦÷W&6VçGVÇÒR+rFVfV—F÷2¶—FVÒæFVfV—F÷5÷W&6VçGVÇÒW¶—FVÒç‚ò+r‚G¶—FVÒç‡Ö¢"'×¶—FVÒæFW7F–æFõ÷6VÖVçFRò"+r6VÖVçFR"¢"'Ò+rÖ÷f–ÖVçFò7¶—FVÒæÖ÷f–ÖVçF6÷ÓÂ÷6ÖÆÃà¢Âö'F–6ÆSà¢’—Ğ¢ÂöF—cà¢Â÷6V7F–öãà¢Â÷6V7F–öãà¢Â÷6V7F–öãà¢“°§Ğ 
+    setBusca("");
+    setCarregando(false);
+    await sair();
+  }
+
+  return (
+    <main className="pagina">
+      <header>
+        <div>
+          <span className="kicker">GestÃ£o rural</span>
+          <h1>
+            {modulo === "propriedades"
+              ? "Propriedades"
+              : modulo === "talhoes"
+                ? "TalhÃµes"
+                : modulo === "clima"
+                  ? "Clima"
+                  : modulo === "mercado"
+                    ? "Mercado"
+                    : modulo === "financeiro"
+                      ? "Financeiro"
+                      : modulo === "estoque"
+                        ? "Estoque"
+                        : modulo === "operacoes" ? "OperaÃ§Ãµes" : modulo === "maquinas" ? "MÃ¡quinas" : modulo === "relatorios" ? "RelatÃ³rios" : "Assistente"}
+          </h1>
+        </div>
+        <div className="cabecalho-acoes">
+          <AplicativoStatus />
+          <button className="secundario" onClick={() => { void encerrarSessao(); }}>Sair</button>
+        </div>
+      </header>
+
+      <nav className="navegacao-modulos" aria-label="MÃ³dulos agrÃ­colas">
+        <button
+          className={modulo === "propriedades" ? "" : "secundario"}
+          onClick={() => setModulo("propriedades")}
+        >
+          Propriedades
+        </button>
+        <button
+          className={modulo === "talhoes" ? "" : "secundario"}
+          onClick={() => setModulo("talhoes")}
+        >
+          TalhÃµes
+        </button>
+        <button
+          className={modulo === "clima" ? "" : "secundario"}
+          onClick={() => setModulo("clima")}
+        >
+          Clima
+        </button>
+        <button
+          className={modulo === "mercado" ? "" : "secundario"}
+          onClick={() => setModulo("mercado")}
+        >
+          Mercado
+        </button>
+        <button
+          className={modulo === "financeiro" ? "" : "secundario"}
+          onClick={() => setModulo("financeiro")}
+        >
+          Financeiro
+        </button>
+        <button
+          className={modulo === "estoque" ? "" : "secundario"}
+          onClick={() => setModulo("estoque")}
+        >
+          Estoque
+        </button>
+        <button
+          className={modulo === "operacoes" ? "" : "secundario"}
+          onClick={() => setModulo("operacoes")}
+        >
+          OperaÃ§Ãµes
+        </button>
+        <button className={modulo === "maquinas" ? "" : "secundario"} onClick={() => setModulo("maquinas")}>MÃ¡quinas</button>
+        <button className={modulo === "relatorios" ? "" : "secundario"} onClick={() => setModulo("relatorios")}>RelatÃ³rios</button>
+        <button className={modulo === "insights" ? "" : "secundario"} onClick={() => setModulo("insights")}>Assistente</button>
+      </nav>
+
+      {modulo === "talhoes" ? (
+        <TalhoesPage />
+      ) : modulo === "clima" ? (
+        <ClimaPage propriedades={propriedades} />
+      ) : modulo === "mercado" ? (
+        <MercadoPage />
+      ) : modulo === "financeiro" ? (
+        <FinanceiroPage propriedades={propriedades} />
+      ) : modulo === "estoque" ? (
+        <EstoquePage propriedades={propriedades} />
+      ) : modulo === "operacoes" ? (
+        <OperacoesPage />
+      ) : modulo === "maquinas" ? (
+        <MaquinasPage propriedades={propriedades} />
+      ) : modulo === "relatorios" ? (
+        <RelatoriosPage propriedades={propriedades} />
+      ) : modulo === "insights" ? (
+        <InsightsPage propriedades={propriedades} />
+      ) : (
+        <>
+          {erro && <p className="erro card">{erro}</p>}
+
+          <section className="grade">
+        <form className="card formulario" onSubmit={salvar}>
+          <h2>{edicaoId ? "Editar propriedade" : "Nova propriedade"}</h2>
+          <label>Nome<input required value={formulario.nome} onChange={(e) => setFormulario({ ...formulario, nome: e.target.value })} /></label>
+          <label>ProprietÃ¡rio<input value={formulario.proprietario} onChange={(e) => setFormulario({ ...formulario, proprietario: e.target.value })} /></label>
+          <div className="linha">
+            <label>MunicÃ­pio<input required value={formulario.municipio} onChange={(e) => setFormulario({ ...formulario, municipio: e.target.value })} /></label>
+            <label>UF<input maxLength={2} value={formulario.uf} onChange={(e) => setFormulario({ ...formulario, uf: e.target.value.toUpperCase() })} /></label>
+          </div>
+          <label>Ãrea (ha)<input required min="0.01" step="0.01" type="number" value={formulario.area_hectares} onChange={(e) => setFormulario({ ...formulario, area_hectares: e.target.value })} /></label>
+          <div className="linha">
+            <label>Latitude<input step="any" type="number" value={formulario.latitude} onChange={(e) => setFormulario({ ...formulario, latitude: e.target.value })} /></label>
+            <label>Longitude<input step="any" type="number" value={formulario.longitude} onChange={(e) => setFormulario({ ...formulario, longitude: e.target.value })} /></label>
+          </div>
+          <label>KML (atÃ© 5 MB)<input accept=".kml" type="file" onChange={(e) => setFormulario({ ...formulario, arquivo_kml: e.target.files?.[0] ?? null })} /></label>
+          <label>ObservaÃ§Ãµes<textarea value={formulario.observacoes} onChange={(e) => setFormulario({ ...formulario, observacoes: e.target.value })} /></label>
+          <div className="acoes">
+            <button disabled={carregando} type="submit">Salvar</button>
+            {edicaoId && <button className="secundario" type="button" onClick={() => { setEdicaoId(null); setFormulario(formularioVazio); }}>Cancelar</button>}
+          </div>
+        </form>
+
+        <section className="conteudo">
+          <form className="busca" onSubmit={(e) => { e.preventDefault(); void carregar(busca); }}>
+            <input aria-label="Buscar propriedades" placeholder="Buscar por nome, municÃ­pio ou proprietÃ¡rio" value={busca} onChange={(e) => setBusca(e.target.value)} />
+            <button type="submit">Buscar</button>
+          </form>
+
+          {carregando && propriedades.length === 0 ? (
+            <p>Carregando propriedades...</p>
+          ) : propriedades.length === 0 ? (
+            <div className="card vazio">Nenhuma propriedade cadastrada.</div>
+          ) : (
+            <div className="lista">
+              {propriedades.map((item) => (
+                <article className={`card item ${selecionada?.id === item.id ? "ativo" : ""}`} key={item.id} onClick={() => setSelecionada(item)}>
+                  <div>
+                    <h3>{item.nome}</h3>
+                    <p>{item.municipio}/{item.uf} Â· {item.area_hectares} ha declarados</p>
+                    {item.area_calculada_hectares && (
+                      <p className="metadado-geografico">
+                        {item.area_calculada_hectares} ha calculados
+                        {item.divergencia_area_percentual &&
+                          ` Â· diferenÃ§a ${item.divergencia_area_percentual}%`}
+                      </p>
+                    )}
+                  </div>
+                  <div className="acoes">
+                    <button className="secundario" onClick={(e) => { e.stopPropagation(); editar(item); }}>Editar</button>
+                    <button className="perigo" onClick={(e) => { e.stopPropagation(); void excluir(item); }}>Excluir</button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+
+          {selecionada?.latitude && selecionada.longitude && (
+            <MapaPropriedade
+              latitude={Number(selecionada.latitude)}
+              longitude={Number(selecionada.longitude)}
+              nome={selecionada.nome}
+              geometria={selecionada.geometria_geojson}
+            />
+          )}
+        </section>
+          </section>
+        </>
+      )}
+    </main>
+  );
+}
+
+export default function App() {
+  const {
+    autenticado,
+    autenticar,
+    geracao,
+    sair,
+  } = useAuth();
+
+  if (!autenticado) {
+    return <Login key={`login-${geracao}`} authenticate={autenticar} />;
+  }
+
+  return <PrivateArea key={`private-${geracao}`} sair={sair} />;
+}

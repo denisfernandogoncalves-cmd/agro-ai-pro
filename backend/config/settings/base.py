@@ -36,7 +36,6 @@ INSTALLED_APPS = [
     "apps.producao",
     "apps.graos",
     "apps.importacoes",
-    "apps.cadpro",
     "apps.maquinas",
     "apps.relatorios",
     "apps.ai",

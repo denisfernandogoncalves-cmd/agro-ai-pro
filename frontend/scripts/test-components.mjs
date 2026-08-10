@@ -42,9 +42,6 @@ try {
   const { default: OperacoesPage } = await servidor.ssrLoadModule(
     "/src/pages/Operacoes/OperacoesPage.tsx",
   );
-  const { default: CargasColhidasPage } = await servidor.ssrLoadModule(
-    "/src/pages/CargasColhidas/CargasColhidasPage.tsx",
-  );
   const { default: MaquinasPage } = await servidor.ssrLoadModule(
     "/src/pages/Maquinas/MaquinasPage.tsx",
   );
@@ -249,13 +246,6 @@ try {
   assert.match(htmlOperacoes, /Planejar operaÃ§Ã£o|Planejar operação/);
   assert.match(htmlOperacoes, /Nenhuma operaÃ§Ã£o planejada|Nenhuma operação planejada/);
 
-  const htmlCargas = renderToStaticMarkup(
-    React.createElement(CargasColhidasPage, { propriedades: [propriedade] }),
-  );
-  assert.match(htmlCargas, /Registrar carga manual/);
-  assert.match(htmlCargas, /Peso líquido/);
-  assert.match(htmlCargas, /Nenhuma carga colhida registrada/);
-
   const htmlMaquinas = renderToStaticMarkup(
     React.createElement(MaquinasPage, { propriedades: [propriedade] }),
   );
@@ -285,7 +275,7 @@ try {
   );
   assert.match(serviceWorker, /pathname\.startsWith\(\"\/api\/\"\)/);
 
-  console.log("16 testes de componentes, geometria e PWA aprovados.");
+  console.log("15 testes de componentes, geometria e PWA aprovados.");
 } finally {
   await servidor.close();
 }

@@ -1,7 +1,5 @@
 # API do AGRO-AI-PRO
 
-Documentação funcional: [Cargas Colhidas](CARGAS_COLHIDAS.md).
-
 ## Autenticação
 
 Crie um usuário administrativo com `python manage.py createsuperuser` e obtenha
