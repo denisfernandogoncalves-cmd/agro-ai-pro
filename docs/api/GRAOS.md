@@ -1,5 +1,8 @@
 # API de Estoque de Grãos
 
+O recebimento manual de produção e o crédito atômico no saldo por CAD/PRO são
+documentados em [Cargas Colhidas](CARGAS_COLHIDAS.md).
+
 O módulo `apps.graos` mantém um ledger imutável e uma posição materializada para
 o estoque físico e comprometido de grãos. Todas as rotas exigem autenticação
 JWT e nenhuma operação altera dados fora de uma transação atômica.
