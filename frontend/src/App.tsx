@@ -13,6 +13,7 @@ import { useAuth } from "./auth/AuthContext";
 import MapaPropriedade from "./components/MapaPropriedade";
 import AplicativoStatus from "./components/AplicativoStatus";
 import ClimaPage from "./pages/Clima/ClimaPage";
+import CargasColhidasPage from "./pages/CargasColhidas/CargasColhidasPage";
 import EstoquePage from "./pages/Estoque/EstoquePage";
 import FinanceiroPage from "./pages/Financeiro/FinanceiroPage";
 import MercadoPage from "./pages/Mercado/MercadoPage";
@@ -117,7 +118,7 @@ type PrivateAreaProps = {
 
 function PrivateArea({ sair }: PrivateAreaProps) {
   const [modulo, setModulo] = useState<
-    "propriedades" | "talhoes" | "clima" | "mercado" | "financeiro" | "estoque" | "operacoes" | "maquinas" | "relatorios" | "insights"
+    "propriedades" | "talhoes" | "cargas" | "clima" | "mercado" | "financeiro" | "estoque" | "operacoes" | "maquinas" | "relatorios" | "insights"
   >("propriedades");
   const [propriedades, setPropriedades] = useState<Propriedade[]>([]);
   const [selecionada, setSelecionada] = useState<Propriedade | null>(null);
@@ -216,6 +217,8 @@ function PrivateArea({ sair }: PrivateAreaProps) {
               ? "Propriedades"
               : modulo === "talhoes"
                 ? "Talhões"
+                : modulo === "cargas"
+                  ? "Cargas colhidas"
                 : modulo === "clima"
                   ? "Clima"
                   : modulo === "mercado"
@@ -245,6 +248,12 @@ function PrivateArea({ sair }: PrivateAreaProps) {
           onClick={() => setModulo("talhoes")}
         >
           Talhões
+        </button>
+        <button
+          className={modulo === "cargas" ? "" : "secundario"}
+          onClick={() => setModulo("cargas")}
+        >
+          Cargas colhidas
         </button>
         <button
           className={modulo === "clima" ? "" : "secundario"}
@@ -283,6 +292,8 @@ function PrivateArea({ sair }: PrivateAreaProps) {
 
       {modulo === "talhoes" ? (
         <TalhoesPage />
+      ) : modulo === "cargas" ? (
+        <CargasColhidasPage propriedades={propriedades} />
       ) : modulo === "clima" ? (
         <ClimaPage propriedades={propriedades} />
       ) : modulo === "mercado" ? (
