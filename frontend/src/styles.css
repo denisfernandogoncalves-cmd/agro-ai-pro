@@ -123,6 +123,11 @@ header { align-items: center; display: flex; justify-content: space-between; mar
 .insight.atencao { border-left: 5px solid #d7a633; }
 .insight.informativo { border-left: 5px solid #237447; }
 .modulo-cargas { display: grid; gap: 1.4rem; }
+.modulo-grupos-colheita { display: grid; gap: 1.4rem; }
+.grupos-colheita-grade { grid-template-columns: minmax(360px, 480px) 1fr; }
+.filtros-grupos { display: grid; gap: 0.6rem; grid-template-columns: 2fr repeat(6, minmax(110px, 1fr)) auto; }
+.grupo-colheita-item { cursor: default; }
+.aviso-contexto { background: #fff3d6; border-radius: 8px; color: #76520a; padding: 0.7rem; }
 .cargas-cabecalho { align-items: center; display: flex; gap: 1rem; justify-content: space-between; }
 .cargas-cabecalho h2 { margin: 0.2rem 0; }
 .cargas-grade { grid-template-columns: minmax(340px, 470px) 1fr; }
@@ -156,7 +161,7 @@ header { align-items: center; display: flex; justify-content: space-between; mar
   .item { align-items: flex-start; flex-direction: column; gap: 1rem; }
   .clima-controles { grid-template-columns: 1fr; }
   .mercado-controles { align-items: stretch; flex-direction: column; }
-  .financeiro-grade, .estoque-grade, .operacoes-grade, .cargas-grade, .maquinas-grade, .relatorios-grade, .filtros-relatorio, .controles-insights, .painel-filtros, .auxiliares-grade, .linha-insumo, .regras-desconto { grid-template-columns: 1fr; }
+  .financeiro-grade, .estoque-grade, .operacoes-grade, .cargas-grade, .grupos-colheita-grade, .filtros-grupos, .maquinas-grade, .relatorios-grade, .filtros-relatorio, .controles-insights, .painel-filtros, .auxiliares-grade, .linha-insumo, .regras-desconto { grid-template-columns: 1fr; }
   .cargas-cabecalho { align-items: stretch; flex-direction: column; }
   .resumo-peso, .carga-metricas { grid-template-columns: 1fr; }
 }

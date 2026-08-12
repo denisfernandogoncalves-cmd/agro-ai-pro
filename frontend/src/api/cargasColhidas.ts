@@ -24,6 +24,8 @@ export type GrupoColheita = {
   propriedade_nome: string;
   cad_pro: string;
   cad_pro_codigo: string;
+  armazem_padrao: number | null;
+  armazem_padrao_nome: string | null;
   nome: string;
   cultura: string;
   safra: string;
@@ -34,6 +36,7 @@ export type GrupoColheita = {
   tolerancia_defeitos_percentual: string;
   desconto_defeitos_por_ponto: string;
   ativo: boolean;
+  contexto_congelado: boolean;
 };
 
 export type CargaColhida = {
@@ -70,8 +73,19 @@ export type CargaColhida = {
 
 export type GrupoColheitaInput = Omit<
   GrupoColheita,
-  "id" | "propriedade_nome" | "cad_pro_codigo" | "ativo"
+  "id" | "propriedade_nome" | "cad_pro_codigo" | "armazem_padrao_nome" |
+  "ativo" | "contexto_congelado"
 >;
+
+export type GrupoColheitaFiltros = {
+  search?: string;
+  propriedade?: string;
+  cad_pro?: string;
+  armazem_padrao?: string;
+  cultura?: string;
+  safra?: string;
+  ativo?: string;
+};
 
 export type CargaColhidaInput = {
   grupo_colheita: string;
@@ -89,8 +103,7 @@ export type CargaColhidaInput = {
 };
 
 export async function carregarContextoCargas(propriedades: Propriedade[]) {
-  const [cadpros, armazens, grupos, cargas] = await Promise.all([
-    api.get<CADPro[]>("/cadpros/", { params: { ativo: true } }),
+  const [armazens, grupos, cargas] = await Promise.all([
     api.get<ArmazemGraos[]>("/graos/armazens/", { params: { ativo: true } }),
     api.get<GrupoColheita[]>("/graos/grupos-colheita/", { params: { ativo: true } }),
     api.get<CargaColhida[]>("/graos/cargas-colhidas/", {
@@ -99,7 +112,6 @@ export async function carregarContextoCargas(propriedades: Propriedade[]) {
   ]);
   return {
     propriedades,
-    cadpros: cadpros.data,
     armazens: armazens.data,
     grupos: grupos.data,
     cargas: cargas.data,
@@ -108,6 +120,31 @@ export async function carregarContextoCargas(propriedades: Propriedade[]) {
 
 export async function criarGrupoColheita(dados: GrupoColheitaInput) {
   return (await api.post<GrupoColheita>("/graos/grupos-colheita/", dados)).data;
+}
+
+export async function atualizarGrupoColheita(
+  id: number,
+  dados: Partial<GrupoColheitaInput>,
+) {
+  return (await api.patch<GrupoColheita>(`/graos/grupos-colheita/${id}/`, dados)).data;
+}
+
+export async function inativarGrupoColheita(id: number) {
+  return (await api.post<GrupoColheita>(`/graos/grupos-colheita/${id}/inativar/`)).data;
+}
+
+export async function listarGruposColheita(filtros: GrupoColheitaFiltros = {}) {
+  return (await api.get<GrupoColheita[]>("/graos/grupos-colheita/", {
+    params: { ...filtros, ordering: "-safra,cultura,nome" },
+  })).data;
+}
+
+export async function carregarOpcoesGrupoColheita() {
+  const [cadpros, armazens] = await Promise.all([
+    api.get<CADPro[]>("/cadpros/", { params: { ativo: true } }),
+    api.get<ArmazemGraos[]>("/graos/armazens/", { params: { ativo: true } }),
+  ]);
+  return { cadpros: cadpros.data, armazens: armazens.data };
 }
 
 export async function criarCargaColhida(dados: CargaColhidaInput) {
