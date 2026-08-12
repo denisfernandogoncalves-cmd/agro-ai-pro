@@ -15,6 +15,7 @@ import AplicativoStatus from "./components/AplicativoStatus";
 import ClimaPage from "./pages/Clima/ClimaPage";
 import CargasColhidasPage from "./pages/CargasColhidas/CargasColhidasPage";
 import GruposColheitaPage from "./pages/GruposColheita/GruposColheitaPage";
+import ProducaoSaldosPage from "./pages/ProducaoSaldos/ProducaoSaldosPage";
 import EstoquePage from "./pages/Estoque/EstoquePage";
 import FinanceiroPage from "./pages/Financeiro/FinanceiroPage";
 import MercadoPage from "./pages/Mercado/MercadoPage";
@@ -119,7 +120,7 @@ type PrivateAreaProps = {
 
 function PrivateArea({ sair }: PrivateAreaProps) {
   const [modulo, setModulo] = useState<
-    "propriedades" | "talhoes" | "grupos-colheita" | "cargas" | "clima" | "mercado" | "financeiro" | "estoque" | "operacoes" | "maquinas" | "relatorios" | "insights"
+    "propriedades" | "talhoes" | "grupos-colheita" | "cargas" | "producao-saldos" | "clima" | "mercado" | "financeiro" | "estoque" | "operacoes" | "maquinas" | "relatorios" | "insights"
   >("propriedades");
   const [propriedades, setPropriedades] = useState<Propriedade[]>([]);
   const [selecionada, setSelecionada] = useState<Propriedade | null>(null);
@@ -222,6 +223,8 @@ function PrivateArea({ sair }: PrivateAreaProps) {
                   ? "Grupos de colheita"
                 : modulo === "cargas"
                   ? "Cargas colhidas"
+                : modulo === "producao-saldos"
+                  ? "Produção e saldos"
                 : modulo === "clima"
                   ? "Clima"
                   : modulo === "mercado"
@@ -265,6 +268,12 @@ function PrivateArea({ sair }: PrivateAreaProps) {
           Cargas colhidas
         </button>
         <button
+          className={modulo === "producao-saldos" ? "" : "secundario"}
+          onClick={() => setModulo("producao-saldos")}
+        >
+          Produção e saldos
+        </button>
+        <button
           className={modulo === "clima" ? "" : "secundario"}
           onClick={() => setModulo("clima")}
         >
@@ -305,6 +314,8 @@ function PrivateArea({ sair }: PrivateAreaProps) {
         <GruposColheitaPage propriedades={propriedades} />
       ) : modulo === "cargas" ? (
         <CargasColhidasPage propriedades={propriedades} />
+      ) : modulo === "producao-saldos" ? (
+        <ProducaoSaldosPage propriedades={propriedades} />
       ) : modulo === "clima" ? (
         <ClimaPage propriedades={propriedades} />
       ) : modulo === "mercado" ? (

@@ -1170,6 +1170,53 @@ def consultar_posicao(**filtros):
     return selecionar_posicoes(**filtros)
 
 
+def painel_saldos_cadpro(**filtros):
+    """Consolida as posições oficiais sem criar uma segunda fonte de saldo."""
+    posicoes = list(selecionar_posicoes(**filtros))
+    consolidados = {}
+    total_fisico = ZERO
+    total_comprometido = ZERO
+
+    for posicao in posicoes:
+        total_fisico += posicao.saldo_fisico_kg
+        total_comprometido += posicao.saldo_comprometido_kg
+        consolidado = consolidados.setdefault(
+            str(posicao.cad_pro_id),
+            {
+                "cad_pro": str(posicao.cad_pro_id),
+                "cad_pro_codigo": posicao.cad_pro.codigo,
+                "cad_pro_descricao": posicao.cad_pro.descricao,
+                "saldo_fisico_kg": ZERO,
+                "saldo_comprometido_kg": ZERO,
+                "posicoes": 0,
+            },
+        )
+        consolidado["saldo_fisico_kg"] += posicao.saldo_fisico_kg
+        consolidado["saldo_comprometido_kg"] += posicao.saldo_comprometido_kg
+        consolidado["posicoes"] += 1
+
+    for consolidado in consolidados.values():
+        consolidado["saldo_disponivel_kg"] = (
+            consolidado["saldo_fisico_kg"]
+            - consolidado["saldo_comprometido_kg"]
+        )
+
+    return {
+        "resumo": {
+            "cadpros": len(consolidados),
+            "posicoes": len(posicoes),
+            "saldo_fisico_kg": total_fisico,
+            "saldo_comprometido_kg": total_comprometido,
+            "saldo_disponivel_kg": total_fisico - total_comprometido,
+        },
+        "consolidado_cadpro": sorted(
+            consolidados.values(),
+            key=lambda item: (item["cad_pro_codigo"], item["cad_pro"]),
+        ),
+        "posicoes": posicoes,
+    }
+
+
 @transaction.atomic
 def reconciliar_posicao(*, usuario, posicao, chave_idempotencia, metadados=None):
     posicao_id = posicao.pk

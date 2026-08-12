@@ -94,6 +94,7 @@ Quando uma operação precisa de mais de um lock, a ordem global é:
 ```text
 GET  /api/graos/saldos/
 GET  /api/graos/saldos/{id}/
+GET  /api/graos/saldos/painel/
 POST /api/graos/saldos/creditar-producao/
 POST /api/graos/saldos/reservar/
 POST /api/graos/saldos/liberar-reserva/
@@ -123,9 +124,21 @@ As quatro rotas de integração congeladas são:
 Elas reutilizam os mesmos serializers, serviços, autenticação e contratos de
 erro dos endpoints de saldo e constam no OpenAPI.
 
-A consulta de saldos aceita `cad_pro`, `cultura`, `safra`,
-`classificacao_codigo` e `armazem`. Reservas aceitam `posicao` e `status`;
+A consulta de saldos e o painel aceitam `propriedade`, `cad_pro`, `cultura`,
+`safra`, `classificacao_codigo` e `armazem`. O painel usa exclusivamente as
+posições oficiais do ledger e devolve totais físico, comprometido e disponível,
+consolidação por CAD/PRO e o detalhamento por cultura, safra, classificação e
+armazenagem. Reservas aceitam `posicao` e `status`;
 origens aceitam `tipo` e busca por chave ou referência.
+
+A consulta de movimentações aceita filtros por operação, posição, CAD/PRO,
+classificação, armazém, propriedade e origem. Cada item expõe a identidade da
+posição, o CAD/PRO, a armazenagem e a origem imutável, incluindo a chave de
+idempotência, para rastreabilidade ponta a ponta.
+
+O frontend oferece o módulo **Produção e saldos**, que consulta esse painel,
+aplica os mesmos filtros dimensionais e registra produção pelo comando oficial
+`creditar_producao`; não mantém uma segunda fonte de saldo.
 
 Exemplo de crédito:
 

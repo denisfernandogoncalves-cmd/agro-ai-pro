@@ -48,6 +48,9 @@ try {
   const { default: GruposColheitaPage } = await servidor.ssrLoadModule(
     "/src/pages/GruposColheita/GruposColheitaPage.tsx",
   );
+  const { default: ProducaoSaldosPage } = await servidor.ssrLoadModule(
+    "/src/pages/ProducaoSaldos/ProducaoSaldosPage.tsx",
+  );
   const { default: MaquinasPage } = await servidor.ssrLoadModule(
     "/src/pages/Maquinas/MaquinasPage.tsx",
   );
@@ -269,6 +272,16 @@ try {
   assert.match(htmlGrupos, /Filtrar por armazenagem/);
   assert.match(htmlGrupos, /Nenhum grupo de colheita encontrado/);
 
+  const htmlProducaoSaldos = renderToStaticMarkup(
+    React.createElement(ProducaoSaldosPage, { propriedades: [propriedade] }),
+  );
+  assert.match(htmlProducaoSaldos, /Registrar produção/);
+  assert.match(htmlProducaoSaldos, /Saldo físico/);
+  assert.match(htmlProducaoSaldos, /Comprometido/);
+  assert.match(htmlProducaoSaldos, /Disponível/);
+  assert.match(htmlProducaoSaldos, /classificação · armazenagem/);
+  assert.match(htmlProducaoSaldos, /Rastreabilidade recente/);
+
   const htmlMaquinas = renderToStaticMarkup(
     React.createElement(MaquinasPage, { propriedades: [propriedade] }),
   );
@@ -298,7 +311,7 @@ try {
   );
   assert.match(serviceWorker, /pathname\.startsWith\(\"\/api\/\"\)/);
 
-  console.log("17 testes de componentes, geometria e PWA aprovados.");
+  console.log("18 testes de componentes, geometria e PWA aprovados.");
 } finally {
   await servidor.close();
 }

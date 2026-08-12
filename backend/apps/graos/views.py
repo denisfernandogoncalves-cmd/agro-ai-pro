@@ -38,6 +38,7 @@ from .serializers import (
     ReservarSaldoSerializer,
     TransferirSaldoFisicoSerializer,
     TransferenciaGraosSerializer,
+    serializar_painel_saldos,
     serializar_resultado,
 )
 from .services import (
@@ -48,6 +49,7 @@ from .services import (
     estornar_movimentacao,
     liberar_reserva,
     posicao_graos,
+    painel_saldos_cadpro,
     reconciliar_posicao,
     registrar_ajuste,
     registrar_devolucao,
@@ -315,6 +317,10 @@ class MovimentacaoGraosViewSet(
         "lote",
         "lote__armazem",
         "lote__armazem__propriedade",
+        "posicao",
+        "posicao__cad_pro",
+        "posicao__armazem",
+        "origem",
         "criado_por",
     )
     serializer_class = MovimentacaoGraosSerializer
@@ -324,6 +330,9 @@ class MovimentacaoGraosViewSet(
         "lote__codigo",
         "lote__cultura",
         "lote__safra",
+        "posicao__cad_pro__codigo",
+        "posicao__classificacao_codigo",
+        "origem__chave_idempotencia",
         "referencia_externa",
         "observacoes",
     )
@@ -334,10 +343,16 @@ class MovimentacaoGraosViewSet(
         queryset = super().get_queryset()
         for parametro, campo in (
             ("tipo", "tipo"),
+            ("operacao", "operacao"),
             ("lote", "lote_id"),
-            ("armazem", "lote__armazem_id"),
-            ("propriedade", "lote__armazem__propriedade_id"),
-            ("safra", "lote__safra"),
+            ("posicao", "posicao_id"),
+            ("cad_pro", "posicao__cad_pro_id"),
+            ("armazem", "posicao__armazem_id"),
+            ("propriedade", "posicao__armazem__propriedade_id"),
+            ("cultura", "posicao__cultura"),
+            ("safra", "posicao__safra"),
+            ("classificacao_codigo", "posicao__classificacao_codigo"),
+            ("origem", "origem_id"),
         ):
             valor = self.request.query_params.get(parametro, "").strip()
             if valor:
@@ -376,6 +391,13 @@ class SaldoGraosViewSet(viewsets.ViewSet):
                 status=status.HTTP_404_NOT_FOUND,
             )
         return Response(PosicaoSaldoGraosSerializer(posicao).data)
+
+    @action(detail=False, methods=["get"], url_path="painel")
+    def painel(self, request):
+        filtros = FiltrosPosicaoSaldoSerializer(data=request.query_params)
+        filtros.is_valid(raise_exception=True)
+        resultado = painel_saldos_cadpro(**filtros.validated_data)
+        return Response(serializar_painel_saldos(resultado))
 
     def _executar(self, request, serializer_class, servico):
         return _executar_operacao(request, serializer_class, servico)

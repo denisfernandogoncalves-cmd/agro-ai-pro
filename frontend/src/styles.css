@@ -24,7 +24,7 @@ header { align-items: center; display: flex; justify-content: space-between; mar
 .status-aplicativo .online { background: #e2f3e6; color: #1d653b; }
 .status-aplicativo .offline { background: #fff0ee; color: #8b2922; }
 .kicker { color: #5b7467; font-size: 0.75rem; font-weight: 750; letter-spacing: 0.12em; text-transform: uppercase; }
-.navegacao-modulos { display: flex; gap: 0.5rem; margin-bottom: 1.5rem; }
+.navegacao-modulos { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1.5rem; }
 .card { background: white; border: 1px solid #d9e2da; border-radius: 12px; box-shadow: 0 8px 30px rgb(25 52 42 / 7%); padding: 1.2rem; }
 .grade { align-items: start; display: grid; gap: 1.5rem; grid-template-columns: minmax(280px, 360px) 1fr; }
 .formulario { display: grid; gap: 1rem; position: sticky; top: 1rem; }
@@ -124,6 +124,24 @@ header { align-items: center; display: flex; justify-content: space-between; mar
 .insight.informativo { border-left: 5px solid #237447; }
 .modulo-cargas { display: grid; gap: 1.4rem; }
 .modulo-grupos-colheita { display: grid; gap: 1.4rem; }
+.modulo-producao-saldos { display: grid; gap: 1.4rem; }
+.filtros-saldos { display: grid; gap: 0.6rem; grid-template-columns: repeat(6, minmax(120px, 1fr)) auto auto; }
+.resumo-saldos { display: grid; gap: 1rem; grid-template-columns: repeat(4, minmax(160px, 1fr)); }
+.resumo-saldos article { display: grid; gap: 0.4rem; }
+.resumo-saldos strong { font-size: 1.4rem; }
+.destaque-disponivel { border-left: 5px solid #237447; }
+.producao-saldos-grade { grid-template-columns: minmax(340px, 460px) 1fr; }
+.saldo-consolidado { min-width: 0; }
+.saldo-cadpro { cursor: default; }
+.metricas-saldo { display: grid; gap: 0.35rem; min-width: 210px; text-align: right; }
+.metricas-saldo span { display: flex; gap: 0.7rem; justify-content: space-between; }
+.tabela-scroll { overflow-x: auto; }
+.tabela-saldos table { border-collapse: collapse; min-width: 980px; width: 100%; }
+.tabela-saldos th, .tabela-saldos td { border-bottom: 1px solid #dbe5dc; padding: 0.7rem; text-align: left; }
+.tabela-saldos th { color: #49614f; font-size: 0.82rem; text-transform: uppercase; }
+.movimento-saldo { align-items: center; border-bottom: 1px solid #dbe5dc; display: flex; gap: 1rem; justify-content: space-between; padding: 0.8rem 0; }
+.movimento-saldo div { display: grid; gap: 0.2rem; }
+.movimento-saldo div:last-child { text-align: right; }
 .grupos-colheita-grade { grid-template-columns: minmax(360px, 480px) 1fr; }
 .filtros-grupos { display: grid; gap: 0.6rem; grid-template-columns: 2fr repeat(6, minmax(110px, 1fr)) auto; }
 .grupo-colheita-item { cursor: default; }
@@ -153,7 +171,7 @@ header { align-items: center; display: flex; justify-content: space-between; mar
   .pagina { padding: 1rem; }
   header { align-items: flex-start; gap: 1rem; }
   .cabecalho-acoes { align-items: flex-end; flex-direction: column-reverse; }
-  .navegacao-modulos { overflow-x: auto; padding-bottom: 0.4rem; }
+  .navegacao-modulos { flex-wrap: nowrap; overflow-x: auto; padding-bottom: 0.4rem; }
   .navegacao-modulos button { flex: 0 0 auto; }
   .grade { grid-template-columns: 1fr; }
   .painel-filtros { grid-template-columns: 1fr; }
@@ -161,7 +179,9 @@ header { align-items: center; display: flex; justify-content: space-between; mar
   .item { align-items: flex-start; flex-direction: column; gap: 1rem; }
   .clima-controles { grid-template-columns: 1fr; }
   .mercado-controles { align-items: stretch; flex-direction: column; }
-  .financeiro-grade, .estoque-grade, .operacoes-grade, .cargas-grade, .grupos-colheita-grade, .filtros-grupos, .maquinas-grade, .relatorios-grade, .filtros-relatorio, .controles-insights, .painel-filtros, .auxiliares-grade, .linha-insumo, .regras-desconto { grid-template-columns: 1fr; }
+  .financeiro-grade, .estoque-grade, .operacoes-grade, .cargas-grade, .grupos-colheita-grade, .producao-saldos-grade, .filtros-grupos, .filtros-saldos, .resumo-saldos, .maquinas-grade, .relatorios-grade, .filtros-relatorio, .controles-insights, .painel-filtros, .auxiliares-grade, .linha-insumo, .regras-desconto { grid-template-columns: 1fr; }
+  .saldo-cadpro, .movimento-saldo { align-items: flex-start; flex-direction: column; }
+  .metricas-saldo, .movimento-saldo div:last-child { text-align: left; width: 100%; }
   .cargas-cabecalho { align-items: stretch; flex-direction: column; }
   .resumo-peso, .carga-metricas { grid-template-columns: 1fr; }
 }
