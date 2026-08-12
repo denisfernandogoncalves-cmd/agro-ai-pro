@@ -1,6 +1,6 @@
 # API do AGRO-AI-PRO
 
-Documentação funcional: [Cargas Colhidas](CARGAS_COLHIDAS.md).
+Documentação funcional: [Grupos de Colheita e Cargas Colhidas](CARGAS_COLHIDAS.md).
 
 ## Autenticação
 
