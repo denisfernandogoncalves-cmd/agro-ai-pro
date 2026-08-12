@@ -1,15 +1,19 @@
 from concurrent.futures import ThreadPoolExecutor
-from threading import Event
+from decimal import Decimal
+from threading import Event, get_ident
 from unittest import skipUnless
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.core.exceptions import ValidationError
 from django.db import close_old_connections, connection, transaction
+from django.db.models import Sum
 from django.urls import reverse
 from rest_framework import serializers
 from rest_framework.test import APITestCase
 from django.test import TransactionTestCase
 
+from apps.cadpro.models import CADPro, CADProPropriedade
 from apps.cadpro.services import CADProComSaldoError, inativar_cadpro
 from .test_cargas_colhidas import CargaColhidaBase
 from .cargas_services import registrar_carga_colhida
@@ -18,10 +22,19 @@ from .models import (
     CargaColhida,
     GrupoColheita,
     LoteGraos,
+    MovimentacaoGraos,
     PosicaoSaldoGraos,
 )
 from .serializers import GrupoColheitaSerializer
-from .services import bloquear_cadpro_para_saldo, creditar_producao
+from .services import (
+    bloquear_cadpro_para_saldo,
+    creditar_producao,
+    estornar_movimentacao,
+    reconciliar_posicao,
+    registrar_ajuste,
+    registrar_devolucao,
+    transferir_saldo_fisico,
+)
 
 
 class GrupoColheitaApiTests(CargaColhidaBase, APITestCase):
@@ -237,34 +250,43 @@ class GrupoColheitaConcorrenciaPostgreSQLTests(CargaColhidaBase, TransactionTest
         self.assertEqual(self.grupo.safra, "2026/2027")
         self.assertEqual(CargaColhida.objects.filter(grupo_colheita=self.grupo).count(), 1)
 
-    def test_credito_e_inativacao_compartilham_lock_do_cadpro(self):
-        lote = LoteGraos.objects.create(
+    def _criar_lote_saldo(self, *, cad_pro=None, codigo="CONCORRENCIA-CADPRO"):
+        return LoteGraos.objects.create(
             armazem=self.armazem,
-            cad_pro=self.cad_pro,
-            codigo="CONCORRENCIA-CADPRO",
+            cad_pro=cad_pro or self.cad_pro,
+            codigo=codigo,
             cultura=self.grupo.cultura,
             safra=self.grupo.safra,
             classificacao_codigo="PADRAO",
         )
-        cadpro_bloqueado = Event()
-        inativacao_iniciada = Event()
 
-        def creditar():
+    def _concorrer_aumento_com_inativacao(self, operacao, *, cad_pro=None):
+        cad_pro = cad_pro or self.cad_pro
+        cadpro_bloqueado = Event()
+        inativacao_tentando_lock = Event()
+        operacao_ident = [None]
+        inativacao_ident = [None]
+        lock_real = bloquear_cadpro_para_saldo
+
+        def lock_observado(cad_pro_id):
+            if get_ident() == inativacao_ident[0]:
+                inativacao_tentando_lock.set()
+            bloqueado = lock_real(cad_pro_id)
+            if (
+                get_ident() == operacao_ident[0]
+                and str(cad_pro_id) == str(cad_pro.pk)
+                and not cadpro_bloqueado.is_set()
+            ):
+                cadpro_bloqueado.set()
+                if not inativacao_tentando_lock.wait(10):
+                    raise AssertionError("A inativação não tentou adquirir o lock.")
+            return bloqueado
+
+        def aumentar_saldo():
             close_old_connections()
             try:
-                with transaction.atomic():
-                    bloquear_cadpro_para_saldo(self.cad_pro.pk)
-                    cadpro_bloqueado.set()
-                    if not inativacao_iniciada.wait(10):
-                        raise AssertionError("A inativação não foi iniciada.")
-                    usuario = get_user_model().objects.get(pk=self.usuario.pk)
-                    lote_bloqueado = LoteGraos.objects.get(pk=lote.pk)
-                    creditar_producao(
-                        usuario=usuario,
-                        lote=lote_bloqueado,
-                        quantidade_kg="100",
-                        chave_idempotencia="concorrencia:cadpro:credito",
-                    )
+                operacao_ident[0] = get_ident()
+                operacao()
                 return "credito_criado"
             finally:
                 close_old_connections()
@@ -273,25 +295,147 @@ class GrupoColheitaConcorrenciaPostgreSQLTests(CargaColhidaBase, TransactionTest
             close_old_connections()
             try:
                 if not cadpro_bloqueado.wait(10):
-                    raise AssertionError("O crédito não bloqueou o CAD/PRO.")
-                inativacao_iniciada.set()
+                    raise AssertionError("A operação não bloqueou o CAD/PRO.")
+                inativacao_ident[0] = get_ident()
                 try:
-                    inativar_cadpro(self.cad_pro.pk)
+                    inativar_cadpro(cad_pro.pk)
                 except CADProComSaldoError:
                     return "inativacao_bloqueada"
                 return "cadpro_inativado"
             finally:
                 close_old_connections()
 
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            credito = executor.submit(creditar)
-            inativacao = executor.submit(inativar)
-            self.assertEqual(credito.result(timeout=20), "credito_criado")
-            self.assertEqual(inativacao.result(timeout=20), "inativacao_bloqueada")
+        with patch(
+            "apps.graos.services.bloquear_cadpro_para_saldo",
+            side_effect=lock_observado,
+        ):
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                credito = executor.submit(aumentar_saldo)
+                inativacao = executor.submit(inativar)
+                self.assertEqual(credito.result(timeout=20), "credito_criado")
+                self.assertEqual(inativacao.result(timeout=20), "inativacao_bloqueada")
 
-        self.cad_pro.refresh_from_db()
-        self.assertTrue(self.cad_pro.ativo)
+        cad_pro.refresh_from_db()
+        self.assertTrue(cad_pro.ativo)
         self.assertEqual(
-            PosicaoSaldoGraos.objects.get(cad_pro=self.cad_pro).saldo_fisico_kg,
-            100,
+            PosicaoSaldoGraos.objects.filter(cad_pro=cad_pro).aggregate(
+                total=Sum("saldo_fisico_kg")
+            )["total"],
+            Decimal("100.000"),
         )
+
+    def test_inativacao_concorre_com_credito_sem_lock_artificial(self):
+        lote = self._criar_lote_saldo(codigo="LOCK-CREDITO")
+
+        def operacao():
+            creditar_producao(
+                usuario=get_user_model().objects.get(pk=self.usuario.pk),
+                lote=LoteGraos.objects.get(pk=lote.pk),
+                quantidade_kg="100",
+                chave_idempotencia="concorrencia:cadpro:credito",
+            )
+
+        self._concorrer_aumento_com_inativacao(operacao)
+
+    def test_inativacao_concorre_com_devolucao_sem_lock_artificial(self):
+        lote = self._criar_lote_saldo(codigo="LOCK-DEVOLUCAO")
+
+        def operacao():
+            registrar_devolucao(
+                usuario=get_user_model().objects.get(pk=self.usuario.pk),
+                lote=LoteGraos.objects.get(pk=lote.pk),
+                quantidade_kg="100",
+                chave_idempotencia="concorrencia:cadpro:devolucao",
+            )
+
+        self._concorrer_aumento_com_inativacao(operacao)
+
+    def test_inativacao_concorre_com_ajuste_positivo_sem_lock_artificial(self):
+        lote = self._criar_lote_saldo(codigo="LOCK-AJUSTE")
+
+        def operacao():
+            registrar_ajuste(
+                usuario=get_user_model().objects.get(pk=self.usuario.pk),
+                lote=LoteGraos.objects.get(pk=lote.pk),
+                delta_fisico_kg="100",
+                chave_idempotencia="concorrencia:cadpro:ajuste",
+            )
+
+        self._concorrer_aumento_com_inativacao(operacao)
+
+    def test_inativacao_concorre_com_transferencia_entrada_sem_lock_artificial(self):
+        destino = self._criar_lote_saldo(codigo="LOCK-TRANSFERENCIA-DESTINO")
+        cad_pro_origem = CADPro.objects.create(
+            codigo="LOCK-ORIGEM",
+            descricao="Origem da transferência concorrente",
+        )
+        CADProPropriedade.objects.create(
+            cad_pro=cad_pro_origem,
+            propriedade=self.propriedade,
+        )
+        origem = self._criar_lote_saldo(
+            cad_pro=cad_pro_origem,
+            codigo="LOCK-TRANSFERENCIA-ORIGEM",
+        )
+        creditar_producao(
+            usuario=self.usuario,
+            lote=origem,
+            quantidade_kg="100",
+            chave_idempotencia="concorrencia:transferencia:preparo",
+        )
+
+        def operacao():
+            transferir_saldo_fisico(
+                usuario=get_user_model().objects.get(pk=self.usuario.pk),
+                lote_origem=LoteGraos.objects.get(pk=origem.pk),
+                lote_destino=LoteGraos.objects.get(pk=destino.pk),
+                quantidade_kg="100",
+                chave_idempotencia="concorrencia:cadpro:transferencia",
+            )
+
+        self._concorrer_aumento_com_inativacao(operacao)
+
+    def test_inativacao_concorre_com_estorno_que_recompoe_saldo(self):
+        lote = self._criar_lote_saldo(codigo="LOCK-ESTORNO")
+        creditar_producao(
+            usuario=self.usuario,
+            lote=lote,
+            quantidade_kg="100",
+            chave_idempotencia="concorrencia:estorno:credito",
+        )
+        ajuste = registrar_ajuste(
+            usuario=self.usuario,
+            lote=lote,
+            delta_fisico_kg="-100",
+            chave_idempotencia="concorrencia:estorno:saida",
+        )
+        movimento_id = ajuste.movimentacoes[0].id
+
+        def operacao():
+            estornar_movimentacao(
+                usuario=get_user_model().objects.get(pk=self.usuario.pk),
+                movimentacao=MovimentacaoGraos.objects.get(pk=movimento_id),
+                chave_idempotencia="concorrencia:cadpro:estorno",
+            )
+
+        self._concorrer_aumento_com_inativacao(operacao)
+
+    def test_inativacao_concorre_com_reconciliacao_que_eleva_saldo(self):
+        lote = self._criar_lote_saldo(codigo="LOCK-RECONCILIACAO")
+        credito = creditar_producao(
+            usuario=self.usuario,
+            lote=lote,
+            quantidade_kg="100",
+            chave_idempotencia="concorrencia:reconciliacao:credito",
+        )
+        posicao_id = credito.posicoes[0].id
+        PosicaoSaldoGraos.objects.filter(pk=posicao_id).update(saldo_fisico_kg=0)
+
+        def operacao():
+            reconciliar_posicao(
+                usuario=get_user_model().objects.get(pk=self.usuario.pk),
+                posicao=PosicaoSaldoGraos.objects.get(pk=posicao_id),
+                chave_idempotencia="concorrencia:cadpro:reconciliacao",
+            )
+
+        self._concorrer_aumento_com_inativacao(operacao)

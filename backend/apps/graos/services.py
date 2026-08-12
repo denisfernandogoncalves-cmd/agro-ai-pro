@@ -35,6 +35,16 @@ def bloquear_cadpro_para_saldo(cad_pro_id):
     return CADPro.objects.select_for_update().get(pk=cad_pro_id)
 
 
+def _bloquear_cadpros_ativos_para_saldo(cad_pro_ids):
+    bloqueados = {}
+    for cad_pro_id in sorted(set(cad_pro_ids), key=str):
+        cad_pro = bloquear_cadpro_para_saldo(cad_pro_id)
+        if not cad_pro.ativo:
+            raise SaldoGraosError("O CAD/PRO precisa estar ativo para receber saldo.")
+        bloqueados[cad_pro.pk] = cad_pro
+    return bloqueados
+
+
 class SaldoGraosError(ValueError):
     codigo = "saldo_graos_invalido"
 
@@ -655,9 +665,7 @@ def creditar_producao(
     )
     if not criada:
         return _resultado_existente(origem, "producao_creditada")
-    cad_pro = bloquear_cadpro_para_saldo(lote.cad_pro_id)
-    if not cad_pro.ativo:
-        raise SaldoGraosError("O CAD/PRO do lote precisa estar ativo.")
+    _bloquear_cadpros_ativos_para_saldo((lote.cad_pro_id,))
     lote = _validar_lote(lote)
     armazem = _bloquear_armazens((lote.armazem_id,))[lote.armazem_id]
     posicao = _bloquear_posicao_lote(lote)
@@ -833,6 +841,7 @@ def registrar_devolucao(
     )
     if not criada:
         return _resultado_existente(origem, "devolucao_registrada")
+    _bloquear_cadpros_ativos_para_saldo((lote.cad_pro_id,))
     lote = _validar_lote(lote)
     armazem = _bloquear_armazens((lote.armazem_id,))[lote.armazem_id]
     posicao = _bloquear_posicao_lote(lote)
@@ -872,6 +881,8 @@ def registrar_ajuste(
     )
     if not criada:
         return _resultado_existente(origem, "ajuste_registrado")
+    if delta_fisico > 0:
+        _bloquear_cadpros_ativos_para_saldo((lote.cad_pro_id,))
     lote = _validar_lote(lote)
     if delta_fisico > 0:
         armazem = _bloquear_armazens((lote.armazem_id,))[lote.armazem_id]
@@ -941,6 +952,12 @@ def estornar_movimentacao(
             )
     else:
         movimentos = (movimento,)
+
+    _bloquear_cadpros_ativos_para_saldo(
+        item.posicao.cad_pro_id
+        for item in movimentos
+        if item.delta_fisico_kg < ZERO
+    )
 
     ids_movimentos = tuple(item.pk for item in movimentos)
     ids_reservas = tuple(
@@ -1073,6 +1090,7 @@ def transferir_saldo_fisico(
     )
     if not criada:
         return _resultado_existente(origem, "saldo_transferido")
+    _bloquear_cadpros_ativos_para_saldo((lote_destino.cad_pro_id,))
     lotes = {
         item.pk: _validar_lote(item)
         for item in LoteGraos.objects.filter(
@@ -1142,7 +1160,11 @@ def reconciliar_posicao(*, usuario, posicao, chave_idempotencia, metadados=None)
     )
     if not criada:
         return _resultado_existente(origem, "posicao_reconciliada")
-    referencia = PosicaoSaldoGraos.objects.only("armazem_id").get(pk=posicao_id)
+    referencia = PosicaoSaldoGraos.objects.only(
+        "armazem_id",
+        "cad_pro_id",
+    ).get(pk=posicao_id)
+    _bloquear_cadpros_ativos_para_saldo((referencia.cad_pro_id,))
     _bloquear_armazens((referencia.armazem_id,))
     posicao = PosicaoSaldoGraos.objects.select_for_update().get(pk=posicao_id)
     _validar_posicao_ativa(posicao)
