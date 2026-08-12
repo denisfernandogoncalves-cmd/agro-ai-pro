@@ -284,14 +284,26 @@ class LoteGraosSerializer(serializers.ModelSerializer):
 
 class MovimentacaoGraosSerializer(serializers.ModelSerializer):
     lote_codigo = serializers.CharField(source="lote.codigo", read_only=True)
-    cultura = serializers.CharField(source="lote.cultura", read_only=True)
-    safra = serializers.CharField(source="lote.safra", read_only=True)
+    cultura = serializers.CharField(source="posicao.cultura", read_only=True)
+    safra = serializers.CharField(source="posicao.safra", read_only=True)
+    classificacao_codigo = serializers.CharField(
+        source="posicao.classificacao_codigo",
+        read_only=True,
+    )
+    cad_pro = serializers.UUIDField(source="posicao.cad_pro_id", read_only=True)
+    cad_pro_codigo = serializers.CharField(source="posicao.cad_pro.codigo", read_only=True)
     armazem_id = serializers.IntegerField(
-        source="lote.armazem_id",
+        source="posicao.armazem_id",
         read_only=True,
     )
     propriedade_id = serializers.IntegerField(
-        source="lote.armazem.propriedade_id",
+        source="posicao.armazem.propriedade_id",
+        read_only=True,
+    )
+    armazem_nome = serializers.CharField(source="posicao.armazem.nome", read_only=True)
+    origem_tipo = serializers.CharField(source="origem.tipo", read_only=True)
+    origem_chave_idempotencia = serializers.CharField(
+        source="origem.chave_idempotencia",
         read_only=True,
     )
     criado_por_nome = serializers.CharField(
@@ -315,7 +327,11 @@ class MovimentacaoGraosSerializer(serializers.ModelSerializer):
             "lote_codigo",
             "cultura",
             "safra",
+            "classificacao_codigo",
+            "cad_pro",
+            "cad_pro_codigo",
             "armazem_id",
+            "armazem_nome",
             "propriedade_id",
             "quantidade_kg",
             "delta_fisico_kg",
@@ -324,6 +340,8 @@ class MovimentacaoGraosSerializer(serializers.ModelSerializer):
             "snapshot_posterior",
             "posicao",
             "origem",
+            "origem_tipo",
+            "origem_chave_idempotencia",
             "reserva",
             "estorno_de",
             "data_movimento",
@@ -545,6 +563,7 @@ class ReconciliarPosicaoSerializer(serializers.Serializer):
 
 class FiltrosPosicaoSaldoSerializer(serializers.Serializer):
     cad_pro = serializers.UUIDField(required=False)
+    propriedade = serializers.IntegerField(required=False, min_value=1)
     cultura = serializers.CharField(required=False, allow_blank=True, max_length=50)
     safra = serializers.CharField(required=False, allow_blank=True, max_length=20)
     classificacao_codigo = serializers.CharField(required=False, allow_blank=True, max_length=50)
@@ -563,6 +582,31 @@ def serializar_resultado(resultado: ResultadoOperacaoSaldo):
         ],
         "reserva": _serializar_reserva_dto(resultado.reserva),
         "detalhes": _serializar_contrato(resultado.detalhes),
+    }
+
+
+def serializar_painel_saldos(resultado):
+    campos_saldo = (
+        "saldo_fisico_kg",
+        "saldo_comprometido_kg",
+        "saldo_disponivel_kg",
+    )
+    resumo = dict(resultado["resumo"])
+    for campo in campos_saldo:
+        resumo[campo] = _decimal_api(resumo[campo])
+    consolidados = []
+    for item in resultado["consolidado_cadpro"]:
+        consolidado = dict(item)
+        for campo in campos_saldo:
+            consolidado[campo] = _decimal_api(consolidado[campo])
+        consolidados.append(consolidado)
+    return {
+        "resumo": resumo,
+        "consolidado_cadpro": consolidados,
+        "posicoes": PosicaoSaldoGraosSerializer(
+            resultado["posicoes"],
+            many=True,
+        ).data,
     }
 
 

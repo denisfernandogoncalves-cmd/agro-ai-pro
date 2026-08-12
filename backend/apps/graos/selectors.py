@@ -11,6 +11,7 @@ from .models import (
 def selecionar_posicoes(
     *,
     cad_pro=None,
+    propriedade=None,
     cultura="",
     safra="",
     classificacao_codigo="",
@@ -23,6 +24,8 @@ def selecionar_posicoes(
     ).annotate(saldo_disponivel=F("saldo_fisico_kg") - F("saldo_comprometido_kg"))
     if cad_pro:
         queryset = queryset.filter(cad_pro_id=cad_pro)
+    if propriedade:
+        queryset = queryset.filter(armazem__propriedade_id=propriedade)
     if cultura:
         queryset = queryset.filter(cultura__iexact=cultura.strip())
     if safra:

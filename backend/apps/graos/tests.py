@@ -838,6 +838,132 @@ class SaldoGraosApiTests(GraosSaldoBase, APITestCase):
         self.assertEqual(len(reservas.data), 1)
         self.assertEqual(len(origens.data), 1)
 
+    def test_painel_consolida_por_cadpro_e_preserva_dimensoes(self):
+        self.creditar("400", "painel:credito:a1")
+        reservar_saldo(
+            usuario=self.usuario,
+            lote=self.lote,
+            quantidade_kg="100",
+            chave_idempotencia="painel:reserva:a1",
+        )
+        armazem_2 = ArmazemGraos.objects.create(
+            propriedade=self.propriedade,
+            nome="Silo 2",
+            capacidade_kg="2000",
+        )
+        lote_2 = LoteGraos.objects.create(
+            armazem=armazem_2,
+            cad_pro=self.cad_pro,
+            codigo="SOJA-002",
+            cultura="Soja",
+            safra="2026/2027",
+            classificacao_codigo="PADRAO",
+        )
+        creditar_producao(
+            usuario=self.usuario,
+            lote=lote_2,
+            quantidade_kg="600",
+            chave_idempotencia="painel:credito:a2",
+        )
+        outro_cadpro = CADPro.objects.create(
+            codigo="CAD/002",
+            descricao="Segundo produtor",
+        )
+        CADProPropriedade.objects.create(
+            cad_pro=outro_cadpro,
+            propriedade=self.propriedade,
+        )
+        lote_3 = LoteGraos.objects.create(
+            armazem=armazem_2,
+            cad_pro=outro_cadpro,
+            codigo="SOJA-003",
+            cultura="Soja",
+            safra="2026/2027",
+            classificacao_codigo="EXPORTACAO",
+        )
+        creditar_producao(
+            usuario=self.usuario,
+            lote=lote_3,
+            quantidade_kg="50",
+            chave_idempotencia="painel:credito:b1",
+        )
+
+        resposta = self.client.get(
+            "/api/graos/saldos/painel/",
+            {
+                "propriedade": self.propriedade.pk,
+                "cultura": "soja",
+                "safra": "2026/2027",
+            },
+        )
+
+        self.assertEqual(resposta.status_code, 200, resposta.data)
+        self.assertEqual(resposta.data["resumo"]["cadpros"], 2)
+        self.assertEqual(resposta.data["resumo"]["posicoes"], 3)
+        self.assertEqual(resposta.data["resumo"]["saldo_fisico_kg"], "1050.000")
+        self.assertEqual(
+            resposta.data["resumo"]["saldo_comprometido_kg"],
+            "100.000",
+        )
+        self.assertEqual(resposta.data["resumo"]["saldo_disponivel_kg"], "950.000")
+        consolidado = {
+            item["cad_pro"]: item for item in resposta.data["consolidado_cadpro"]
+        }
+        self.assertEqual(consolidado[str(self.cad_pro.pk)]["posicoes"], 2)
+        self.assertEqual(
+            consolidado[str(self.cad_pro.pk)]["saldo_fisico_kg"],
+            "1000.000",
+        )
+        self.assertCountEqual(
+            [item["armazem"] for item in resposta.data["posicoes"]],
+            [self.armazem.pk, armazem_2.pk, armazem_2.pk],
+        )
+
+        filtrada = self.client.get(
+            "/api/graos/saldos/painel/",
+            {
+                "cad_pro": outro_cadpro.pk,
+                "classificacao_codigo": "exportacao",
+                "armazem": armazem_2.pk,
+            },
+        )
+        self.assertEqual(filtrada.status_code, 200, filtrada.data)
+        self.assertEqual(filtrada.data["resumo"]["cadpros"], 1)
+        self.assertEqual(filtrada.data["resumo"]["saldo_fisico_kg"], "50.000")
+
+    def test_movimentacoes_expoem_rastreabilidade_e_filtro_cadpro(self):
+        movimento = self.creditar("25", "painel:rastreabilidade").movimentacoes[0]
+
+        resposta = self.client.get(
+            "/api/graos/movimentacoes/",
+            {
+                "cad_pro": self.cad_pro.pk,
+                "operacao": "credito_producao",
+                "cultura": self.lote.cultura.lower(),
+                "safra": self.lote.safra,
+                "classificacao_codigo": "PADRAO",
+            },
+        )
+
+        self.assertEqual(resposta.status_code, 200, resposta.data)
+        self.assertEqual(len(resposta.data), 1)
+        self.assertEqual(resposta.data[0]["id"], int(movimento.pk))
+        self.assertEqual(resposta.data[0]["cad_pro"], str(self.cad_pro.pk))
+        self.assertEqual(resposta.data[0]["cad_pro_codigo"], self.cad_pro.codigo)
+        self.assertEqual(resposta.data[0]["cultura"], self.lote.cultura)
+        self.assertEqual(resposta.data[0]["safra"], self.lote.safra)
+        posicoes = self.client.get(
+            "/api/graos/saldos/",
+            {"cultura": self.lote.cultura.lower()},
+        )
+        self.assertEqual(posicoes.status_code, 200, posicoes.data)
+        self.assertEqual(len(posicoes.data), 1)
+        self.assertEqual(posicoes.data[0]["id"], int(movimento.posicao_id))
+        self.assertEqual(
+            resposta.data[0]["origem_chave_idempotencia"],
+            "painel:rastreabilidade",
+        )
+
     def test_conflito_operacional_tem_contrato_de_erro(self):
         resposta = self.client.post(
             "/api/graos/saldos/reservar/",
