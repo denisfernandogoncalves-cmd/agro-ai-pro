@@ -247,6 +247,40 @@ class LoteGraosSerializer(serializers.ModelSerializer):
                 )
         return attrs
 
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        lote_bloqueado = LoteGraos.objects.select_for_update().get(pk=instance.pk)
+        campos_estruturais = (
+            "armazem",
+            "cad_pro",
+            "talhao",
+            "cultura",
+            "safra",
+            "classificacao_codigo",
+        )
+        alterados = []
+        for campo in campos_estruturais:
+            if campo not in validated_data:
+                continue
+            valor_atual = getattr(lote_bloqueado, f"{campo}_id", None)
+            novo_valor = validated_data[campo]
+            if campo in ("armazem", "cad_pro", "talhao"):
+                novo_valor = getattr(novo_valor, "pk", None)
+            else:
+                valor_atual = getattr(lote_bloqueado, campo)
+            if novo_valor != valor_atual:
+                alterados.append(campo)
+        if alterados and lote_bloqueado.movimentacoes.exists():
+            raise serializers.ValidationError(
+                {
+                    "detail": (
+                        "O contexto do lote não pode mudar após a primeira "
+                        "movimentação."
+                    )
+                }
+            )
+        return super().update(lote_bloqueado, validated_data)
+
 
 class MovimentacaoGraosSerializer(serializers.ModelSerializer):
     lote_codigo = serializers.CharField(source="lote.codigo", read_only=True)

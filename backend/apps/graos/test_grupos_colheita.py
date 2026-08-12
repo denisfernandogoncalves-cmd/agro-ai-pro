@@ -25,8 +25,9 @@ from .models import (
     MovimentacaoGraos,
     PosicaoSaldoGraos,
 )
-from .serializers import GrupoColheitaSerializer
+from .serializers import GrupoColheitaSerializer, LoteGraosSerializer
 from .services import (
+    _validar_estado_lote,
     bloquear_cadpro_para_saldo,
     creditar_producao,
     estornar_movimentacao,
@@ -439,3 +440,226 @@ class GrupoColheitaConcorrenciaPostgreSQLTests(CargaColhidaBase, TransactionTest
             )
 
         self._concorrer_aumento_com_inativacao(operacao)
+
+    def test_credito_bloqueia_cadpro_autoritativo_apos_troca_concorrente(self):
+        lote = self._criar_lote_saldo(codigo="LOCK-CADPRO-AUTORITATIVO")
+        lote_recebido = LoteGraos.objects.get(pk=lote.pk)
+        cad_pro_destino = CADPro.objects.create(
+            codigo="LOCK-CADPRO-DESTINO",
+            descricao="CAD/PRO autoritativo do lote",
+        )
+        CADProPropriedade.objects.create(
+            cad_pro=cad_pro_destino,
+            propriedade=self.propriedade,
+        )
+        alteracao_concluida = Event()
+        cadpro_bloqueado = Event()
+        inativacao_tentando_lock = Event()
+        operacao_ident = [None]
+        inativacao_ident = [None]
+        locks_operacao = []
+        lock_real = bloquear_cadpro_para_saldo
+
+        def lock_observado(cad_pro_id):
+            if get_ident() == inativacao_ident[0]:
+                inativacao_tentando_lock.set()
+            bloqueado = lock_real(cad_pro_id)
+            if get_ident() == operacao_ident[0]:
+                locks_operacao.append(bloqueado.pk)
+                cadpro_bloqueado.set()
+                if not inativacao_tentando_lock.wait(10):
+                    raise AssertionError("A inativação não tentou adquirir o lock.")
+            return bloqueado
+
+        def alterar_cadpro():
+            close_old_connections()
+            try:
+                serializer = LoteGraosSerializer(
+                    LoteGraos.objects.get(pk=lote.pk),
+                    data={"cad_pro": cad_pro_destino.pk},
+                    partial=True,
+                )
+                serializer.is_valid(raise_exception=True)
+                serializer.save()
+                alteracao_concluida.set()
+                return "cadpro_alterado"
+            finally:
+                close_old_connections()
+
+        def creditar():
+            close_old_connections()
+            try:
+                if not alteracao_concluida.wait(10):
+                    raise AssertionError("A troca do CAD/PRO não foi concluída.")
+                operacao_ident[0] = get_ident()
+                creditar_producao(
+                    usuario=get_user_model().objects.get(pk=self.usuario.pk),
+                    lote=lote_recebido,
+                    quantidade_kg="100",
+                    chave_idempotencia="concorrencia:cadpro:autoritativo:credito",
+                )
+                return "credito_criado"
+            finally:
+                close_old_connections()
+
+        def inativar_destino():
+            close_old_connections()
+            try:
+                if not cadpro_bloqueado.wait(10):
+                    raise AssertionError("O CAD/PRO autoritativo não foi bloqueado.")
+                inativacao_ident[0] = get_ident()
+                try:
+                    inativar_cadpro(cad_pro_destino.pk)
+                except CADProComSaldoError:
+                    return "inativacao_bloqueada"
+                return "cadpro_inativado"
+            finally:
+                close_old_connections()
+
+        with patch(
+            "apps.graos.services.bloquear_cadpro_para_saldo",
+            side_effect=lock_observado,
+        ):
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                alteracao = executor.submit(alterar_cadpro)
+                credito = executor.submit(creditar)
+                inativacao = executor.submit(inativar_destino)
+                self.assertEqual(alteracao.result(timeout=20), "cadpro_alterado")
+                self.assertEqual(credito.result(timeout=20), "credito_criado")
+                self.assertEqual(
+                    inativacao.result(timeout=20),
+                    "inativacao_bloqueada",
+                )
+
+        lote.refresh_from_db()
+        cad_pro_destino.refresh_from_db()
+        self.assertEqual(lote.cad_pro_id, cad_pro_destino.pk)
+        self.assertEqual(locks_operacao, [cad_pro_destino.pk])
+        self.assertTrue(cad_pro_destino.ativo)
+        self.assertEqual(
+            PosicaoSaldoGraos.objects.get(cad_pro=cad_pro_destino).saldo_fisico_kg,
+            Decimal("100.000"),
+        )
+        self.assertFalse(PosicaoSaldoGraos.objects.filter(cad_pro=self.cad_pro).exists())
+
+    def test_devolucao_rejeita_troca_validada_enquanto_lote_esta_bloqueado(self):
+        lote = self._criar_lote_saldo(codigo="LOCK-LOTE-DEVOLUCAO")
+        cad_pro_alternativo = CADPro.objects.create(
+            codigo="LOCK-CADPRO-ALTERNATIVO",
+            descricao="CAD/PRO alternativo concorrente",
+        )
+        CADProPropriedade.objects.create(
+            cad_pro=cad_pro_alternativo,
+            propriedade=self.propriedade,
+        )
+        patch_validado = Event()
+        lote_bloqueado = Event()
+        patch_salvando = Event()
+        inativacao_tentando_lock = Event()
+        operacao_ident = [None]
+        inativacao_ident = [None]
+        locks_operacao = []
+        lock_real = bloquear_cadpro_para_saldo
+        validar_real = _validar_estado_lote
+
+        def lock_observado(cad_pro_id):
+            if get_ident() == inativacao_ident[0]:
+                inativacao_tentando_lock.set()
+            bloqueado = lock_real(cad_pro_id)
+            if get_ident() == operacao_ident[0]:
+                locks_operacao.append(bloqueado.pk)
+            return bloqueado
+
+        def validacao_observada(lote_autoritativo):
+            validado = validar_real(lote_autoritativo)
+            if get_ident() == operacao_ident[0]:
+                lote_bloqueado.set()
+                if not patch_salvando.wait(10):
+                    raise AssertionError("O PATCH não tentou salvar o lote.")
+                if not inativacao_tentando_lock.wait(10):
+                    raise AssertionError("A inativação não tentou adquirir o lock.")
+            return validado
+
+        def alterar_cadpro():
+            close_old_connections()
+            try:
+                serializer = LoteGraosSerializer(
+                    LoteGraos.objects.get(pk=lote.pk),
+                    data={"cad_pro": cad_pro_alternativo.pk},
+                    partial=True,
+                )
+                serializer.is_valid(raise_exception=True)
+                patch_validado.set()
+                if not lote_bloqueado.wait(10):
+                    raise AssertionError("A devolução não bloqueou o lote.")
+                patch_salvando.set()
+                try:
+                    serializer.save()
+                except serializers.ValidationError:
+                    return "patch_rejeitado"
+                return "patch_aplicado"
+            finally:
+                close_old_connections()
+
+        def devolver():
+            close_old_connections()
+            try:
+                if not patch_validado.wait(10):
+                    raise AssertionError("O PATCH não foi validado.")
+                operacao_ident[0] = get_ident()
+                registrar_devolucao(
+                    usuario=get_user_model().objects.get(pk=self.usuario.pk),
+                    lote=LoteGraos.objects.get(pk=lote.pk),
+                    quantidade_kg="100",
+                    chave_idempotencia="concorrencia:cadpro:lote:devolucao",
+                )
+                return "devolucao_criada"
+            finally:
+                close_old_connections()
+
+        def inativar_atual():
+            close_old_connections()
+            try:
+                if not lote_bloqueado.wait(10):
+                    raise AssertionError("A devolução não bloqueou o lote.")
+                inativacao_ident[0] = get_ident()
+                try:
+                    inativar_cadpro(self.cad_pro.pk)
+                except CADProComSaldoError:
+                    return "inativacao_bloqueada"
+                return "cadpro_inativado"
+            finally:
+                close_old_connections()
+
+        with patch(
+            "apps.graos.services.bloquear_cadpro_para_saldo",
+            side_effect=lock_observado,
+        ), patch(
+            "apps.graos.services._validar_estado_lote",
+            side_effect=validacao_observada,
+        ):
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                alteracao = executor.submit(alterar_cadpro)
+                devolucao = executor.submit(devolver)
+                inativacao = executor.submit(inativar_atual)
+                self.assertEqual(devolucao.result(timeout=20), "devolucao_criada")
+                self.assertEqual(alteracao.result(timeout=20), "patch_rejeitado")
+                self.assertEqual(
+                    inativacao.result(timeout=20),
+                    "inativacao_bloqueada",
+                )
+
+        lote.refresh_from_db()
+        self.cad_pro.refresh_from_db()
+        cad_pro_alternativo.refresh_from_db()
+        self.assertEqual(lote.cad_pro_id, self.cad_pro.pk)
+        self.assertEqual(locks_operacao, [self.cad_pro.pk])
+        self.assertTrue(self.cad_pro.ativo)
+        self.assertTrue(cad_pro_alternativo.ativo)
+        self.assertEqual(
+            PosicaoSaldoGraos.objects.get(cad_pro=self.cad_pro).saldo_fisico_kg,
+            Decimal("100.000"),
+        )
+        self.assertFalse(
+            PosicaoSaldoGraos.objects.filter(cad_pro=cad_pro_alternativo).exists()
+        )
