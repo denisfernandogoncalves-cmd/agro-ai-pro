@@ -264,6 +264,7 @@ try {
   );
   assert.match(htmlGrupos, /Novo grupo/);
   assert.match(htmlGrupos, /Armazenagem padrão/);
+  assert.match(htmlGrupos, /Observações/);
   assert.match(htmlGrupos, /Filtrar por CAD\/PRO/);
   assert.match(htmlGrupos, /Filtrar por armazenagem/);
   assert.match(htmlGrupos, /Nenhum grupo de colheita encontrado/);

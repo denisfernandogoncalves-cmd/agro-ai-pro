@@ -29,6 +29,7 @@ export type GrupoColheita = {
   nome: string;
   cultura: string;
   safra: string;
+  observacoes: string;
   tolerancia_umidade_percentual: string;
   desconto_umidade_por_ponto: string;
   tolerancia_impureza_percentual: string;
