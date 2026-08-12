@@ -48,6 +48,7 @@ class CargaColhidaBase:
         self.grupo = GrupoColheita.objects.create(
             propriedade=self.propriedade,
             cad_pro=self.cad_pro,
+            armazem_padrao=self.armazem,
             nome="Equipe Norte",
             cultura="Soja",
             safra="2026/2027",
@@ -179,6 +180,7 @@ class CargaColhidaApiTests(CargaColhidaBase, APITestCase):
             {
                 "propriedade": self.propriedade.pk,
                 "cad_pro": str(self.cad_pro.pk),
+                "armazem_padrao": self.armazem.pk,
                 "nome": "Equipe Sul",
                 "cultura": "Milho",
                 "safra": "2026/2027",

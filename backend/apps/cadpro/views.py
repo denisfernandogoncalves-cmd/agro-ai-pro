@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from .models import CADPro
 from .selectors import selecionar_cadpros, selecionar_vinculos
 from .serializers import CADProPropriedadeSerializer, CADProSerializer
-from .services import inativar_cadpro
+from .services import CADProComSaldoError, inativar_cadpro
 
 
 class CADProViewSet(
@@ -54,5 +54,11 @@ class CADProViewSet(
     @action(detail=True, methods=("post",))
     def inativar(self, request, pk=None):
         self.get_object()
-        cad_pro = inativar_cadpro(pk)
+        try:
+            cad_pro = inativar_cadpro(pk)
+        except CADProComSaldoError as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_409_CONFLICT,
+            )
         return Response(self.get_serializer(cad_pro).data)

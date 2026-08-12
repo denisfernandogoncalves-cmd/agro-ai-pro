@@ -3,6 +3,8 @@ from decimal import Decimal
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 
+from apps.cadpro.models import CADPro
+
 from .models import (
     ArmazemGraos,
     CargaColhida,
@@ -15,6 +17,11 @@ from .models import (
 )
 from .cargas_services import registrar_carga_colhida
 from .services import ResultadoOperacaoSaldo, registrar_movimentacao, saldo_armazem
+
+
+class UUIDPrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
+    def to_representation(self, value):
+        return str(super().to_representation(value))
 
 
 class ArmazemGraosSerializer(serializers.ModelSerializer):
@@ -73,16 +80,31 @@ class ArmazemGraosSerializer(serializers.ModelSerializer):
 
 
 class GrupoColheitaSerializer(serializers.ModelSerializer):
+    cad_pro = UUIDPrimaryKeyRelatedField(queryset=CADPro.objects.all())
     propriedade_nome = serializers.CharField(source="propriedade.nome", read_only=True)
     cad_pro_codigo = serializers.CharField(source="cad_pro.codigo", read_only=True)
     criado_por_nome = serializers.CharField(source="criado_por.username", read_only=True)
+    armazem_padrao_nome = serializers.CharField(
+        source="armazem_padrao.nome",
+        read_only=True,
+    )
+    contexto_congelado = serializers.SerializerMethodField()
 
     class Meta:
         model = GrupoColheita
         fields = "__all__"
         read_only_fields = ("criado_por", "criado_em", "atualizado_em")
 
+    def get_contexto_congelado(self, obj):
+        if hasattr(obj, "contexto_congelado_db"):
+            return obj.contexto_congelado_db
+        return obj.cargas.exists()
+
     def validate(self, attrs):
+        if not self.instance and not attrs.get("armazem_padrao"):
+            raise serializers.ValidationError(
+                {"armazem_padrao": "Informe a armazenagem padrão do grupo."}
+            )
         instancia = self.instance or GrupoColheita()
         for campo, valor in attrs.items():
             setattr(instancia, campo, valor)
@@ -116,7 +138,7 @@ class CargaColhidaSerializer(serializers.ModelSerializer):
         source="grupo_colheita.nome",
         read_only=True,
     )
-    cad_pro = serializers.IntegerField(source="grupo_colheita.cad_pro_id", read_only=True)
+    cad_pro = serializers.UUIDField(source="grupo_colheita.cad_pro_id", read_only=True)
     cad_pro_codigo = serializers.CharField(
         source="grupo_colheita.cad_pro.codigo",
         read_only=True,
@@ -140,6 +162,7 @@ class CargaColhidaSerializer(serializers.ModelSerializer):
             "criado_por",
             "criado_em",
         )
+        extra_kwargs = {"armazem": {"required": False}}
 
     def create(self, validated_data):
         return registrar_carga_colhida(
@@ -149,6 +172,7 @@ class CargaColhidaSerializer(serializers.ModelSerializer):
 
 
 class LoteGraosSerializer(serializers.ModelSerializer):
+    cad_pro = UUIDPrimaryKeyRelatedField(queryset=CADPro.objects.all())
     armazem_nome = serializers.CharField(source="armazem.nome", read_only=True)
     propriedade_id = serializers.IntegerField(
         source="armazem.propriedade_id",
@@ -320,6 +344,7 @@ class FiltrosGraosSerializer(serializers.Serializer):
 
 
 class PosicaoSaldoGraosSerializer(serializers.ModelSerializer):
+    cad_pro = serializers.UUIDField(source="cad_pro_id", read_only=True)
     saldo_disponivel_kg = serializers.DecimalField(
         max_digits=16,
         decimal_places=3,

@@ -218,6 +218,12 @@ class GrupoColheita(models.Model):
         on_delete=models.PROTECT,
         related_name="grupos_colheita",
     )
+    armazem_padrao = models.ForeignKey(
+        ArmazemGraos,
+        on_delete=models.PROTECT,
+        related_name="grupos_colheita_padrao",
+        null=True,
+    )
     nome = models.CharField(max_length=120)
     cultura = models.CharField(max_length=50)
     safra = models.CharField(max_length=20)
@@ -305,8 +311,36 @@ class GrupoColheita(models.Model):
                 cad_pro__ativo=True,
             ).exists():
                 erros["cad_pro"] = "O CAD/PRO deve possuir vínculo ativo com a propriedade."
+        if self.armazem_padrao_id and self.propriedade_id:
+            if self.armazem_padrao.propriedade_id != self.propriedade_id:
+                erros["armazem_padrao"] = (
+                    "A armazenagem padrão deve pertencer à propriedade do grupo."
+                )
+            elif not self.armazem_padrao.ativo:
+                erros["armazem_padrao"] = "A armazenagem padrão deve estar ativa."
+        if self.pk and CargaColhida.objects.filter(grupo_colheita_id=self.pk).exists():
+            original = GrupoColheita.objects.get(pk=self.pk)
+            campos_estruturais = (
+                "propriedade_id",
+                "cad_pro_id",
+                "cultura",
+                "safra",
+                "armazem_padrao_id",
+            )
+            if any(
+                getattr(self, campo) != getattr(original, campo)
+                for campo in campos_estruturais
+            ):
+                erros["detail"] = (
+                    "O contexto estrutural do grupo não pode mudar após a "
+                    "primeira carga vinculada."
+                )
         if erros:
             raise ValidationError(erros)
+
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        return super().save(*args, **kwargs)
 
     def __str__(self):
         return f"{self.nome} - {self.cultura} ({self.safra})"

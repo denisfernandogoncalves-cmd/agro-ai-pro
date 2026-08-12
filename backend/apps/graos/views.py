@@ -1,4 +1,5 @@
 from django.db.models.deletion import ProtectedError
+from django.db.models import Exists, OuterRef
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -15,6 +16,7 @@ from .models import (
     LoteGraos,
     MovimentacaoGraos,
 )
+from .grupos_services import inativar_grupo_colheita
 from .selectors import selecionar_origens, selecionar_reservas
 from .serializers import (
     AjusteSaldoSerializer,
@@ -123,18 +125,25 @@ class GrupoColheitaViewSet(CadastroGraosMixin, viewsets.ModelViewSet):
     queryset = GrupoColheita.objects.select_related(
         "propriedade",
         "cad_pro",
+        "armazem_padrao",
         "criado_por",
+    ).annotate(
+        contexto_congelado_db=Exists(
+            CargaColhida.objects.filter(grupo_colheita_id=OuterRef("pk"))
+        )
     )
     serializer_class = GrupoColheitaSerializer
     search_fields = ("nome", "cultura", "safra", "propriedade__nome", "cad_pro__codigo")
-    ordering_fields = ("nome", "cultura", "safra", "criado_em")
+    ordering_fields = ("nome", "cultura", "safra", "ativo", "criado_em")
     ordering = ("-safra", "cultura", "nome", "id")
+    http_method_names = ("get", "post", "patch", "head", "options")
 
     def get_queryset(self):
         queryset = super().get_queryset()
         for parametro, campo in (
             ("propriedade", "propriedade_id"),
             ("cad_pro", "cad_pro_id"),
+            ("armazem_padrao", "armazem_padrao_id"),
             ("safra", "safra"),
         ):
             valor = self.request.query_params.get(parametro, "").strip()
@@ -147,6 +156,12 @@ class GrupoColheitaViewSet(CadastroGraosMixin, viewsets.ModelViewSet):
         if ativo in {"true", "false"}:
             queryset = queryset.filter(ativo=ativo == "true")
         return queryset
+
+    @action(detail=True, methods=("post",))
+    def inativar(self, request, pk=None):
+        self.get_object()
+        grupo = inativar_grupo_colheita(pk)
+        return Response(self.get_serializer(grupo).data)
 
 
 class CargaColhidaViewSet(
