@@ -6,26 +6,18 @@ from django.db import migrations, models
 
 def preencher_armazem_padrao(apps, schema_editor):
     GrupoColheita = apps.get_model("graos", "GrupoColheita")
-    ArmazemGraos = apps.get_model("graos", "ArmazemGraos")
     CargaColhida = apps.get_model("graos", "CargaColhida")
     for grupo in GrupoColheita.objects.filter(armazem_padrao__isnull=True):
         armazem_id = (
-            CargaColhida.objects.filter(grupo_colheita_id=grupo.pk)
-            .filter(armazem__ativo=True)
+            CargaColhida.objects.filter(
+                grupo_colheita_id=grupo.pk,
+                armazem__ativo=True,
+                armazem__propriedade_id=grupo.propriedade_id,
+            )
             .order_by("criado_em", "pk")
             .values_list("armazem_id", flat=True)
             .first()
         )
-        if armazem_id is None:
-            armazem_id = (
-                ArmazemGraos.objects.filter(
-                    propriedade_id=grupo.propriedade_id,
-                    ativo=True,
-                )
-                .order_by("nome", "pk")
-                .values_list("pk", flat=True)
-                .first()
-            )
         if armazem_id is not None:
             GrupoColheita.objects.filter(pk=grupo.pk).update(
                 armazem_padrao_id=armazem_id
