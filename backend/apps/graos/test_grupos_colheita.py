@@ -28,6 +28,7 @@ from .models import (
 from .serializers import GrupoColheitaSerializer, LoteGraosSerializer
 from .services import (
     _validar_estado_lote,
+    SaldoGraosError,
     bloquear_cadpro_para_saldo,
     creditar_producao,
     estornar_movimentacao,
@@ -441,106 +442,64 @@ class GrupoColheitaConcorrenciaPostgreSQLTests(CargaColhidaBase, TransactionTest
 
         self._concorrer_aumento_com_inativacao(operacao)
 
-    def test_credito_bloqueia_cadpro_autoritativo_apos_troca_concorrente(self):
-        lote = self._criar_lote_saldo(codigo="LOCK-CADPRO-AUTORITATIVO")
+    def _assert_saldos_cadpro_zerados(self, *cad_pros):
+        for cad_pro in cad_pros:
+            total = PosicaoSaldoGraos.objects.filter(cad_pro=cad_pro).aggregate(
+                total=Sum("saldo_fisico_kg")
+            )["total"]
+            self.assertEqual(total or Decimal("0.000"), Decimal("0.000"))
+
+    def _preparar_lote_obsoleto(self, *, codigo_lote, codigo_cadpro):
+        lote = self._criar_lote_saldo(codigo=codigo_lote)
         lote_recebido = LoteGraos.objects.get(pk=lote.pk)
         cad_pro_destino = CADPro.objects.create(
-            codigo="LOCK-CADPRO-DESTINO",
+            codigo=codigo_cadpro,
             descricao="CAD/PRO autoritativo do lote",
         )
         CADProPropriedade.objects.create(
             cad_pro=cad_pro_destino,
             propriedade=self.propriedade,
         )
-        alteracao_concluida = Event()
-        cadpro_bloqueado = Event()
-        inativacao_tentando_lock = Event()
-        operacao_ident = [None]
-        inativacao_ident = [None]
-        locks_operacao = []
-        lock_real = bloquear_cadpro_para_saldo
+        LoteGraos.objects.filter(pk=lote.pk).update(cad_pro=cad_pro_destino)
+        return lote_recebido, cad_pro_destino
 
-        def lock_observado(cad_pro_id):
-            if get_ident() == inativacao_ident[0]:
-                inativacao_tentando_lock.set()
-            bloqueado = lock_real(cad_pro_id)
-            if get_ident() == operacao_ident[0]:
-                locks_operacao.append(bloqueado.pk)
-                cadpro_bloqueado.set()
-                if not inativacao_tentando_lock.wait(10):
-                    raise AssertionError("A inativação não tentou adquirir o lock.")
-            return bloqueado
+    def test_credito_rejeita_lote_obsoleto_apos_troca_de_cadpro(self):
+        lote_recebido, cad_pro_destino = self._preparar_lote_obsoleto(
+            codigo_lote="LOTE-OBSOLETO-CREDITO",
+            codigo_cadpro="CADPRO-DESTINO-CREDITO",
+        )
 
-        def alterar_cadpro():
-            close_old_connections()
-            try:
-                serializer = LoteGraosSerializer(
-                    LoteGraos.objects.get(pk=lote.pk),
-                    data={"cad_pro": cad_pro_destino.pk},
-                    partial=True,
-                )
-                serializer.is_valid(raise_exception=True)
-                serializer.save()
-                alteracao_concluida.set()
-                return "cadpro_alterado"
-            finally:
-                close_old_connections()
-
-        def creditar():
-            close_old_connections()
-            try:
-                if not alteracao_concluida.wait(10):
-                    raise AssertionError("A troca do CAD/PRO não foi concluída.")
-                operacao_ident[0] = get_ident()
+        with patch("apps.graos.services.bloquear_cadpro_para_saldo") as bloquear:
+            with self.assertRaisesMessage(SaldoGraosError, "mudou desde a leitura"):
                 creditar_producao(
-                    usuario=get_user_model().objects.get(pk=self.usuario.pk),
+                    usuario=self.usuario,
                     lote=lote_recebido,
                     quantidade_kg="100",
-                    chave_idempotencia="concorrencia:cadpro:autoritativo:credito",
+                    chave_idempotencia="lote-obsoleto:credito",
                 )
-                return "credito_criado"
-            finally:
-                close_old_connections()
+            bloquear.assert_not_called()
 
-        def inativar_destino():
-            close_old_connections()
-            try:
-                if not cadpro_bloqueado.wait(10):
-                    raise AssertionError("O CAD/PRO autoritativo não foi bloqueado.")
-                inativacao_ident[0] = get_ident()
-                try:
-                    inativar_cadpro(cad_pro_destino.pk)
-                except CADProComSaldoError:
-                    return "inativacao_bloqueada"
-                return "cadpro_inativado"
-            finally:
-                close_old_connections()
+        self.assertEqual(MovimentacaoGraos.objects.count(), 0)
+        self._assert_saldos_cadpro_zerados(self.cad_pro, cad_pro_destino)
 
-        with patch(
-            "apps.graos.services.bloquear_cadpro_para_saldo",
-            side_effect=lock_observado,
-        ):
-            with ThreadPoolExecutor(max_workers=3) as executor:
-                alteracao = executor.submit(alterar_cadpro)
-                credito = executor.submit(creditar)
-                inativacao = executor.submit(inativar_destino)
-                self.assertEqual(alteracao.result(timeout=20), "cadpro_alterado")
-                self.assertEqual(credito.result(timeout=20), "credito_criado")
-                self.assertEqual(
-                    inativacao.result(timeout=20),
-                    "inativacao_bloqueada",
-                )
-
-        lote.refresh_from_db()
-        cad_pro_destino.refresh_from_db()
-        self.assertEqual(lote.cad_pro_id, cad_pro_destino.pk)
-        self.assertEqual(locks_operacao, [cad_pro_destino.pk])
-        self.assertTrue(cad_pro_destino.ativo)
-        self.assertEqual(
-            PosicaoSaldoGraos.objects.get(cad_pro=cad_pro_destino).saldo_fisico_kg,
-            Decimal("100.000"),
+    def test_ajuste_positivo_rejeita_lote_obsoleto_apos_troca_de_cadpro(self):
+        lote_recebido, cad_pro_destino = self._preparar_lote_obsoleto(
+            codigo_lote="LOTE-OBSOLETO-AJUSTE",
+            codigo_cadpro="CADPRO-DESTINO-AJUSTE",
         )
-        self.assertFalse(PosicaoSaldoGraos.objects.filter(cad_pro=self.cad_pro).exists())
+
+        with patch("apps.graos.services.bloquear_cadpro_para_saldo") as bloquear:
+            with self.assertRaisesMessage(SaldoGraosError, "mudou desde a leitura"):
+                registrar_ajuste(
+                    usuario=self.usuario,
+                    lote=lote_recebido,
+                    delta_fisico_kg="100",
+                    chave_idempotencia="lote-obsoleto:ajuste",
+                )
+            bloquear.assert_not_called()
+
+        self.assertEqual(MovimentacaoGraos.objects.count(), 0)
+        self._assert_saldos_cadpro_zerados(self.cad_pro, cad_pro_destino)
 
     def test_devolucao_rejeita_troca_validada_enquanto_lote_esta_bloqueado(self):
         lote = self._criar_lote_saldo(codigo="LOCK-LOTE-DEVOLUCAO")

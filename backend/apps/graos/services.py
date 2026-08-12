@@ -448,7 +448,12 @@ def _validar_lote(lote):
 
 
 def _bloquear_lote_para_aumento(lote):
+    cad_pro_id_recebido = lote.cad_pro_id
     referencia = LoteGraos.objects.only("cad_pro_id").get(pk=lote.pk)
+    if cad_pro_id_recebido != referencia.cad_pro_id:
+        raise SaldoGraosError(
+            "O CAD/PRO do lote mudou desde a leitura. Atualize os dados e tente novamente."
+        )
     if not referencia.cad_pro_id:
         raise SaldoGraosError("O lote deve estar normalizado com um CAD/PRO.")
     _bloquear_cadpros_ativos_para_saldo((referencia.cad_pro_id,))
