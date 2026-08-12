@@ -349,7 +349,6 @@ class MovimentacaoGraosViewSet(
             ("cad_pro", "posicao__cad_pro_id"),
             ("armazem", "posicao__armazem_id"),
             ("propriedade", "posicao__armazem__propriedade_id"),
-            ("cultura", "posicao__cultura"),
             ("safra", "posicao__safra"),
             ("classificacao_codigo", "posicao__classificacao_codigo"),
             ("origem", "origem_id"),
@@ -359,7 +358,7 @@ class MovimentacaoGraosViewSet(
                 queryset = queryset.filter(**{campo: valor})
         cultura = self.request.query_params.get("cultura", "").strip()
         if cultura:
-            queryset = queryset.filter(lote__cultura__iexact=cultura)
+            queryset = queryset.filter(posicao__cultura__iexact=cultura)
         return queryset
 
     @action(detail=True, methods=["post"], url_path="estornar")

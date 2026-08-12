@@ -48,8 +48,11 @@ try {
   const { default: GruposColheitaPage } = await servidor.ssrLoadModule(
     "/src/pages/GruposColheita/GruposColheitaPage.tsx",
   );
-  const { default: ProducaoSaldosPage } = await servidor.ssrLoadModule(
+  const { default: ProducaoSaldosPage, BotaoCreditarProducao } = await servidor.ssrLoadModule(
     "/src/pages/ProducaoSaldos/ProducaoSaldosPage.tsx",
+  );
+  const { criarControladorCreditoProducao } = await servidor.ssrLoadModule(
+    "/src/pages/ProducaoSaldos/creditoProducaoSubmission.ts",
   );
   const { default: MaquinasPage } = await servidor.ssrLoadModule(
     "/src/pages/Maquinas/MaquinasPage.tsx",
@@ -282,6 +285,61 @@ try {
   assert.match(htmlProducaoSaldos, /classificação · armazenagem/);
   assert.match(htmlProducaoSaldos, /Rastreabilidade recente/);
 
+  const htmlBotaoPendente = renderToStaticMarkup(
+    React.createElement(BotaoCreditarProducao, { desabilitado: true }),
+  );
+  assert.match(htmlBotaoPendente, /disabled=""/);
+
+  const chaves = ["tentativa-1", "tentativa-2", "tentativa-3"];
+  const controlador = criarControladorCreditoProducao(() => chaves.shift());
+  const payloadCredito = {
+    lote: 1,
+    quantidade_kg: "100.000",
+    data_movimento: "2026-08-12",
+    referencia_externa: "ROM-1",
+    observacoes: "",
+  };
+  let liberarCredito;
+  let chamadasCredito = 0;
+  let efeitoLedger = 0;
+  const enviarCreditoPendente = (dados) => {
+    chamadasCredito += 1;
+    assert.equal(dados.chave_idempotencia, "tentativa-1");
+    return new Promise((resolve) => {
+      liberarCredito = () => {
+        efeitoLedger += 1;
+        resolve({ idempotente: false });
+      };
+    });
+  };
+  const primeiroClique = controlador.enviar(payloadCredito, enviarCreditoPendente);
+  const segundoClique = controlador.enviar(payloadCredito, enviarCreditoPendente);
+  assert.equal(controlador.emAndamento(), true);
+  assert.equal(chamadasCredito, 1);
+  assert.equal(primeiroClique, segundoClique);
+  liberarCredito();
+  await primeiroClique;
+  assert.equal(efeitoLedger, 1);
+  assert.equal(controlador.emAndamento(), false);
+
+  const erroEsperado = new Error("falha de rede");
+  let chaveDoErro;
+  await assert.rejects(
+    controlador.enviar(payloadCredito, async (dados) => {
+      chaveDoErro = dados.chave_idempotencia;
+      throw erroEsperado;
+    }),
+    erroEsperado,
+  );
+  await controlador.enviar(payloadCredito, async (dados) => {
+    assert.equal(dados.chave_idempotencia, chaveDoErro);
+    return { idempotente: true };
+  });
+  await controlador.enviar(payloadCredito, async (dados) => {
+    assert.notEqual(dados.chave_idempotencia, chaveDoErro);
+    return { idempotente: false };
+  });
+
   const htmlMaquinas = renderToStaticMarkup(
     React.createElement(MaquinasPage, { propriedades: [propriedade] }),
   );
@@ -311,7 +369,7 @@ try {
   );
   assert.match(serviceWorker, /pathname\.startsWith\(\"\/api\/\"\)/);
 
-  console.log("18 testes de componentes, geometria e PWA aprovados.");
+  console.log("19 testes de componentes, submissão, geometria e PWA aprovados.");
 } finally {
   await servidor.close();
 }

@@ -1,5 +1,5 @@
 import axios from "axios";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { Propriedade } from "../../api/propriedades";
 import {
@@ -13,6 +13,7 @@ import {
   PainelSaldos,
 } from "../../api/producaoSaldos";
 import { ArmazemGraos, CADPro } from "../../api/cargasColhidas";
+import { criarControladorCreditoProducao } from "./creditoProducaoSubmission";
 
 const filtrosVazios: FiltrosSaldo = {
   propriedade: "",
@@ -49,12 +50,11 @@ function mensagemErro(falha: unknown) {
   return "Não foi possível atualizar a produção e os saldos.";
 }
 
-function chaveIdempotencia() {
-  const uuid = globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random()}`;
-  return `producao-ui:${uuid}`;
-}
-
 type Props = { propriedades: Propriedade[] };
+
+export function BotaoCreditarProducao({ desabilitado }: { desabilitado: boolean }) {
+  return <button disabled={desabilitado} type="submit">Creditar produção</button>;
+}
 
 export default function ProducaoSaldosPage({ propriedades }: Props) {
   const [painel, setPainel] = useState<PainelSaldos | null>(null);
@@ -65,8 +65,10 @@ export default function ProducaoSaldosPage({ propriedades }: Props) {
   const [filtros, setFiltros] = useState<FiltrosSaldo>(filtrosVazios);
   const [credito, setCredito] = useState(creditoVazio);
   const [carregando, setCarregando] = useState(false);
+  const [creditando, setCreditando] = useState(false);
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
+  const controladorCredito = useRef(criarControladorCreditoProducao());
 
   async function carregar(filtrosAtuais = filtros) {
     setCarregando(true);
@@ -105,13 +107,15 @@ export default function ProducaoSaldosPage({ propriedades }: Props) {
 
   async function registrarProducao(evento: FormEvent) {
     evento.preventDefault();
+    if (controladorCredito.current.emAndamento()) return;
     setErro("");
     setSucesso("");
+    setCreditando(true);
     try {
-      const resultado = await creditarProducao({
-        ...credito,
-        chave_idempotencia: chaveIdempotencia(),
-      });
+      const resultado = await controladorCredito.current.enviar(
+        credito,
+        creditarProducao,
+      );
       setSucesso(
         resultado.idempotente
           ? "Produção já registrada anteriormente."
@@ -121,6 +125,8 @@ export default function ProducaoSaldosPage({ propriedades }: Props) {
       await carregar();
     } catch (falha) {
       setErro(mensagemErro(falha));
+    } finally {
+      setCreditando(false);
     }
   }
 
@@ -161,7 +167,7 @@ export default function ProducaoSaldosPage({ propriedades }: Props) {
           <label>Data do movimento<input required type="date" value={credito.data_movimento} onChange={(e) => setCredito({ ...credito, data_movimento: e.target.value })} /></label>
           <label>Referência externa<input maxLength={160} placeholder="Romaneio, ticket ou documento" value={credito.referencia_externa} onChange={(e) => setCredito({ ...credito, referencia_externa: e.target.value })} /></label>
           <label>Observações<textarea value={credito.observacoes} onChange={(e) => setCredito({ ...credito, observacoes: e.target.value })} /></label>
-          <button disabled={carregando} type="submit">Creditar produção</button>
+          <BotaoCreditarProducao desabilitado={carregando || creditando} />
         </form>
 
         <section className="conteudo saldo-consolidado">

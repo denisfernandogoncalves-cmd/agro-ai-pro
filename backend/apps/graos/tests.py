@@ -939,7 +939,7 @@ class SaldoGraosApiTests(GraosSaldoBase, APITestCase):
             {
                 "cad_pro": self.cad_pro.pk,
                 "operacao": "credito_producao",
-                "cultura": self.lote.cultura,
+                "cultura": self.lote.cultura.lower(),
                 "safra": self.lote.safra,
                 "classificacao_codigo": "PADRAO",
             },
@@ -952,6 +952,13 @@ class SaldoGraosApiTests(GraosSaldoBase, APITestCase):
         self.assertEqual(resposta.data[0]["cad_pro_codigo"], self.cad_pro.codigo)
         self.assertEqual(resposta.data[0]["cultura"], self.lote.cultura)
         self.assertEqual(resposta.data[0]["safra"], self.lote.safra)
+        posicoes = self.client.get(
+            "/api/graos/saldos/",
+            {"cultura": self.lote.cultura.lower()},
+        )
+        self.assertEqual(posicoes.status_code, 200, posicoes.data)
+        self.assertEqual(len(posicoes.data), 1)
+        self.assertEqual(posicoes.data[0]["id"], int(movimento.posicao_id))
         self.assertEqual(
             resposta.data[0]["origem_chave_idempotencia"],
             "painel:rastreabilidade",
