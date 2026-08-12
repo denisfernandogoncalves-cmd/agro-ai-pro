@@ -4,7 +4,7 @@ from decimal import Decimal
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
-from django.db import models
+from django.db import models, transaction
 from django.utils import timezone
 
 from apps.propriedades.models import Propriedade
@@ -227,6 +227,7 @@ class GrupoColheita(models.Model):
     nome = models.CharField(max_length=120)
     cultura = models.CharField(max_length=50)
     safra = models.CharField(max_length=20)
+    observacoes = models.TextField(blank=True)
     tolerancia_umidade_percentual = models.DecimalField(
         max_digits=5,
         decimal_places=2,
@@ -319,7 +320,9 @@ class GrupoColheita(models.Model):
             elif not self.armazem_padrao.ativo:
                 erros["armazem_padrao"] = "A armazenagem padrão deve estar ativa."
         if self.pk and CargaColhida.objects.filter(grupo_colheita_id=self.pk).exists():
-            original = GrupoColheita.objects.get(pk=self.pk)
+            original = getattr(self, "_original_bloqueado", None)
+            if original is None:
+                original = GrupoColheita.objects.get(pk=self.pk)
             campos_estruturais = (
                 "propriedade_id",
                 "cad_pro_id",
@@ -339,8 +342,18 @@ class GrupoColheita(models.Model):
             raise ValidationError(erros)
 
     def save(self, *args, **kwargs):
-        self.full_clean()
-        return super().save(*args, **kwargs)
+        if self._state.adding:
+            self.full_clean()
+            return super().save(*args, **kwargs)
+        with transaction.atomic():
+            self._original_bloqueado = (
+                GrupoColheita.objects.select_for_update().get(pk=self.pk)
+            )
+            try:
+                self.full_clean()
+                return super().save(*args, **kwargs)
+            finally:
+                del self._original_bloqueado
 
     def __str__(self):
         return f"{self.nome} - {self.cultura} ({self.safra})"

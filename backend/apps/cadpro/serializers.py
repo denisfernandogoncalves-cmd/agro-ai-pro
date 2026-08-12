@@ -49,7 +49,7 @@ class CADProSerializer(serializers.ModelSerializer):
 
 
 class CADProPropriedadeSerializer(serializers.ModelSerializer):
-    cad_pro = serializers.UUIDField(read_only=True)
+    cad_pro = serializers.UUIDField(source="cad_pro_id", read_only=True)
     propriedade = serializers.PrimaryKeyRelatedField(
         queryset=Propriedade.objects.all(),
     )

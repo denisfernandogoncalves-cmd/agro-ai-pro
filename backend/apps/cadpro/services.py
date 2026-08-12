@@ -60,7 +60,9 @@ def listar_propriedades_vinculadas(cad_pro_id):
 
 @transaction.atomic
 def inativar_cadpro(cad_pro_id):
-    cad_pro = CADPro.objects.select_for_update().get(pk=cad_pro_id)
+    from apps.graos.services import bloquear_cadpro_para_saldo
+
+    cad_pro = bloquear_cadpro_para_saldo(cad_pro_id)
     from apps.graos.models import PosicaoSaldoGraos
 
     if PosicaoSaldoGraos.objects.filter(

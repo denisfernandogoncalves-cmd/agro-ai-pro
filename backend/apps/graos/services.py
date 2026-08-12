@@ -28,6 +28,13 @@ ZERO = Decimal("0.000")
 CAMPO_QUANTIDADE = DecimalField(max_digits=16, decimal_places=3)
 
 
+def bloquear_cadpro_para_saldo(cad_pro_id):
+    """Lock canônico que sincroniza créditos de saldo e inativação do CAD/PRO."""
+    from apps.cadpro.models import CADPro
+
+    return CADPro.objects.select_for_update().get(pk=cad_pro_id)
+
+
 class SaldoGraosError(ValueError):
     codigo = "saldo_graos_invalido"
 
@@ -648,6 +655,9 @@ def creditar_producao(
     )
     if not criada:
         return _resultado_existente(origem, "producao_creditada")
+    cad_pro = bloquear_cadpro_para_saldo(lote.cad_pro_id)
+    if not cad_pro.ativo:
+        raise SaldoGraosError("O CAD/PRO do lote precisa estar ativo.")
     lote = _validar_lote(lote)
     armazem = _bloquear_armazens((lote.armazem_id,))[lote.armazem_id]
     posicao = _bloquear_posicao_lote(lote)

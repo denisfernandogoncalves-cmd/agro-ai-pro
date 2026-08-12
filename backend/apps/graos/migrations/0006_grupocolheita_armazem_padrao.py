@@ -11,6 +11,7 @@ def preencher_armazem_padrao(apps, schema_editor):
     for grupo in GrupoColheita.objects.filter(armazem_padrao__isnull=True):
         armazem_id = (
             CargaColhida.objects.filter(grupo_colheita_id=grupo.pk)
+            .filter(armazem__ativo=True)
             .order_by("criado_em", "pk")
             .values_list("armazem_id", flat=True)
             .first()

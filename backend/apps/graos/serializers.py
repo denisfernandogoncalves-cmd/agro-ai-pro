@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import transaction
 from rest_framework import serializers
 
 from apps.cadpro.models import CADPro
@@ -121,6 +122,17 @@ class GrupoColheitaSerializer(serializers.ModelSerializer):
         )
         grupo.full_clean()
         grupo.save()
+        return grupo
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        grupo = GrupoColheita.objects.select_for_update().get(pk=instance.pk)
+        for campo, valor in validated_data.items():
+            setattr(grupo, campo, valor)
+        try:
+            grupo.save()
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.message_dict) from exc
         return grupo
 
 
