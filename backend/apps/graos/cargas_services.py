@@ -131,7 +131,7 @@ def _obter_lote(grupo, armazem, destinado_semente):
 
 
 @transaction.atomic
-def registrar_carga_colhida(*, usuario, grupo_colheita, armazem, data_colheita,
+def registrar_carga_colhida(*, usuario, grupo_colheita, armazem=None, data_colheita,
                             placa, peso_bruto_kg, umidade_percentual,
                             impureza_percentual, defeitos_percentual, ph=None,
                             destinado_semente=False, local_colheita="", observacoes=""):
@@ -139,11 +139,25 @@ def registrar_carga_colhida(*, usuario, grupo_colheita, armazem, data_colheita,
         "propriedade",
         "cad_pro",
     ).get(pk=grupo_colheita.pk)
+    armazem = armazem or grupo.armazem_padrao
+    if armazem is None:
+        raise CargaColhidaError("O grupo não possui armazenagem padrão configurada.")
     armazem = ArmazemGraos.objects.select_for_update().select_related(
         "propriedade",
     ).get(pk=armazem.pk)
     if not grupo.ativo:
         raise CargaColhidaError("O grupo de colheita está inativo.")
+    if not grupo.cad_pro.ativo:
+        raise CargaColhidaError("O CAD/PRO do grupo está inativo.")
+    from apps.cadpro.models import CADProPropriedade
+    if not CADProPropriedade.objects.filter(
+        cad_pro_id=grupo.cad_pro_id,
+        propriedade_id=grupo.propriedade_id,
+        ativo=True,
+    ).exists():
+        raise CargaColhidaError(
+            "O grupo não possui vínculo CAD/PRO ativo com a propriedade."
+        )
     if not armazem.ativo:
         raise CargaColhidaError("O armazém está inativo.")
     if armazem.propriedade_id != grupo.propriedade_id:

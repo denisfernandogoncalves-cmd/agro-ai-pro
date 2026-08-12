@@ -6,6 +6,7 @@ from .models import CADPro, CADProPropriedade, normalizar_codigo_cadpro
 
 
 class CADProSerializer(serializers.ModelSerializer):
+    id = serializers.UUIDField(read_only=True)
     class Meta:
         model = CADPro
         fields = (
@@ -48,6 +49,7 @@ class CADProSerializer(serializers.ModelSerializer):
 
 
 class CADProPropriedadeSerializer(serializers.ModelSerializer):
+    cad_pro = serializers.UUIDField(source="cad_pro_id", read_only=True)
     propriedade = serializers.PrimaryKeyRelatedField(
         queryset=Propriedade.objects.all(),
     )

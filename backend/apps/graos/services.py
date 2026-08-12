@@ -28,6 +28,23 @@ ZERO = Decimal("0.000")
 CAMPO_QUANTIDADE = DecimalField(max_digits=16, decimal_places=3)
 
 
+def bloquear_cadpro_para_saldo(cad_pro_id):
+    """Lock canônico que sincroniza créditos de saldo e inativação do CAD/PRO."""
+    from apps.cadpro.models import CADPro
+
+    return CADPro.objects.select_for_update().get(pk=cad_pro_id)
+
+
+def _bloquear_cadpros_ativos_para_saldo(cad_pro_ids):
+    bloqueados = {}
+    for cad_pro_id in sorted(set(cad_pro_ids), key=str):
+        cad_pro = bloquear_cadpro_para_saldo(cad_pro_id)
+        if not cad_pro.ativo:
+            raise SaldoGraosError("O CAD/PRO precisa estar ativo para receber saldo.")
+        bloqueados[cad_pro.pk] = cad_pro
+    return bloqueados
+
+
 class SaldoGraosError(ValueError):
     codigo = "saldo_graos_invalido"
 
@@ -413,8 +430,7 @@ def _obter_ou_criar_origem(*, usuario, tipo, chave, payload, referencia="", meta
     return origem, True
 
 
-def _validar_lote(lote):
-    lote = LoteGraos.objects.select_related("armazem", "cad_pro").get(pk=lote.pk)
+def _validar_estado_lote(lote):
     if not lote.ativo or not lote.armazem.ativo:
         raise SaldoGraosError("O lote e o armazém precisam estar ativos.")
     if not lote.cad_pro_id:
@@ -424,6 +440,29 @@ def _validar_lote(lote):
     except ValidationError as exc:
         raise SaldoGraosError("; ".join(exc.messages)) from exc
     return lote
+
+
+def _validar_lote(lote):
+    lote = LoteGraos.objects.select_related("armazem", "cad_pro").get(pk=lote.pk)
+    return _validar_estado_lote(lote)
+
+
+def _bloquear_lote_para_aumento(lote):
+    cad_pro_id_recebido = lote.cad_pro_id
+    referencia = LoteGraos.objects.only("cad_pro_id").get(pk=lote.pk)
+    if cad_pro_id_recebido != referencia.cad_pro_id:
+        raise SaldoGraosError(
+            "O CAD/PRO do lote mudou desde a leitura. Atualize os dados e tente novamente."
+        )
+    if not referencia.cad_pro_id:
+        raise SaldoGraosError("O lote deve estar normalizado com um CAD/PRO.")
+    _bloquear_cadpros_ativos_para_saldo((referencia.cad_pro_id,))
+    lote_bloqueado = LoteGraos.objects.select_for_update().get(pk=lote.pk)
+    if lote_bloqueado.cad_pro_id != referencia.cad_pro_id:
+        raise SaldoGraosError(
+            "O CAD/PRO do lote mudou durante a operação. Tente novamente."
+        )
+    return _validar_estado_lote(lote_bloqueado)
 
 
 def _validar_posicao_ativa(posicao):
@@ -648,7 +687,7 @@ def creditar_producao(
     )
     if not criada:
         return _resultado_existente(origem, "producao_creditada")
-    lote = _validar_lote(lote)
+    lote = _bloquear_lote_para_aumento(lote)
     armazem = _bloquear_armazens((lote.armazem_id,))[lote.armazem_id]
     posicao = _bloquear_posicao_lote(lote)
     ocupacao = _ocupacao_armazem_bloqueada(armazem.pk)
@@ -823,7 +862,7 @@ def registrar_devolucao(
     )
     if not criada:
         return _resultado_existente(origem, "devolucao_registrada")
-    lote = _validar_lote(lote)
+    lote = _bloquear_lote_para_aumento(lote)
     armazem = _bloquear_armazens((lote.armazem_id,))[lote.armazem_id]
     posicao = _bloquear_posicao_lote(lote)
     ocupacao = _ocupacao_armazem_bloqueada(armazem.pk)
@@ -862,7 +901,10 @@ def registrar_ajuste(
     )
     if not criada:
         return _resultado_existente(origem, "ajuste_registrado")
-    lote = _validar_lote(lote)
+    if delta_fisico > 0:
+        lote = _bloquear_lote_para_aumento(lote)
+    else:
+        lote = _validar_lote(lote)
     if delta_fisico > 0:
         armazem = _bloquear_armazens((lote.armazem_id,))[lote.armazem_id]
     else:
@@ -931,6 +973,12 @@ def estornar_movimentacao(
             )
     else:
         movimentos = (movimento,)
+
+    _bloquear_cadpros_ativos_para_saldo(
+        item.posicao.cad_pro_id
+        for item in movimentos
+        if item.delta_fisico_kg < ZERO
+    )
 
     ids_movimentos = tuple(item.pk for item in movimentos)
     ids_reservas = tuple(
@@ -1063,15 +1111,16 @@ def transferir_saldo_fisico(
     )
     if not criada:
         return _resultado_existente(origem, "saldo_transferido")
-    lotes = {
-        item.pk: _validar_lote(item)
-        for item in LoteGraos.objects.filter(
-            pk__in=(lote_origem.pk, lote_destino.pk)
-        ).order_by("pk")
-    }
-    origem_lote, destino_lote = lotes.get(lote_origem.pk), lotes.get(lote_destino.pk)
-    if not origem_lote or not destino_lote:
+    try:
+        destino_lote = _bloquear_lote_para_aumento(lote_destino)
+    except LoteGraos.DoesNotExist as exc:
+        raise SaldoGraosError(
+            "Lote de origem ou destino não encontrado."
+        ) from exc
+    origem_lote = LoteGraos.objects.filter(pk=lote_origem.pk).first()
+    if not origem_lote:
         raise SaldoGraosError("Lote de origem ou destino não encontrado.")
+    origem_lote = _validar_lote(origem_lote)
     if (origem_lote.cultura, origem_lote.safra, origem_lote.classificacao_codigo) != (
         destino_lote.cultura, destino_lote.safra, destino_lote.classificacao_codigo
     ):
@@ -1132,7 +1181,11 @@ def reconciliar_posicao(*, usuario, posicao, chave_idempotencia, metadados=None)
     )
     if not criada:
         return _resultado_existente(origem, "posicao_reconciliada")
-    referencia = PosicaoSaldoGraos.objects.only("armazem_id").get(pk=posicao_id)
+    referencia = PosicaoSaldoGraos.objects.only(
+        "armazem_id",
+        "cad_pro_id",
+    ).get(pk=posicao_id)
+    _bloquear_cadpros_ativos_para_saldo((referencia.cad_pro_id,))
     _bloquear_armazens((referencia.armazem_id,))
     posicao = PosicaoSaldoGraos.objects.select_for_update().get(pk=posicao_id)
     _validar_posicao_ativa(posicao)

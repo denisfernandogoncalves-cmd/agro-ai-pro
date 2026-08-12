@@ -28,8 +28,16 @@ class LoteGraosAdmin(admin.ModelAdmin):
 
 @admin.register(GrupoColheita)
 class GrupoColheitaAdmin(admin.ModelAdmin):
-    list_display = ("nome", "propriedade", "cad_pro", "cultura", "safra", "ativo")
-    list_filter = ("ativo", "cultura", "safra", "propriedade")
+    list_display = (
+        "nome",
+        "propriedade",
+        "cad_pro",
+        "armazem_padrao",
+        "cultura",
+        "safra",
+        "ativo",
+    )
+    list_filter = ("ativo", "cultura", "safra", "propriedade", "armazem_padrao")
     search_fields = ("nome", "propriedade__nome", "cad_pro__codigo")
 
 

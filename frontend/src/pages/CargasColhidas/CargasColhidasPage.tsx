@@ -3,14 +3,11 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import {
   ArmazemGraos,
-  CADPro,
   CargaColhida,
   CargaColhidaInput,
   carregarContextoCargas,
   criarCargaColhida,
-  criarGrupoColheita,
   GrupoColheita,
-  GrupoColheitaInput,
 } from "../../api/cargasColhidas";
 import { Propriedade } from "../../api/propriedades";
 
@@ -37,20 +34,6 @@ const cargaVazia: CargaColhidaInput = {
   destinado_semente: false,
   local_colheita: "",
   observacoes: "",
-};
-
-const grupoVazio: GrupoColheitaInput = {
-  propriedade: 0,
-  cad_pro: "",
-  nome: "",
-  cultura: "Soja",
-  safra: "",
-  tolerancia_umidade_percentual: "13.00",
-  desconto_umidade_por_ponto: "1.000",
-  tolerancia_impureza_percentual: "1.00",
-  desconto_impureza_por_ponto: "1.000",
-  tolerancia_defeitos_percentual: "0.00",
-  desconto_defeitos_por_ponto: "0.000",
 };
 
 function mensagemErro(falha: unknown) {
@@ -90,13 +73,10 @@ function resumoCalculado(carga: CargaColhidaInput, grupo?: GrupoColheita) {
 type Props = { propriedades: Propriedade[] };
 
 export default function CargasColhidasPage({ propriedades }: Props) {
-  const [cadpros, setCadpros] = useState<CADPro[]>([]);
   const [armazens, setArmazens] = useState<ArmazemGraos[]>([]);
   const [grupos, setGrupos] = useState<GrupoColheita[]>([]);
   const [cargas, setCargas] = useState<CargaColhida[]>([]);
   const [carga, setCarga] = useState<CargaColhidaInput>(cargaVazia);
-  const [grupo, setGrupo] = useState<GrupoColheitaInput>(grupoVazio);
-  const [mostrarGrupo, setMostrarGrupo] = useState(false);
   const [busca, setBusca] = useState("");
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
@@ -107,7 +87,6 @@ export default function CargasColhidasPage({ propriedades }: Props) {
     setErro("");
     try {
       const dados = await carregarContextoCargas(propriedades);
-      setCadpros(dados.cadpros);
       setArmazens(dados.armazens);
       setGrupos(dados.grupos);
       setCargas(dados.cargas);
@@ -157,22 +136,6 @@ export default function CargasColhidasPage({ propriedades }: Props) {
     }
   }
 
-  async function salvarGrupo(evento: FormEvent) {
-    evento.preventDefault();
-    setErro("");
-    setSucesso("");
-    try {
-      const criado = await criarGrupoColheita(grupo);
-      setGrupo(grupoVazio);
-      setMostrarGrupo(false);
-      setSucesso(`Grupo de colheita “${criado.nome}” criado.`);
-      await carregar();
-      setCarga((atual) => ({ ...atual, grupo_colheita: String(criado.id) }));
-    } catch (falha) {
-      setErro(mensagemErro(falha));
-    }
-  }
-
   return (
     <section className="modulo-cargas">
       {erro && <p className="erro card" role="alert">{erro}</p>}
@@ -184,44 +147,13 @@ export default function CargasColhidasPage({ propriedades }: Props) {
           <h2>Cargas colhidas</h2>
           <p>Registro manual com descontos auditáveis e crédito automático no saldo do CAD/PRO.</p>
         </div>
-        <button className="secundario" type="button" onClick={() => setMostrarGrupo(!mostrarGrupo)}>
-          {mostrarGrupo ? "Fechar grupo" : "Novo grupo de colheita"}
-        </button>
+        <span className="kicker">Configuração disponível em Grupos de colheita</span>
       </div>
-
-      {mostrarGrupo && (
-        <form className="card formulario grupo-colheita-form" onSubmit={salvarGrupo}>
-          <h3>Configurar grupo e regras de desconto</h3>
-          <div className="linha">
-            <label>Propriedade<select required value={grupo.propriedade || ""} onChange={(e) => setGrupo({ ...grupo, propriedade: Number(e.target.value) })}><option value="">Selecione</option>{propriedades.map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select></label>
-            <label>CAD/PRO<select required value={grupo.cad_pro} onChange={(e) => setGrupo({ ...grupo, cad_pro: e.target.value })}><option value="">Selecione</option>{cadpros.map((item) => <option key={item.id} value={item.id}>{item.codigo} · {item.descricao}</option>)}</select></label>
-          </div>
-          <div className="linha">
-            <label>Nome do grupo<input required value={grupo.nome} onChange={(e) => setGrupo({ ...grupo, nome: e.target.value })} /></label>
-            <label>Cultura<input required value={grupo.cultura} onChange={(e) => setGrupo({ ...grupo, cultura: e.target.value })} /></label>
-            <label>Safra<input required placeholder="2026/2027" value={grupo.safra} onChange={(e) => setGrupo({ ...grupo, safra: e.target.value })} /></label>
-          </div>
-          <div className="regras-desconto">
-            {([
-              ["Umidade", "tolerancia_umidade_percentual", "desconto_umidade_por_ponto"],
-              ["Impureza", "tolerancia_impureza_percentual", "desconto_impureza_por_ponto"],
-              ["Defeitos", "tolerancia_defeitos_percentual", "desconto_defeitos_por_ponto"],
-            ] as const).map(([rotulo, tolerancia, desconto]) => (
-              <fieldset key={rotulo}>
-                <legend>{rotulo}</legend>
-                <label>Tolerância (%)<input min="0" max="100" step="0.01" type="number" value={grupo[tolerancia]} onChange={(e) => setGrupo({ ...grupo, [tolerancia]: e.target.value })} /></label>
-                <label>Desconto por ponto (%)<input min="0" max="100" step="0.001" type="number" value={grupo[desconto]} onChange={(e) => setGrupo({ ...grupo, [desconto]: e.target.value })} /></label>
-              </fieldset>
-            ))}
-          </div>
-          <button type="submit">Salvar grupo</button>
-        </form>
-      )}
 
       <section className="grade cargas-grade">
         <form className="card formulario" onSubmit={salvarCarga}>
           <h3>Registrar carga manual</h3>
-          <label>Grupo de colheita<select required value={carga.grupo_colheita} onChange={(e) => setCarga({ ...carga, grupo_colheita: e.target.value, armazem: "" })}><option value="">Selecione</option>{grupos.map((item) => <option key={item.id} value={item.id}>{item.nome} · {item.propriedade_nome} · {item.cultura} {item.safra}</option>)}</select></label>
+          <label>Grupo de colheita<select required value={carga.grupo_colheita} onChange={(e) => { const selecionado = grupos.find((item) => String(item.id) === e.target.value); setCarga({ ...carga, grupo_colheita: e.target.value, armazem: selecionado?.armazem_padrao ? String(selecionado.armazem_padrao) : "" }); }}><option value="">Selecione</option>{grupos.map((item) => <option key={item.id} value={item.id}>{item.nome} · {item.propriedade_nome} · {item.cultura} {item.safra}</option>)}</select></label>
           <label>Armazenagem<select required value={carga.armazem} onChange={(e) => setCarga({ ...carga, armazem: e.target.value })}><option value="">Selecione</option>{armazensDisponiveis.map((item) => <option key={item.id} value={item.id}>{item.nome} · ocupação {numero(item.ocupacao_kg).toLocaleString("pt-BR")} kg</option>)}</select></label>
           <div className="linha">
             <label>Data<input required type="date" value={carga.data_colheita} onChange={(e) => setCarga({ ...carga, data_colheita: e.target.value })} /></label>

@@ -5,13 +5,20 @@ ledger de grãos do CAD/PRO, na mesma transação de banco.
 
 ## Entidades
 
-- `GrupoColheita`: propriedade, CAD/PRO, cultura, safra e regras configuráveis
-  de desconto para umidade, impureza e defeitos;
+- `GrupoColheita`: propriedade, CAD/PRO, cultura, safra, armazenagem padrão e
+  regras configuráveis de desconto para umidade, impureza e defeitos;
 - `CargaColhida`: data, placa, armazenagem, peso bruto, classificação, peso
   líquido, sacas de 60 kg, regra aplicada, usuário e movimento de estoque.
 
-As cargas são imutáveis. O grupo pode ser atualizado para cargas futuras, mas
-cada carga guarda a fotografia completa da regra usada no cálculo.
+As cargas são imutáveis. Depois da primeira carga, propriedade, CAD/PRO,
+cultura, safra e armazenagem padrão do grupo ficam congelados. Nome e regras de
+desconto ainda podem ser ajustados para cargas futuras; cada carga guarda a
+fotografia completa da regra usada no cálculo.
+
+Novos grupos exigem CAD/PRO ativo vinculado à propriedade e armazenagem padrão
+ativa na mesma propriedade. Uma carga exige grupo, CAD/PRO, vínculo e armazém
+ativos. Quando `armazem` não é enviado, a API usa `armazem_padrao` do grupo.
+CAD/PRO com saldo físico positivo não pode ser inativado.
 
 ## Cálculo
 
@@ -35,7 +42,8 @@ ledger, além de registrar usuário e data/hora de criação.
 ## APIs autenticadas
 
 - `GET|POST /api/graos/grupos-colheita/`
-- `GET|PATCH|DELETE /api/graos/grupos-colheita/{id}/`
+- `GET|PATCH /api/graos/grupos-colheita/{id}/`
+- `POST /api/graos/grupos-colheita/{id}/inativar/`
 - `GET|POST /api/graos/cargas-colhidas/`
 - `GET /api/graos/cargas-colhidas/{id}/`
 
@@ -43,8 +51,14 @@ Filtros de cargas: `grupo_colheita`, `propriedade`, `cad_pro`, `armazem` e
 `data_colheita`. Busca textual abrange placa, local, grupo, propriedade e
 CAD/PRO.
 
+Filtros de grupos: `propriedade`, `cad_pro`, `armazem_padrao`, `cultura`,
+`safra`, `ativo`, `search` e `ordering`. A resposta inclui
+`contexto_congelado`, nomes relacionados e o UUID do CAD/PRO sempre como texto.
+
 ## Compatibilidade
 
-A migration `graos.0005` é aditiva. Ela cria tabelas, índices e restrições sem
-alterar ou remover dados anteriores. O fluxo reutiliza `apps.propriedades`,
-`apps.cadpro`, `apps.graos` e os campos já normalizados por `apps.importacoes`.
+As migrations `graos.0005` e `graos.0006` são aditivas. A `0006` inclui a
+armazenagem padrão e preenche grupos existentes pela primeira carga ou pelo
+primeiro armazém ativo da propriedade, quando disponível. Nenhuma delas remove
+dados. O fluxo reutiliza `apps.propriedades`, `apps.cadpro`, `apps.graos` e os
+campos já normalizados por `apps.importacoes`.

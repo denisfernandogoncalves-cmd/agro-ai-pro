@@ -10,6 +10,10 @@ class VinculoCADProInvalido(ValueError):
     pass
 
 
+class CADProComSaldoError(ValueError):
+    pass
+
+
 def obter_cadpro_ativo(cad_pro_id):
     """Retorna o CAD/PRO ativo ou levanta CADPro.DoesNotExist."""
     try:
@@ -56,7 +60,18 @@ def listar_propriedades_vinculadas(cad_pro_id):
 
 @transaction.atomic
 def inativar_cadpro(cad_pro_id):
-    cad_pro = CADPro.objects.select_for_update().get(pk=cad_pro_id)
+    from apps.graos.services import bloquear_cadpro_para_saldo
+
+    cad_pro = bloquear_cadpro_para_saldo(cad_pro_id)
+    from apps.graos.models import PosicaoSaldoGraos
+
+    if PosicaoSaldoGraos.objects.filter(
+        cad_pro=cad_pro,
+        saldo_fisico_kg__gt=0,
+    ).exists():
+        raise CADProComSaldoError(
+            "O CAD/PRO não pode ser inativado enquanto possuir saldo de grãos."
+        )
     if cad_pro.ativo:
         cad_pro.ativo = False
         cad_pro.save(update_fields=("ativo", "atualizado_em"))
