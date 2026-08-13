@@ -107,7 +107,7 @@ class PosicaoSaldoGraosModelTests(GraosSaldoBase, TestCase):
     def test_lote_rejeita_cadpro_sem_vinculo_com_propriedade(self):
         outro = CADPro.objects.create(codigo="CAD-2", descricao="Outro")
         self.lote.cad_pro = outro
-        with self.assertRaisesMessage(Exception, "vÃ­nculo ativo"):
+        with self.assertRaisesMessage(Exception, "vínculo ativo"):
             self.lote.full_clean()
 
 
@@ -441,7 +441,7 @@ class ServicosSaldoGraosTests(GraosSaldoBase, TestCase):
         )
         armazem_destino = ArmazemGraos.objects.create(
             propriedade=self.propriedade,
-            nome="Silo idempotÃªncia",
+            nome="Silo idempotência",
             capacidade_kg="2000",
         )
         lote_destino = LoteGraos.objects.create(
@@ -712,7 +712,7 @@ class ServicosSaldoGraosTests(GraosSaldoBase, TestCase):
         }
         self.assertEqual(saldos[str(self.armazem.pk)], Decimal("500.000"))
         self.assertEqual(saldos[str(destino_armazem.pk)], Decimal("0.000"))
-        with self.assertRaisesMessage(SaldoGraosError, "jÃ¡ foi estornada"):
+        with self.assertRaisesMessage(SaldoGraosError, "já foi estornada"):
             estornar_movimentacao(
                 usuario=self.usuario,
                 movimentacao=transferencia.movimentacoes[1],
@@ -1163,7 +1163,7 @@ class ReversaoMigrationsGraosTests(GraosSaldoBase, TransactionTestCase):
 
 @skipUnless(
     connection.vendor == "postgresql",
-    "ConcorrÃªncia transacional de saldos requer PostgreSQL.",
+    "Concorrência transacional de saldos requer PostgreSQL.",
 )
 class ConcorrenciaSaldoGraosPostgreSQLTests(GraosSaldoBase, TransactionTestCase):
     reset_sequences = True
@@ -1274,7 +1274,7 @@ class ConcorrenciaSaldoGraosPostgreSQLTests(GraosSaldoBase, TransactionTestCase)
                     return "ok", chamada().codigo
                 except SaldoGraosError as exc:
                     return "dominio", exc.codigo
-                except Exception as exc:  # pragma: no cover - falha diagnÃ³stica
+                except Exception as exc:  # pragma: no cover - falha diagnóstica
                     return "erro", f"{type(exc).__name__}: {exc}"
             finally:
                 close_old_connections()
