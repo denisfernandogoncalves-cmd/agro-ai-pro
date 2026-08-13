@@ -107,7 +107,7 @@ class PosicaoSaldoGraosModelTests(GraosSaldoBase, TestCase):
     def test_lote_rejeita_cadpro_sem_vinculo_com_propriedade(self):
         outro = CADPro.objects.create(codigo="CAD-2", descricao="Outro")
         self.lote.cad_pro = outro
-        with self.assertRaisesMessage(Exception, "vínculo ativo"):
+        with self.assertRaisesMessage(Exception, "vÃ­nculo ativo"):
             self.lote.full_clean()
 
 
@@ -441,7 +441,7 @@ class ServicosSaldoGraosTests(GraosSaldoBase, TestCase):
         )
         armazem_destino = ArmazemGraos.objects.create(
             propriedade=self.propriedade,
-            nome="Silo idempotência",
+            nome="Silo idempotÃªncia",
             capacidade_kg="2000",
         )
         lote_destino = LoteGraos.objects.create(
@@ -545,7 +545,400 @@ class ServicosSaldoGraosTests(GraosSaldoBase, TestCase):
         )
         for objeto in objetos:
             self.assertTrue(is_dataclass(objeto))
-            self.assertNotIsInstance(objeto,…3994 tokens truncated… "operacao": "credito_producao",
+            self.assertNotIsInstance(objeto, Model)
+            with self.assertRaises(FrozenInstanceError):
+                setattr(objeto, fields(objeto)[0].name, "alterado")
+        for mapping in (
+            resultado.origem.metadados,
+            resultado.origem.metadados["externo"],
+            movimento.snapshot_anterior,
+            movimento.snapshot_posterior,
+            reconciliacao.detalhes,
+            reconciliacao.detalhes["antes"],
+            reconciliacao.detalhes["depois"],
+        ):
+            self.assertIsInstance(mapping, MappingProxyType)
+            with self.assertRaises(TypeError):
+                mapping["alterado"] = True
+        self.assertIsInstance(
+            resultado.origem.metadados["externo"]["itens"], tuple
+        )
+        with self.assertRaises(TypeError):
+            resultado.origem.metadados["externo"]["itens"][1]["valor"] = "C"
+
+    def test_movimentacao_e_imutavel_no_modelo_e_querysets_do_orm(self):
+        movimento_id = self.creditar("100", "imutavel:orm").movimentacoes[0].id
+        movimento = MovimentacaoGraos.objects.get(pk=movimento_id)
+        movimento.observacoes = "tentativa"
+        with self.assertRaises(ValidationError):
+            movimento.save()
+        with self.assertRaises(ValidationError):
+            MovimentacaoGraos.objects.filter(pk=movimento.pk).update(
+                observacoes="tentativa"
+            )
+        with self.assertRaises(ValidationError):
+            MovimentacaoGraos.objects.filter(pk=movimento.pk).delete()
+        with self.assertRaises(ValidationError):
+            movimento.delete()
+
+    def test_reserva_nao_pode_superar_disponivel(self):
+        self.creditar("100")
+        with self.assertRaises(SaldoGraosInsuficienteError):
+            reservar_saldo(
+                usuario=self.usuario,
+                lote=self.lote,
+                quantidade_kg="100.001",
+                chave_idempotencia="reserva:sem-saldo",
+            )
+        self.assertFalse(
+            OrigemSaldoGraos.objects.filter(
+                chave_idempotencia="reserva:sem-saldo"
+            ).exists()
+        )
+
+    def test_capacidade_e_validada_transacionalmente(self):
+        self.creditar("1900")
+        with self.assertRaises(CapacidadeArmazemExcedidaError):
+            registrar_devolucao(
+                usuario=self.usuario,
+                lote=self.lote,
+                quantidade_kg="101",
+                chave_idempotencia="devolucao:excede",
+            )
+        self.assertEqual(saldo_lote(self.lote), Decimal("1900.000"))
+
+    def test_ajuste_devolucao_e_estorno_preservam_ledger(self):
+        credito = self.creditar("500")
+        ajuste = registrar_ajuste(
+            usuario=self.usuario,
+            lote=self.lote,
+            delta_fisico_kg="-20",
+            chave_idempotencia="ajuste:1",
+        )
+        registrar_devolucao(
+            usuario=self.usuario,
+            lote=self.lote,
+            quantidade_kg="5",
+            chave_idempotencia="devolucao:1",
+        )
+        estorno = estornar_movimentacao(
+            usuario=self.usuario,
+            movimentacao=ajuste.movimentacoes[0],
+            chave_idempotencia="estorno:1",
+        )
+        posicao = consultar_posicao().get(pk=credito.posicoes[0].pk)
+        self.assertEqual(posicao.saldo_fisico_kg, Decimal("505.000"))
+        self.assertEqual(
+            estorno.movimentacoes[0].estorno_de_id,
+            ajuste.movimentacoes[0].id,
+        )
+
+    def test_transferencia_bloqueia_disponivel_e_atualiza_duas_posicoes(self):
+        outro_armazem = ArmazemGraos.objects.create(
+            propriedade=self.propriedade,
+            nome="Silo 2",
+            capacidade_kg="1000",
+        )
+        destino = LoteGraos.objects.create(
+            armazem=outro_armazem,
+            cad_pro=self.cad_pro,
+            codigo="SOJA-DEST",
+            cultura="Soja",
+            safra="2026/2027",
+            classificacao_codigo="PADRAO",
+        )
+        self.creditar("600")
+        reserva = reservar_saldo(
+            usuario=self.usuario,
+            lote=self.lote,
+            quantidade_kg="200",
+            chave_idempotencia="reserva:transferencia",
+        )
+        with self.assertRaises(SaldoGraosInsuficienteError):
+            transferir_saldo_fisico(
+                usuario=self.usuario,
+                lote_origem=self.lote,
+                lote_destino=destino,
+                quantidade_kg="401",
+                chave_idempotencia="transferencia:falha",
+            )
+        resultado = transferir_saldo_fisico(
+            usuario=self.usuario,
+            lote_origem=self.lote,
+            lote_destino=destino,
+            quantidade_kg="150",
+            chave_idempotencia="transferencia:ok",
+        )
+        saldos = sorted(item.saldo_fisico_kg for item in resultado.posicoes)
+        self.assertEqual(saldos, [Decimal("150.000"), Decimal("450.000")])
+        self.assertEqual(len(resultado.movimentacoes), 2)
+        ReservaSaldoGraos.objects.get(pk=reserva.reserva.id)
+
+    def test_estorno_de_transferencia_sempre_inverte_as_duas_pernas(self):
+        destino_armazem = ArmazemGraos.objects.create(
+            propriedade=self.propriedade,
+            nome="Silo destino",
+            capacidade_kg="2000",
+        )
+        destino = LoteGraos.objects.create(
+            armazem=destino_armazem,
+            cad_pro=self.cad_pro,
+            codigo="SOJA-ESTORNO",
+            cultura="Soja",
+            safra="2026/2027",
+            classificacao_codigo="PADRAO",
+        )
+        self.creditar("500", "transferencia:credito")
+        transferencia = transferir_saldo_fisico(
+            usuario=self.usuario,
+            lote_origem=self.lote,
+            lote_destino=destino,
+            quantidade_kg="200",
+            chave_idempotencia="transferencia:estornar",
+        )
+        resultado = estornar_movimentacao(
+            usuario=self.usuario,
+            movimentacao=transferencia.movimentacoes[0],
+            chave_idempotencia="estorno:transferencia",
+        )
+        self.assertEqual(resultado.codigo, "transferencia_estornada")
+        self.assertEqual(len(resultado.movimentacoes), 2)
+        self.assertEqual(
+            {item.estorno_de_id for item in resultado.movimentacoes},
+            {item.pk for item in transferencia.movimentacoes},
+        )
+        saldos = {
+            item.armazem_id: item.saldo_fisico_kg for item in resultado.posicoes
+        }
+        self.assertEqual(saldos[str(self.armazem.pk)], Decimal("500.000"))
+        self.assertEqual(saldos[str(destino_armazem.pk)], Decimal("0.000"))
+        with self.assertRaisesMessage(SaldoGraosError, "jÃ¡ foi estornada"):
+            estornar_movimentacao(
+                usuario=self.usuario,
+                movimentacao=transferencia.movimentacoes[1],
+                chave_idempotencia="estorno:individual-proibido",
+            )
+
+    def test_cadpro_inativo_bloqueia_todos_os_mutadores_de_posicao_existente(self):
+        credito = self.creditar("500", "inativo:credito")
+        reserva = reservar_saldo(
+            usuario=self.usuario,
+            lote=self.lote,
+            quantidade_kg="100",
+            chave_idempotencia="inativo:reserva",
+        ).reserva
+        self.cad_pro.ativo = False
+        self.cad_pro.save(update_fields=("ativo",))
+        chamadas = (
+            lambda: registrar_ajuste(
+                usuario=self.usuario, lote=self.lote, delta_fisico_kg="-1",
+                chave_idempotencia="inativo:ajuste",
+            ),
+            lambda: liberar_reserva(
+                usuario=self.usuario, reserva=reserva, quantidade_kg="1",
+                chave_idempotencia="inativo:liberar",
+            ),
+            lambda: confirmar_entrega(
+                usuario=self.usuario, reserva=reserva, quantidade_kg="1",
+                chave_idempotencia="inativo:entrega",
+            ),
+            lambda: estornar_movimentacao(
+                usuario=self.usuario, movimentacao=credito.movimentacoes[0],
+                chave_idempotencia="inativo:estorno",
+            ),
+            lambda: reconciliar_posicao(
+                usuario=self.usuario, posicao=credito.posicoes[0],
+                chave_idempotencia="inativo:reconciliar",
+            ),
+        )
+        for chamada in chamadas:
+            with self.assertRaisesMessage(SaldoGraosError, "CAD/PRO"):
+                chamada()
+
+    def test_reconciliacao_corrige_snapshot_pelo_ledger(self):
+        resultado = self.creditar("250")
+        posicao = resultado.posicoes[0]
+        PosicaoSaldoGraos.objects.filter(pk=posicao.pk).update(saldo_fisico_kg="1")
+        reconciliado = reconciliar_posicao(
+            usuario=self.usuario,
+            posicao=posicao,
+            chave_idempotencia="reconciliacao:1",
+        )
+        self.assertTrue(reconciliado.detalhes["divergente"])
+        self.assertEqual(reconciliado.posicoes[0].saldo_fisico_kg, Decimal("250.000"))
+
+    def test_evento_so_e_publicado_apos_commit(self):
+        recebidos = []
+
+        def receptor(sender, **kwargs):
+            recebidos.append(kwargs)
+
+        saldo_graos_alterado.connect(receptor)
+        try:
+            with self.captureOnCommitCallbacks(execute=True):
+                self.creditar("10", "evento:1")
+            self.assertEqual(len(recebidos), 1)
+            self.assertEqual(recebidos[0]["nome"], "producao_creditada")
+        finally:
+            saldo_graos_alterado.disconnect(receptor)
+
+
+class SaldoGraosApiTests(GraosSaldoBase, APITestCase):
+    def setUp(self):
+        self.criar_contexto()
+        self.client.force_authenticate(self.usuario)
+
+    def test_rotas_exigem_autenticacao(self):
+        self.client.force_authenticate(None)
+        for url in ("/api/graos/saldos/", "/api/graos/reservas/", "/api/graos/origens-saldo/"):
+            self.assertEqual(self.client.get(url).status_code, 401)
+
+    def test_fluxo_http_padronizado_e_idempotente(self):
+        payload = {
+            "lote": self.lote.pk,
+            "quantidade_kg": "500.000",
+            "chave_idempotencia": "api:producao:1",
+        }
+        primeira = self.client.post(
+            "/api/graos/saldos/creditar-producao/",
+            payload,
+            format="json",
+        )
+        repetida = self.client.post(
+            "/api/graos/saldos/creditar-producao/",
+            payload,
+            format="json",
+        )
+        self.assertEqual(primeira.status_code, 201, primeira.data)
+        self.assertEqual(repetida.status_code, 200, repetida.data)
+        self.assertTrue(primeira.data["sucesso"])
+        self.assertFalse(primeira.data["idempotente"])
+        self.assertTrue(repetida.data["idempotente"])
+        self.assertEqual(primeira.data["codigo"], "producao_creditada")
+
+    def test_endpoints_reserva_consulta_e_origem(self):
+        self.creditar("400", "api:credito:reserva")
+        resposta = self.client.post(
+            "/api/graos/saldos/reservar/",
+            {
+                "lote": self.lote.pk,
+                "quantidade_kg": "125",
+                "chave_idempotencia": "api:reserva:1",
+            },
+            format="json",
+        )
+        self.assertEqual(resposta.status_code, 201, resposta.data)
+        posicoes = self.client.get(
+            f"/api/graos/saldos/?cad_pro={self.cad_pro.pk}&cultura=soja"
+        )
+        reservas = self.client.get("/api/graos/reservas/?status=ativa")
+        origens = self.client.get("/api/graos/origens-saldo/?tipo=reserva")
+        self.assertEqual(posicoes.status_code, 200)
+        self.assertEqual(posicoes.data[0]["saldo_disponivel_kg"], "275.000")
+        self.assertEqual(len(reservas.data), 1)
+        self.assertEqual(len(origens.data), 1)
+
+    def test_painel_consolida_por_cadpro_e_preserva_dimensoes(self):
+        self.creditar("400", "painel:credito:a1")
+        reservar_saldo(
+            usuario=self.usuario,
+            lote=self.lote,
+            quantidade_kg="100",
+            chave_idempotencia="painel:reserva:a1",
+        )
+        armazem_2 = ArmazemGraos.objects.create(
+            propriedade=self.propriedade,
+            nome="Silo 2",
+            capacidade_kg="2000",
+        )
+        lote_2 = LoteGraos.objects.create(
+            armazem=armazem_2,
+            cad_pro=self.cad_pro,
+            codigo="SOJA-002",
+            cultura="Soja",
+            safra="2026/2027",
+            classificacao_codigo="PADRAO",
+        )
+        creditar_producao(
+            usuario=self.usuario,
+            lote=lote_2,
+            quantidade_kg="600",
+            chave_idempotencia="painel:credito:a2",
+        )
+        outro_cadpro = CADPro.objects.create(
+            codigo="CAD/002",
+            descricao="Segundo produtor",
+        )
+        CADProPropriedade.objects.create(
+            cad_pro=outro_cadpro,
+            propriedade=self.propriedade,
+        )
+        lote_3 = LoteGraos.objects.create(
+            armazem=armazem_2,
+            cad_pro=outro_cadpro,
+            codigo="SOJA-003",
+            cultura="Soja",
+            safra="2026/2027",
+            classificacao_codigo="EXPORTACAO",
+        )
+        creditar_producao(
+            usuario=self.usuario,
+            lote=lote_3,
+            quantidade_kg="50",
+            chave_idempotencia="painel:credito:b1",
+        )
+
+        resposta = self.client.get(
+            "/api/graos/saldos/painel/",
+            {
+                "propriedade": self.propriedade.pk,
+                "cultura": "soja",
+                "safra": "2026/2027",
+            },
+        )
+
+        self.assertEqual(resposta.status_code, 200, resposta.data)
+        self.assertEqual(resposta.data["resumo"]["cadpros"], 2)
+        self.assertEqual(resposta.data["resumo"]["posicoes"], 3)
+        self.assertEqual(resposta.data["resumo"]["saldo_fisico_kg"], "1050.000")
+        self.assertEqual(
+            resposta.data["resumo"]["saldo_comprometido_kg"],
+            "100.000",
+        )
+        self.assertEqual(resposta.data["resumo"]["saldo_disponivel_kg"], "950.000")
+        consolidado = {
+            item["cad_pro"]: item for item in resposta.data["consolidado_cadpro"]
+        }
+        self.assertEqual(consolidado[str(self.cad_pro.pk)]["posicoes"], 2)
+        self.assertEqual(
+            consolidado[str(self.cad_pro.pk)]["saldo_fisico_kg"],
+            "1000.000",
+        )
+        self.assertCountEqual(
+            [item["armazem"] for item in resposta.data["posicoes"]],
+            [self.armazem.pk, armazem_2.pk, armazem_2.pk],
+        )
+
+        filtrada = self.client.get(
+            "/api/graos/saldos/painel/",
+            {
+                "cad_pro": outro_cadpro.pk,
+                "classificacao_codigo": "exportacao",
+                "armazem": armazem_2.pk,
+            },
+        )
+        self.assertEqual(filtrada.status_code, 200, filtrada.data)
+        self.assertEqual(filtrada.data["resumo"]["cadpros"], 1)
+        self.assertEqual(filtrada.data["resumo"]["saldo_fisico_kg"], "50.000")
+
+    def test_movimentacoes_expoem_rastreabilidade_e_filtro_cadpro(self):
+        movimento = self.creditar("25", "painel:rastreabilidade").movimentacoes[0]
+
+        resposta = self.client.get(
+            "/api/graos/movimentacoes/",
+            {
+                "cad_pro": self.cad_pro.pk,
+                "operacao": "credito_producao",
                 "cultura": self.lote.cultura.lower(),
                 "safra": self.lote.safra,
                 "classificacao_codigo": "PADRAO",
@@ -770,7 +1163,7 @@ class ReversaoMigrationsGraosTests(GraosSaldoBase, TransactionTestCase):
 
 @skipUnless(
     connection.vendor == "postgresql",
-    "Concorrência transacional de saldos requer PostgreSQL.",
+    "ConcorrÃªncia transacional de saldos requer PostgreSQL.",
 )
 class ConcorrenciaSaldoGraosPostgreSQLTests(GraosSaldoBase, TransactionTestCase):
     reset_sequences = True
@@ -881,7 +1274,7 @@ class ConcorrenciaSaldoGraosPostgreSQLTests(GraosSaldoBase, TransactionTestCase)
                     return "ok", chamada().codigo
                 except SaldoGraosError as exc:
                     return "dominio", exc.codigo
-                except Exception as exc:  # pragma: no cover - falha diagnóstica
+                except Exception as exc:  # pragma: no cover - falha diagnÃ³stica
                     return "erro", f"{type(exc).__name__}: {exc}"
             finally:
                 close_old_connections()
