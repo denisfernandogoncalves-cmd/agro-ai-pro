@@ -196,6 +196,19 @@ header { align-items: center; display: flex; justify-content: space-between; mar
 .tabela-relatorio th, .tabela-relatorio td { border-bottom: 1px solid #e3e9e4; padding: 0.85rem; text-align: left; vertical-align: top; }
 .tabela-relatorio th { background: #f4f7f3; color: #52675b; font-size: 0.78rem; text-transform: uppercase; }
 .tabela-relatorio small { color: #6b7b72; display: block; margin-top: 0.25rem; }
+.rastreabilidade-lista { display: grid; gap: 0.8rem; }
+.rastreabilidade-item { display: grid; gap: 0.9rem; }
+.rastreabilidade-topo { align-items: flex-start; display: flex; justify-content: space-between; }
+.rastreabilidade-topo h3 { margin: 0.2rem 0 0; }
+.rastreabilidade-topo > span { color: #5d6f65; }
+.rastreabilidade-grade { display: grid; gap: 0.75rem; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.rastreabilidade-grade section { background: #f6f8f6; border-radius: 8px; display: grid; gap: 0.3rem; padding: 0.75rem; }
+.rastreabilidade-grade section > span { color: #607168; font-size: 0.75rem; text-transform: uppercase; }
+.rastreabilidade-grade small { color: #607168; }
+.rastreabilidade-contexto, .rastreabilidade-snapshots { grid-column: 1 / -1; }
+.rastreabilidade-snapshots > div { display: grid; gap: 0.6rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.snapshot-rastreabilidade { background: white; border: 1px solid #dce5dd; border-radius: 6px; display: grid; gap: 0.2rem; padding: 0.6rem; }
+.snapshot-rastreabilidade span { color: #445a4d; font-size: 0.84rem; }
 .conteudo-atualizando { opacity: 0.55; }
 
 @media (max-width: 860px) {
@@ -218,4 +231,5 @@ header { align-items: center; display: flex; justify-content: space-between; mar
   .resumo-peso, .carga-metricas { grid-template-columns: 1fr; }
   .filtros-operacionais { grid-template-columns: 1fr; }
   .cabecalho-relatorio { align-items: flex-start; flex-direction: column; gap: 1rem; }
+  .rastreabilidade-grade, .rastreabilidade-snapshots > div { grid-template-columns: 1fr; }
 }

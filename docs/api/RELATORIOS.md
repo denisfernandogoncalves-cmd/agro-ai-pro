@@ -29,6 +29,14 @@ usam seus querysets oficiais; entregas permanecem vinculadas à venda,
 movimentação e posição autoritativa. O lote de vendas continua sendo apenas o
 adaptador operacional e não representa alocação física.
 
+O período respeita a data própria de cada seção. Em particular, entregas são
+selecionadas por `data_entrega`, mesmo quando a venda foi contratada antes do
+período consultado; vendas continuam sendo selecionadas por `data_contrato`.
+
+A seção de rastreabilidade apresenta origem, referência, efeito no ledger,
+snapshots de saldo anterior e posterior, posição oficial, lote operacional e,
+quando houver, carga colhida, grupo de colheita e placa.
+
 `GET /api/relatorios/operacionais/opcoes/` devolve o catálogo atual de filtros.
 Qualquer tentativa de `POST`, `PUT`, `PATCH` ou `DELETE` nesses endpoints
 retorna HTTP 405. Não há exportação nesta entrega porque o projeto não possui

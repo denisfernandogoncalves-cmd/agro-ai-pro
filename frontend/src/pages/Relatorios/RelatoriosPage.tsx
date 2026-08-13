@@ -16,7 +16,43 @@ function Posicao({ item }: { item?: PosicaoRelatorio }) {
   return item ? <span>{item.cad_pro_codigo} · {item.propriedade_nome} · {item.cultura} · {item.safra} · {item.classificacao_codigo} · {item.armazem_nome}</span> : null;
 }
 
+function objeto(valor: unknown): Record<string, unknown> {
+  return valor !== null && typeof valor === "object" && !Array.isArray(valor)
+    ? valor as Record<string, unknown>
+    : {};
+}
+
+function SnapshotSaldo({ titulo, valor }: { titulo: string; valor: unknown }) {
+  const snapshot = objeto(valor);
+  const possuiSaldo = ["saldo_fisico_kg", "saldo_comprometido_kg", "saldo_disponivel_kg"]
+    .some((campo) => snapshot[campo] !== null && snapshot[campo] !== undefined);
+  return <div className="snapshot-rastreabilidade"><strong>{titulo}</strong>{possuiSaldo
+    ? <span>Físico {kg(snapshot.saldo_fisico_kg)} · comprometido {kg(snapshot.saldo_comprometido_kg)} · disponível {kg(snapshot.saldo_disponivel_kg)}</span>
+    : <span>—</span>}</div>;
+}
+
+function Rastreabilidade({ itens }: { itens: ItemRelatorio[] }) {
+  return <div className="rastreabilidade-lista">{itens.map((item) => {
+    const posicao = item.posicao as PosicaoRelatorio | undefined;
+    const possuiCarga = item.carga_colhida !== null && item.carga_colhida !== undefined && item.carga_colhida !== "";
+    const possuiGrupo = item.grupo_colheita !== null && item.grupo_colheita !== undefined && item.grupo_colheita !== "";
+    return <article className="card rastreabilidade-item" key={`rastreabilidade-${item.id}`}>
+      <header className="rastreabilidade-topo"><div><span className="kicker">Movimentação #{item.id}</span><h3>{texto(item.operacao)}</h3></div><span>{texto(item.data)}</span></header>
+      <div className="rastreabilidade-grade">
+        <section><span>Origem</span><strong>{texto(item.origem_tipo)} · #{texto(item.origem)}</strong><small>Referência externa: {texto(item.referencia_externa)}</small></section>
+        <section><span>Efeito no ledger</span><strong>Físico {kg(item.delta_fisico_kg)} · comprometido {kg(item.delta_comprometido_kg)}</strong><small>Quantidade registrada: {kg(item.quantidade_kg)}</small></section>
+        <section><span>Lote operacional</span><strong>{texto(item.lote_operacional_codigo)}</strong><small>Identificador #{texto(item.lote_operacional)}</small></section>
+        <section className="rastreabilidade-contexto"><span>Contexto oficial</span><strong><Posicao item={posicao} /></strong></section>
+        <section className="rastreabilidade-snapshots"><span>Saldos auditáveis</span><div><SnapshotSaldo titulo="Antes" valor={item.snapshot_anterior} /><SnapshotSaldo titulo="Depois" valor={item.snapshot_posterior} /></div></section>
+        <section><span>Carga colhida</span><strong>{possuiCarga ? `Carga #${texto(item.carga_colhida)}` : "Sem carga vinculada"}</strong><small>Placa: {possuiCarga ? texto(item.placa_carga) : "—"}</small></section>
+        <section><span>Grupo de colheita</span><strong>{possuiGrupo ? texto(item.grupo_colheita_nome) : "Sem grupo vinculado"}</strong><small>Identificador: {possuiGrupo ? `#${texto(item.grupo_colheita)}` : "—"}</small></section>
+      </div>
+    </article>;
+  })}</div>;
+}
+
 export function TabelaRelatorio({ secao, itens }: { secao: SecaoRelatorio; itens: ItemRelatorio[] }) {
+  if (secao === "rastreabilidade" && itens.length) return <Rastreabilidade itens={itens} />;
   if (!itens.length) return <div className="card vazio">Nenhum registro encontrado para os filtros informados.</div>;
   return <div className="tabela-responsiva"><table className="tabela-relatorio"><thead><tr><th>Referência</th><th>Contexto oficial</th><th>Quantidade</th><th>Situação / data</th></tr></thead><tbody>{itens.map((item) => {
     const posicao = (secao === "saldos" ? item : item.posicao) as PosicaoRelatorio | undefined;
