@@ -6,7 +6,13 @@ from django.test import TestCase
 from rest_framework.test import APITestCase
 
 from apps.cadpro.models import CADPro, CADProPropriedade
-from apps.graos.models import ArmazemGraos, LoteGraos, MovimentacaoGraos
+from apps.graos.cargas_services import registrar_carga_colhida
+from apps.graos.models import (
+    ArmazemGraos,
+    GrupoColheita,
+    LoteGraos,
+    MovimentacaoGraos,
+)
 from apps.graos.services import creditar_producao, reservar_saldo
 from apps.propriedades.models import Propriedade
 from apps.vendas.services import confirmar_venda, criar_rascunho, registrar_entrega_venda
@@ -149,6 +155,98 @@ class RelatorioOperacionalSelectorTests(RelatorioOperacionalBase, TestCase):
         self.assertEqual(historico["dados"]["total"], 5)
         self.assertEqual(historico["totais"]["producao_kg"], "3000.000")
         self.assertEqual(historico["totais"]["entregas_kg"], "40.000")
+
+    def test_periodo_entregas_independe_da_data_do_contrato(self):
+        venda_julho = criar_rascunho(
+            usuario=self.usuario,
+            chave_idempotencia="venda:julho",
+            numero_contrato="VENDA-JULHO",
+            cliente_nome="Cliente Julho",
+            posicao=self.lote_a.movimentacoes.first().posicao,
+            quantidade_kg="20",
+            data_contrato=date(2026, 7, 31),
+        )
+        confirmar_venda(
+            usuario=self.usuario,
+            venda=venda_julho,
+            chave_idempotencia="venda:julho:confirmar",
+        )
+        registrar_entrega_venda(
+            usuario=self.usuario,
+            venda=venda_julho,
+            chave_idempotencia="venda:julho:entrega",
+            quantidade_kg="20",
+            data_entrega=date(2026, 8, 5),
+        )
+
+        filtros = {"data_inicio": date(2026, 8, 1), "data_fim": date(2026, 8, 31)}
+        entregas = self.relatorio(secao="entregas", **filtros)
+        vendas = self.relatorio(secao="vendas", **filtros)
+
+        self.assertEqual(entregas["dados"]["total"], 2)
+        self.assertEqual(entregas["totais"]["entregas_kg"], "60.000")
+        self.assertEqual(
+            {item["numero_contrato"] for item in entregas["dados"]["resultados"]},
+            {"VENDA-A", "VENDA-JULHO"},
+        )
+        self.assertEqual(vendas["dados"]["total"], 1)
+
+    def test_rastreabilidade_expoe_origem_snapshots_carga_grupo_e_placa(self):
+        grupo = GrupoColheita.objects.create(
+            propriedade=self.propriedade_a,
+            cad_pro=self.cad_a,
+            armazem_padrao=self.armazem_a,
+            nome="Grupo Norte",
+            cultura="Soja",
+            safra="2026/2027",
+            tolerancia_umidade_percentual="13.00",
+            desconto_umidade_por_ponto="1.000",
+            tolerancia_impureza_percentual="1.00",
+            desconto_impureza_por_ponto="0.500",
+            tolerancia_defeitos_percentual="2.00",
+            desconto_defeitos_por_ponto="2.000",
+            criado_por=self.usuario,
+        )
+        carga = registrar_carga_colhida(
+            usuario=self.usuario,
+            grupo_colheita=grupo,
+            armazem=self.armazem_a,
+            data_colheita=date(2026, 8, 9),
+            placa="ABC-1D23",
+            peso_bruto_kg="1000.000",
+            umidade_percentual="14.00",
+            impureza_percentual="2.00",
+            defeitos_percentual="3.00",
+        )
+
+        dados = self.relatorio(
+            secao="rastreabilidade",
+            armazem=self.armazem_a.pk,
+            data_inicio=date(2026, 8, 9),
+            data_fim=date(2026, 8, 9),
+        )
+        item = next(
+            resultado
+            for resultado in dados["dados"]["resultados"]
+            if resultado["carga_colhida"] == carga.pk
+        )
+
+        self.assertEqual(item["origem"], carga.movimentacao.origem_id)
+        self.assertEqual(item["origem_tipo"], "producao")
+        self.assertEqual(item["carga_colhida"], carga.pk)
+        self.assertEqual(item["grupo_colheita"], grupo.pk)
+        self.assertEqual(item["grupo_colheita_nome"], "Grupo Norte")
+        self.assertEqual(item["placa_carga"], "ABC1D23")
+        self.assertEqual(
+            Decimal(item["snapshot_anterior"]["saldo_disponivel_kg"]),
+            Decimal(item["snapshot_anterior"]["saldo_fisico_kg"])
+            - Decimal(item["snapshot_anterior"]["saldo_comprometido_kg"]),
+        )
+        self.assertEqual(
+            Decimal(item["snapshot_posterior"]["saldo_disponivel_kg"]),
+            Decimal(item["snapshot_posterior"]["saldo_fisico_kg"])
+            - Decimal(item["snapshot_posterior"]["saldo_comprometido_kg"]),
+        )
 
     def test_consistencia_com_ledger_e_paginacao(self):
         dados = self.relatorio(secao="movimentacoes", pagina=2, por_pagina=2)

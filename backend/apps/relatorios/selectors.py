@@ -10,7 +10,7 @@ from apps.graos.selectors import (
     selecionar_posicoes,
     selecionar_reservas,
 )
-from apps.vendas.selectors import selecionar_vendas
+from apps.vendas.selectors import selecionar_entregas, selecionar_vendas
 
 
 ZERO = Decimal("0.000")
@@ -186,28 +186,24 @@ def _item_venda(item):
     }
 
 
-def _entregas(vendas, filtros):
-    itens = []
-    inicio, fim = filtros.get("data_inicio"), filtros.get("data_fim")
-    for venda in vendas:
-        for entrega in venda.entregas.all():
-            if inicio and entrega.data_entrega < inicio:
-                continue
-            if fim and entrega.data_entrega > fim:
-                continue
-            itens.append(
-                {
-                    "id": entrega.pk,
-                    "venda": venda.pk,
-                    "numero_contrato": venda.numero_contrato,
-                    "cliente_nome": venda.cliente_nome,
-                    "data": entrega.data_entrega,
-                    "quantidade_kg": _texto_decimal(entrega.quantidade_kg),
-                    "movimentacao": entrega.movimentacao_id,
-                    "posicao": _item_posicao(venda.posicao),
-                }
-            )
-    return sorted(itens, key=lambda item: (item["data"], item["id"]), reverse=True)
+def _entregas(filtros, posicao_ids):
+    queryset = selecionar_entregas().filter(venda__posicao_id__in=posicao_ids)
+    return _periodo(queryset, "data_entrega", filtros).order_by(
+        "-data_entrega", "-id"
+    )
+
+
+def _item_entrega(item):
+    return {
+        "id": item.pk,
+        "venda": item.venda_id,
+        "numero_contrato": item.venda.numero_contrato,
+        "cliente_nome": item.venda.cliente_nome,
+        "data": item.data_entrega,
+        "quantidade_kg": _texto_decimal(item.quantidade_kg),
+        "movimentacao": item.movimentacao_id,
+        "posicao": _item_posicao(item.venda.posicao),
+    }
 
 
 def _producoes(movimentos):
@@ -230,13 +226,14 @@ def selecionar_relatorio_operacional(**filtros):
     movimentos = list(_movimentos(filtros, ids))
     reservas = list(_reservas(filtros, ids))
     vendas = list(_vendas(filtros, ids))
+    entregas = list(_entregas(filtros, ids))
 
     secoes = {
         "saldos": [_item_posicao(item) for item in posicoes],
         "producao": _producoes(movimentos),
         "reservas": [_item_reserva(item) for item in reservas],
         "vendas": [_item_venda(item) for item in vendas],
-        "entregas": _entregas(vendas, filtros),
+        "entregas": [_item_entrega(item) for item in entregas],
         "movimentacoes": [_item_movimento(item) for item in movimentos],
         "rastreabilidade": _rastreabilidade(movimentos),
     }
@@ -246,9 +243,7 @@ def selecionar_relatorio_operacional(**filtros):
     )
     reserva_aberta = sum((item.saldo_reservado_kg for item in reservas), ZERO)
     venda_total = sum((item.quantidade_kg for item in vendas), ZERO)
-    entrega_total = sum(
-        (Decimal(item["quantidade_kg"]) for item in secoes["entregas"]), ZERO
-    )
+    entrega_total = sum((item.quantidade_kg for item in entregas), ZERO)
     return {
         "gerado_em": timezone.now(),
         "filtros": {
