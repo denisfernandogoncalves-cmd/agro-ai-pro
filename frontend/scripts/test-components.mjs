@@ -66,6 +66,9 @@ try {
   const { default: RelatoriosPage } = await servidor.ssrLoadModule(
     "/src/pages/Relatorios/RelatoriosPage.tsx",
   );
+  const { TabelaRelatorio } = await servidor.ssrLoadModule(
+    "/src/pages/Relatorios/RelatoriosPage.tsx",
+  );
   const { default: InsightsPage } = await servidor.ssrLoadModule(
     "/src/pages/Insights/InsightsPage.tsx",
   );
@@ -403,7 +406,61 @@ try {
   const htmlRelatorios = renderToStaticMarkup(
     React.createElement(RelatoriosPage, { propriedades: [propriedade] }),
   );
-  assert.match(htmlRelatorios, /Gerando indicadores/);
+  assert.match(htmlRelatorios, /Relatórios operacionais/);
+  assert.match(htmlRelatorios, /Somente leitura/);
+  assert.match(htmlRelatorios, /Classificação/);
+  assert.match(htmlRelatorios, /Armazenagem/);
+  const htmlTabelaRelatorios = renderToStaticMarkup(
+    React.createElement(TabelaRelatorio, {
+      secao: "saldos",
+      itens: [{
+        id: 17, cad_pro_codigo: "CAD-1", propriedade_nome: "Fazenda Modelo",
+        cultura: "Soja", safra: "2026/2027", classificacao_codigo: "PADRAO",
+        armazem_nome: "Silo 1", saldo_fisico_kg: "1000.000",
+        saldo_comprometido_kg: "250.000", saldo_disponivel_kg: "750.000",
+      }],
+    }),
+  );
+  assert.match(htmlTabelaRelatorios, /CAD-1/);
+  assert.match(htmlTabelaRelatorios, /Físico/);
+  assert.match(htmlTabelaRelatorios, /disponível/);
+
+  const htmlRastreabilidadeRelatorios = renderToStaticMarkup(
+    React.createElement(TabelaRelatorio, {
+      secao: "rastreabilidade",
+      itens: [{
+        id: 91,
+        operacao: "credito_producao",
+        tipo: "entrada",
+        data: "2026-08-12",
+        quantidade_kg: "800.000",
+        delta_fisico_kg: "800.000",
+        delta_comprometido_kg: "0.000",
+        origem: 71,
+        origem_tipo: "producao",
+        referencia_externa: "ROM-2026-91",
+        lote_operacional: 41,
+        lote_operacional_codigo: "LOTE-NORTE",
+        snapshot_anterior: { saldo_fisico_kg: "0.000", saldo_comprometido_kg: "0.000", saldo_disponivel_kg: "0.000" },
+        snapshot_posterior: { saldo_fisico_kg: "800.000", saldo_comprometido_kg: "0.000", saldo_disponivel_kg: "800.000" },
+        carga_colhida: 81,
+        grupo_colheita: 61,
+        grupo_colheita_nome: "Grupo Norte",
+        placa_carga: "ABC1D23",
+        posicao: {
+          id: 17, cad_pro_codigo: "CAD-1", propriedade_nome: "Fazenda Modelo",
+          cultura: "Soja", safra: "2026/2027", classificacao_codigo: "PADRAO", armazem_nome: "Silo 1",
+        },
+      }],
+    }),
+  );
+  assert.match(htmlRastreabilidadeRelatorios, /Origem/);
+  assert.match(htmlRastreabilidadeRelatorios, /#71/);
+  assert.match(htmlRastreabilidadeRelatorios, /0,000 kg/);
+  assert.match(htmlRastreabilidadeRelatorios, /800,000 kg/);
+  assert.match(htmlRastreabilidadeRelatorios, /Carga #81/);
+  assert.match(htmlRastreabilidadeRelatorios, /Grupo Norte/);
+  assert.match(htmlRastreabilidadeRelatorios, /ABC1D23/);
 
   const htmlInsights = renderToStaticMarkup(
     React.createElement(InsightsPage, { propriedades: [propriedade] }),

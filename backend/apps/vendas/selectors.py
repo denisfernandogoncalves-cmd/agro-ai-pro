@@ -22,3 +22,14 @@ def selecionar_vendas():
             queryset=DevolucaoVendaGraos.objects.select_related("movimentacao"),
         ),
     )
+
+
+def selecionar_entregas():
+    return EntregaVendaGraos.objects.select_related(
+        "venda",
+        "venda__posicao",
+        "venda__posicao__cad_pro",
+        "venda__posicao__armazem",
+        "venda__posicao__armazem__propriedade",
+        "movimentacao",
+    )
