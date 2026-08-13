@@ -66,6 +66,9 @@ try {
   const { default: RelatoriosPage } = await servidor.ssrLoadModule(
     "/src/pages/Relatorios/RelatoriosPage.tsx",
   );
+  const { TabelaRelatorio } = await servidor.ssrLoadModule(
+    "/src/pages/Relatorios/RelatoriosPage.tsx",
+  );
   const { default: InsightsPage } = await servidor.ssrLoadModule(
     "/src/pages/Insights/InsightsPage.tsx",
   );
@@ -403,7 +406,24 @@ try {
   const htmlRelatorios = renderToStaticMarkup(
     React.createElement(RelatoriosPage, { propriedades: [propriedade] }),
   );
-  assert.match(htmlRelatorios, /Gerando indicadores/);
+  assert.match(htmlRelatorios, /Relatórios operacionais/);
+  assert.match(htmlRelatorios, /Somente leitura/);
+  assert.match(htmlRelatorios, /Classificação/);
+  assert.match(htmlRelatorios, /Armazenagem/);
+  const htmlTabelaRelatorios = renderToStaticMarkup(
+    React.createElement(TabelaRelatorio, {
+      secao: "saldos",
+      itens: [{
+        id: 17, cad_pro_codigo: "CAD-1", propriedade_nome: "Fazenda Modelo",
+        cultura: "Soja", safra: "2026/2027", classificacao_codigo: "PADRAO",
+        armazem_nome: "Silo 1", saldo_fisico_kg: "1000.000",
+        saldo_comprometido_kg: "250.000", saldo_disponivel_kg: "750.000",
+      }],
+    }),
+  );
+  assert.match(htmlTabelaRelatorios, /CAD-1/);
+  assert.match(htmlTabelaRelatorios, /Físico/);
+  assert.match(htmlTabelaRelatorios, /disponível/);
 
   const htmlInsights = renderToStaticMarkup(
     React.createElement(InsightsPage, { propriedades: [propriedade] }),
