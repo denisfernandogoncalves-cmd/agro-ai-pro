@@ -96,4 +96,3 @@ export async function entregarVenda(id: number, quantidade_kg: string, data_movi
 export async function devolverVenda(id: number, quantidade_kg: string, data_movimento: string, chave: string) {
   return (await api.post<VendaGraos>(`/comercial/vendas/${id}/devolver/`, { quantidade_kg, data_movimento }, cabecalho(chave))).data;
 }
-

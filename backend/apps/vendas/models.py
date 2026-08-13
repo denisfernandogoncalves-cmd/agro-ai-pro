@@ -179,7 +179,6 @@ class EntregaVendaGraos(models.Model):
             )
         ]
 
-
 class DevolucaoVendaGraos(models.Model):
     venda = models.ForeignKey(
         VendaGraos, on_delete=models.PROTECT, related_name="devolucoes"
@@ -215,4 +214,3 @@ class DevolucaoVendaGraos(models.Model):
                 name="vendas_devolucao_quantidade_positiva",
             )
         ]
-

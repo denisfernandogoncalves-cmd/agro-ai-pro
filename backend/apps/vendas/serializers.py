@@ -126,4 +126,3 @@ class VendaGraosSerializer(serializers.ModelSerializer):
             }
             for carga in list(obj.lote.cargas_colhidas.all())[:20]
         ]
-

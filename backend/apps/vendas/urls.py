@@ -8,4 +8,3 @@ router = DefaultRouter()
 router.register("vendas", VendaGraosViewSet, basename="vendas-graos")
 
 urlpatterns = [path("", include(router.urls))]
-

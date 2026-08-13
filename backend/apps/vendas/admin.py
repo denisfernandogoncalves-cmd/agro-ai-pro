@@ -15,4 +15,3 @@ class VendaGraosAdmin(admin.ModelAdmin):
 
 admin.site.register(EntregaVendaGraos)
 admin.site.register(DevolucaoVendaGraos)
-

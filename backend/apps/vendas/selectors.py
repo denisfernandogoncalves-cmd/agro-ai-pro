@@ -28,4 +28,3 @@ def selecionar_vendas():
             queryset=DevolucaoVendaGraos.objects.select_related("movimentacao"),
         ),
     )
-
