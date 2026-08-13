@@ -125,4 +125,5 @@ class GrupoColheitaMigration0006Tests(TransactionTestCase):
             self.assertIsNone(valores[grupo_externo.pk])
             self.assertIsNone(valores[grupo_sem_historico.pk])
         finally:
-            MigrationExecutor(connection).migrate([self.migrate_latest])
+            restaurador = MigrationExecutor(connection)
+            restaurador.migrate(restaurador.loader.graph.leaf_nodes())

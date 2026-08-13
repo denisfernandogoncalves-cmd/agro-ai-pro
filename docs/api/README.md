@@ -143,6 +143,12 @@ normalização, erros, advertências, prevenção de duplicidade e associação
 preliminar com Grãos, sem criar movimentações ou alterar saldos. Consulte
 [Importações](IMPORTACOES.md).
 
+## Vendas
+
+O módulo Comercial cria contratos vinculados à posição oficial, reserva saldo,
+registra entregas e devoluções e impede dupla baixa. Consulte
+[Vendas com bloqueio por saldo](VENDAS.md).
+
 ## Operações
 
 O módulo planeja, inicia, conclui e cancela operações por talhão, com custos e

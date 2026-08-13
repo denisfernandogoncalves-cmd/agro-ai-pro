@@ -1129,7 +1129,8 @@ class ReversaoMigrationsGraosTests(GraosSaldoBase, TransactionTestCase):
             Posicao = estado.get_model("graos", "PosicaoSaldoGraos")
             self.assertEqual(Posicao.objects.count(), 0)
         finally:
-            MigrationExecutor(connection).migrate([self.migrate_to])
+            restaurador = MigrationExecutor(connection)
+            restaurador.migrate(restaurador.loader.graph.leaf_nodes())
 
     def test_ciclo_0004_0001_0004_com_dados_e_reserva(self):
         self.criar_contexto()
@@ -1156,7 +1157,8 @@ class ReversaoMigrationsGraosTests(GraosSaldoBase, TransactionTestCase):
             Posicao = estado_0004.get_model("graos", "PosicaoSaldoGraos")
             self.assertEqual(Posicao.objects.get().saldo_fisico_kg, Decimal("500.000"))
         finally:
-            MigrationExecutor(connection).migrate([self.migrate_to])
+            restaurador = MigrationExecutor(connection)
+            restaurador.migrate(restaurador.loader.graph.leaf_nodes())
 
 
 @skipUnless(

@@ -2,6 +2,7 @@ from datetime import timedelta
 from pathlib import Path
 import os
 from dotenv import load_dotenv
+from corsheaders.defaults import default_headers
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 for env_path in [BASE_DIR / ".env", BASE_DIR.parent / ".env"]:
@@ -35,6 +36,7 @@ INSTALLED_APPS = [
     "apps.estoque",
     "apps.producao",
     "apps.graos",
+    "apps.vendas",
     "apps.importacoes",
     "apps.cadpro",
     "apps.maquinas",
@@ -109,6 +111,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 ]
+CORS_ALLOW_HEADERS = (*default_headers, "idempotency-key")
 
 SWAGGER_SETTINGS = {
     "SECURITY_DEFINITIONS": {
