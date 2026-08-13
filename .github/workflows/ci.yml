@@ -70,3 +70,13 @@ jobs:
 
       - name: Compilar produção
         run: npm run build
+
+  homologacao:
+    name: Imagem Koyeb
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Construir imagem de homologação
+        run: docker build --file Dockerfile.koyeb --tag agro-ai-pro-homologacao:${{ github.sha }} .
