@@ -9,7 +9,21 @@ from .selectors import selecionar_opcoes_relatorio, selecionar_relatorio_operaci
 from .serializers import FiltrosRelatorioOperacionalSerializer
 
 
-class DashboardGerencialView(APIView);]ù×[h‘éì¶»§q«^uwait servidor.ssrLoadModule(
+class DashboardGerencialView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+      #]öï{h‘éì¶»§q«^ufault: HistoricoAgronomicoPanel } =
+    await servidor.ssrLoadModule(
+      "/src/pages/Talhoes/HistoricoAgronomicoPanel.tsx",
+    );
+  const { default: ClimaPage } = await servidor.ssrLoadModule(
+    "/src/pages/Clima/ClimaPage.tsx",
+  );
+  const { default: MercadoPage } = await servidor.ssrLoadModule(
+    "/src/pages/Mercado/MercadoPage.tsx",
+  );
+  const { default: GraficoMercado } = await servidor.ssrLoadModule(
     "/src/pages/Mercado/GraficoMercado.tsx",
   );
   const { default: FinanceiroPage } = await servidor.ssrLoadModule(
