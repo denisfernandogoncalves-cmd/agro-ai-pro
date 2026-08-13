@@ -125,6 +125,19 @@ header { align-items: center; display: flex; justify-content: space-between; mar
 .modulo-cargas { display: grid; gap: 1.4rem; }
 .modulo-grupos-colheita { display: grid; gap: 1.4rem; }
 .modulo-producao-saldos { display: grid; gap: 1.4rem; }
+.modulo-vendas { display: grid; gap: 1.4rem; }
+.filtros-vendas { display: grid; gap: 0.6rem; grid-template-columns: 2fr repeat(4, minmax(120px, 1fr)) auto; }
+.vendas-grade { grid-template-columns: minmax(350px, 470px) 1fr; }
+.venda-item { cursor: pointer; gap: 1rem; }
+.metricas-venda { display: grid; gap: 0.3rem; min-width: 220px; }
+.metricas-venda span { display: flex; gap: 0.8rem; justify-content: space-between; }
+.detalhe-venda { display: grid; gap: 1rem; }
+.detalhe-venda-topo { align-items: flex-start; display: flex; gap: 1rem; justify-content: space-between; }
+.resumo-venda { display: grid; gap: 0.8rem; grid-template-columns: repeat(4, 1fr); }
+.resumo-venda span { background: #f4f8f4; border-radius: 8px; display: grid; gap: 0.3rem; padding: 0.8rem; }
+.movimentos-venda { align-items: end; display: flex; flex-wrap: wrap; gap: 0.7rem; }
+.movimentos-venda label { min-width: 220px; }
+.origens-venda { border-top: 1px solid #dbe5dc; padding-top: 1rem; }
 .filtros-saldos { display: grid; gap: 0.6rem; grid-template-columns: repeat(6, minmax(120px, 1fr)) auto auto; }
 .resumo-saldos { display: grid; gap: 1rem; grid-template-columns: repeat(4, minmax(160px, 1fr)); }
 .resumo-saldos article { display: grid; gap: 0.4rem; }
@@ -179,7 +192,8 @@ header { align-items: center; display: flex; justify-content: space-between; mar
   .item { align-items: flex-start; flex-direction: column; gap: 1rem; }
   .clima-controles { grid-template-columns: 1fr; }
   .mercado-controles { align-items: stretch; flex-direction: column; }
-  .financeiro-grade, .estoque-grade, .operacoes-grade, .cargas-grade, .grupos-colheita-grade, .producao-saldos-grade, .filtros-grupos, .filtros-saldos, .resumo-saldos, .maquinas-grade, .relatorios-grade, .filtros-relatorio, .controles-insights, .painel-filtros, .auxiliares-grade, .linha-insumo, .regras-desconto { grid-template-columns: 1fr; }
+  .financeiro-grade, .estoque-grade, .operacoes-grade, .cargas-grade, .grupos-colheita-grade, .producao-saldos-grade, .vendas-grade, .filtros-vendas, .filtros-grupos, .filtros-saldos, .resumo-saldos, .resumo-venda, .maquinas-grade, .relatorios-grade, .filtros-relatorio, .controles-insights, .painel-filtros, .auxiliares-grade, .linha-insumo, .regras-desconto { grid-template-columns: 1fr; }
+  .detalhe-venda-topo, .venda-item { align-items: stretch; flex-direction: column; }
   .saldo-cadpro, .movimento-saldo { align-items: flex-start; flex-direction: column; }
   .metricas-saldo, .movimento-saldo div:last-child { text-align: left; width: 100%; }
   .cargas-cabecalho { align-items: stretch; flex-direction: column; }

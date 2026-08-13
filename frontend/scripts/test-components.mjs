@@ -51,6 +51,12 @@ try {
   const { default: ProducaoSaldosPage, BotaoCreditarProducao } = await servidor.ssrLoadModule(
     "/src/pages/ProducaoSaldos/ProducaoSaldosPage.tsx",
   );
+  const { default: VendasPage, BotaoMutacaoVenda } = await servidor.ssrLoadModule(
+    "/src/pages/Vendas/VendasPage.tsx",
+  );
+  const { criarControladorMutacaoVenda } = await servidor.ssrLoadModule(
+    "/src/pages/Vendas/vendaMutationController.ts",
+  );
   const { criarControladorCreditoProducao } = await servidor.ssrLoadModule(
     "/src/pages/ProducaoSaldos/creditoProducaoSubmission.ts",
   );
@@ -335,6 +341,45 @@ try {
     assert.equal(dados.chave_idempotencia, chaveDoErro);
     return { idempotente: true };
   });
+
+  const htmlVendas = renderToStaticMarkup(React.createElement(VendasPage));
+  assert.match(htmlVendas, /Vendas com bloqueio por saldo/);
+  assert.match(htmlVendas, /Novo contrato/);
+  assert.match(htmlVendas, /Criar rascunho/);
+  const htmlBotaoVenda = renderToStaticMarkup(
+    React.createElement(BotaoMutacaoVenda, { processando: true }, "Confirmar"),
+  );
+  assert.match(htmlBotaoVenda, /disabled=""/);
+
+  const chavesVenda = ["venda-tentativa-1", "venda-tentativa-2"];
+  const controladorVenda = criarControladorMutacaoVenda(() => chavesVenda.shift());
+  let liberarVenda;
+  let chamadasVenda = 0;
+  const primeiraVenda = controladorVenda.executar("confirmar:1", (chave) => {
+    chamadasVenda += 1;
+    assert.equal(chave, "venda-tentativa-1");
+    return new Promise((resolve) => { liberarVenda = resolve; });
+  });
+  const segundaVenda = controladorVenda.executar("confirmar:1", () => {
+    chamadasVenda += 1;
+    return Promise.resolve();
+  });
+  assert.equal(chamadasVenda, 1);
+  assert.equal(primeiraVenda, segundaVenda);
+  assert.equal(controladorVenda.emAndamento(), true);
+  liberarVenda({ status: "confirmada" });
+  await primeiraVenda;
+  assert.equal(controladorVenda.emAndamento(), false);
+
+  let chaveComErro;
+  await assert.rejects(controladorVenda.executar("entregar:1:100", async (chave) => {
+    chaveComErro = chave;
+    throw new Error("rede");
+  }));
+  await controladorVenda.executar("entregar:1:100", async (chave) => {
+    assert.equal(chave, chaveComErro);
+    return { status: "parcial" };
+  });
   await controlador.enviar(payloadCredito, async (dados) => {
     assert.notEqual(dados.chave_idempotencia, chaveDoErro);
     return { idempotente: false };
@@ -369,7 +414,7 @@ try {
   );
   assert.match(serviceWorker, /pathname\.startsWith\(\"\/api\/\"\)/);
 
-  console.log("19 testes de componentes, submissão, geometria e PWA aprovados.");
+  console.log("24 testes de componentes, submissão, geometria e PWA aprovados.");
 } finally {
   await servidor.close();
 }
