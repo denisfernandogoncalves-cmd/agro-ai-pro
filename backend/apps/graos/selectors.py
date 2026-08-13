@@ -70,4 +70,7 @@ def selecionar_movimentacoes_saldo() -> QuerySet:
         "reserva",
         "estorno_de",
         "criado_por",
+        "carga_colhida",
+        "carga_colhida__grupo_colheita",
+        "carga_colhida__grupo_colheita__propriedade",
     )
