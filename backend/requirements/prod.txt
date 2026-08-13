@@ -1,2 +1,4 @@
 -r base.txt
 gunicorn>=22.0
+whitenoise>=6.9,<7.0
+django-storages[s3]>=1.14,<2.0
