@@ -116,6 +116,11 @@ urlpatterns = [
     ),
 
     path(
+        "api/comercial/",
+        include("apps.vendas.urls")
+    ),
+
+    path(
         "api/importacoes/",
         include("apps.importacoes.urls")
     ),
