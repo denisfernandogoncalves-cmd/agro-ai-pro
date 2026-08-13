@@ -73,6 +73,18 @@ def _validar_repeticao(hash_existente, hash_recebido):
         )
 
 
+def _repeticao_movimento(modelo, *, chave, hash_requisicao, venda_id):
+    existente = modelo.objects.select_related("venda").filter(
+        chave_idempotencia=chave
+    ).first()
+    if not existente:
+        return None
+    _validar_repeticao(existente.hash_requisicao, hash_requisicao)
+    if existente.venda_id != venda_id:
+        raise VendaGraosConflitoError("A Idempotency-Key pertence a outra venda.")
+    return existente
+
+
 def _lote_operacional(posicao):
     lote = (
         LoteGraos.objects.filter(
@@ -237,15 +249,19 @@ def registrar_entrega_venda(
         "observacoes": str(observacoes or "").strip(),
     }
     hash_requisicao = _hash(payload)
-    existente = EntregaVendaGraos.objects.select_related("venda").filter(
-        chave_idempotencia=chave
-    ).first()
+    existente = _repeticao_movimento(
+        EntregaVendaGraos, chave=chave, hash_requisicao=hash_requisicao,
+        venda_id=venda.pk,
+    )
     if existente:
-        _validar_repeticao(existente.hash_requisicao, hash_requisicao)
-        if existente.venda_id != venda.pk:
-            raise VendaGraosConflitoError("A Idempotency-Key pertence a outra venda.")
         return existente
     venda = VendaGraos.objects.select_for_update().get(pk=venda.pk)
+    existente = _repeticao_movimento(
+        EntregaVendaGraos, chave=chave, hash_requisicao=hash_requisicao,
+        venda_id=venda.pk,
+    )
+    if existente:
+        return existente
     venda.reserva = ReservaSaldoGraos.objects.get(pk=venda.reserva_id)
     venda.lote = LoteGraos.objects.get(pk=venda.lote_id)
     venda.posicao = PosicaoSaldoGraos.objects.get(pk=venda.posicao_id)
@@ -301,15 +317,19 @@ def registrar_devolucao_venda(
         "observacoes": str(observacoes or "").strip(),
     }
     hash_requisicao = _hash(payload)
-    existente = DevolucaoVendaGraos.objects.select_related("venda").filter(
-        chave_idempotencia=chave
-    ).first()
+    existente = _repeticao_movimento(
+        DevolucaoVendaGraos, chave=chave, hash_requisicao=hash_requisicao,
+        venda_id=venda.pk,
+    )
     if existente:
-        _validar_repeticao(existente.hash_requisicao, hash_requisicao)
-        if existente.venda_id != venda.pk:
-            raise VendaGraosConflitoError("A Idempotency-Key pertence a outra venda.")
         return existente
     venda = VendaGraos.objects.select_for_update().get(pk=venda.pk)
+    existente = _repeticao_movimento(
+        DevolucaoVendaGraos, chave=chave, hash_requisicao=hash_requisicao,
+        venda_id=venda.pk,
+    )
+    if existente:
+        return existente
     venda.lote = LoteGraos.objects.get(pk=venda.lote_id)
     venda.posicao = PosicaoSaldoGraos.objects.get(pk=venda.posicao_id)
     if venda.reserva_id:

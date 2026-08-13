@@ -85,7 +85,11 @@ class VendaGraosSerializer(serializers.ModelSerializer):
     propriedade_nome = serializers.CharField(
         source="posicao.armazem.propriedade.nome", read_only=True
     )
-    lote_codigo = serializers.CharField(source="lote.codigo", read_only=True)
+    lote_operacional = serializers.IntegerField(source="lote_id", read_only=True)
+    lote_operacional_codigo = serializers.CharField(
+        source="lote.codigo", read_only=True
+    )
+    origem_fisica_alocada = serializers.BooleanField(read_only=True, default=False)
     quantidade_reservada_kg = serializers.DecimalField(
         max_digits=16, decimal_places=3, read_only=True
     )
@@ -97,32 +101,19 @@ class VendaGraosSerializer(serializers.ModelSerializer):
     )
     entregas = EntregaVendaSerializer(many=True, read_only=True)
     devolucoes = DevolucaoVendaSerializer(many=True, read_only=True)
-    origens_colheita = serializers.SerializerMethodField()
 
     class Meta:
         model = VendaGraos
         fields = (
             "id", "numero_contrato", "cliente_nome", "status", "posicao",
-            "lote", "lote_codigo", "cad_pro", "cad_pro_codigo", "cultura",
+            "lote_operacional", "lote_operacional_codigo",
+            "origem_fisica_alocada", "cad_pro", "cad_pro_codigo", "cultura",
             "safra", "classificacao_codigo", "armazem", "armazem_nome",
             "propriedade", "propriedade_nome", "quantidade_kg",
             "quantidade_reservada_kg", "quantidade_entregue_kg",
             "quantidade_devolvida_kg", "quantidade_cancelada_kg",
             "quantidade_aberta_kg", "data_contrato", "data_limite_entrega",
-            "reserva", "observacoes", "origens_colheita", "entregas",
+            "reserva", "observacoes", "entregas",
             "devolucoes", "criado_por_nome", "confirmado_em", "cancelado_em",
             "criado_em", "atualizado_em",
         )
-
-    def get_origens_colheita(self, obj):
-        return [
-            {
-                "carga_id": carga.pk,
-                "data_colheita": carga.data_colheita,
-                "placa": carga.placa,
-                "peso_liquido_kg": carga.peso_liquido_kg,
-                "grupo_id": carga.grupo_colheita_id,
-                "grupo_nome": carga.grupo_colheita.nome,
-            }
-            for carga in list(obj.lote.cargas_colhidas.all())[:20]
-        ]

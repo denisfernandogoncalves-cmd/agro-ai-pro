@@ -18,7 +18,9 @@ export type VendaGraos = {
   cliente_nome: string;
   status: StatusVenda;
   posicao: number;
-  lote_codigo: string;
+  lote_operacional: number;
+  lote_operacional_codigo: string;
+  origem_fisica_alocada: boolean;
   cad_pro: string;
   cad_pro_codigo: string;
   cultura: string;
@@ -35,14 +37,6 @@ export type VendaGraos = {
   data_contrato: string;
   data_limite_entrega: string | null;
   observacoes: string;
-  origens_colheita: Array<{
-    carga_id: number;
-    data_colheita: string;
-    placa: string;
-    peso_liquido_kg: string;
-    grupo_id: number;
-    grupo_nome: string;
-  }>;
   entregas: MovimentoVenda[];
   devolucoes: MovimentoVenda[];
 };

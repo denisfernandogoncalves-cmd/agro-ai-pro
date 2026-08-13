@@ -51,7 +51,7 @@ try {
   const { default: ProducaoSaldosPage, BotaoCreditarProducao } = await servidor.ssrLoadModule(
     "/src/pages/ProducaoSaldos/ProducaoSaldosPage.tsx",
   );
-  const { default: VendasPage, BotaoMutacaoVenda } = await servidor.ssrLoadModule(
+  const { default: VendasPage, BotaoMutacaoVenda, RastreabilidadeVenda } = await servidor.ssrLoadModule(
     "/src/pages/Vendas/VendasPage.tsx",
   );
   const { criarControladorMutacaoVenda } = await servidor.ssrLoadModule(
@@ -346,6 +346,15 @@ try {
   assert.match(htmlVendas, /Vendas com bloqueio por saldo/);
   assert.match(htmlVendas, /Novo contrato/);
   assert.match(htmlVendas, /Criar rascunho/);
+  const htmlRastreabilidadeVenda = renderToStaticMarkup(
+    React.createElement(RastreabilidadeVenda, {
+      venda: { posicao: 17, lote_operacional_codigo: "COLH-2-PADRAO" },
+    }),
+  );
+  assert.match(htmlRastreabilidadeVenda, /posição oficial #17/);
+  assert.match(htmlRastreabilidadeVenda, /adaptador operacional do ledger/);
+  assert.match(htmlRastreabilidadeVenda, /Nenhum lote ou carga representa origem física alocada/);
+  assert.doesNotMatch(htmlRastreabilidadeVenda, /Cargas e grupos de origem do lote/);
   const htmlBotaoVenda = renderToStaticMarkup(
     React.createElement(BotaoMutacaoVenda, { processando: true }, "Confirmar"),
   );

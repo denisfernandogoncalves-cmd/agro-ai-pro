@@ -44,6 +44,14 @@ export function BotaoMutacaoVenda({ processando, children }: { processando: bool
   return <button disabled={processando} type="submit">{children}</button>;
 }
 
+export function RastreabilidadeVenda({
+  venda,
+}: {
+  venda: Pick<VendaGraos, "posicao" | "lote_operacional_codigo">;
+}) {
+  return <div className="origens-venda"><h4>Rastreabilidade comprovável</h4><p>A posição oficial #{venda.posicao} é a dimensão autoritativa desta venda.</p><p><small>O lote {venda.lote_operacional_codigo} é usado somente como adaptador operacional do ledger. Nenhum lote ou carga representa origem física alocada à venda.</small></p></div>;
+}
+
 export default function VendasPage() {
   const [vendas, setVendas] = useState<VendaGraos[]>([]);
   const [posicoes, setPosicoes] = useState<PosicaoSaldo[]>([]);
@@ -132,10 +140,10 @@ export default function VendasPage() {
         </section>
       </section>
 
-      {selecionada && <section className="card detalhe-venda"><div className="detalhe-venda-topo"><div><span className="kicker">Detalhe e rastreabilidade</span><h3>{selecionada.numero_contrato}</h3><p>{selecionada.propriedade_nome} · lote {selecionada.lote_codigo}</p></div><div className="acoes">{selecionada.status === "rascunho" && <button disabled={processando} onClick={() => { void executar(`confirmar:${selecionada.id}`, (chave) => confirmarVenda(selecionada.id, chave), "Venda confirmada e saldo reservado."); }}>Confirmar e reservar</button>}{selecionada.status !== "entregue" && selecionada.status !== "cancelada" && <button className="perigo" disabled={processando} onClick={() => { void executar(`cancelar:${selecionada.id}`, (chave) => cancelarVenda(selecionada.id, "Cancelamento pelo painel", chave), "Venda cancelada; somente a reserva aberta foi liberada."); }}>Cancelar</button>}</div></div>
+      {selecionada && <section className="card detalhe-venda"><div className="detalhe-venda-topo"><div><span className="kicker">Detalhe e rastreabilidade</span><h3>{selecionada.numero_contrato}</h3><p>{selecionada.propriedade_nome} · posição oficial #{selecionada.posicao}</p></div><div className="acoes">{selecionada.status === "rascunho" && <button disabled={processando} onClick={() => { void executar(`confirmar:${selecionada.id}`, (chave) => confirmarVenda(selecionada.id, chave), "Venda confirmada e saldo reservado."); }}>Confirmar e reservar</button>}{selecionada.status !== "entregue" && selecionada.status !== "cancelada" && <button className="perigo" disabled={processando} onClick={() => { void executar(`cancelar:${selecionada.id}`, (chave) => cancelarVenda(selecionada.id, "Cancelamento pelo painel", chave), "Venda cancelada; somente a reserva aberta foi liberada."); }}>Cancelar</button>}</div></div>
         <div className="resumo-venda"><span>Físico da posição <strong>{kg(saldoSelecionado?.saldo_fisico_kg ?? "0")}</strong></span><span>Comprometido da posição <strong>{kg(saldoSelecionado?.saldo_comprometido_kg ?? "0")}</strong></span><span>Disponível da posição <strong>{kg(saldoSelecionado?.saldo_disponivel_kg ?? "0")}</strong></span><span>Reservado nesta venda <strong>{kg(selecionada.quantidade_reservada_kg)}</strong></span><span>Entregue <strong>{kg(selecionada.quantidade_entregue_kg)}</strong></span><span>Devolvido <strong>{kg(selecionada.quantidade_devolvida_kg)}</strong></span><span>Cancelado <strong>{kg(selecionada.quantidade_cancelada_kg)}</strong></span></div>
         {(aberto || devolvivel > 0) && <div className="movimentos-venda"><label>Quantidade (kg)<input min="0.001" step="0.001" type="number" value={quantidadeMovimento} onChange={(e) => setQuantidadeMovimento(e.target.value)} /></label>{aberto && <button disabled={processando || !quantidadeMovimento} onClick={() => { void executar(`entregar:${selecionada.id}:${quantidadeMovimento}`, (chave) => entregarVenda(selecionada.id, quantidadeMovimento, hoje, chave), "Entrega registrada; físico e comprometido foram reduzidos uma única vez."); }}>Registrar entrega</button>}{devolvivel > 0 && <button className="secundario" disabled={processando || !quantidadeMovimento} onClick={() => { void executar(`devolver:${selecionada.id}:${quantidadeMovimento}`, (chave) => devolverVenda(selecionada.id, quantidadeMovimento, hoje, chave), "Devolução registrada no físico sem reabrir a reserva."); }}>Registrar devolução</button>}</div>}
-        <div className="origens-venda"><h4>Cargas e grupos de origem do lote</h4>{selecionada.origens_colheita.length ? selecionada.origens_colheita.map((origem) => <p key={origem.carga_id}>Carga #{origem.carga_id} · {origem.data_colheita} · {origem.placa} · {kg(origem.peso_liquido_kg)} · grupo {origem.grupo_nome}</p>) : <p>Posição originada por produção sem carga vinculada ao lote operacional.</p>}</div>
+        <RastreabilidadeVenda venda={selecionada} />
       </section>}
     </section>
   );

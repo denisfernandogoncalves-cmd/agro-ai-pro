@@ -3,9 +3,10 @@ from datetime import date
 from decimal import Decimal
 from threading import Barrier
 
+from django.contrib import admin
 from django.contrib.auth import get_user_model
 from django.db import close_old_connections, connection
-from django.test import TestCase, TransactionTestCase
+from django.test import RequestFactory, TestCase, TransactionTestCase
 from django.urls import reverse
 from rest_framework.test import APITestCase
 
@@ -278,19 +279,32 @@ class VendaGraosApiTests(ContextoVendaMixin, APITestCase):
         self.assertEqual(cancelar.status_code, 200, cancelar.data)
         self.assertEqual(cancelar.data["status"], "cancelada")
 
-    def test_filtros_e_rastreabilidade_por_dimensoes_carga_e_grupo(self):
-        grupo = GrupoColheita.objects.create(
+    def test_filtros_e_rastreabilidade_nao_atribuem_origem_fisica_arbitraria(self):
+        grupo_a = GrupoColheita.objects.create(
             propriedade=self.propriedade, cad_pro=self.cadpro,
-            armazem_padrao=self.armazem, nome="Equipe Comercial",
+            armazem_padrao=self.armazem, nome="Equipe Comercial A",
             cultura="Milho", safra="2026/2027", criado_por=self.usuario,
         )
-        carga = registrar_carga_colhida(
-            usuario=self.usuario, grupo_colheita=grupo, armazem=self.armazem,
+        grupo_b = GrupoColheita.objects.create(
+            propriedade=self.propriedade, cad_pro=self.cadpro,
+            armazem_padrao=self.armazem, nome="Equipe Comercial B",
+            cultura="Milho", safra="2026/2027", criado_por=self.usuario,
+        )
+        carga_a = registrar_carga_colhida(
+            usuario=self.usuario, grupo_colheita=grupo_a, armazem=self.armazem,
             data_colheita=date(2026, 8, 12), placa="ABC1D23",
             peso_bruto_kg="500", umidade_percentual="10",
             impureza_percentual="0", defeitos_percentual="0",
             destinado_semente=False,
         )
+        carga_b = registrar_carga_colhida(
+            usuario=self.usuario, grupo_colheita=grupo_b, armazem=self.armazem,
+            data_colheita=date(2026, 8, 13), placa="DEF4G56",
+            peso_bruto_kg="400", umidade_percentual="10",
+            impureza_percentual="0", defeitos_percentual="0",
+            destinado_semente=False,
+        )
+        self.assertNotEqual(carga_a.lote_id, carga_b.lote_id)
         posicao = PosicaoSaldoGraos.objects.get(
             cad_pro=self.cadpro, cultura="Milho"
         )
@@ -299,11 +313,6 @@ class VendaGraosApiTests(ContextoVendaMixin, APITestCase):
             cliente_nome="Rastreável", quantidade_kg="100",
             chave_idempotencia="rastro-criar",
         )
-        resposta = self.client.get(self.url, {
-            "cad_pro": str(self.cadpro.pk), "cultura": "milho",
-            "safra": "2026/2027", "classificacao_codigo": "padrao",
-            "armazem": self.armazem.pk,
-        })
         self.client.force_authenticate(self.usuario)
         resposta = self.client.get(self.url, {
             "cad_pro": str(self.cadpro.pk), "cultura": "milho",
@@ -312,8 +321,70 @@ class VendaGraosApiTests(ContextoVendaMixin, APITestCase):
         })
         self.assertEqual(resposta.status_code, 200)
         self.assertEqual([item["id"] for item in resposta.data], [venda.pk])
-        self.assertEqual(resposta.data[0]["origens_colheita"][0]["carga_id"], carga.pk)
-        self.assertEqual(resposta.data[0]["origens_colheita"][0]["grupo_nome"], "Equipe Comercial")
+        detalhe = resposta.data[0]
+        self.assertEqual(detalhe["posicao"], posicao.pk)
+        self.assertFalse(detalhe["origem_fisica_alocada"])
+        self.assertIn(detalhe["lote_operacional"], (carga_a.lote_id, carga_b.lote_id))
+        self.assertNotIn("lote", detalhe)
+        self.assertNotIn("origens_colheita", detalhe)
+
+
+class VendaGraosAdminTests(ContextoVendaMixin, TestCase):
+    def setUp(self):
+        self.criar_contexto()
+        self.usuario.is_staff = True
+        self.usuario.is_superuser = True
+        self.usuario.save(update_fields=("is_staff", "is_superuser"))
+        self.venda = self.rascunho(quantidade="300")
+        confirmar_venda(
+            usuario=self.usuario, venda=self.venda,
+            chave_idempotencia="admin-confirmar",
+        )
+        self.entrega = registrar_entrega_venda(
+            usuario=self.usuario, venda=self.venda, quantidade_kg="100",
+            chave_idempotencia="admin-entrega",
+        )
+        self.devolucao = registrar_devolucao_venda(
+            usuario=self.usuario, venda=self.venda, quantidade_kg="40",
+            chave_idempotencia="admin-devolucao",
+        )
+        self.client.force_login(self.usuario)
+
+    def test_trilha_comercial_pode_ser_consultada_no_admin(self):
+        requisicao = RequestFactory().get("/admin/")
+        requisicao.user = self.usuario
+        for modelo, objeto in (
+            (VendaGraos, self.venda),
+            (EntregaVendaGraos, self.entrega),
+            (DevolucaoVendaGraos, self.devolucao),
+        ):
+            with self.subTest(modelo=modelo.__name__):
+                model_admin = admin.site._registry[modelo]
+                self.assertTrue(model_admin.has_view_permission(requisicao, objeto))
+                self.assertTrue(
+                    model_admin.get_queryset(requisicao).filter(pk=objeto.pk).exists()
+                )
+
+    def test_trilha_comercial_nao_pode_ser_editada_ou_excluida_no_admin(self):
+        for modelo, objeto in (
+            ("vendagraos", self.venda),
+            ("entregavendagraos", self.entrega),
+            ("devolucaovendagraos", self.devolucao),
+        ):
+            with self.subTest(modelo=modelo):
+                alterar = self.client.post(
+                    reverse(f"admin:vendas_{modelo}_change", args=[objeto.pk]),
+                    {},
+                )
+                criar = self.client.get(reverse(f"admin:vendas_{modelo}_add"))
+                excluir = self.client.post(
+                    reverse(f"admin:vendas_{modelo}_delete", args=[objeto.pk]),
+                    {"post": "yes"},
+                )
+                self.assertEqual(alterar.status_code, 403)
+                self.assertEqual(criar.status_code, 403)
+                self.assertEqual(excluir.status_code, 403)
+                self.assertTrue(type(objeto).objects.filter(pk=objeto.pk).exists())
 
 
 class VendaGraosConcorrenciaTests(ContextoVendaMixin, TransactionTestCase):
@@ -353,3 +424,146 @@ class VendaGraosConcorrenciaTests(ContextoVendaMixin, TransactionTestCase):
         posicao = PosicaoSaldoGraos.objects.get(pk=self.posicao.pk)
         self.assertEqual(posicao.saldo_comprometido_kg, Decimal("80.000"))
         self.assertEqual(posicao.saldo_disponivel_kg, Decimal("20.000"))
+
+    def _executar_movimentos_simultaneos(self, funcao, argumentos):
+        barreira = Barrier(2)
+
+        def executar(kwargs):
+            close_old_connections()
+            try:
+                usuario = get_user_model().objects.get(pk=self.usuario.pk)
+                venda = VendaGraos.objects.get(pk=self.venda_a.pk)
+                barreira.wait(timeout=10)
+                movimento = funcao(usuario=usuario, venda=venda, **kwargs)
+                return "ok", movimento.pk
+            except VendaGraosConflitoError as exc:
+                return exc.codigo, None
+            except Exception as exc:
+                return exc.__class__.__name__, None
+            finally:
+                close_old_connections()
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            return list(executor.map(executar, argumentos))
+
+    def test_entrega_concorrente_mesma_chave_mesmo_payload_tem_um_efeito(self):
+        confirmar_venda(
+            usuario=self.usuario, venda=self.venda_a,
+            chave_idempotencia="confirmar-entrega-idem",
+        )
+        resultados = self._executar_movimentos_simultaneos(
+            registrar_entrega_venda,
+            (
+                {"quantidade_kg": "30", "chave_idempotencia": "entrega-idem"},
+                {"quantidade_kg": "30", "chave_idempotencia": "entrega-idem"},
+            ),
+        )
+        self.assertEqual([status for status, _ in resultados], ["ok", "ok"])
+        self.assertEqual(len({pk for _, pk in resultados}), 1)
+        self.assertEqual(EntregaVendaGraos.objects.count(), 1)
+        self.assertEqual(
+            MovimentacaoGraos.objects.filter(
+                operacao=MovimentacaoGraos.Operacao.ENTREGA
+            ).count(),
+            1,
+        )
+        self.venda_a.refresh_from_db()
+        self.posicao.refresh_from_db()
+        self.assertEqual(self.venda_a.quantidade_entregue_kg, Decimal("30.000"))
+        self.assertEqual(self.posicao.saldo_fisico_kg, Decimal("70.000"))
+
+    def test_devolucao_concorrente_mesma_chave_mesmo_payload_tem_um_efeito(self):
+        confirmar_venda(
+            usuario=self.usuario, venda=self.venda_a,
+            chave_idempotencia="confirmar-devolucao-idem",
+        )
+        registrar_entrega_venda(
+            usuario=self.usuario, venda=self.venda_a, quantidade_kg="40",
+            chave_idempotencia="entrega-base-devolucao",
+        )
+        resultados = self._executar_movimentos_simultaneos(
+            registrar_devolucao_venda,
+            (
+                {"quantidade_kg": "20", "chave_idempotencia": "devolucao-idem"},
+                {"quantidade_kg": "20", "chave_idempotencia": "devolucao-idem"},
+            ),
+        )
+        self.assertEqual([status for status, _ in resultados], ["ok", "ok"])
+        self.assertEqual(len({pk for _, pk in resultados}), 1)
+        self.assertEqual(DevolucaoVendaGraos.objects.count(), 1)
+        self.assertEqual(
+            MovimentacaoGraos.objects.filter(
+                operacao=MovimentacaoGraos.Operacao.DEVOLUCAO
+            ).count(),
+            1,
+        )
+        self.venda_a.refresh_from_db()
+        self.posicao.refresh_from_db()
+        self.assertEqual(self.venda_a.quantidade_devolvida_kg, Decimal("20.000"))
+        self.assertEqual(self.posicao.saldo_fisico_kg, Decimal("80.000"))
+
+    def test_entrega_concorrente_mesma_chave_payload_diverso_controla_conflito(self):
+        confirmar_venda(
+            usuario=self.usuario, venda=self.venda_a,
+            chave_idempotencia="confirmar-entrega-conflito",
+        )
+        resultados = self._executar_movimentos_simultaneos(
+            registrar_entrega_venda,
+            (
+                {"quantidade_kg": "10", "chave_idempotencia": "entrega-conflito"},
+                {"quantidade_kg": "20", "chave_idempotencia": "entrega-conflito"},
+            ),
+        )
+        self.assertEqual([status for status, _ in resultados].count("ok"), 1)
+        self.assertEqual(
+            [status for status, _ in resultados].count("conflito"),
+            1,
+            resultados,
+        )
+        self.assertEqual(EntregaVendaGraos.objects.count(), 1)
+        self.assertEqual(
+            MovimentacaoGraos.objects.filter(
+                operacao=MovimentacaoGraos.Operacao.ENTREGA
+            ).count(),
+            1,
+        )
+        self.venda_a.refresh_from_db()
+        self.assertIn(
+            self.venda_a.quantidade_entregue_kg,
+            (Decimal("10.000"), Decimal("20.000")),
+        )
+
+    def test_devolucao_concorrente_mesma_chave_payload_diverso_controla_conflito(self):
+        confirmar_venda(
+            usuario=self.usuario, venda=self.venda_a,
+            chave_idempotencia="confirmar-devolucao-conflito",
+        )
+        registrar_entrega_venda(
+            usuario=self.usuario, venda=self.venda_a, quantidade_kg="40",
+            chave_idempotencia="entrega-base-conflito",
+        )
+        resultados = self._executar_movimentos_simultaneos(
+            registrar_devolucao_venda,
+            (
+                {"quantidade_kg": "10", "chave_idempotencia": "devolucao-conflito"},
+                {"quantidade_kg": "20", "chave_idempotencia": "devolucao-conflito"},
+            ),
+        )
+        self.assertEqual([status for status, _ in resultados].count("ok"), 1)
+        self.assertEqual(
+            [status for status, _ in resultados].count("conflito"),
+            1,
+            resultados,
+        )
+        self.assertEqual(DevolucaoVendaGraos.objects.count(), 1)
+        self.assertEqual(
+            MovimentacaoGraos.objects.filter(
+                operacao=MovimentacaoGraos.Operacao.DEVOLUCAO
+            ).count(),
+            1,
+        )
+        self.venda_a.refresh_from_db()
+        self.assertIn(
+            self.venda_a.quantidade_devolvida_kg,
+            (Decimal("10.000"), Decimal("20.000")),
+        )

@@ -12,8 +12,11 @@ os efeitos usam os serviços públicos transacionais do app `graos`.
 - cancelamento chama `liberar_reserva` apenas para o saldo reservado aberto;
 - devolução chama `registrar_devolucao`, recompõe físico e não reabre reserva;
 - todos os mutadores exigem `Idempotency-Key` e rejeitam reuso conflitante;
-- o detalhe expõe CAD/PRO, cultura, safra, classificação, armazenagem, lote,
-  cargas colhidas e grupos de colheita relacionados.
+- a posição consolidada exposta no detalhe é a dimensão autoritativa da venda;
+- `lote_operacional` e `lote_operacional_codigo` identificam apenas o adaptador
+  exigido pelos serviços do ledger e não representam origem física alocada;
+- cargas e grupos de colheita não são atribuídos à venda sem uma regra explícita
+  de alocação física.
 
 ## API autenticada
 
@@ -22,7 +25,7 @@ Base: `/api/comercial/vendas/`
 - `GET /` — lista com filtros `search`, `status`, `cad_pro`, `propriedade`,
   `cultura`, `safra`, `classificacao_codigo` e `armazem`;
 - `POST /` — cria rascunho;
-- `GET /{id}/` — detalha contrato, entregas, devoluções e origens de colheita;
+- `GET /{id}/` — detalha contrato, posição autoritativa, entregas e devoluções;
 - `POST /{id}/confirmar/` — cria a reserva oficial;
 - `POST /{id}/cancelar/` — libera somente a reserva aberta;
 - `POST /{id}/entregar/` — registra entrega parcial ou total;
@@ -30,4 +33,5 @@ Base: `/api/comercial/vendas/`
 
 Os `POST` exigem o cabeçalho `Idempotency-Key`. Repetição com o mesmo payload
 devolve o efeito já realizado; payload diferente com a mesma chave retorna
-conflito.
+conflito. Entregas e devoluções concorrentes com a mesma chave e o mesmo
+payload são serializadas pela venda e devolvem o único efeito confirmado.
