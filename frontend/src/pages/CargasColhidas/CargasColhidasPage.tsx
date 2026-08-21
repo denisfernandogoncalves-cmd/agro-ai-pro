@@ -67,6 +67,13 @@ function numero(valor: string | number) {
   return Number.isFinite(convertido) ? convertido : 0;
 }
 
+function propriedadesDoContexto(item: CargaColhida) {
+  const propriedades = item.contexto_colheita.propriedades;
+  return Array.isArray(propriedades)
+    ? propriedades as Array<{ id: number; nome: string; area_hectares: string }>
+    : [{ id: item.propriedade, nome: item.propriedade_nome, area_hectares: "0" }];
+}
+
 function resumoCalculado(carga: CargaColhidaInput, grupo?: GrupoColheita) {
   if (!grupo) return { percentual: 0, descontoKg: 0, liquido: 0, sacas: 0 };
   const bruto = numero(carga.peso_bruto_kg);
@@ -169,6 +176,26 @@ export default function CargasColhidasPage({ propriedades }: Props) {
       item.local_colheita,
     ].some((valor) => valor.toLowerCase().includes(termo));
   });
+  const cargasDoControle = cargasFiltradas.filter((item) => {
+    const ids = propriedadesDoContexto(item).map((propriedade) => Number(propriedade.id));
+    const propriedadesCorrespondem = !propriedadesSelecionadas.length
+      || propriedadesSelecionadas.every((id) => ids.includes(id));
+    const safraCarga = String(item.contexto_colheita.safra ?? "");
+    const culturaCarga = String(item.contexto_colheita.cultura ?? "");
+    return propriedadesCorrespondem
+      && (!safra.trim() || safraCarga.toLowerCase().includes(safra.trim().toLowerCase()))
+      && (!cultura || culturaCarga.toLowerCase() === cultura.toLowerCase());
+  });
+  const producaoTotalKg = cargasDoControle.reduce(
+    (total, item) => total + numero(item.peso_liquido_kg), 0,
+  );
+  const producaoTotalSacas = cargasDoControle.reduce(
+    (total, item) => total + numero(item.sacas_60kg), 0,
+  );
+  const sementeTotalSacas = cargasDoControle
+    .filter((item) => item.destinado_semente)
+    .reduce((total, item) => total + numero(item.sacas_60kg), 0);
+  const mediaSacasHectare = areaTotal > 0 ? producaoTotalSacas / areaTotal : 0;
 
   async function salvarCarga(evento: FormEvent) {
     evento.preventDefault();
@@ -255,6 +282,11 @@ export default function CargasColhidasPage({ propriedades }: Props) {
         </form>
 
         <section className="conteudo">
+          <section className="card controle-planilha">
+            <div className="controle-planilha-titulo"><div><span className="kicker">Controle de estoque por propriedade</span><h3>{propriedadesDaColheita.map((item) => item.nome).join(" · ") || "Selecione as propriedades"}</h3><p>Área {areaTotal.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} ha · cultura {cultura || "—"} · safra {safra || "—"}</p></div><div className="controle-planilha-total"><span>Produção total</span><strong>{producaoTotalSacas.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} sc</strong><small>{producaoTotalKg.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} kg</small></div></div>
+            <div className="resumo-controle"><span>Média de produção<strong>{mediaSacasHectare.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} sc/ha</strong></span><span>Destinada a semente<strong>{sementeTotalSacas.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} sc</strong></span><span>CAD/PRO<strong>{cadprosDaColheita.join(", ") || "—"}</strong></span><span>Área somada<strong>{areaTotal.toLocaleString("pt-BR", { maximumFractionDigits: 2 })} ha</strong></span></div>
+            <div className="tabela-responsiva"><table className="tabela-relatorio tabela-controle"><thead><tr><th>Data</th><th>Placa / motorista</th><th>Peso bruto</th><th>Umidade</th><th>Impureza</th><th>Quebrados</th><th>PH</th><th>Semente</th><th>Silo de armazenagem</th><th>Peso líquido</th><th>Sacas 60 kg</th></tr></thead><tbody>{cargasDoControle.length ? cargasDoControle.map((item) => <tr key={`controle-${item.id}`}><td>{item.data_colheita}</td><td>{item.placa || "—"}<small>{item.motorista || "—"}</small></td><td>{numero(item.peso_bruto_kg).toLocaleString("pt-BR")} kg</td><td>{item.umidade_percentual}%</td><td>{item.impureza_percentual}%</td><td>{item.defeitos_percentual}%</td><td>{item.ph || "—"}</td><td>{item.destinado_semente ? `${numero(item.sacas_60kg).toLocaleString("pt-BR")} sc` : "Não"}</td><td>{item.armazem_nome}</td><td>{numero(item.peso_liquido_kg).toLocaleString("pt-BR")} kg</td><td>{numero(item.sacas_60kg).toLocaleString("pt-BR", { maximumFractionDigits: 3 })}</td></tr>) : <tr><td colSpan={11}>Nenhuma carga corresponde às propriedades, safra e cultura selecionadas.</td></tr>}</tbody></table></div>
+          </section>
           <div className="painel-filtros">
             <input aria-label="Buscar cargas" placeholder="Buscar placa, propriedade, grupo, CAD/PRO ou local" value={busca} onChange={(e) => setBusca(e.target.value)} />
             <button type="button" onClick={() => void carregar()}>Atualizar</button>

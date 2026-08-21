@@ -9,7 +9,20 @@ export type MovimentoVenda = {
   data_entrega?: string;
   data_devolucao?: string;
   referencia_externa: string;
+  destino?: string;
+  placa?: string;
+  nota_produtor?: string;
+  nota_empresa?: string;
   movimentacao_id: number;
+};
+
+export type DadosEntrega = {
+  quantidade_kg: string;
+  data_movimento: string;
+  destino: string;
+  placa: string;
+  nota_produtor: string;
+  nota_empresa: string;
 };
 
 export type VendaGraos = {
@@ -83,8 +96,8 @@ export async function cancelarVenda(id: number, observacoes: string, chave: stri
   return (await api.post<VendaGraos>(`/comercial/vendas/${id}/cancelar/`, { observacoes }, cabecalho(chave))).data;
 }
 
-export async function entregarVenda(id: number, quantidade_kg: string, data_movimento: string, chave: string) {
-  return (await api.post<VendaGraos>(`/comercial/vendas/${id}/entregar/`, { quantidade_kg, data_movimento }, cabecalho(chave))).data;
+export async function entregarVenda(id: number, dados: DadosEntrega, chave: string) {
+  return (await api.post<VendaGraos>(`/comercial/vendas/${id}/entregar/`, dados, cabecalho(chave))).data;
 }
 
 export async function devolverVenda(id: number, quantidade_kg: string, data_movimento: string, chave: string) {
