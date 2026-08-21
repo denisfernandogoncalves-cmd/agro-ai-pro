@@ -4,6 +4,9 @@ from decimal import Decimal, ROUND_HALF_UP
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 
+from apps.propriedades.models import Propriedade
+from apps.talhoes.models import Talhao
+
 from .models import (
     ArmazemGraos,
     CargaColhida,
@@ -13,6 +16,11 @@ from .models import (
     normalizar_placa,
 )
 from .services import creditar_producao
+from .umidade import (
+    UmidadeForaDaTabelaError,
+    VERSAO_TABELA_UMIDADE,
+    obter_desconto_umidade,
+)
 
 
 MIL = Decimal("0.001")
@@ -39,20 +47,30 @@ def _parcela_desconto(medicao, tolerancia, taxa):
 
 
 def calcular_peso_liquido(*, grupo, peso_bruto_kg, umidade_percentual,
-                          impureza_percentual, defeitos_percentual):
+                          impureza_percentual, defeitos_percentual, ph=None):
     bruto = _decimal(peso_bruto_kg)
     if bruto <= 0:
         raise CargaColhidaError("O peso bruto deve ser maior que zero.")
 
-    parcelas = {}
-    total_percentual = Decimal("0")
+    try:
+        grupo_cultural, umidade, desconto_umidade = obter_desconto_umidade(
+            cultura=grupo.cultura,
+            umidade_percentual=umidade_percentual,
+        )
+    except UmidadeForaDaTabelaError as exc:
+        raise CargaColhidaError(str(exc)) from exc
+
+    parcelas = {
+        "umidade": {
+            "medicao_percentual": str(umidade),
+            "grupo_cultural": grupo_cultural,
+            "desconto_percentual": str(desconto_umidade),
+            "fonte": "tabela_oficial_umidade",
+            "versao": VERSAO_TABELA_UMIDADE,
+        }
+    }
+    total_percentual = desconto_umidade
     for nome, medicao, tolerancia, taxa in (
-        (
-            "umidade",
-            umidade_percentual,
-            grupo.tolerancia_umidade_percentual,
-            grupo.desconto_umidade_por_ponto,
-        ),
         (
             "impureza",
             impureza_percentual,
@@ -76,6 +94,28 @@ def calcular_peso_liquido(*, grupo, peso_bruto_kg, umidade_percentual,
             "desconto_percentual": str(desconto),
         }
 
+    ph_minimo = Decimal(str(grupo.ph_minimo))
+    taxa_ph = Decimal(str(grupo.desconto_ph_por_ponto))
+    if ph in (None, ""):
+        if taxa_ph > 0:
+            raise CargaColhidaError(
+                "Informe o PH para aplicar a regra configurada para este grão."
+            )
+        ph_medido = None
+        deficit_ph = Decimal("0")
+    else:
+        ph_medido = Decimal(str(ph))
+        deficit_ph = max(Decimal("0"), ph_minimo - ph_medido)
+    desconto_ph = (deficit_ph * taxa_ph).quantize(MIL, rounding=ROUND_HALF_UP)
+    total_percentual += desconto_ph
+    parcelas["ph"] = {
+        "medicao": None if ph_medido is None else str(ph_medido),
+        "minimo": str(ph_minimo),
+        "deficit_pontos": str(deficit_ph),
+        "desconto_por_ponto": str(taxa_ph),
+        "desconto_percentual": str(desconto_ph),
+    }
+
     total_percentual = total_percentual.quantize(MIL, rounding=ROUND_HALF_UP)
     if total_percentual >= CEM:
         raise CargaColhidaError(
@@ -88,7 +128,9 @@ def calcular_peso_liquido(*, grupo, peso_bruto_kg, umidade_percentual,
     liquido = (bruto - desconto_kg).quantize(MIL, rounding=ROUND_HALF_UP)
     sacas = (liquido / SESSENTA).quantize(MIL, rounding=ROUND_HALF_UP)
     regra = {
-        "metodo": "excesso_de_pontos_x_desconto_por_ponto",
+        "metodo": "tabela_umidade_mais_descontos_classificacao",
+        "versao_tabela_umidade": VERSAO_TABELA_UMIDADE,
+        "cultura": grupo.cultura,
         "parcelas": parcelas,
         "desconto_total_percentual": str(total_percentual),
         "desconto_total_kg": str(desconto_kg),
@@ -96,16 +138,87 @@ def calcular_peso_liquido(*, grupo, peso_bruto_kg, umidade_percentual,
     return total_percentual, desconto_kg, liquido, sacas, regra
 
 
-def _fingerprint(*, grupo_id, data_colheita, placa, peso_bruto_kg):
+def _fingerprint(*, grupo_id, data_colheita, placa, motorista, peso_bruto_kg):
     conteudo = "|".join(
         (
             str(grupo_id),
             data_colheita.isoformat(),
             normalizar_placa(placa),
+            " ".join(str(motorista or "").strip().upper().split()),
             str(_decimal(peso_bruto_kg)),
         )
     )
     return hashlib.sha256(conteudo.encode("utf-8")).hexdigest()
+
+
+def _montar_contexto_colheita(*, grupo, propriedades_ids, talhoes_ids):
+    propriedades_ids = tuple(dict.fromkeys(
+        propriedades_ids or (grupo.propriedade_id,)
+    ))
+    if grupo.propriedade_id not in propriedades_ids:
+        raise CargaColhidaError(
+            "A propriedade do grupo deve fazer parte da colheita selecionada."
+        )
+
+    propriedades = list(
+        Propriedade.objects.filter(pk__in=propriedades_ids)
+        .prefetch_related("vinculos_cadpro__cad_pro")
+        .order_by("nome", "id")
+    )
+    if len(propriedades) != len(propriedades_ids):
+        raise CargaColhidaError("Uma das propriedades selecionadas não existe.")
+
+    talhoes_ids = tuple(dict.fromkeys(talhoes_ids or ()))
+    talhoes = list(
+        Talhao.objects.filter(pk__in=talhoes_ids)
+        .select_related("propriedade")
+        .order_by("propriedade__nome", "nome", "id")
+    )
+    if len(talhoes) != len(talhoes_ids):
+        raise CargaColhidaError("Um dos talhões selecionados não existe.")
+    if any(talhao.propriedade_id not in propriedades_ids for talhao in talhoes):
+        raise CargaColhidaError(
+            "Todos os talhões devem pertencer às propriedades selecionadas."
+        )
+
+    area_propriedades = sum(
+        (Decimal(str(item.area_hectares)) for item in propriedades),
+        Decimal("0"),
+    )
+    area_talhoes = sum(
+        (Decimal(str(item.area_hectares)) for item in talhoes),
+        Decimal("0"),
+    )
+    return {
+        "propriedades": [
+            {
+                "id": item.pk,
+                "nome": item.nome,
+                "area_hectares": str(item.area_hectares),
+                "cad_pro_numeros": [
+                    vinculo.cad_pro.codigo
+                    for vinculo in item.vinculos_cadpro.all()
+                    if vinculo.ativo and vinculo.cad_pro.ativo
+                ],
+            }
+            for item in propriedades
+        ],
+        "talhoes": [
+            {
+                "id": item.pk,
+                "nome": item.nome,
+                "propriedade_id": item.propriedade_id,
+                "area_hectares": str(item.area_hectares),
+            }
+            for item in talhoes
+        ],
+        "area_total_propriedades_hectares": str(area_propriedades),
+        "area_total_talhoes_hectares": str(area_talhoes),
+        "grupo_colheita_id": grupo.pk,
+        "grupo_colheita_nome": grupo.nome,
+        "safra": grupo.safra,
+        "cultura": grupo.cultura,
+    }
 
 
 def _obter_lote(grupo, armazem, destinado_semente):
@@ -131,17 +244,18 @@ def _obter_lote(grupo, armazem, destinado_semente):
 
 
 @transaction.atomic
-def registrar_carga_colhida(*, usuario, grupo_colheita, armazem=None, data_colheita,
-                            placa, peso_bruto_kg, umidade_percentual,
+def registrar_carga_colhida(*, usuario, grupo_colheita, data_colheita,
+                            peso_bruto_kg, umidade_percentual,
                             impureza_percentual, defeitos_percentual, ph=None,
-                            destinado_semente=False, local_colheita="", observacoes=""):
+                            destinado_semente=False, local_colheita="", observacoes="",
+                            armazem=None, placa="", motorista="",
+                            propriedades_selecionadas=(), talhoes_selecionados=()):
     grupo = GrupoColheita.objects.select_for_update().select_related(
         "propriedade",
         "cad_pro",
     ).get(pk=grupo_colheita.pk)
-    armazem = armazem or grupo.armazem_padrao
     if armazem is None:
-        raise CargaColhidaError("O grupo não possui armazenagem padrão configurada.")
+        raise CargaColhidaError("Informe a armazenagem de destino da carga.")
     armazem = ArmazemGraos.objects.select_for_update().select_related(
         "propriedade",
     ).get(pk=armazem.pk)
@@ -162,14 +276,25 @@ def registrar_carga_colhida(*, usuario, grupo_colheita, armazem=None, data_colhe
         raise CargaColhidaError("O armazém está inativo.")
     if armazem.propriedade_id != grupo.propriedade_id:
         raise CargaColhidaError("O armazém deve pertencer à propriedade do grupo.")
+    contexto_colheita = _montar_contexto_colheita(
+        grupo=grupo,
+        propriedades_ids=propriedades_selecionadas,
+        talhoes_ids=talhoes_selecionados,
+    )
 
     placa_normalizada = normalizar_placa(placa)
-    if len(placa_normalizada) != 7:
+    motorista_normalizado = " ".join(str(motorista or "").strip().split())
+    if placa_normalizada and len(placa_normalizada) != 7:
         raise CargaColhidaError("Informe uma placa brasileira com 7 letras e números.")
+    if not placa_normalizada and not motorista_normalizado:
+        raise CargaColhidaError(
+            "Informe a placa do veículo ou o nome do motorista."
+        )
     fingerprint = _fingerprint(
         grupo_id=grupo.pk,
         data_colheita=data_colheita,
         placa=placa_normalizada,
+        motorista=motorista_normalizado,
         peso_bruto_kg=peso_bruto_kg,
     )
     if CargaColhida.objects.filter(fingerprint=fingerprint).exists():
@@ -183,6 +308,7 @@ def registrar_carga_colhida(*, usuario, grupo_colheita, armazem=None, data_colhe
         umidade_percentual=umidade_percentual,
         impureza_percentual=impureza_percentual,
         defeitos_percentual=defeitos_percentual,
+        ph=ph,
     )
     lote = _obter_lote(grupo, armazem, destinado_semente)
     resultado = creditar_producao(
@@ -208,6 +334,7 @@ def registrar_carga_colhida(*, usuario, grupo_colheita, armazem=None, data_colhe
         lote=lote,
         data_colheita=data_colheita,
         placa=placa_normalizada,
+        motorista=motorista_normalizado,
         peso_bruto_kg=_decimal(peso_bruto_kg),
         umidade_percentual=umidade_percentual,
         impureza_percentual=impureza_percentual,
@@ -220,6 +347,7 @@ def registrar_carga_colhida(*, usuario, grupo_colheita, armazem=None, data_colhe
         peso_liquido_kg=liquido,
         sacas_60kg=sacas,
         regra_desconto_aplicada=regra,
+        contexto_colheita=contexto_colheita,
         fingerprint=fingerprint,
         movimentacao=movimento,
         observacoes=observacoes or "",

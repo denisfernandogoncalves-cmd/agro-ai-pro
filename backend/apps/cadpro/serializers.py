@@ -7,6 +7,7 @@ from .models import CADPro, CADProPropriedade, normalizar_codigo_cadpro
 
 class CADProSerializer(serializers.ModelSerializer):
     id = serializers.UUIDField(read_only=True)
+    propriedades = serializers.SerializerMethodField()
     class Meta:
         model = CADPro
         fields = (
@@ -14,6 +15,7 @@ class CADProSerializer(serializers.ModelSerializer):
             "codigo",
             "codigo_normalizado",
             "descricao",
+            "propriedades",
             "ativo",
             "criado_em",
             "atualizado_em",
@@ -26,6 +28,12 @@ class CADProSerializer(serializers.ModelSerializer):
             "atualizado_em",
         )
 
+    def get_propriedades(self, obj):
+        return [
+            vinculo.propriedade_id
+            for vinculo in obj.vinculos_propriedades.all()
+            if vinculo.ativo
+        ]
     def validate_codigo(self, value):
         normalizado = normalizar_codigo_cadpro(value)
         if not normalizado:

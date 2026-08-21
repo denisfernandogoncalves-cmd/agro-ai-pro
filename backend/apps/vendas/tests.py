@@ -293,14 +293,14 @@ class VendaGraosApiTests(ContextoVendaMixin, APITestCase):
         carga_a = registrar_carga_colhida(
             usuario=self.usuario, grupo_colheita=grupo_a, armazem=self.armazem,
             data_colheita=date(2026, 8, 12), placa="ABC1D23",
-            peso_bruto_kg="500", umidade_percentual="10",
+            peso_bruto_kg="500", umidade_percentual="11.5",
             impureza_percentual="0", defeitos_percentual="0",
             destinado_semente=False,
         )
         carga_b = registrar_carga_colhida(
             usuario=self.usuario, grupo_colheita=grupo_b, armazem=self.armazem,
             data_colheita=date(2026, 8, 13), placa="DEF4G56",
-            peso_bruto_kg="400", umidade_percentual="10",
+            peso_bruto_kg="400", umidade_percentual="11.5",
             impureza_percentual="0", defeitos_percentual="0",
             destinado_semente=False,
         )

@@ -223,6 +223,7 @@ class GrupoColheita(models.Model):
         on_delete=models.PROTECT,
         related_name="grupos_colheita_padrao",
         null=True,
+        blank=True,
     )
     nome = models.CharField(max_length=120)
     cultura = models.CharField(max_length=50)
@@ -259,6 +260,18 @@ class GrupoColheita(models.Model):
         validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
     )
     desconto_defeitos_por_ponto = models.DecimalField(
+        max_digits=6,
+        decimal_places=3,
+        default=ZERO,
+        validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
+    )
+    ph_minimo = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
+    )
+    desconto_ph_por_ponto = models.DecimalField(
         max_digits=6,
         decimal_places=3,
         default=ZERO,
@@ -328,7 +341,6 @@ class GrupoColheita(models.Model):
                 "cad_pro_id",
                 "cultura",
                 "safra",
-                "armazem_padrao_id",
             )
             if any(
                 getattr(self, campo) != getattr(original, campo)
@@ -384,7 +396,8 @@ class CargaColhida(models.Model):
         related_name="cargas_colhidas",
     )
     data_colheita = models.DateField(default=timezone.localdate)
-    placa = models.CharField(max_length=7)
+    placa = models.CharField(max_length=7, blank=True, default="")
+    motorista = models.CharField(max_length=120, blank=True, default="")
     peso_bruto_kg = models.DecimalField(
         max_digits=16,
         decimal_places=3,
@@ -419,6 +432,7 @@ class CargaColhida(models.Model):
     peso_liquido_kg = models.DecimalField(max_digits=16, decimal_places=3)
     sacas_60kg = models.DecimalField(max_digits=16, decimal_places=3)
     regra_desconto_aplicada = models.JSONField(default=dict)
+    contexto_colheita = models.JSONField(default=dict)
     fingerprint = models.CharField(max_length=64, unique=True, editable=False)
     movimentacao = models.OneToOneField(
         "MovimentacaoGraos",
@@ -472,13 +486,15 @@ class CargaColhida(models.Model):
         if not self._state.adding:
             raise ValidationError("Cargas colhidas são imutáveis.")
         self.placa = normalizar_placa(self.placa)
+        self.motorista = " ".join(str(self.motorista or "").strip().split())
         super().save(*args, **kwargs)
 
     def delete(self, *args, **kwargs):
         raise ValidationError("Cargas colhidas são imutáveis.")
 
     def __str__(self):
-        return f"{self.data_colheita} - {self.placa} - {self.peso_liquido_kg} kg"
+        identificador = self.placa or self.motorista
+        return f"{self.data_colheita} - {identificador} - {self.peso_liquido_kg} kg"
 
 
 class PosicaoSaldoGraos(models.Model):

@@ -10,7 +10,11 @@ from rest_framework.test import APITestCase
 from apps.cadpro.models import CADPro, CADProPropriedade
 from apps.propriedades.models import Propriedade
 
-from .cargas_services import calcular_peso_liquido, registrar_carga_colhida
+from .cargas_services import (
+    CargaColhidaError,
+    calcular_peso_liquido,
+    registrar_carga_colhida,
+)
 from .models import (
     ArmazemGraos,
     CargaColhida,
@@ -90,21 +94,50 @@ class CalculoCargaColhidaTests(CargaColhidaBase, TestCase):
             impureza_percentual="2",
             defeitos_percentual="3",
         )
-        self.assertEqual(total, Decimal("3.500"))
-        self.assertEqual(desconto_kg, Decimal("35.000"))
-        self.assertEqual(liquido, Decimal("965.000"))
-        self.assertEqual(sacas, Decimal("16.083"))
-        self.assertEqual(regra["parcelas"]["umidade"]["excesso_pontos"], "1.00")
+        self.assertEqual(total, Decimal("2.500"))
+        self.assertEqual(desconto_kg, Decimal("25.000"))
+        self.assertEqual(liquido, Decimal("975.000"))
+        self.assertEqual(sacas, Decimal("16.250"))
+        self.assertEqual(regra["parcelas"]["umidade"]["desconto_percentual"], "0")
+        self.assertEqual(regra["versao_tabela_umidade"], "2026-08-20")
+
+    def test_tabela_umidade_por_cultura_e_limites(self):
+        for cultura, umidade, esperado in (
+            ("Soja", "11.5", "0"),
+            ("Milho", "30", "24.25"),
+            ("Trigo", "13.5", "1"),
+            ("Trigo", "30", "25.75"),
+        ):
+            self.grupo.cultura = cultura
+            total, *_ = calcular_peso_liquido(
+                grupo=self.grupo,
+                peso_bruto_kg="1000",
+                umidade_percentual=umidade,
+                impureza_percentual="0",
+                defeitos_percentual="0",
+            )
+            self.assertEqual(total, Decimal(esperado))
+
+    def test_rejeita_umidade_fora_da_tabela_ou_entre_passos(self):
+        for umidade in ("11", "14.25", "30.5"):
+            with self.assertRaises(CargaColhidaError):
+                calcular_peso_liquido(
+                    grupo=self.grupo,
+                    peso_bruto_kg="1000",
+                    umidade_percentual=umidade,
+                    impureza_percentual="0",
+                    defeitos_percentual="0",
+                )
 
     def test_registro_e_atomico_rastreavel_e_credita_saldo(self):
         carga = registrar_carga_colhida(usuario=self.usuario, **self.dados_carga())
 
         self.assertEqual(carga.placa, "ABC1D23")
-        self.assertEqual(carga.peso_liquido_kg, Decimal("965.000"))
+        self.assertEqual(carga.peso_liquido_kg, Decimal("975.000"))
         self.assertEqual(carga.lote.cad_pro, self.cad_pro)
         self.assertEqual(carga.movimentacao.operacao, MovimentacaoGraos.Operacao.CREDITO_PRODUCAO)
         posicao = PosicaoSaldoGraos.objects.get(cad_pro=self.cad_pro)
-        self.assertEqual(posicao.saldo_fisico_kg, Decimal("965.000"))
+        self.assertEqual(posicao.saldo_fisico_kg, Decimal("975.000"))
         self.assertEqual(carga.criado_por, self.usuario)
 
     def test_carga_e_imutavel(self):
@@ -127,6 +160,8 @@ class CargaColhidaApiTests(CargaColhidaBase, APITestCase):
         dados["grupo_colheita"] = self.grupo.pk
         dados["armazem"] = self.armazem.pk
         dados["data_colheita"] = dados["data_colheita"].isoformat()
+        dados["propriedades_selecionadas"] = [self.propriedade.pk]
+        dados["talhoes_selecionados"] = []
         return dados
 
     def test_cria_lista_e_filtra_carga_manual(self):
@@ -134,8 +169,12 @@ class CargaColhidaApiTests(CargaColhidaBase, APITestCase):
         self.assertEqual(resposta.status_code, 201, resposta.data)
         self.assertEqual(resposta.data["propriedade_nome"], "Fazenda Modelo")
         self.assertEqual(resposta.data["cad_pro_codigo"], "CAD/PRO 123")
-        self.assertEqual(resposta.data["peso_liquido_kg"], "965.000")
-        self.assertEqual(resposta.data["sacas_60kg"], "16.083")
+        self.assertEqual(resposta.data["peso_liquido_kg"], "975.000")
+        self.assertEqual(resposta.data["sacas_60kg"], "16.250")
+        self.assertEqual(
+            resposta.data["contexto_colheita"]["area_total_propriedades_hectares"],
+            "1000.00",
+        )
         self.assertIsNotNone(resposta.data["movimentacao"])
 
         listagem = self.client.get(self.url, {"propriedade": self.propriedade.pk})
@@ -174,18 +213,24 @@ class CargaColhidaApiTests(CargaColhidaBase, APITestCase):
         resposta = self.client.get(self.url)
         self.assertEqual(resposta.status_code, 401)
 
+    def test_aceita_motorista_sem_placa(self):
+        payload = self.payload()
+        payload["placa"] = ""
+        payload["motorista"] = "  João da Silva  "
+        resposta = self.client.post(self.url, payload, format="json")
+        self.assertEqual(resposta.status_code, 201, resposta.data)
+        self.assertEqual(resposta.data["motorista"], "João da Silva")
+        self.assertEqual(resposta.data["placa"], "")
+
     def test_api_de_grupos_valida_vinculo_cadpro(self):
         resposta = self.client.post(
             reverse("grupos-colheita-list"),
             {
                 "propriedade": self.propriedade.pk,
                 "cad_pro": str(self.cad_pro.pk),
-                "armazem_padrao": self.armazem.pk,
                 "nome": "Equipe Sul",
                 "cultura": "Milho",
                 "safra": "2026/2027",
-                "tolerancia_umidade_percentual": "14.00",
-                "desconto_umidade_por_ponto": "1.000",
                 "tolerancia_impureza_percentual": "1.00",
                 "desconto_impureza_por_ponto": "1.000",
                 "tolerancia_defeitos_percentual": "2.00",
@@ -195,3 +240,4 @@ class CargaColhidaApiTests(CargaColhidaBase, APITestCase):
         )
         self.assertEqual(resposta.status_code, 201, resposta.data)
         self.assertEqual(resposta.data["criado_por"], self.usuario.pk)
+        self.assertIsNone(resposta.data["armazem_padrao"])

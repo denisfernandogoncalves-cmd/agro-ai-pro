@@ -16,7 +16,7 @@ from django.test import TransactionTestCase
 from apps.cadpro.models import CADPro, CADProPropriedade
 from apps.cadpro.services import CADProComSaldoError, inativar_cadpro
 from .test_cargas_colhidas import CargaColhidaBase
-from .cargas_services import registrar_carga_colhida
+from .cargas_services import CargaColhidaError, registrar_carga_colhida
 from .models import (
     ArmazemGraos,
     CargaColhida,
@@ -49,13 +49,10 @@ class GrupoColheitaApiTests(CargaColhidaBase, APITestCase):
         dados = {
             "propriedade": self.propriedade.pk,
             "cad_pro": str(self.cad_pro.pk),
-            "armazem_padrao": self.armazem.pk,
             "nome": "Equipe Sul",
             "cultura": "Milho",
             "safra": "2026/2027",
             "observacoes": "Equipe da gleba sul.",
-            "tolerancia_umidade_percentual": "14.00",
-            "desconto_umidade_por_ponto": "1.000",
             "tolerancia_impureza_percentual": "1.00",
             "desconto_impureza_por_ponto": "1.000",
             "tolerancia_defeitos_percentual": "2.00",
@@ -69,7 +66,7 @@ class GrupoColheitaApiTests(CargaColhidaBase, APITestCase):
         self.assertEqual(criacao.status_code, 201, criacao.data)
         grupo_id = criacao.data["id"]
         self.assertEqual(criacao.data["cad_pro"], str(self.cad_pro.pk))
-        self.assertEqual(criacao.data["armazem_padrao"], self.armazem.pk)
+        self.assertIsNone(criacao.data["armazem_padrao"])
         self.assertFalse(criacao.data["contexto_congelado"])
         self.assertEqual(criacao.data["observacoes"], "Equipe da gleba sul.")
 
@@ -88,7 +85,6 @@ class GrupoColheitaApiTests(CargaColhidaBase, APITestCase):
                 "cultura": "milho",
                 "safra": "2026/2027",
                 "ativo": "true",
-                "armazem_padrao": self.armazem.pk,
             },
         )
         self.assertEqual(filtrada.status_code, 200)
@@ -105,13 +101,13 @@ class GrupoColheitaApiTests(CargaColhidaBase, APITestCase):
         self.assertEqual(inativada.status_code, 200)
         self.assertFalse(inativada.data["ativo"])
 
-    def test_exige_armazenagem_padrao_valida(self):
+    def test_ignora_armazenagem_padrao_legada_na_escrita(self):
         sem_armazem = self.client.post(
             self.url,
             self.payload(armazem_padrao=None),
             format="json",
         )
-        self.assertEqual(sem_armazem.status_code, 400)
+        self.assertEqual(sem_armazem.status_code, 201, sem_armazem.data)
         outra_propriedade = self.propriedade.__class__.objects.create(
             nome="Fazenda Externa",
             municipio="Sorriso",
@@ -125,11 +121,11 @@ class GrupoColheitaApiTests(CargaColhidaBase, APITestCase):
         )
         invalida = self.client.post(
             self.url,
-            self.payload(armazem_padrao=outro_armazem.pk),
+            self.payload(armazem_padrao=outro_armazem.pk, nome="Outra equipe"),
             format="json",
         )
-        self.assertEqual(invalida.status_code, 400)
-        self.assertIn("armazem_padrao", invalida.data)
+        self.assertEqual(invalida.status_code, 201, invalida.data)
+        self.assertIsNone(invalida.data["armazem_padrao"])
 
     def test_contexto_congela_apos_carga_e_nome_permanece_editavel(self):
         registrar_carga_colhida(usuario=self.usuario, **self.dados_carga())
@@ -162,14 +158,11 @@ class GrupoColheitaApiTests(CargaColhidaBase, APITestCase):
         with self.assertRaises(ValidationError):
             self.grupo.save()
 
-    def test_carga_usa_armazem_padrao_e_serializa_uuid(self):
+    def test_carga_exige_armazem_da_carga(self):
         payload = self.dados_carga()
         payload.pop("armazem")
-        carga = registrar_carga_colhida(usuario=self.usuario, **payload)
-        self.assertEqual(carga.armazem, self.armazem)
-        resposta = self.client.get(reverse("cargas-colhidas-detail", args=(carga.pk,)))
-        self.assertEqual(resposta.status_code, 200)
-        self.assertEqual(resposta.data["cad_pro"], str(self.cad_pro.pk))
+        with self.assertRaises(CargaColhidaError):
+            registrar_carga_colhida(usuario=self.usuario, **payload)
 
     def test_carga_rejeita_grupo_inativo_e_cadpro_com_saldo_nao_inativa(self):
         registrar_carga_colhida(usuario=self.usuario, **self.dados_carga())

@@ -9,6 +9,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from apps.talhoes.models import Talhao
+from apps.cadpro.models import CADPro, CADProPropriedade
 
 from .models import Propriedade
 
@@ -75,6 +76,18 @@ class PropriedadeAPITests(APITestCase):
         exclusao = self.client.delete(detalhe_url)
         self.assertEqual(exclusao.status_code, status.HTTP_204_NO_CONTENT)
         self.assertFalse(Propriedade.objects.filter(pk=criacao.data["id"]).exists())
+
+    def test_cadastra_numero_cadpro_na_propriedade_sem_duplicar_fonte(self):
+        self.client.force_authenticate(self.usuario)
+        criacao = self.client.post(
+            self.url,
+            {**self.dados, "cad_pro_numero": " 123.456-7 "},
+            format="json",
+        )
+        self.assertEqual(criacao.status_code, status.HTTP_201_CREATED, criacao.data)
+        self.assertEqual(criacao.data["cad_pro_numeros"], ["123.456-7"])
+        self.assertEqual(CADPro.objects.count(), 1)
+        self.assertEqual(CADProPropriedade.objects.count(), 1)
 
     def test_valida_area_e_uf(self):
         self.client.force_authenticate(self.usuario)

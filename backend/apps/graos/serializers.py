@@ -94,7 +94,14 @@ class GrupoColheitaSerializer(serializers.ModelSerializer):
     class Meta:
         model = GrupoColheita
         fields = "__all__"
-        read_only_fields = ("criado_por", "criado_em", "atualizado_em")
+        read_only_fields = (
+            "armazem_padrao",
+            "tolerancia_umidade_percentual",
+            "desconto_umidade_por_ponto",
+            "criado_por",
+            "criado_em",
+            "atualizado_em",
+        )
 
     def get_contexto_congelado(self, obj):
         if hasattr(obj, "contexto_congelado_db"):
@@ -102,9 +109,14 @@ class GrupoColheitaSerializer(serializers.ModelSerializer):
         return obj.cargas.exists()
 
     def validate(self, attrs):
-        if not self.instance and not attrs.get("armazem_padrao"):
+        cultura = attrs.get("cultura", getattr(self.instance, "cultura", ""))
+        if " ".join(str(cultura).strip().upper().split()) not in {
+            "SOJA",
+            "MILHO",
+            "TRIGO",
+        }:
             raise serializers.ValidationError(
-                {"armazem_padrao": "Informe a armazenagem padrão do grupo."}
+                {"cultura": "A cultura deve ser Soja, Milho ou Trigo."}
             )
         instancia = self.instance or GrupoColheita()
         for campo, valor in attrs.items():
@@ -137,7 +149,19 @@ class GrupoColheitaSerializer(serializers.ModelSerializer):
 
 
 class CargaColhidaSerializer(serializers.ModelSerializer):
-    placa = serializers.CharField(max_length=12)
+    placa = serializers.CharField(max_length=12, required=False, allow_blank=True)
+    motorista = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    propriedades_selecionadas = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        write_only=True,
+        allow_empty=False,
+    )
+    talhoes_selecionados = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        write_only=True,
+        required=False,
+        default=list,
+    )
     propriedade = serializers.IntegerField(
         source="grupo_colheita.propriedade_id",
         read_only=True,
@@ -169,6 +193,7 @@ class CargaColhidaSerializer(serializers.ModelSerializer):
             "peso_liquido_kg",
             "sacas_60kg",
             "regra_desconto_aplicada",
+            "contexto_colheita",
             "fingerprint",
             "movimentacao",
             "criado_por",
