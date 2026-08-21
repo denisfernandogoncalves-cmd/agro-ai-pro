@@ -28,8 +28,14 @@ class CADProViewSet(
     def get_queryset(self):
         queryset = super().get_queryset()
         ativo = self.request.query_params.get("ativo", "").strip().lower()
+        propriedade = self.request.query_params.get("propriedade", "").strip()
         if ativo in {"true", "false"}:
             queryset = queryset.filter(ativo=ativo == "true")
+        if propriedade:
+            queryset = queryset.filter(
+                vinculos_propriedades__propriedade_id=propriedade,
+                vinculos_propriedades__ativo=True,
+            ).distinct()
         return queryset
 
     @action(detail=True, methods=("get", "post"), url_path="propriedades")

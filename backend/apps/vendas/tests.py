@@ -158,6 +158,25 @@ class VendaGraosServiceTests(ContextoVendaMixin, TestCase):
             2,
         )
 
+    def test_entrega_guarda_dados_do_controle_de_saida(self):
+        venda = self.rascunho(quantidade="100")
+        confirmar_venda(usuario=self.usuario, venda=venda, chave_idempotencia="c-saida")
+        entrega = registrar_entrega_venda(
+            usuario=self.usuario,
+            venda=venda,
+            quantidade_kg="100",
+            chave_idempotencia="e-saida",
+            destino="Cooperativa Sul",
+            placa="ABC-1D23",
+            nota_produtor="NP-77",
+            nota_empresa="NE-88",
+        )
+
+        self.assertEqual(entrega.destino, "Cooperativa Sul")
+        self.assertEqual(entrega.placa, "ABC1D23")
+        self.assertEqual(entrega.nota_produtor, "NP-77")
+        self.assertEqual(entrega.nota_empresa, "NE-88")
+
     def test_entrega_acima_da_reserva_e_bloqueada(self):
         venda = self.rascunho(quantidade="300")
         confirmar_venda(usuario=self.usuario, venda=venda, chave_idempotencia="c3")
@@ -293,14 +312,14 @@ class VendaGraosApiTests(ContextoVendaMixin, APITestCase):
         carga_a = registrar_carga_colhida(
             usuario=self.usuario, grupo_colheita=grupo_a, armazem=self.armazem,
             data_colheita=date(2026, 8, 12), placa="ABC1D23",
-            peso_bruto_kg="500", umidade_percentual="10",
+            peso_bruto_kg="500", umidade_percentual="11.5",
             impureza_percentual="0", defeitos_percentual="0",
             destinado_semente=False,
         )
         carga_b = registrar_carga_colhida(
             usuario=self.usuario, grupo_colheita=grupo_b, armazem=self.armazem,
             data_colheita=date(2026, 8, 13), placa="DEF4G56",
-            peso_bruto_kg="400", umidade_percentual="10",
+            peso_bruto_kg="400", umidade_percentual="11.5",
             impureza_percentual="0", defeitos_percentual="0",
             destinado_semente=False,
         )

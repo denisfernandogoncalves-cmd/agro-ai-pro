@@ -44,6 +44,10 @@ POST /api/cadpros/{id}/propriedades/
 POST /api/cadpros/{id}/inativar/
 ```
 
+`GET /api/cadpros/?propriedade={id}` limita a resposta aos vínculos ativos. A
+API de Propriedades aceita `cad_pro_numero` e reutiliza o cadastro oficial
+normalizado, criando somente o vínculo quando o número já existe.
+
 A listagem aceita `ativo=true|false`, `search` e `ordering`. O POST de vínculo
 recebe `{"propriedade": <id>}`. DELETE e PUT respondem `405 Method Not Allowed`.
 

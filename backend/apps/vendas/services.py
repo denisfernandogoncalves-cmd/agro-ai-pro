@@ -237,16 +237,28 @@ def cancelar_venda(*, usuario, venda, chave_idempotencia, observacoes=""):
 @transaction.atomic
 def registrar_entrega_venda(
     *, usuario, venda, quantidade_kg, chave_idempotencia,
-    data_entrega=None, referencia_externa="", observacoes="",
+    data_entrega=None, referencia_externa="", observacoes="", destino="",
+    placa="", nota_produtor="", nota_empresa="",
 ):
+    from apps.graos.models import normalizar_placa
+
     chave = _chave(chave_idempotencia)
     quantidade = _quantidade(quantidade_kg)
+    placa_normalizada = normalizar_placa(placa)
+    if placa_normalizada and len(placa_normalizada) != 7:
+        raise VendaGraosConflitoError(
+            "Informe uma placa brasileira com 7 letras e números."
+        )
     payload = {
         "venda_id": venda.pk,
         "quantidade_kg": quantidade,
         "data_entrega": data_entrega or timezone.localdate(),
         "referencia_externa": str(referencia_externa or "").strip(),
         "observacoes": str(observacoes or "").strip(),
+        "destino": str(destino or venda.cliente_nome).strip(),
+        "placa": placa_normalizada,
+        "nota_produtor": str(nota_produtor or "").strip(),
+        "nota_empresa": str(nota_empresa or "").strip(),
     }
     hash_requisicao = _hash(payload)
     existente = _repeticao_movimento(
@@ -285,6 +297,10 @@ def registrar_entrega_venda(
         quantidade_kg=payload["quantidade_kg"],
         data_entrega=payload["data_entrega"],
         referencia_externa=payload["referencia_externa"],
+        destino=payload["destino"],
+        placa=payload["placa"],
+        nota_produtor=payload["nota_produtor"],
+        nota_empresa=payload["nota_empresa"],
         observacoes=payload["observacoes"],
         chave_idempotencia=chave,
         hash_requisicao=hash_requisicao,

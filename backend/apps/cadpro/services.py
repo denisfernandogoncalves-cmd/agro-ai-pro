@@ -4,6 +4,7 @@ from django.db import transaction
 from apps.propriedades.models import Propriedade
 
 from .models import CADPro, CADProPropriedade
+from .models import normalizar_codigo_cadpro
 
 
 class VinculoCADProInvalido(ValueError):
@@ -12,6 +13,43 @@ class VinculoCADProInvalido(ValueError):
 
 class CADProComSaldoError(ValueError):
     pass
+
+
+class NumeroCADProInvalido(ValueError):
+    pass
+
+
+@transaction.atomic
+def vincular_numero_cadpro_a_propriedade(*, numero, propriedade):
+    """Cria ou reutiliza o CAD/PRO oficial e mantém um único vínculo ativo."""
+    codigo = " ".join(str(numero or "").strip().split())
+    normalizado = normalizar_codigo_cadpro(codigo)
+    if not normalizado:
+        raise NumeroCADProInvalido(
+            "Informe um número CAD/PRO com letras ou números."
+        )
+
+    cad_pro = CADPro.objects.select_for_update().filter(
+        codigo_normalizado=normalizado,
+    ).first()
+    if cad_pro is None:
+        cad_pro = CADPro.objects.create(
+            codigo=codigo,
+            descricao=f"CAD/PRO da propriedade {propriedade.nome}",
+        )
+    elif not cad_pro.ativo:
+        raise NumeroCADProInvalido(
+            "O número informado pertence a um CAD/PRO inativo."
+        )
+
+    vinculo, criado = CADProPropriedade.objects.select_for_update().get_or_create(
+        cad_pro=cad_pro,
+        propriedade=propriedade,
+    )
+    if not criado and not vinculo.ativo:
+        vinculo.ativo = True
+        vinculo.save(update_fields=("ativo", "atualizado_em"))
+    return cad_pro, vinculo
 
 
 def obter_cadpro_ativo(cad_pro_id):

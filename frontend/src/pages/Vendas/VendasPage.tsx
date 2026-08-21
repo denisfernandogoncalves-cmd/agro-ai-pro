@@ -7,6 +7,7 @@ import {
   carregarVendas,
   confirmarVenda,
   criarVenda,
+  DadosEntrega,
   devolverVenda,
   entregarVenda,
   FiltrosVenda,
@@ -26,6 +27,14 @@ const vazio: NovaVenda = {
   observacoes: "",
 };
 const filtrosVazios: FiltrosVenda = { search: "", status: "", cultura: "", safra: "", classificacao_codigo: "" };
+const entregaVazia: DadosEntrega = {
+  quantidade_kg: "",
+  data_movimento: hoje,
+  destino: "",
+  placa: "",
+  nota_produtor: "",
+  nota_empresa: "",
+};
 
 function kg(valor: string) {
   return `${Number(valor || 0).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} kg`;
@@ -59,6 +68,7 @@ export default function VendasPage() {
   const [formulario, setFormulario] = useState<NovaVenda>(vazio);
   const [filtros, setFiltros] = useState<FiltrosVenda>(filtrosVazios);
   const [quantidadeMovimento, setQuantidadeMovimento] = useState("");
+  const [dadosEntrega, setDadosEntrega] = useState<DadosEntrega>(entregaVazia);
   const [processando, setProcessando] = useState(false);
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
@@ -105,6 +115,13 @@ export default function VendasPage() {
   const saldoSelecionado = selecionada
     ? posicoes.find((item) => item.id === selecionada.posicao)
     : null;
+  const saidas = vendas.flatMap((venda) => venda.entregas.map((entrega) => ({ venda, entrega })));
+  const totalEntregue = saidas.reduce((total, item) => total + Number(item.entrega.quantidade_kg), 0);
+  const totalDevolvido = vendas.reduce((total, item) => total + Number(item.quantidade_devolvida_kg), 0);
+  const propriedadesSaida = Array.from(new Set(vendas.map((item) => item.propriedade_nome)));
+  const cadprosSaida = Array.from(new Set(vendas.map((item) => item.cad_pro_codigo)));
+  const culturasSaida = Array.from(new Set(vendas.map((item) => item.cultura)));
+  const safrasSaida = Array.from(new Set(vendas.map((item) => item.safra)));
 
   return (
     <section className="modulo-vendas">
@@ -120,6 +137,11 @@ export default function VendasPage() {
         <input aria-label="Filtrar venda por classificação" placeholder="Classificação" value={filtros.classificacao_codigo} onChange={(e) => setFiltros({ ...filtros, classificacao_codigo: e.target.value })} />
         <button disabled={processando} type="submit">Filtrar</button>
       </form>
+
+      <section className="card controle-planilha">
+        <div className="controle-planilha-titulo"><div><span className="kicker">Controle de saída de grãos</span><h3>{propriedadesSaida.join(" · ") || "Todas as propriedades"}</h3><p>CAD/PRO {cadprosSaida.join(", ") || "—"} · {culturasSaida.join(", ") || "todas as culturas"} · safra {safrasSaida.join(", ") || "todas"}</p></div><div className="controle-planilha-total"><span>Saída líquida</span><strong>{kg(String(totalEntregue - totalDevolvido))}</strong><small>{((totalEntregue - totalDevolvido) / 60).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} sacas de 60 kg</small></div></div>
+        <div className="tabela-responsiva"><table className="tabela-relatorio tabela-controle"><thead><tr><th>Data</th><th>Destino</th><th>Placa</th><th>CAD/PRO</th><th>Contrato</th><th>Nº nota produtor</th><th>Nº nota empresa</th><th>Peso líquido</th><th>Sacas 60 kg</th></tr></thead><tbody>{saidas.length ? saidas.map(({ venda, entrega }) => <tr key={`saida-${entrega.id}`}><td>{entrega.data_entrega}</td><td>{entrega.destino || venda.cliente_nome}</td><td>{entrega.placa || "—"}</td><td>{venda.cad_pro_codigo}</td><td>{venda.numero_contrato}</td><td>{entrega.nota_produtor || "—"}</td><td>{entrega.nota_empresa || "—"}</td><td>{kg(entrega.quantidade_kg)}</td><td>{(Number(entrega.quantidade_kg) / 60).toLocaleString("pt-BR", { maximumFractionDigits: 3 })}</td></tr>) : <tr><td colSpan={9}>Nenhuma saída registrada para os filtros informados.</td></tr>}</tbody></table></div>
+      </section>
 
       <section className="grade vendas-grade">
         <form className="card formulario" onSubmit={criar}>
@@ -142,7 +164,8 @@ export default function VendasPage() {
 
       {selecionada && <section className="card detalhe-venda"><div className="detalhe-venda-topo"><div><span className="kicker">Detalhe e rastreabilidade</span><h3>{selecionada.numero_contrato}</h3><p>{selecionada.propriedade_nome} · posição oficial #{selecionada.posicao}</p></div><div className="acoes">{selecionada.status === "rascunho" && <button disabled={processando} onClick={() => { void executar(`confirmar:${selecionada.id}`, (chave) => confirmarVenda(selecionada.id, chave), "Venda confirmada e saldo reservado."); }}>Confirmar e reservar</button>}{selecionada.status !== "entregue" && selecionada.status !== "cancelada" && <button className="perigo" disabled={processando} onClick={() => { void executar(`cancelar:${selecionada.id}`, (chave) => cancelarVenda(selecionada.id, "Cancelamento pelo painel", chave), "Venda cancelada; somente a reserva aberta foi liberada."); }}>Cancelar</button>}</div></div>
         <div className="resumo-venda"><span>Físico da posição <strong>{kg(saldoSelecionado?.saldo_fisico_kg ?? "0")}</strong></span><span>Comprometido da posição <strong>{kg(saldoSelecionado?.saldo_comprometido_kg ?? "0")}</strong></span><span>Disponível da posição <strong>{kg(saldoSelecionado?.saldo_disponivel_kg ?? "0")}</strong></span><span>Reservado nesta venda <strong>{kg(selecionada.quantidade_reservada_kg)}</strong></span><span>Entregue <strong>{kg(selecionada.quantidade_entregue_kg)}</strong></span><span>Devolvido <strong>{kg(selecionada.quantidade_devolvida_kg)}</strong></span><span>Cancelado <strong>{kg(selecionada.quantidade_cancelada_kg)}</strong></span></div>
-        {(aberto || devolvivel > 0) && <div className="movimentos-venda"><label>Quantidade (kg)<input min="0.001" step="0.001" type="number" value={quantidadeMovimento} onChange={(e) => setQuantidadeMovimento(e.target.value)} /></label>{aberto && <button disabled={processando || !quantidadeMovimento} onClick={() => { void executar(`entregar:${selecionada.id}:${quantidadeMovimento}`, (chave) => entregarVenda(selecionada.id, quantidadeMovimento, hoje, chave), "Entrega registrada; físico e comprometido foram reduzidos uma única vez."); }}>Registrar entrega</button>}{devolvivel > 0 && <button className="secundario" disabled={processando || !quantidadeMovimento} onClick={() => { void executar(`devolver:${selecionada.id}:${quantidadeMovimento}`, (chave) => devolverVenda(selecionada.id, quantidadeMovimento, hoje, chave), "Devolução registrada no físico sem reabrir a reserva."); }}>Registrar devolução</button>}</div>}
+        {aberto && <div className="movimentos-venda formulario-saida"><label>Quantidade da saída (kg)<input min="0.001" step="0.001" type="number" value={dadosEntrega.quantidade_kg} onChange={(e) => setDadosEntrega({ ...dadosEntrega, quantidade_kg: e.target.value })} /></label><label>Data<input type="date" value={dadosEntrega.data_movimento} onChange={(e) => setDadosEntrega({ ...dadosEntrega, data_movimento: e.target.value })} /></label><label>Destino / comprador<input placeholder={selecionada.cliente_nome} value={dadosEntrega.destino} onChange={(e) => setDadosEntrega({ ...dadosEntrega, destino: e.target.value })} /></label><label>Placa<input maxLength={8} placeholder="ABC1D23" value={dadosEntrega.placa} onChange={(e) => setDadosEntrega({ ...dadosEntrega, placa: e.target.value.toUpperCase() })} /></label><label>Nº nota produtor<input value={dadosEntrega.nota_produtor} onChange={(e) => setDadosEntrega({ ...dadosEntrega, nota_produtor: e.target.value })} /></label><label>Nº nota empresa<input value={dadosEntrega.nota_empresa} onChange={(e) => setDadosEntrega({ ...dadosEntrega, nota_empresa: e.target.value })} /></label><button disabled={processando || !dadosEntrega.quantidade_kg} onClick={() => { const assinatura = JSON.stringify(["entregar", selecionada.id, dadosEntrega]); void executar(assinatura, (chave) => entregarVenda(selecionada.id, dadosEntrega, chave), "Entrega registrada; físico e comprometido foram reduzidos uma única vez.").then((ok) => { if (ok) setDadosEntrega(entregaVazia); }); }}>Registrar entrega</button></div>}
+        {devolvivel > 0 && <div className="movimentos-venda"><label>Quantidade da devolução (kg)<input min="0.001" step="0.001" type="number" value={quantidadeMovimento} onChange={(e) => setQuantidadeMovimento(e.target.value)} /></label><button className="secundario" disabled={processando || !quantidadeMovimento} onClick={() => { void executar(`devolver:${selecionada.id}:${quantidadeMovimento}`, (chave) => devolverVenda(selecionada.id, quantidadeMovimento, hoje, chave), "Devolução registrada no físico sem reabrir a reserva."); }}>Registrar devolução</button></div>}
         <RastreabilidadeVenda venda={selecionada} />
       </section>}
     </section>

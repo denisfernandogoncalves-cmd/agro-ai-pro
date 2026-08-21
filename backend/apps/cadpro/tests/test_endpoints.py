@@ -46,6 +46,7 @@ class CADProEndpointTests(APITestCase):
         lista = self.client.get("/api/cadpros/?search=123.456")
         self.assertEqual(lista.status_code, 200)
         self.assertEqual(len(lista.data), 1)
+        self.assertEqual(lista.data[0]["propriedades"], [])
         self.assertEqual(self.client.get(f"/api/cadpros/{cad_pro_id}/").status_code, 200)
         atualizacao = self.client.patch(
             f"/api/cadpros/{cad_pro_id}/",
@@ -63,6 +64,11 @@ class CADProEndpointTests(APITestCase):
         self.assertEqual(vinculo.status_code, 201, vinculo.data)
         self.assertEqual(vinculo.data["cad_pro"], cad_pro_id)
         self.assertEqual(vinculo.data["propriedade"], self.propriedade.pk)
+        filtrada = self.client.get(
+            "/api/cadpros/", {"propriedade": self.propriedade.pk}
+        )
+        self.assertEqual(len(filtrada.data), 1)
+        self.assertEqual(filtrada.data[0]["propriedades"], [self.propriedade.pk])
         propriedades = self.client.get(f"/api/cadpros/{cad_pro_id}/propriedades/")
         self.assertEqual(propriedades.status_code, 200)
         self.assertEqual(len(propriedades.data), 1)

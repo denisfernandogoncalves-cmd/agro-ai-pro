@@ -30,6 +30,7 @@ export type Propriedade = {
   diferenca_area_hectares: string | null;
   divergencia_area_percentual: string | null;
   observacoes: string;
+  cad_pro_numeros: string[];
   criado_em: string;
 };
 
@@ -42,6 +43,7 @@ export type PropriedadeInput = {
   latitude: string;
   longitude: string;
   observacoes: string;
+  cad_pro_numero: string;
   arquivo_kml: File | null;
 };
 

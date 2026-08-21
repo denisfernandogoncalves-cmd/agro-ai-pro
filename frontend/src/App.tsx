@@ -38,6 +38,7 @@ const formularioVazio: PropriedadeInput = {
   latitude: "",
   longitude: "",
   observacoes: "",
+  cad_pro_numero: "",
   arquivo_kml: null,
 };
 
@@ -181,6 +182,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
       latitude: item.latitude ?? "",
       longitude: item.longitude ?? "",
       observacoes: item.observacoes,
+      cad_pro_numero: item.cad_pro_numeros[0] ?? "",
       arquivo_kml: null,
     });
   }
@@ -357,6 +359,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
             <label>UF<input maxLength={2} value={formulario.uf} onChange={(e) => setFormulario({ ...formulario, uf: e.target.value.toUpperCase() })} /></label>
           </div>
           <label>Área (ha)<input required min="0.01" step="0.01" type="number" value={formulario.area_hectares} onChange={(e) => setFormulario({ ...formulario, area_hectares: e.target.value })} /></label>
+          <label>Número CAD/PRO<input placeholder="Ex.: 123.456-7" value={formulario.cad_pro_numero} onChange={(e) => setFormulario({ ...formulario, cad_pro_numero: e.target.value })} /></label>
           <div className="linha">
             <label>Latitude<input step="any" type="number" value={formulario.latitude} onChange={(e) => setFormulario({ ...formulario, latitude: e.target.value })} /></label>
             <label>Longitude<input step="any" type="number" value={formulario.longitude} onChange={(e) => setFormulario({ ...formulario, longitude: e.target.value })} /></label>
@@ -386,6 +389,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
                   <div>
                     <h3>{item.nome}</h3>
                     <p>{item.municipio}/{item.uf} · {item.area_hectares} ha declarados</p>
+                    <p>CAD/PRO: {item.cad_pro_numeros.length ? item.cad_pro_numeros.join(", ") : "não informado"}</p>
                     {item.area_calculada_hectares && (
                       <p className="metadado-geografico">
                         {item.area_calculada_hectares} ha calculados

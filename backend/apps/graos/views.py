@@ -127,7 +127,6 @@ class GrupoColheitaViewSet(CadastroGraosMixin, viewsets.ModelViewSet):
     queryset = GrupoColheita.objects.select_related(
         "propriedade",
         "cad_pro",
-        "armazem_padrao",
         "criado_por",
     ).annotate(
         contexto_congelado_db=Exists(
@@ -145,7 +144,6 @@ class GrupoColheitaViewSet(CadastroGraosMixin, viewsets.ModelViewSet):
         for parametro, campo in (
             ("propriedade", "propriedade_id"),
             ("cad_pro", "cad_pro_id"),
-            ("armazem_padrao", "armazem_padrao_id"),
             ("safra", "safra"),
         ):
             valor = self.request.query_params.get(parametro, "").strip()
@@ -186,12 +184,13 @@ class CargaColhidaViewSet(
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = (
         "placa",
+        "motorista",
         "local_colheita",
         "grupo_colheita__nome",
         "grupo_colheita__propriedade__nome",
         "grupo_colheita__cad_pro__codigo",
     )
-    ordering_fields = ("data_colheita", "peso_bruto_kg", "peso_liquido_kg", "criado_em")
+    ordering_fields = ("data_colheita", "motorista", "peso_bruto_kg", "peso_liquido_kg", "criado_em")
     ordering = ("-data_colheita", "-id")
 
     def get_queryset(self):

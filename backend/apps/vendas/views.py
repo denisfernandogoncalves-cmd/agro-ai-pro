@@ -11,6 +11,7 @@ from .models import VendaGraos
 from .selectors import selecionar_vendas
 from .serializers import (
     CancelamentoSerializer,
+    EntregaMovimentoVendaSerializer,
     MovimentoVendaSerializer,
     VendaGraosCriacaoSerializer,
     VendaGraosSerializer,
@@ -118,7 +119,7 @@ class VendaGraosViewSet(viewsets.ReadOnlyModelViewSet):
 
     @action(detail=True, methods=["post"])
     def entregar(self, request, pk=None):
-        entrada = MovimentoVendaSerializer(data=request.data)
+        entrada = EntregaMovimentoVendaSerializer(data=request.data)
         entrada.is_valid(raise_exception=True)
         dados = entrada.validated_data
         try:
