@@ -189,20 +189,44 @@ def _montar_contexto_colheita(*, grupo, propriedades_ids, talhoes_ids):
         (Decimal(str(item.area_hectares)) for item in talhoes),
         Decimal("0"),
     )
-    return {
-        "propriedades": [
+    propriedades_contexto = []
+    for item in propriedades:
+        cadpros = [
+            vinculo.cad_pro
+            for vinculo in item.vinculos_cadpro.all()
+            if vinculo.ativo and vinculo.cad_pro.ativo
+        ]
+        if item.pk == grupo.propriedade_id:
+            cad_pro = next(
+                (cad for cad in cadpros if cad.pk == grupo.cad_pro_id),
+                None,
+            )
+        elif len(cadpros) == 1:
+            cad_pro = cadpros[0]
+        else:
+            cad_pro = None
+        if cad_pro is None:
+            if not cadpros:
+                raise CargaColhidaError(
+                    f"A propriedade {item.nome} não possui CAD/PRO ativo."
+                )
+            raise CargaColhidaError(
+                f"A propriedade {item.nome} possui mais de um CAD/PRO ativo. "
+                "Mantenha um único CAD/PRO ativo para realizar o rateio."
+            )
+        propriedades_contexto.append(
             {
                 "id": item.pk,
                 "nome": item.nome,
+                "proprietario": item.proprietario,
                 "area_hectares": str(item.area_hectares),
-                "cad_pro_numeros": [
-                    vinculo.cad_pro.codigo
-                    for vinculo in item.vinculos_cadpro.all()
-                    if vinculo.ativo and vinculo.cad_pro.ativo
-                ],
+                "cad_pro_id": str(cad_pro.pk),
+                "cad_pro_numero": cad_pro.codigo,
+                "cad_pro_numeros": [cad.codigo for cad in cadpros],
             }
-            for item in propriedades
-        ],
+        )
+    return {
+        "propriedades": propriedades_contexto,
         "talhoes": [
             {
                 "id": item.pk,
@@ -219,6 +243,64 @@ def _montar_contexto_colheita(*, grupo, propriedades_ids, talhoes_ids):
         "safra": grupo.safra,
         "cultura": grupo.cultura,
     }
+
+
+def _aplicar_rateio_producao(contexto, *, peso_liquido_kg, sacas_60kg):
+    propriedades = contexto["propriedades"]
+    area_total = sum(
+        (Decimal(item["area_hectares"]) for item in propriedades),
+        Decimal("0"),
+    )
+    if area_total <= 0:
+        raise CargaColhidaError(
+            "A soma das áreas das propriedades deve ser maior que zero."
+        )
+
+    liquido_total = _decimal(peso_liquido_kg)
+    sacas_total = _decimal(sacas_60kg)
+    media = (sacas_total / area_total).quantize(MIL, rounding=ROUND_HALF_UP)
+    restante_kg = liquido_total
+    restante_sacas = sacas_total
+    rateio = []
+    for indice, item in enumerate(propriedades):
+        area = Decimal(item["area_hectares"])
+        proporcao = area / area_total
+        ultimo = indice == len(propriedades) - 1
+        peso_rateado = restante_kg if ultimo else (
+            liquido_total * proporcao
+        ).quantize(MIL, rounding=ROUND_HALF_UP)
+        sacas_rateadas = restante_sacas if ultimo else (
+            sacas_total * proporcao
+        ).quantize(MIL, rounding=ROUND_HALF_UP)
+        restante_kg -= peso_rateado
+        restante_sacas -= sacas_rateadas
+        rateio.append(
+            {
+                "propriedade_id": item["id"],
+                "propriedade_nome": item["nome"],
+                "proprietario": item["proprietario"],
+                "cad_pro_id": item["cad_pro_id"],
+                "cad_pro_numero": item["cad_pro_numero"],
+                "area_hectares": str(area),
+                "proporcao": str(
+                    proporcao.quantize(Decimal("0.000000001"), rounding=ROUND_HALF_UP)
+                ),
+                "peso_liquido_kg": str(peso_rateado),
+                "sacas_60kg": str(sacas_rateadas),
+                "media_sacas_hectare": str(media),
+            }
+        )
+    contexto["rateio_producao"] = rateio
+    contexto["regra_rateio_producao"] = {
+        "metodo": "proporcional_area_declarada",
+        "versao": "2026-08-20",
+        "area_total_hectares": str(area_total),
+        "peso_liquido_total_kg": str(liquido_total),
+        "sacas_60kg_total": str(sacas_total),
+        "media_sacas_hectare": str(media),
+        "sem_duplicacao": True,
+    }
+    return contexto
 
 
 def _obter_lote(grupo, armazem, destinado_semente):
@@ -309,6 +391,11 @@ def registrar_carga_colhida(*, usuario, grupo_colheita, data_colheita,
         impureza_percentual=impureza_percentual,
         defeitos_percentual=defeitos_percentual,
         ph=ph,
+    )
+    contexto_colheita = _aplicar_rateio_producao(
+        contexto_colheita,
+        peso_liquido_kg=liquido,
+        sacas_60kg=sacas,
     )
     lote = _obter_lote(grupo, armazem, destinado_semente)
     resultado = creditar_producao(

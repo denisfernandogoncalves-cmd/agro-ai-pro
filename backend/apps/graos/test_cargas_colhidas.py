@@ -148,6 +148,31 @@ class CalculoCargaColhidaTests(CargaColhidaBase, TestCase):
         with self.assertRaises(ValidationError):
             CargaColhida.objects.filter(pk=carga.pk).update(placa="XYZ9A99")
 
+    def test_rateia_multiplas_propriedades_por_area_sem_duplicar(self):
+        outra = Propriedade.objects.create(
+            nome="Fazenda Associada", municipio="Sorriso", uf="MT",
+            area_hectares="500.00",
+        )
+        CADProPropriedade.objects.create(cad_pro=self.cad_pro, propriedade=outra)
+        dados = self.dados_carga()
+        dados["propriedades_selecionadas"] = [self.propriedade.pk, outra.pk]
+        carga = registrar_carga_colhida(usuario=self.usuario, **dados)
+        rateios = carga.contexto_colheita["rateio_producao"]
+
+        self.assertEqual(len(rateios), 2)
+        self.assertEqual(
+            sum(Decimal(item["peso_liquido_kg"]) for item in rateios),
+            carga.peso_liquido_kg,
+        )
+        self.assertEqual(
+            {item["cad_pro_numero"] for item in rateios},
+            {self.cad_pro.codigo},
+        )
+        self.assertEqual(
+            {Decimal(item["peso_liquido_kg"]) for item in rateios},
+            {Decimal("650.000"), Decimal("325.000")},
+        )
+
 
 class CargaColhidaApiTests(CargaColhidaBase, APITestCase):
     def setUp(self):

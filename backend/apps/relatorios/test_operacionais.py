@@ -258,6 +258,47 @@ class RelatorioOperacionalSelectorTests(RelatorioOperacionalBase, TestCase):
             self.assertEqual(Decimal(oficial["saldo_fisico_kg"]), posicao.saldo_fisico_kg)
             self.assertEqual(Decimal(oficial["saldo_comprometido_kg"]), posicao.saldo_comprometido_kg)
 
+    def test_rateio_por_propriedade_e_transporte_por_motorista(self):
+        grupo = GrupoColheita.objects.create(
+            propriedade=self.propriedade_a,
+            cad_pro=self.cad_a,
+            nome="Grupo Compartilhado",
+            cultura="Soja",
+            safra="2026/2027",
+            tolerancia_impureza_percentual="0",
+            desconto_impureza_por_ponto="0",
+            tolerancia_defeitos_percentual="0",
+            desconto_defeitos_por_ponto="0",
+            criado_por=self.usuario,
+        )
+        registrar_carga_colhida(
+            usuario=self.usuario,
+            grupo_colheita=grupo,
+            armazem=self.armazem_a,
+            data_colheita=date(2026, 8, 10),
+            motorista="João Transportes",
+            placa="ABC1D23",
+            peso_bruto_kg="1800",
+            umidade_percentual="14",
+            impureza_percentual="0",
+            defeitos_percentual="0",
+            destinado_semente=True,
+            propriedades_selecionadas=[self.propriedade_a.pk, self.propriedade_b.pk],
+        )
+
+        producao_b = self.relatorio(
+            secao="produtividade", propriedade=self.propriedade_b.pk
+        )
+        self.assertEqual(producao_b["dados"]["total"], 1)
+        self.assertEqual(producao_b["dados"]["resultados"][0]["quantidade_kg"], "800.000")
+        self.assertEqual(producao_b["dados"]["resultados"][0]["armazem_nome"], "Silo A")
+        self.assertEqual(producao_b["totais"]["semente_kg"], "800.000")
+
+        transporte = self.relatorio(secao="motoristas", motorista="João")
+        self.assertEqual(transporte["dados"]["total"], 1)
+        self.assertEqual(transporte["dados"]["resultados"][0]["quantidade_kg"], "1800.000")
+        self.assertEqual(transporte["dados"]["resultados"][0]["armazens"], ["Silo A"])
+
 
 class RelatorioOperacionalApiTests(RelatorioOperacionalBase, APITestCase):
     url = "/api/relatorios/operacionais/"

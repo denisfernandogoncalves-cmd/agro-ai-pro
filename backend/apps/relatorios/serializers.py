@@ -4,12 +4,18 @@ from rest_framework import serializers
 class FiltrosRelatorioOperacionalSerializer(serializers.Serializer):
     cad_pro = serializers.UUIDField(required=False)
     propriedade = serializers.IntegerField(required=False, min_value=1)
+    proprietario = serializers.CharField(required=False, allow_blank=True, max_length=100)
     cultura = serializers.CharField(required=False, allow_blank=True, max_length=50)
     safra = serializers.CharField(required=False, allow_blank=True, max_length=20)
     classificacao_codigo = serializers.CharField(
         required=False, allow_blank=True, max_length=50
     )
     armazem = serializers.IntegerField(required=False, min_value=1)
+    destinado_semente = serializers.BooleanField(required=False)
+    motorista = serializers.CharField(required=False, allow_blank=True, max_length=120)
+    placa = serializers.CharField(required=False, allow_blank=True, max_length=12)
+    numero_contrato = serializers.CharField(required=False, allow_blank=True, max_length=80)
+    comprador = serializers.CharField(required=False, allow_blank=True, max_length=160)
     data_inicio = serializers.DateField(required=False)
     data_fim = serializers.DateField(required=False)
     secao = serializers.ChoiceField(
@@ -23,6 +29,8 @@ class FiltrosRelatorioOperacionalSerializer(serializers.Serializer):
             "entregas",
             "movimentacoes",
             "rastreabilidade",
+            "produtividade",
+            "motoristas",
         ),
     )
     pagina = serializers.IntegerField(required=False, default=1, min_value=1)
@@ -37,7 +45,10 @@ class FiltrosRelatorioOperacionalSerializer(serializers.Serializer):
             raise serializers.ValidationError(
                 {"data_fim": "A data final deve ser igual ou posterior à inicial."}
             )
-        for campo in ("cultura", "safra", "classificacao_codigo"):
+        for campo in (
+            "proprietario", "cultura", "safra", "classificacao_codigo",
+            "motorista", "placa", "numero_contrato", "comprador",
+        ):
             if campo in attrs:
                 attrs[campo] = attrs[campo].strip()
         if attrs.get("classificacao_codigo"):
