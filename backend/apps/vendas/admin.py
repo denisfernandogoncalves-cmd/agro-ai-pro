@@ -28,8 +28,11 @@ class VendaGraosAdmin(TrilhaComercialSomenteLeituraAdmin):
 
 @admin.register(EntregaVendaGraos)
 class EntregaVendaGraosAdmin(TrilhaComercialSomenteLeituraAdmin):
-    list_display = ("venda", "quantidade_kg", "data_entrega", "criado_em")
-    search_fields = ("venda__numero_contrato", "referencia_externa")
+    list_display = ("venda", "quantidade_kg", "data_entrega", "destino", "placa", "criado_em")
+    search_fields = (
+        "venda__numero_contrato", "referencia_externa", "destino", "placa",
+        "nota_produtor", "nota_empresa",
+    )
 
 
 @admin.register(DevolucaoVendaGraos)

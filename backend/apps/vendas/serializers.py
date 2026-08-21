@@ -41,6 +41,13 @@ class MovimentoVendaSerializer(serializers.Serializer):
     observacoes = serializers.CharField(required=False, allow_blank=True)
 
 
+class EntregaMovimentoVendaSerializer(MovimentoVendaSerializer):
+    destino = serializers.CharField(max_length=160, required=False, allow_blank=True)
+    placa = serializers.CharField(max_length=12, required=False, allow_blank=True)
+    nota_produtor = serializers.CharField(max_length=80, required=False, allow_blank=True)
+    nota_empresa = serializers.CharField(max_length=80, required=False, allow_blank=True)
+
+
 class EntregaVendaSerializer(serializers.ModelSerializer):
     movimentacao_id = serializers.IntegerField(read_only=True)
 
@@ -48,6 +55,7 @@ class EntregaVendaSerializer(serializers.ModelSerializer):
         model = EntregaVendaGraos
         fields = (
             "id", "quantidade_kg", "data_entrega", "referencia_externa",
+            "destino", "placa", "nota_produtor", "nota_empresa",
             "observacoes", "movimentacao_id", "criado_em",
         )
 
