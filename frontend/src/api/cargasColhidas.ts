@@ -1,4 +1,5 @@
 import { api, Propriedade } from "./propriedades";
+import { Talhao } from "./talhoes";
 
 
 export type CADPro = {
@@ -6,6 +7,7 @@ export type CADPro = {
   codigo: string;
   descricao: string;
   ativo: boolean;
+  propriedades: number[];
 };
 
 export type ArmazemGraos = {
@@ -36,6 +38,8 @@ export type GrupoColheita = {
   desconto_impureza_por_ponto: string;
   tolerancia_defeitos_percentual: string;
   desconto_defeitos_por_ponto: string;
+  ph_minimo: string;
+  desconto_ph_por_ponto: string;
   ativo: boolean;
   contexto_congelado: boolean;
 };
@@ -54,6 +58,7 @@ export type CargaColhida = {
   lote_codigo: string;
   data_colheita: string;
   placa: string;
+  motorista: string;
   peso_bruto_kg: string;
   umidade_percentual: string;
   impureza_percentual: string;
@@ -66,6 +71,7 @@ export type CargaColhida = {
   peso_liquido_kg: string;
   sacas_60kg: string;
   regra_desconto_aplicada: Record<string, unknown>;
+  contexto_colheita: Record<string, unknown>;
   movimentacao: number;
   observacoes: string;
   criado_por_nome: string;
@@ -74,15 +80,15 @@ export type CargaColhida = {
 
 export type GrupoColheitaInput = Omit<
   GrupoColheita,
-  "id" | "propriedade_nome" | "cad_pro_codigo" | "armazem_padrao_nome" |
-  "ativo" | "contexto_congelado"
+  "id" | "propriedade_nome" | "cad_pro_codigo" | "armazem_padrao" |
+  "armazem_padrao_nome" | "tolerancia_umidade_percentual" |
+  "desconto_umidade_por_ponto" | "ativo" | "contexto_congelado"
 >;
 
 export type GrupoColheitaFiltros = {
   search?: string;
   propriedade?: string;
   cad_pro?: string;
-  armazem_padrao?: string;
   cultura?: string;
   safra?: string;
   ativo?: string;
@@ -93,6 +99,7 @@ export type CargaColhidaInput = {
   armazem: string;
   data_colheita: string;
   placa: string;
+  motorista: string;
   peso_bruto_kg: string;
   umidade_percentual: string;
   impureza_percentual: string;
@@ -101,21 +108,25 @@ export type CargaColhidaInput = {
   destinado_semente: boolean;
   local_colheita: string;
   observacoes: string;
+  propriedades_selecionadas: number[];
+  talhoes_selecionados: number[];
 };
 
 export async function carregarContextoCargas(propriedades: Propriedade[]) {
-  const [armazens, grupos, cargas] = await Promise.all([
+  const [armazens, grupos, cargas, talhoes] = await Promise.all([
     api.get<ArmazemGraos[]>("/graos/armazens/", { params: { ativo: true } }),
     api.get<GrupoColheita[]>("/graos/grupos-colheita/", { params: { ativo: true } }),
     api.get<CargaColhida[]>("/graos/cargas-colhidas/", {
       params: { ordering: "-data_colheita" },
     }),
+    api.get<Talhao[]>("/talhoes/talhoes/"),
   ]);
   return {
     propriedades,
     armazens: armazens.data,
     grupos: grupos.data,
     cargas: cargas.data,
+    talhoes: talhoes.data,
   };
 }
 
@@ -141,11 +152,8 @@ export async function listarGruposColheita(filtros: GrupoColheitaFiltros = {}) {
 }
 
 export async function carregarOpcoesGrupoColheita() {
-  const [cadpros, armazens] = await Promise.all([
-    api.get<CADPro[]>("/cadpros/", { params: { ativo: true } }),
-    api.get<ArmazemGraos[]>("/graos/armazens/", { params: { ativo: true } }),
-  ]);
-  return { cadpros: cadpros.data, armazens: armazens.data };
+  const cadpros = await api.get<CADPro[]>("/cadpros/", { params: { ativo: true } });
+  return { cadpros: cadpros.data };
 }
 
 export async function criarCargaColhida(dados: CargaColhidaInput) {

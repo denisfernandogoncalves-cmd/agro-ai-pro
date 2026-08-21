@@ -271,6 +271,9 @@ try {
     React.createElement(CargasColhidasPage, { propriedades: [propriedade] }),
   );
   assert.match(htmlCargas, /Registrar carga manual/);
+  assert.match(htmlCargas, /Propriedades da colheita/);
+  assert.match(htmlCargas, /Talhões da colheita/);
+  assert.match(htmlCargas, /Nome do motorista/);
   assert.match(htmlCargas, /Peso líquido/);
   assert.match(htmlCargas, /Nenhuma carga colhida registrada/);
 
@@ -278,10 +281,13 @@ try {
     React.createElement(GruposColheitaPage, { propriedades: [propriedade] }),
   );
   assert.match(htmlGrupos, /Novo grupo/);
-  assert.match(htmlGrupos, /Armazenagem padrão/);
+  assert.doesNotMatch(htmlGrupos, /Armazenagem padrão/);
+  assert.match(htmlGrupos, /CAD\/PRO da propriedade/);
+  assert.match(htmlGrupos, /Quebrados/);
+  assert.match(htmlGrupos, /PH mínimo/);
   assert.match(htmlGrupos, /Observações/);
   assert.match(htmlGrupos, /Filtrar por CAD\/PRO/);
-  assert.match(htmlGrupos, /Filtrar por armazenagem/);
+  assert.doesNotMatch(htmlGrupos, /Filtrar por armazenagem/);
   assert.match(htmlGrupos, /Nenhum grupo de colheita encontrado/);
 
   const htmlProducaoSaldos = renderToStaticMarkup(
