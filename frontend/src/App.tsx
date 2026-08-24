@@ -14,7 +14,7 @@ import MapaPropriedade from "./components/MapaPropriedade";
 import AplicativoStatus from "./components/AplicativoStatus";
 import ClimaPage from "./pages/Clima/ClimaPage";
 import CargasColhidasPage from "./pages/CargasColhidas/CargasColhidasPage";
-import GruposColheitaPage from "./pages/GruposColheita/GruposColheitaPage";
+import CadastrosAgricolasPage from "./pages/CadastrosAgricolas/CadastrosAgricolasPage";
 import ProducaoSaldosPage from "./pages/ProducaoSaldos/ProducaoSaldosPage";
 import VendasPage from "./pages/Vendas/VendasPage";
 import EstoquePage from "./pages/Estoque/EstoquePage";
@@ -122,7 +122,7 @@ type PrivateAreaProps = {
 
 function PrivateArea({ sair }: PrivateAreaProps) {
   const [modulo, setModulo] = useState<
-    "propriedades" | "talhoes" | "grupos-colheita" | "cargas" | "producao-saldos" | "vendas" | "clima" | "mercado" | "financeiro" | "estoque" | "operacoes" | "maquinas" | "relatorios" | "insights"
+    "propriedades" | "talhoes" | "cadastros-agricolas" | "cargas" | "producao-saldos" | "vendas" | "clima" | "mercado" | "financeiro" | "estoque" | "operacoes" | "maquinas" | "relatorios" | "insights"
   >("propriedades");
   const [propriedades, setPropriedades] = useState<Propriedade[]>([]);
   const [selecionada, setSelecionada] = useState<Propriedade | null>(null);
@@ -222,10 +222,10 @@ function PrivateArea({ sair }: PrivateAreaProps) {
               ? "Propriedades"
               : modulo === "talhoes"
                 ? "Talhões"
-                : modulo === "grupos-colheita"
-                  ? "Grupos de colheita"
                 : modulo === "cargas"
                   ? "Cargas colhidas"
+                : modulo === "cadastros-agricolas"
+                  ? "Cadastros agrícolas"
                 : modulo === "producao-saldos"
                   ? "Produção e saldos"
                 : modulo === "vendas"
@@ -261,10 +261,10 @@ function PrivateArea({ sair }: PrivateAreaProps) {
           Talhões
         </button>
         <button
-          className={modulo === "grupos-colheita" ? "" : "secundario"}
-          onClick={() => setModulo("grupos-colheita")}
+          className={modulo === "cadastros-agricolas" ? "" : "secundario"}
+          onClick={() => setModulo("cadastros-agricolas")}
         >
-          Grupos de colheita
+          Cadastros agrícolas
         </button>
         <button
           className={modulo === "cargas" ? "" : "secundario"}
@@ -321,8 +321,8 @@ function PrivateArea({ sair }: PrivateAreaProps) {
 
       {modulo === "talhoes" ? (
         <TalhoesPage />
-      ) : modulo === "grupos-colheita" ? (
-        <GruposColheitaPage propriedades={propriedades} />
+      ) : modulo === "cadastros-agricolas" ? (
+        <CadastrosAgricolasPage propriedades={propriedades} />
       ) : modulo === "cargas" ? (
         <CargasColhidasPage propriedades={propriedades} />
       ) : modulo === "producao-saldos" ? (

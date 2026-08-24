@@ -45,8 +45,8 @@ try {
   const { default: CargasColhidasPage } = await servidor.ssrLoadModule(
     "/src/pages/CargasColhidas/CargasColhidasPage.tsx",
   );
-  const { default: GruposColheitaPage } = await servidor.ssrLoadModule(
-    "/src/pages/GruposColheita/GruposColheitaPage.tsx",
+  const { default: CadastrosAgricolasPage } = await servidor.ssrLoadModule(
+    "/src/pages/CadastrosAgricolas/CadastrosAgricolasPage.tsx",
   );
   const { default: ProducaoSaldosPage, BotaoCreditarProducao } = await servidor.ssrLoadModule(
     "/src/pages/ProducaoSaldos/ProducaoSaldosPage.tsx",
@@ -259,7 +259,8 @@ try {
   );
   assert.match(htmlEstoque, /Nova movimentaÃ§Ã£o|Nova movimentação/);
   assert.match(htmlEstoque, /Rastreabilidade/);
-  assert.match(htmlEstoque, /Cadastros de produtos, locais e lotes/);
+  assert.match(htmlEstoque, /Novo lote/);
+  assert.doesNotMatch(htmlEstoque, /Cadastrar produto/);
 
   const htmlOperacoes = renderToStaticMarkup(
     React.createElement(OperacoesPage),
@@ -271,24 +272,21 @@ try {
     React.createElement(CargasColhidasPage, { propriedades: [propriedade] }),
   );
   assert.match(htmlCargas, /Registrar carga manual/);
-  assert.match(htmlCargas, /Propriedades da colheita/);
-  assert.match(htmlCargas, /Talhões da colheita/);
+  assert.match(htmlCargas, /Propriedade/);
+  assert.match(htmlCargas, /CAD\/PRO/);
+  assert.match(htmlCargas, /Talhões da propriedade/);
   assert.match(htmlCargas, /Nome do motorista/);
   assert.match(htmlCargas, /Peso líquido/);
-  assert.match(htmlCargas, /Nenhuma carga colhida registrada/);
+  assert.match(htmlCargas, /Nenhuma carga colhida ativa/);
+  assert.doesNotMatch(htmlCargas, /Grupo de colheita/);
 
-  const htmlGrupos = renderToStaticMarkup(
-    React.createElement(GruposColheitaPage, { propriedades: [propriedade] }),
+  const htmlCadastrosAgricolas = renderToStaticMarkup(
+    React.createElement(CadastrosAgricolasPage, { propriedades: [propriedade] }),
   );
-  assert.match(htmlGrupos, /Novo grupo/);
-  assert.doesNotMatch(htmlGrupos, /Armazenagem padrão/);
-  assert.match(htmlGrupos, /CAD\/PRO da propriedade/);
-  assert.match(htmlGrupos, /Quebrados/);
-  assert.match(htmlGrupos, /PH mínimo/);
-  assert.match(htmlGrupos, /Observações/);
-  assert.match(htmlGrupos, /Filtrar por CAD\/PRO/);
-  assert.doesNotMatch(htmlGrupos, /Filtrar por armazenagem/);
-  assert.match(htmlGrupos, /Nenhum grupo de colheita encontrado/);
+  assert.match(htmlCadastrosAgricolas, /Silos e armazéns de grãos/);
+  assert.match(htmlCadastrosAgricolas, /Depósitos de insumos/);
+  assert.match(htmlCadastrosAgricolas, /Produtos agrícolas/);
+  assert.match(htmlCadastrosAgricolas, /Fornecedores/);
 
   const htmlProducaoSaldos = renderToStaticMarkup(
     React.createElement(ProducaoSaldosPage, { propriedades: [propriedade] }),
@@ -450,8 +448,13 @@ try {
         snapshot_anterior: { saldo_fisico_kg: "0.000", saldo_comprometido_kg: "0.000", saldo_disponivel_kg: "0.000" },
         snapshot_posterior: { saldo_fisico_kg: "800.000", saldo_comprometido_kg: "0.000", saldo_disponivel_kg: "800.000" },
         carga_colhida: 81,
-        grupo_colheita: 61,
-        grupo_colheita_nome: "Grupo Norte",
+        carga_status: "ativa",
+        propriedade: 1,
+        propriedade_nome: "Fazenda Modelo",
+        cad_pro: "cad-1",
+        cad_pro_codigo: "CAD-1",
+        cultura: "Soja",
+        safra: "2026/2027",
         placa_carga: "ABC1D23",
         posicao: {
           id: 17, cad_pro_codigo: "CAD-1", propriedade_nome: "Fazenda Modelo",
@@ -465,7 +468,8 @@ try {
   assert.match(htmlRastreabilidadeRelatorios, /0,000 kg/);
   assert.match(htmlRastreabilidadeRelatorios, /800,000 kg/);
   assert.match(htmlRastreabilidadeRelatorios, /Carga #81/);
-  assert.match(htmlRastreabilidadeRelatorios, /Grupo Norte/);
+  assert.doesNotMatch(htmlRastreabilidadeRelatorios, /Grupo/);
+  assert.match(htmlRastreabilidadeRelatorios, /CAD-1/);
   assert.match(htmlRastreabilidadeRelatorios, /ABC1D23/);
 
   const htmlInsights = renderToStaticMarkup(
@@ -485,6 +489,13 @@ try {
     "utf8",
   );
   assert.match(serviceWorker, /pathname\.startsWith\(\"\/api\/\"\)/);
+
+  const appFonte = await readFile(
+    new URL("../src/App.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.match(appFonte, /Cadastros agrícolas/);
+  assert.doesNotMatch(appFonte, /Grupos de colheita/);
 
   console.log("24 testes de componentes, submissão, geometria e PWA aprovados.");
 } finally {

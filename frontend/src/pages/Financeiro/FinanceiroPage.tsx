@@ -9,7 +9,6 @@ import {
   criarCategoria,
   criarCentroCusto,
   criarLancamento,
-  criarParceiro,
   LancamentoFinanceiro,
   LancamentoInput,
   liquidarLancamento,
@@ -63,8 +62,6 @@ export default function FinanceiroPage({ propriedades }: Props) {
   const [auxiliar, setAuxiliar] = useState({
     categoria: "",
     aplicacao: "despesa",
-    parceiro: "",
-    tipoParceiro: "fornecedor",
     centro: "",
     propriedade: "",
     safra: "",
@@ -106,13 +103,11 @@ export default function FinanceiroPage({ propriedades }: Props) {
     }
   }
 
-  async function cadastrarAuxiliar(tipo: "categoria" | "parceiro" | "centro") {
+  async function cadastrarAuxiliar(tipo: "categoria" | "centro") {
     setErro("");
     try {
       if (tipo === "categoria") {
         await criarCategoria(auxiliar.categoria, auxiliar.aplicacao);
-      } else if (tipo === "parceiro") {
-        await criarParceiro(auxiliar.parceiro, auxiliar.tipoParceiro);
       } else {
         await criarCentroCusto(
           auxiliar.centro,
@@ -215,7 +210,6 @@ export default function FinanceiroPage({ propriedades }: Props) {
         <summary>Cadastros auxiliares</summary>
         <div className="auxiliares-grade">
           <section><h3>Categoria</h3><input placeholder="Nome" value={auxiliar.categoria} onChange={(e) => setAuxiliar({ ...auxiliar, categoria: e.target.value })} /><select value={auxiliar.aplicacao} onChange={(e) => setAuxiliar({ ...auxiliar, aplicacao: e.target.value })}><option value="despesa">Despesa</option><option value="receita">Receita</option><option value="ambos">Ambos</option></select><button disabled={!auxiliar.categoria} onClick={() => void cadastrarAuxiliar("categoria")}>Adicionar</button></section>
-          <section><h3>Parceiro</h3><input placeholder="Nome" value={auxiliar.parceiro} onChange={(e) => setAuxiliar({ ...auxiliar, parceiro: e.target.value })} /><select value={auxiliar.tipoParceiro} onChange={(e) => setAuxiliar({ ...auxiliar, tipoParceiro: e.target.value })}><option value="fornecedor">Fornecedor</option><option value="cliente">Cliente</option><option value="ambos">Ambos</option></select><button disabled={!auxiliar.parceiro} onClick={() => void cadastrarAuxiliar("parceiro")}>Adicionar</button></section>
           <section><h3>Centro de custo</h3><input placeholder="Nome" value={auxiliar.centro} onChange={(e) => setAuxiliar({ ...auxiliar, centro: e.target.value })} /><input placeholder="Safra" value={auxiliar.safra} onChange={(e) => setAuxiliar({ ...auxiliar, safra: e.target.value })} /><button disabled={!auxiliar.centro} onClick={() => void cadastrarAuxiliar("centro")}>Adicionar</button></section>
         </div>
       </details>

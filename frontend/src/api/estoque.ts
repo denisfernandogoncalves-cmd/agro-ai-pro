@@ -79,6 +79,36 @@ export type ResumoEstoque = {
   itens_abaixo_minimo: number;
 };
 
+export type ProdutoEstoqueInput = {
+  nome: string;
+  categoria: ProdutoEstoque["categoria"];
+  unidade: ProdutoEstoque["unidade"];
+  fabricante: string;
+  estoque_minimo: string;
+};
+
+export type LocalEstoqueInput = {
+  nome: string;
+  propriedade: string;
+  descricao: string;
+};
+
+export async function listarProdutosEstoque() {
+  return (
+    await api.get<ProdutoEstoque[]>("/estoque/produtos/", {
+      params: { ordering: "nome" },
+    })
+  ).data;
+}
+
+export async function listarLocaisEstoque() {
+  return (
+    await api.get<LocalEstoque[]>("/estoque/locais/", {
+      params: { ordering: "nome" },
+    })
+  ).data;
+}
+
 export async function carregarEstoque(filtros?: {
   search?: string;
   tipo?: string;
@@ -90,16 +120,16 @@ export async function carregarEstoque(filtros?: {
   if (filtros?.produto) params.set("produto", filtros.produto);
   const sufixo = params.toString() ? `?${params}` : "";
   const [produtos, locais, lotes, posicoes, movimentos, resumo] = await Promise.all([
-    api.get<ProdutoEstoque[]>("/estoque/produtos/?ordering=nome"),
-    api.get<LocalEstoque[]>("/estoque/locais/?ordering=nome"),
+    listarProdutosEstoque(),
+    listarLocaisEstoque(),
     api.get<LoteEstoque[]>("/estoque/lotes/?ordering=data_validade"),
     api.get<PosicaoEstoque[]>("/estoque/lotes/posicao/"),
     api.get<MovimentacaoEstoque[]>(`/estoque/movimentacoes/${sufixo}`),
     api.get<ResumoEstoque>("/estoque/lotes/resumo/"),
   ]);
   return {
-    produtos: produtos.data,
-    locais: locais.data,
+    produtos,
+    locais,
     lotes: lotes.data,
     posicoes: posicoes.data,
     movimentos: movimentos.data,
@@ -107,21 +137,11 @@ export async function carregarEstoque(filtros?: {
   };
 }
 
-export async function criarProduto(dados: {
-  nome: string;
-  categoria: string;
-  unidade: string;
-  fabricante: string;
-  estoque_minimo: string;
-}) {
+export async function criarProduto(dados: ProdutoEstoqueInput) {
   return (await api.post<ProdutoEstoque>("/estoque/produtos/", dados)).data;
 }
 
-export async function criarLocal(dados: {
-  nome: string;
-  propriedade: string;
-  descricao: string;
-}) {
+export async function criarLocal(dados: LocalEstoqueInput) {
   return (
     await api.post<LocalEstoque>("/estoque/locais/", {
       ...dados,

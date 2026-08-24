@@ -18,6 +18,16 @@ export type ParceiroFinanceiro = {
   ativo: boolean;
 };
 
+export type ParceiroFinanceiroInput = {
+  nome: string;
+  tipo: ParceiroFinanceiro["tipo"];
+  documento: string;
+  email: string;
+  telefone: string;
+};
+
+export type FornecedorInput = Omit<ParceiroFinanceiroInput, "tipo">;
+
 export type CentroCusto = {
   id: number;
   nome: string;
@@ -75,6 +85,21 @@ export type LancamentoInput = {
   observacoes: string;
 };
 
+export async function listarParceirosFinanceiros() {
+  return (
+    await api.get<ParceiroFinanceiro[]>("/financeiro/parceiros/", {
+      params: { ordering: "nome" },
+    })
+  ).data;
+}
+
+export async function listarFornecedores() {
+  const parceiros = await listarParceirosFinanceiros();
+  return parceiros.filter(
+    (item) => item.tipo === "fornecedor" || item.tipo === "ambos",
+  );
+}
+
 export async function carregarFinanceiro(filtros?: {
   tipo?: string;
   status?: string;
@@ -82,7 +107,7 @@ export async function carregarFinanceiro(filtros?: {
 }) {
   const [categorias, parceiros, centros, lancamentos, resumo] = await Promise.all([
     api.get<CategoriaFinanceira[]>("/financeiro/categorias/"),
-    api.get<ParceiroFinanceiro[]>("/financeiro/parceiros/"),
+    listarParceirosFinanceiros(),
     api.get<CentroCusto[]>("/financeiro/centros-custo/"),
     api.get<LancamentoFinanceiro[]>("/financeiro/lancamentos/", {
       params: { ...filtros, ordering: "data_vencimento" },
@@ -91,7 +116,7 @@ export async function carregarFinanceiro(filtros?: {
   ]);
   return {
     categorias: categorias.data,
-    parceiros: parceiros.data,
+    parceiros,
     centros: centros.data,
     lancamentos: lancamentos.data,
     resumo: resumo.data,
@@ -102,8 +127,17 @@ export async function criarCategoria(nome: string, aplicacao: string) {
   await api.post("/financeiro/categorias/", { nome, aplicacao, ativa: true });
 }
 
-export async function criarParceiro(nome: string, tipo: string) {
-  await api.post("/financeiro/parceiros/", { nome, tipo, ativo: true });
+export async function criarParceiro(dados: ParceiroFinanceiroInput) {
+  return (
+    await api.post<ParceiroFinanceiro>("/financeiro/parceiros/", {
+      ...dados,
+      ativo: true,
+    })
+  ).data;
+}
+
+export async function criarFornecedor(dados: FornecedorInput) {
+  return criarParceiro({ ...dados, tipo: "fornecedor" });
 }
 
 export async function criarCentroCusto(

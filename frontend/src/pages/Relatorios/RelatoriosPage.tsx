@@ -37,7 +37,6 @@ function Rastreabilidade({ itens }: { itens: ItemRelatorio[] }) {
   return <div className="rastreabilidade-lista">{itens.map((item) => {
     const posicao = item.posicao as PosicaoRelatorio | undefined;
     const possuiCarga = item.carga_colhida !== null && item.carga_colhida !== undefined && item.carga_colhida !== "";
-    const possuiGrupo = item.grupo_colheita !== null && item.grupo_colheita !== undefined && item.grupo_colheita !== "";
     return <article className="card rastreabilidade-item" key={`rastreabilidade-${item.id}`}>
       <header className="rastreabilidade-topo"><div><span className="kicker">Movimentação #{item.id}</span><h3>{texto(item.operacao)}</h3></div><span>{texto(item.data)}</span></header>
       <div className="rastreabilidade-grade">
@@ -47,7 +46,6 @@ function Rastreabilidade({ itens }: { itens: ItemRelatorio[] }) {
         <section className="rastreabilidade-contexto"><span>Contexto oficial</span><strong><Posicao item={posicao} /></strong></section>
         <section className="rastreabilidade-snapshots"><span>Saldos auditáveis</span><div><SnapshotSaldo titulo="Antes" valor={item.snapshot_anterior} /><SnapshotSaldo titulo="Depois" valor={item.snapshot_posterior} /></div></section>
         <section><span>Carga colhida</span><strong>{possuiCarga ? `Carga #${texto(item.carga_colhida)}` : "Sem carga vinculada"}</strong><small>Placa: {possuiCarga ? texto(item.placa_carga) : "—"}</small></section>
-        <section><span>Grupo de colheita</span><strong>{possuiGrupo ? texto(item.grupo_colheita_nome) : "Sem grupo vinculado"}</strong><small>Identificador: {possuiGrupo ? `#${texto(item.grupo_colheita)}` : "—"}</small></section>
       </div>
     </article>;
   })}</div>;

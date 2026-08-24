@@ -3,9 +3,7 @@ import axios from "axios";
 
 import {
   carregarEstoque,
-  criarLocal,
   criarLote,
-  criarProduto,
   LocalEstoque,
   LoteEstoque,
   MovimentacaoEstoque,
@@ -50,14 +48,6 @@ export default function EstoquePage({ propriedades }: Props) {
     observacoes: "",
   });
   const [auxiliar, setAuxiliar] = useState({
-    produto: "",
-    categoria: "insumo",
-    unidade: "kg",
-    fabricante: "",
-    estoque_minimo: "0",
-    local: "",
-    localPropriedade: "",
-    localDescricao: "",
     loteProduto: "",
     loteLocal: "",
     loteCodigo: "",
@@ -112,33 +102,23 @@ export default function EstoquePage({ propriedades }: Props) {
     }
   }
 
-  async function cadastrar(tipo: "produto" | "local" | "lote") {
+  async function cadastrarLote() {
     setErro("");
     setSucesso("");
     try {
-      if (tipo === "produto") {
-        await criarProduto({
-          nome: auxiliar.produto,
-          categoria: auxiliar.categoria,
-          unidade: auxiliar.unidade,
-          fabricante: auxiliar.fabricante,
-          estoque_minimo: auxiliar.estoque_minimo,
-        });
-      } else if (tipo === "local") {
-        await criarLocal({
-          nome: auxiliar.local,
-          propriedade: auxiliar.localPropriedade,
-          descricao: auxiliar.localDescricao,
-        });
-      } else {
-        await criarLote({
-          produto: auxiliar.loteProduto,
-          local: auxiliar.loteLocal,
-          codigo: auxiliar.loteCodigo,
-          data_validade: auxiliar.loteValidade,
-        });
-      }
-      setSucesso("Cadastro salvo.");
+      await criarLote({
+        produto: auxiliar.loteProduto,
+        local: auxiliar.loteLocal,
+        codigo: auxiliar.loteCodigo,
+        data_validade: auxiliar.loteValidade,
+      });
+      setAuxiliar({
+        loteProduto: "",
+        loteLocal: "",
+        loteCodigo: "",
+        loteValidade: "",
+      });
+      setSucesso("Lote cadastrado.");
       await carregar();
     } catch (falha) {
       setErro(mensagemErro(falha));
@@ -227,31 +207,15 @@ export default function EstoquePage({ propriedades }: Props) {
       </section>
 
       <details className="card cadastros-auxiliares">
-        <summary>Cadastros de produtos, locais e lotes</summary>
+        <summary>Cadastro de lotes</summary>
         <div className="auxiliares-grade">
           <section>
-            <h3>Produto</h3>
-            <input placeholder="Nome" value={auxiliar.produto} onChange={(e) => setAuxiliar({ ...auxiliar, produto: e.target.value })} />
-            <select value={auxiliar.categoria} onChange={(e) => setAuxiliar({ ...auxiliar, categoria: e.target.value })}><option value="insumo">Insumo</option><option value="herbicida">Herbicida</option><option value="fungicida">Fungicida</option><option value="fertilizante">Fertilizante</option><option value="semente">Semente</option><option value="outro">Outro</option></select>
-            <select value={auxiliar.unidade} onChange={(e) => setAuxiliar({ ...auxiliar, unidade: e.target.value })}><option value="kg">kg</option><option value="l">litro</option><option value="un">unidade</option><option value="sc">saca</option><option value="t">tonelada</option></select>
-            <input placeholder="Fabricante" value={auxiliar.fabricante} onChange={(e) => setAuxiliar({ ...auxiliar, fabricante: e.target.value })} />
-            <input min="0" step="0.001" type="number" placeholder="Estoque mínimo" value={auxiliar.estoque_minimo} onChange={(e) => setAuxiliar({ ...auxiliar, estoque_minimo: e.target.value })} />
-            <button disabled={!auxiliar.produto} type="button" onClick={() => void cadastrar("produto")}>Cadastrar produto</button>
-          </section>
-          <section>
-            <h3>Local</h3>
-            <input placeholder="Nome do local" value={auxiliar.local} onChange={(e) => setAuxiliar({ ...auxiliar, local: e.target.value })} />
-            <select value={auxiliar.localPropriedade} onChange={(e) => setAuxiliar({ ...auxiliar, localPropriedade: e.target.value })}><option value="">Sem propriedade</option>{propriedades.map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select>
-            <input placeholder="Descrição" value={auxiliar.localDescricao} onChange={(e) => setAuxiliar({ ...auxiliar, localDescricao: e.target.value })} />
-            <button disabled={!auxiliar.local} type="button" onClick={() => void cadastrar("local")}>Cadastrar local</button>
-          </section>
-          <section>
-            <h3>Lote</h3>
-            <select value={auxiliar.loteProduto} onChange={(e) => setAuxiliar({ ...auxiliar, loteProduto: e.target.value })}><option value="">Produto</option>{produtos.map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select>
-            <select value={auxiliar.loteLocal} onChange={(e) => setAuxiliar({ ...auxiliar, loteLocal: e.target.value })}><option value="">Local</option>{locais.map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select>
-            <input placeholder="Código do lote" value={auxiliar.loteCodigo} onChange={(e) => setAuxiliar({ ...auxiliar, loteCodigo: e.target.value })} />
-            <input type="date" value={auxiliar.loteValidade} onChange={(e) => setAuxiliar({ ...auxiliar, loteValidade: e.target.value })} />
-            <button disabled={!auxiliar.loteProduto || !auxiliar.loteLocal || !auxiliar.loteCodigo} type="button" onClick={() => void cadastrar("lote")}>Cadastrar lote</button>
+            <h3>Novo lote</h3>
+            <label>Produto<select value={auxiliar.loteProduto} onChange={(e) => setAuxiliar({ ...auxiliar, loteProduto: e.target.value })}><option value="">Selecione</option>{produtos.filter((item) => item.ativo).map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select></label>
+            <label>Depósito<select value={auxiliar.loteLocal} onChange={(e) => setAuxiliar({ ...auxiliar, loteLocal: e.target.value })}><option value="">Selecione</option>{locais.filter((item) => item.ativo).map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select></label>
+            <label>Código<input placeholder="Código do lote" value={auxiliar.loteCodigo} onChange={(e) => setAuxiliar({ ...auxiliar, loteCodigo: e.target.value })} /></label>
+            <label>Validade<input type="date" value={auxiliar.loteValidade} onChange={(e) => setAuxiliar({ ...auxiliar, loteValidade: e.target.value })} /></label>
+            <button disabled={!auxiliar.loteProduto || !auxiliar.loteLocal || !auxiliar.loteCodigo} type="button" onClick={() => void cadastrarLote()}>Cadastrar lote</button>
           </section>
         </div>
       </details>

@@ -20,38 +20,14 @@ export type ArmazemGraos = {
   ativo: boolean;
 };
 
-export type GrupoColheita = {
-  id: number;
-  propriedade: number;
-  propriedade_nome: string;
-  cad_pro: string;
-  cad_pro_codigo: string;
-  armazem_padrao: number | null;
-  armazem_padrao_nome: string | null;
-  nome: string;
-  cultura: string;
-  safra: string;
-  observacoes: string;
-  tolerancia_umidade_percentual: string;
-  desconto_umidade_por_ponto: string;
-  tolerancia_impureza_percentual: string;
-  desconto_impureza_por_ponto: string;
-  tolerancia_defeitos_percentual: string;
-  desconto_defeitos_por_ponto: string;
-  ph_minimo: string;
-  desconto_ph_por_ponto: string;
-  ativo: boolean;
-  contexto_congelado: boolean;
-};
-
 export type CargaColhida = {
   id: number;
   propriedade: number;
   propriedade_nome: string;
-  grupo_colheita: number;
-  grupo_colheita_nome: string;
   cad_pro: string;
   cad_pro_codigo: string;
+  cultura: string;
+  safra: string;
   armazem: number;
   armazem_nome: string;
   lote: number;
@@ -76,26 +52,19 @@ export type CargaColhida = {
   observacoes: string;
   criado_por_nome: string;
   criado_em: string;
-};
-
-export type GrupoColheitaInput = Omit<
-  GrupoColheita,
-  "id" | "propriedade_nome" | "cad_pro_codigo" | "armazem_padrao" |
-  "armazem_padrao_nome" | "tolerancia_umidade_percentual" |
-  "desconto_umidade_por_ponto" | "ativo" | "contexto_congelado"
->;
-
-export type GrupoColheitaFiltros = {
-  search?: string;
-  propriedade?: string;
-  cad_pro?: string;
-  cultura?: string;
-  safra?: string;
-  ativo?: string;
+  status: "ativa" | "cancelada" | "substituida";
+  cancelada_em: string | null;
+  cancelada_por_nome: string | null;
+  motivo_cancelamento: string;
+  substituida_por: number | null;
 };
 
 export type CargaColhidaInput = {
-  grupo_colheita: string;
+  chave_registro?: string;
+  propriedade: string;
+  cad_pro: string;
+  cultura: string;
+  safra: string;
   armazem: string;
   data_colheita: string;
   placa: string;
@@ -108,14 +77,20 @@ export type CargaColhidaInput = {
   destinado_semente: boolean;
   local_colheita: string;
   observacoes: string;
-  propriedades_selecionadas: number[];
   talhoes_selecionados: number[];
+  tolerancia_impureza_percentual?: string;
+  desconto_impureza_por_ponto?: string;
+  tolerancia_defeitos_percentual?: string;
+  desconto_defeitos_por_ponto?: string;
+  ph_minimo?: string;
+  desconto_ph_por_ponto?: string;
+  motivo_correcao?: string;
 };
 
 export async function carregarContextoCargas(propriedades: Propriedade[]) {
-  const [armazens, grupos, cargas, talhoes] = await Promise.all([
-    api.get<ArmazemGraos[]>("/graos/armazens/", { params: { ativo: true } }),
-    api.get<GrupoColheita[]>("/graos/grupos-colheita/", { params: { ativo: true } }),
+  const [armazens, cadpros, cargas, talhoes] = await Promise.all([
+    api.get<ArmazemGraos[]>("/graos/armazens/"),
+    api.get<CADPro[]>("/cadpros/"),
     api.get<CargaColhida[]>("/graos/cargas-colhidas/", {
       params: { ordering: "-data_colheita" },
     }),
@@ -124,41 +99,48 @@ export async function carregarContextoCargas(propriedades: Propriedade[]) {
   return {
     propriedades,
     armazens: armazens.data,
-    grupos: grupos.data,
+    cadpros: cadpros.data,
     cargas: cargas.data,
     talhoes: talhoes.data,
   };
 }
 
-export async function criarGrupoColheita(dados: GrupoColheitaInput) {
-  return (await api.post<GrupoColheita>("/graos/grupos-colheita/", dados)).data;
-}
-
-export async function atualizarGrupoColheita(
-  id: number,
-  dados: Partial<GrupoColheitaInput>,
-) {
-  return (await api.patch<GrupoColheita>(`/graos/grupos-colheita/${id}/`, dados)).data;
-}
-
-export async function inativarGrupoColheita(id: number) {
-  return (await api.post<GrupoColheita>(`/graos/grupos-colheita/${id}/inativar/`)).data;
-}
-
-export async function listarGruposColheita(filtros: GrupoColheitaFiltros = {}) {
-  return (await api.get<GrupoColheita[]>("/graos/grupos-colheita/", {
-    params: { ...filtros, ordering: "-safra,cultura,nome" },
-  })).data;
-}
-
-export async function carregarOpcoesGrupoColheita() {
-  const cadpros = await api.get<CADPro[]>("/cadpros/", { params: { ativo: true } });
-  return { cadpros: cadpros.data };
+function montarPayloadCarga(dados: CargaColhidaInput) {
+  return {
+    ...dados,
+    propriedade: Number(dados.propriedade),
+    armazem: Number(dados.armazem),
+    ph: dados.ph || null,
+    tolerancia_impureza_percentual:
+      dados.tolerancia_impureza_percentual || undefined,
+    desconto_impureza_por_ponto:
+      dados.desconto_impureza_por_ponto || undefined,
+    tolerancia_defeitos_percentual:
+      dados.tolerancia_defeitos_percentual || undefined,
+    desconto_defeitos_por_ponto:
+      dados.desconto_defeitos_por_ponto || undefined,
+    ph_minimo: dados.ph_minimo || undefined,
+    desconto_ph_por_ponto: dados.desconto_ph_por_ponto || undefined,
+  };
 }
 
 export async function criarCargaColhida(dados: CargaColhidaInput) {
-  return (await api.post<CargaColhida>("/graos/cargas-colhidas/", {
-    ...dados,
-    ph: dados.ph || null,
-  })).data;
+  return (await api.post<CargaColhida>(
+    "/graos/cargas-colhidas/",
+    montarPayloadCarga(dados),
+  )).data;
+}
+
+export async function atualizarCargaColhida(
+  id: number,
+  dados: CargaColhidaInput,
+) {
+  return (await api.patch<CargaColhida>(
+    `/graos/cargas-colhidas/${id}/`,
+    montarPayloadCarga(dados),
+  )).data;
+}
+
+export async function excluirCargaColhida(id: number, motivo: string) {
+  await api.delete(`/graos/cargas-colhidas/${id}/`, { data: { motivo } });
 }
