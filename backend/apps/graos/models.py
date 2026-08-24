@@ -380,11 +380,30 @@ class CargaColhidaQuerySet(models.QuerySet):
 
 
 class CargaColhida(models.Model):
+    class Status(models.TextChoices):
+        ATIVA = "ativa", "Ativa"
+        CANCELADA = "cancelada", "Cancelada"
+        SUBSTITUIDA = "substituida", "Substituída por correção"
+
     grupo_colheita = models.ForeignKey(
         GrupoColheita,
         on_delete=models.PROTECT,
         related_name="cargas",
+        null=True,
+        blank=True,
     )
+    propriedade = models.ForeignKey(
+        Propriedade,
+        on_delete=models.PROTECT,
+        related_name="cargas_colhidas",
+    )
+    cad_pro = models.ForeignKey(
+        "cadpro.CADPro",
+        on_delete=models.PROTECT,
+        related_name="cargas_colhidas",
+    )
+    cultura = models.CharField(max_length=50)
+    safra = models.CharField(max_length=20)
     armazem = models.ForeignKey(
         ArmazemGraos,
         on_delete=models.PROTECT,
@@ -443,6 +462,29 @@ class CargaColhida(models.Model):
         editable=False,
     )
     observacoes = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=12,
+        choices=Status.choices,
+        default=Status.ATIVA,
+    )
+    cancelada_em = models.DateTimeField(null=True, blank=True, editable=False)
+    cancelada_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="cargas_colhidas_canceladas",
+        null=True,
+        blank=True,
+        editable=False,
+    )
+    motivo_cancelamento = models.TextField(blank=True, editable=False)
+    substituida_por = models.OneToOneField(
+        "self",
+        on_delete=models.PROTECT,
+        related_name="carga_anterior",
+        null=True,
+        blank=True,
+        editable=False,
+    )
     criado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -461,6 +503,18 @@ class CargaColhida(models.Model):
                 fields=("grupo_colheita", "data_colheita"),
                 name="graos_carga_grupo_data_idx",
             ),
+            models.Index(
+                fields=("propriedade", "data_colheita"),
+                name="graos_carga_prop_data_idx",
+            ),
+            models.Index(
+                fields=("cad_pro", "cultura", "safra"),
+                name="graos_carga_cad_cult_saf_idx",
+            ),
+            models.Index(
+                fields=("status", "data_colheita"),
+                name="graos_carga_status_data_idx",
+            ),
             models.Index(fields=("placa", "data_colheita"), name="graos_carga_placa_data_idx"),
         ]
         constraints = [
@@ -478,16 +532,35 @@ class CargaColhida(models.Model):
             ),
         ]
 
-    @property
-    def propriedade_id(self):
-        return self.grupo_colheita.propriedade_id
-
     def save(self, *args, **kwargs):
         if not self._state.adding:
             raise ValidationError("Cargas colhidas são imutáveis.")
         self.placa = normalizar_placa(self.placa)
         self.motorista = " ".join(str(self.motorista or "").strip().split())
+        self.cultura = " ".join(str(self.cultura or "").strip().split()).title()
+        self.safra = " ".join(str(self.safra or "").strip().split())
         super().save(*args, **kwargs)
+
+    def _registrar_encerramento(
+        self, *, status, cancelada_em, cancelada_por, motivo, substituida_por=None
+    ):
+        if status not in {self.Status.CANCELADA, self.Status.SUBSTITUIDA}:
+            raise ValidationError("Status de encerramento inválido para a carga.")
+        self.status = status
+        self.cancelada_em = cancelada_em
+        self.cancelada_por = cancelada_por
+        self.motivo_cancelamento = " ".join(str(motivo or "").strip().split())
+        self.substituida_por = substituida_por
+        models.Model.save(
+            self,
+            update_fields=(
+                "status",
+                "cancelada_em",
+                "cancelada_por",
+                "motivo_cancelamento",
+                "substituida_por",
+            ),
+        )
 
     def delete(self, *args, **kwargs):
         raise ValidationError("Cargas colhidas são imutáveis.")

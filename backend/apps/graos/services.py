@@ -35,13 +35,21 @@ def bloquear_cadpro_para_saldo(cad_pro_id):
     return CADPro.objects.select_for_update().get(pk=cad_pro_id)
 
 
+def _bloquear_cadpros_para_saldo(cad_pro_ids):
+    return {
+        cad_pro.pk: cad_pro
+        for cad_pro in (
+            bloquear_cadpro_para_saldo(cad_pro_id)
+            for cad_pro_id in sorted(set(cad_pro_ids), key=str)
+        )
+    }
+
+
 def _bloquear_cadpros_ativos_para_saldo(cad_pro_ids):
-    bloqueados = {}
-    for cad_pro_id in sorted(set(cad_pro_ids), key=str):
-        cad_pro = bloquear_cadpro_para_saldo(cad_pro_id)
+    bloqueados = _bloquear_cadpros_para_saldo(cad_pro_ids)
+    for cad_pro in bloqueados.values():
         if not cad_pro.ativo:
             raise SaldoGraosError("O CAD/PRO precisa estar ativo para receber saldo.")
-        bloqueados[cad_pro.pk] = cad_pro
     return bloqueados
 
 
@@ -936,6 +944,7 @@ def registrar_ajuste(
 def estornar_movimentacao(
     *, usuario, movimentacao, chave_idempotencia, data_movimento=None,
     referencia_externa="", observacoes="", metadados=None,
+    permitir_carga_colhida=False,
 ):
     movimento_id = movimentacao.pk
     payload = {"movimentacao": movimento_id, "data": data_movimento,
@@ -950,6 +959,14 @@ def estornar_movimentacao(
     movimento = MovimentacaoGraos.objects.select_related(
         "posicao", "lote", "reserva"
     ).get(pk=movimento_id)
+    if (
+        not permitir_carga_colhida
+        and hasattr(movimento, "carga_colhida")
+    ):
+        raise SaldoGraosError(
+            "Movimentações de cargas colhidas devem ser canceladas ou corrigidas "
+            "pela própria carga."
+        )
     if movimento.operacao == MovimentacaoGraos.Operacao.ESTORNO:
         raise SaldoGraosError("Não é permitido estornar um estorno.")
     operacoes_transferencia = {
@@ -974,11 +991,15 @@ def estornar_movimentacao(
     else:
         movimentos = (movimento,)
 
-    _bloquear_cadpros_ativos_para_saldo(
-        item.posicao.cad_pro_id
-        for item in movimentos
-        if item.delta_fisico_kg < ZERO
+    cadpros_bloqueados = _bloquear_cadpros_para_saldo(
+        item.posicao.cad_pro_id for item in movimentos
     )
+    for item in movimentos:
+        if (
+            item.delta_fisico_kg < ZERO
+            and not cadpros_bloqueados[item.posicao.cad_pro_id].ativo
+        ):
+            raise SaldoGraosError("O CAD/PRO precisa estar ativo para receber saldo.")
 
     ids_movimentos = tuple(item.pk for item in movimentos)
     ids_reservas = tuple(

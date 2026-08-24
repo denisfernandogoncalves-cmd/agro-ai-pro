@@ -1,5 +1,4 @@
 from django.db.models.deletion import ProtectedError
-from django.db.models import Exists, OuterRef
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -8,15 +7,15 @@ from rest_framework.response import Response
 from .cargas_services import (
     CargaColhidaDuplicadaError,
     CargaColhidaError,
+    CargaColhidaSubstituidaError,
+    cancelar_carga_colhida,
 )
 from .models import (
     ArmazemGraos,
     CargaColhida,
-    GrupoColheita,
     LoteGraos,
     MovimentacaoGraos,
 )
-from .grupos_services import inativar_grupo_colheita
 from .selectors import selecionar_origens, selecionar_reservas
 from .serializers import (
     AjusteSaldoSerializer,
@@ -25,7 +24,6 @@ from .serializers import (
     EstornoMovimentacaoSerializer,
     FiltrosGraosSerializer,
     FiltrosPosicaoSaldoSerializer,
-    GrupoColheitaSerializer,
     LiberarReservaSerializer,
     LoteGraosSerializer,
     MovimentacaoGraosSerializer,
@@ -123,61 +121,23 @@ class ArmazemGraosViewSet(CadastroGraosMixin, viewsets.ModelViewSet):
         return queryset
 
 
-class GrupoColheitaViewSet(CadastroGraosMixin, viewsets.ModelViewSet):
-    queryset = GrupoColheita.objects.select_related(
-        "propriedade",
-        "cad_pro",
-        "criado_por",
-    ).annotate(
-        contexto_congelado_db=Exists(
-            CargaColhida.objects.filter(grupo_colheita_id=OuterRef("pk"))
-        )
-    )
-    serializer_class = GrupoColheitaSerializer
-    search_fields = ("nome", "cultura", "safra", "propriedade__nome", "cad_pro__codigo")
-    ordering_fields = ("nome", "cultura", "safra", "ativo", "criado_em")
-    ordering = ("-safra", "cultura", "nome", "id")
-    http_method_names = ("get", "post", "patch", "head", "options")
-
-    def get_queryset(self):
-        queryset = super().get_queryset()
-        for parametro, campo in (
-            ("propriedade", "propriedade_id"),
-            ("cad_pro", "cad_pro_id"),
-            ("safra", "safra"),
-        ):
-            valor = self.request.query_params.get(parametro, "").strip()
-            if valor:
-                queryset = queryset.filter(**{campo: valor})
-        cultura = self.request.query_params.get("cultura", "").strip()
-        ativo = self.request.query_params.get("ativo", "").strip().lower()
-        if cultura:
-            queryset = queryset.filter(cultura__iexact=cultura)
-        if ativo in {"true", "false"}:
-            queryset = queryset.filter(ativo=ativo == "true")
-        return queryset
-
-    @action(detail=True, methods=("post",))
-    def inativar(self, request, pk=None):
-        self.get_object()
-        grupo = inativar_grupo_colheita(pk)
-        return Response(self.get_serializer(grupo).data)
-
-
 class CargaColhidaViewSet(
     viewsets.mixins.CreateModelMixin,
     viewsets.mixins.ListModelMixin,
     viewsets.mixins.RetrieveModelMixin,
+    viewsets.mixins.UpdateModelMixin,
+    viewsets.mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
     queryset = CargaColhida.objects.select_related(
-        "grupo_colheita",
-        "grupo_colheita__propriedade",
-        "grupo_colheita__cad_pro",
+        "propriedade",
+        "cad_pro",
         "armazem",
         "lote",
         "movimentacao",
         "criado_por",
+        "cancelada_por",
+        "substituida_por",
     )
     serializer_class = CargaColhidaSerializer
     permission_classes = [IsAuthenticated]
@@ -186,9 +146,10 @@ class CargaColhidaViewSet(
         "placa",
         "motorista",
         "local_colheita",
-        "grupo_colheita__nome",
-        "grupo_colheita__propriedade__nome",
-        "grupo_colheita__cad_pro__codigo",
+        "propriedade__nome",
+        "cad_pro__codigo",
+        "cultura",
+        "safra",
     )
     ordering_fields = ("data_colheita", "motorista", "peso_bruto_kg", "peso_liquido_kg", "criado_em")
     ordering = ("-data_colheita", "-id")
@@ -196,41 +157,86 @@ class CargaColhidaViewSet(
     def get_queryset(self):
         queryset = super().get_queryset()
         for parametro, campo in (
-            ("grupo_colheita", "grupo_colheita_id"),
-            ("propriedade", "grupo_colheita__propriedade_id"),
-            ("cad_pro", "grupo_colheita__cad_pro_id"),
+            ("propriedade", "propriedade_id"),
+            ("cad_pro", "cad_pro_id"),
             ("armazem", "armazem_id"),
             ("data_colheita", "data_colheita"),
+            ("safra", "safra"),
+            ("status", "status"),
         ):
             valor = self.request.query_params.get(parametro, "").strip()
             if valor:
                 queryset = queryset.filter(**{campo: valor})
+        cultura = self.request.query_params.get("cultura", "").strip()
+        if cultura:
+            queryset = queryset.filter(cultura__iexact=cultura)
         return queryset
+
+    @staticmethod
+    def _resposta_erro(exc):
+        if isinstance(exc, CargaColhidaSubstituidaError):
+            return Response(
+                {
+                    "codigo": exc.codigo,
+                    "detail": str(exc),
+                    "substituida_por": exc.substituida_por_id,
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+        if isinstance(exc, CargaColhidaDuplicadaError):
+            return Response(
+                {"codigo": exc.codigo, "detail": str(exc)},
+                status=status.HTTP_409_CONFLICT,
+            )
+        if isinstance(exc, SaldoGraosError):
+            return Response(
+                {"codigo": exc.codigo, "detail": str(exc)},
+                status=status.HTTP_409_CONFLICT,
+            )
+        return Response(
+            {"codigo": exc.codigo, "detail": str(exc)},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         try:
             carga = serializer.save()
-        except CargaColhidaDuplicadaError as exc:
-            return Response(
-                {"codigo": exc.codigo, "detail": str(exc)},
-                status=status.HTTP_409_CONFLICT,
-            )
-        except SaldoGraosError as exc:
-            return Response(
-                {"codigo": exc.codigo, "detail": str(exc)},
-                status=status.HTTP_409_CONFLICT,
-            )
-        except CargaColhidaError as exc:
-            return Response(
-                {"codigo": exc.codigo, "detail": str(exc)},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        except (CargaColhidaError, SaldoGraosError) as exc:
+            return self._resposta_erro(exc)
         return Response(
             self.get_serializer(carga).data,
             status=status.HTTP_201_CREATED,
         )
+
+    def update(self, request, *args, **kwargs):
+        parcial = kwargs.pop("partial", False)
+        instancia = self.get_object()
+        serializer = self.get_serializer(
+            instancia,
+            data=request.data,
+            partial=parcial,
+        )
+        serializer.is_valid(raise_exception=True)
+        try:
+            carga = serializer.save()
+        except (CargaColhidaError, SaldoGraosError) as exc:
+            return self._resposta_erro(exc)
+        return Response(self.get_serializer(carga).data)
+
+    def destroy(self, request, *args, **kwargs):
+        carga = self.get_object()
+        try:
+            cancelar_carga_colhida(
+                usuario=request.user,
+                carga=carga,
+                motivo=str(request.data.get("motivo", "") or "").strip()
+                or "Exclusão solicitada pelo usuário.",
+            )
+        except (CargaColhidaError, SaldoGraosError) as exc:
+            return self._resposta_erro(exc)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class LoteGraosViewSet(CadastroGraosMixin, viewsets.ModelViewSet):

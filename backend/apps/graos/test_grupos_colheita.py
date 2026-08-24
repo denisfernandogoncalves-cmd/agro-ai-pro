@@ -1,7 +1,7 @@
 from concurrent.futures import ThreadPoolExecutor
 from decimal import Decimal
 from threading import Event, get_ident
-from unittest import skipUnless
+from unittest import skip, skipUnless
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -39,7 +39,8 @@ from .services import (
 )
 
 
-class GrupoColheitaApiTests(CargaColhidaBase, APITestCase):
+@skip("Grupo de colheita foi retirado da API operacional; cobertura histórica mantida abaixo.")
+class GrupoColheitaApiLegadaTests(CargaColhidaBase, APITestCase):
     def setUp(self):
         self.criar_contexto()
         self.client.force_authenticate(self.usuario)

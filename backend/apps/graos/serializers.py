@@ -5,6 +5,7 @@ from django.db import transaction
 from rest_framework import serializers
 
 from apps.cadpro.models import CADPro
+from apps.propriedades.models import Propriedade
 
 from .models import (
     ArmazemGraos,
@@ -16,7 +17,7 @@ from .models import (
     PosicaoSaldoGraos,
     ReservaSaldoGraos,
 )
-from .cargas_services import registrar_carga_colhida
+from .cargas_services import corrigir_carga_colhida, registrar_carga_colhida
 from .services import ResultadoOperacaoSaldo, registrar_movimentacao, saldo_armazem
 
 
@@ -58,13 +59,12 @@ class ArmazemGraosSerializer(serializers.ModelSerializer):
             if (
                 propriedade
                 and propriedade.id != propriedade_original
-                and self.instance.lotes.exists()
             ):
                 raise serializers.ValidationError(
                     {
                         "propriedade": (
-                            "A propriedade do armazém não pode mudar após a "
-                            "criação de lotes."
+                            "A propriedade da armazenagem não pode mudar após "
+                            "o cadastro. Crie uma nova armazenagem."
                         )
                     }
                 )
@@ -78,6 +78,43 @@ class ArmazemGraosSerializer(serializers.ModelSerializer):
                     }
                 )
         return attrs
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        armazem = (
+            ArmazemGraos.objects.select_for_update()
+            .select_related("propriedade")
+            .get(pk=instance.pk)
+        )
+        propriedade = validated_data.get("propriedade")
+        if propriedade and propriedade.pk != armazem.propriedade_id:
+            raise serializers.ValidationError(
+                {
+                    "propriedade": (
+                        "A propriedade da armazenagem não pode mudar após o "
+                        "cadastro. Crie uma nova armazenagem."
+                    )
+                }
+            )
+        ocupacao = saldo_armazem(armazem)
+        capacidade = validated_data.get("capacidade_kg", armazem.capacidade_kg)
+        if capacidade < ocupacao:
+            raise serializers.ValidationError(
+                {
+                    "capacidade_kg": (
+                        "A capacidade não pode ser menor que a ocupação atual "
+                        f"de {ocupacao} kg."
+                    )
+                }
+            )
+        for campo, valor in validated_data.items():
+            setattr(armazem, campo, valor)
+        try:
+            armazem.full_clean(exclude=("id",))
+        except DjangoValidationError as exc:
+            raise serializers.ValidationError(exc.message_dict) from exc
+        armazem.save()
+        return armazem
 
 
 class GrupoColheitaSerializer(serializers.ModelSerializer):
@@ -151,41 +188,154 @@ class GrupoColheitaSerializer(serializers.ModelSerializer):
 class CargaColhidaSerializer(serializers.ModelSerializer):
     placa = serializers.CharField(max_length=12, required=False, allow_blank=True)
     motorista = serializers.CharField(max_length=120, required=False, allow_blank=True)
-    propriedades_selecionadas = serializers.ListField(
-        child=serializers.IntegerField(min_value=1),
-        write_only=True,
-        allow_empty=False,
+    propriedade = serializers.PrimaryKeyRelatedField(
+        queryset=Propriedade.objects.all(),
     )
+    cad_pro = UUIDPrimaryKeyRelatedField(queryset=CADPro.objects.all())
     talhoes_selecionados = serializers.ListField(
         child=serializers.IntegerField(min_value=1),
         write_only=True,
         required=False,
         default=list,
     )
-    propriedade = serializers.IntegerField(
-        source="grupo_colheita.propriedade_id",
-        read_only=True,
-    )
     propriedade_nome = serializers.CharField(
-        source="grupo_colheita.propriedade.nome",
+        source="propriedade.nome",
         read_only=True,
     )
-    grupo_colheita_nome = serializers.CharField(
-        source="grupo_colheita.nome",
-        read_only=True,
-    )
-    cad_pro = serializers.UUIDField(source="grupo_colheita.cad_pro_id", read_only=True)
     cad_pro_codigo = serializers.CharField(
-        source="grupo_colheita.cad_pro.codigo",
+        source="cad_pro.codigo",
         read_only=True,
     )
     armazem_nome = serializers.CharField(source="armazem.nome", read_only=True)
     lote_codigo = serializers.CharField(source="lote.codigo", read_only=True)
     criado_por_nome = serializers.CharField(source="criado_por.username", read_only=True)
+    cancelada_por_nome = serializers.CharField(
+        source="cancelada_por.username",
+        read_only=True,
+    )
+    motivo_correcao = serializers.CharField(
+        write_only=True,
+        required=False,
+        allow_blank=True,
+        max_length=500,
+    )
+    chave_registro = serializers.RegexField(
+        regex=r"^[A-Za-z0-9._:-]{8,100}$",
+        write_only=True,
+        required=False,
+        allow_blank=True,
+        max_length=100,
+        error_messages={
+            "invalid": "A chave de registro da carga é inválida.",
+        },
+    )
+    tolerancia_impureza_percentual = serializers.DecimalField(
+        write_only=True,
+        required=False,
+        default=Decimal("100.00"),
+        max_digits=5,
+        decimal_places=2,
+        min_value=Decimal("0"),
+        max_value=Decimal("100"),
+    )
+    desconto_impureza_por_ponto = serializers.DecimalField(
+        write_only=True,
+        required=False,
+        default=Decimal("0.000"),
+        max_digits=6,
+        decimal_places=3,
+        min_value=Decimal("0"),
+        max_value=Decimal("100"),
+    )
+    tolerancia_defeitos_percentual = serializers.DecimalField(
+        write_only=True,
+        required=False,
+        default=Decimal("100.00"),
+        max_digits=5,
+        decimal_places=2,
+        min_value=Decimal("0"),
+        max_value=Decimal("100"),
+    )
+    desconto_defeitos_por_ponto = serializers.DecimalField(
+        write_only=True,
+        required=False,
+        default=Decimal("0.000"),
+        max_digits=6,
+        decimal_places=3,
+        min_value=Decimal("0"),
+        max_value=Decimal("100"),
+    )
+    ph_minimo = serializers.DecimalField(
+        write_only=True,
+        required=False,
+        default=Decimal("0.00"),
+        max_digits=5,
+        decimal_places=2,
+        min_value=Decimal("0"),
+        max_value=Decimal("100"),
+    )
+    desconto_ph_por_ponto = serializers.DecimalField(
+        write_only=True,
+        required=False,
+        default=Decimal("0.000"),
+        max_digits=6,
+        decimal_places=3,
+        min_value=Decimal("0"),
+        max_value=Decimal("100"),
+    )
 
     class Meta:
         model = CargaColhida
-        fields = "__all__"
+        fields = (
+            "id",
+            "propriedade",
+            "propriedade_nome",
+            "cad_pro",
+            "cad_pro_codigo",
+            "cultura",
+            "safra",
+            "armazem",
+            "armazem_nome",
+            "lote",
+            "lote_codigo",
+            "data_colheita",
+            "placa",
+            "motorista",
+            "peso_bruto_kg",
+            "umidade_percentual",
+            "impureza_percentual",
+            "defeitos_percentual",
+            "ph",
+            "destinado_semente",
+            "local_colheita",
+            "talhoes_selecionados",
+            "tolerancia_impureza_percentual",
+            "desconto_impureza_por_ponto",
+            "tolerancia_defeitos_percentual",
+            "desconto_defeitos_por_ponto",
+            "ph_minimo",
+            "desconto_ph_por_ponto",
+            "desconto_total_percentual",
+            "desconto_total_kg",
+            "peso_liquido_kg",
+            "sacas_60kg",
+            "regra_desconto_aplicada",
+            "contexto_colheita",
+            "fingerprint",
+            "movimentacao",
+            "observacoes",
+            "status",
+            "cancelada_em",
+            "cancelada_por",
+            "cancelada_por_nome",
+            "motivo_cancelamento",
+            "motivo_correcao",
+            "chave_registro",
+            "substituida_por",
+            "criado_por",
+            "criado_por_nome",
+            "criado_em",
+        )
         read_only_fields = (
             "lote",
             "desconto_total_percentual",
@@ -196,15 +346,103 @@ class CargaColhidaSerializer(serializers.ModelSerializer):
             "contexto_colheita",
             "fingerprint",
             "movimentacao",
+            "status",
+            "cancelada_em",
+            "cancelada_por",
+            "motivo_cancelamento",
+            "substituida_por",
             "criado_por",
             "criado_em",
         )
-        extra_kwargs = {"armazem": {"required": False}}
+
+    def validate_cultura(self, value):
+        cultura = " ".join(str(value or "").strip().split()).title()
+        if cultura.upper() not in {"SOJA", "MILHO", "TRIGO"}:
+            raise serializers.ValidationError("A cultura deve ser Soja, Milho ou Trigo.")
+        return cultura
+
+    def validate_safra(self, value):
+        safra = " ".join(str(value or "").strip().split())
+        if not safra:
+            raise serializers.ValidationError("Informe a safra da carga.")
+        return safra
 
     def create(self, validated_data):
+        validated_data.pop("motivo_correcao", None)
         return registrar_carga_colhida(
             usuario=self.context["request"].user,
             **validated_data,
+        )
+
+    @staticmethod
+    def _regras_atuais(instance):
+        parcelas = (instance.regra_desconto_aplicada or {}).get("parcelas", {})
+        impureza = parcelas.get("impureza", {})
+        defeitos = parcelas.get("defeitos", {})
+        ph = parcelas.get("ph", {})
+        return {
+            "tolerancia_impureza_percentual": impureza.get(
+                "tolerancia_percentual", "100.00"
+            ),
+            "desconto_impureza_por_ponto": impureza.get(
+                "desconto_por_ponto", "0.000"
+            ),
+            "tolerancia_defeitos_percentual": defeitos.get(
+                "tolerancia_percentual", "100.00"
+            ),
+            "desconto_defeitos_por_ponto": defeitos.get(
+                "desconto_por_ponto", "0.000"
+            ),
+            "ph_minimo": ph.get("minimo", "0.00"),
+            "desconto_ph_por_ponto": ph.get("desconto_por_ponto", "0.000"),
+        }
+
+    def update(self, instance, validated_data):
+        motivo = validated_data.pop(
+            "motivo_correcao", "Correção solicitada pelo usuário."
+        )
+        validated_data.pop("chave_registro", None)
+        regras = self._regras_atuais(instance)
+        for campo in tuple(regras):
+            if campo in validated_data:
+                regras[campo] = validated_data.pop(campo)
+        talhoes = validated_data.pop(
+            "talhoes_selecionados",
+            [
+                item["id"]
+                for item in (instance.contexto_colheita or {}).get("talhoes", [])
+                if item.get("id")
+            ],
+        )
+        campos = (
+            "propriedade",
+            "cad_pro",
+            "cultura",
+            "safra",
+            "armazem",
+            "data_colheita",
+            "placa",
+            "motorista",
+            "peso_bruto_kg",
+            "umidade_percentual",
+            "impureza_percentual",
+            "defeitos_percentual",
+            "ph",
+            "destinado_semente",
+            "local_colheita",
+            "observacoes",
+        )
+        dados = {
+            campo: validated_data.get(campo, getattr(instance, campo))
+            for campo in campos
+        }
+        dados.update(regras)
+        dados["talhoes_selecionados"] = talhoes
+        return corrigir_carga_colhida(
+            usuario=self.context["request"].user,
+            carga=instance,
+            motivo=motivo,
+            **dados,
         )
 
 

@@ -191,7 +191,7 @@ class RelatorioOperacionalSelectorTests(RelatorioOperacionalBase, TestCase):
         )
         self.assertEqual(vendas["dados"]["total"], 1)
 
-    def test_rastreabilidade_expoe_origem_snapshots_carga_grupo_e_placa(self):
+    def test_rastreabilidade_expoe_origem_snapshots_contexto_direto_e_placa(self):
         grupo = GrupoColheita.objects.create(
             propriedade=self.propriedade_a,
             cad_pro=self.cad_a,
@@ -234,8 +234,13 @@ class RelatorioOperacionalSelectorTests(RelatorioOperacionalBase, TestCase):
         self.assertEqual(item["origem"], carga.movimentacao.origem_id)
         self.assertEqual(item["origem_tipo"], "producao")
         self.assertEqual(item["carga_colhida"], carga.pk)
-        self.assertEqual(item["grupo_colheita"], grupo.pk)
-        self.assertEqual(item["grupo_colheita_nome"], "Grupo Norte")
+        self.assertEqual(item["propriedade"], self.propriedade_a.pk)
+        self.assertEqual(item["propriedade_nome"], self.propriedade_a.nome)
+        self.assertEqual(item["cad_pro"], str(self.cad_a.pk))
+        self.assertEqual(item["cad_pro_codigo"], self.cad_a.codigo)
+        self.assertEqual(item["cultura"], "Soja")
+        self.assertEqual(item["safra"], "2026/2027")
+        self.assertNotIn("grupo_colheita", item)
         self.assertEqual(item["placa_carga"], "ABC1D23")
         self.assertEqual(
             Decimal(item["snapshot_anterior"]["saldo_disponivel_kg"]),

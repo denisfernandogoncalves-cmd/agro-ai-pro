@@ -3,7 +3,6 @@ from math import ceil
 
 from django.utils import timezone
 
-from apps.cadpro.models import CADPro, normalizar_codigo_cadpro
 from apps.cadpro.selectors import selecionar_cadpros
 from apps.graos.models import ArmazemGraos, CargaColhida, MovimentacaoGraos
 from apps.graos.selectors import (
@@ -127,6 +126,8 @@ def _movimentos(filtros, posicao_ids):
 
 def _item_movimento(item):
     carga = getattr(item, "carga_colhida", None)
+    if carga is None and item.estorno_de_id:
+        carga = getattr(item.estorno_de, "carga_colhida", None)
     return {
         "id": item.pk,
         "operacao": item.operacao,
@@ -144,8 +145,13 @@ def _item_movimento(item):
         "snapshot_anterior": item.snapshot_anterior,
         "snapshot_posterior": item.snapshot_posterior,
         "carga_colhida": carga.pk if carga else None,
-        "grupo_colheita": carga.grupo_colheita_id if carga else None,
-        "grupo_colheita_nome": carga.grupo_colheita.nome if carga else "",
+        "carga_status": carga.status if carga else "",
+        "propriedade": carga.propriedade_id if carga else None,
+        "propriedade_nome": carga.propriedade.nome if carga else "",
+        "cad_pro": str(carga.cad_pro_id) if carga else None,
+        "cad_pro_codigo": carga.cad_pro.codigo if carga else "",
+        "cultura": carga.cultura if carga else item.posicao.cultura,
+        "safra": carga.safra if carga else item.posicao.safra,
         "placa_carga": carga.placa if carga else "",
     }
 
@@ -231,11 +237,18 @@ def _item_entrega(item):
     }
 
 
+def _movimento_producao_ativo(item):
+    return (
+        item.operacao == MovimentacaoGraos.Operacao.CREDITO_PRODUCAO
+        and getattr(item, "movimento_estorno", None) is None
+    )
+
+
 def _producoes(movimentos):
     return [
         _item_movimento(item)
         for item in movimentos
-        if item.operacao == MovimentacaoGraos.Operacao.CREDITO_PRODUCAO
+        if _movimento_producao_ativo(item)
     ]
 
 
@@ -245,18 +258,18 @@ def _rastreabilidade(movimentos):
 
 def _cargas_do_periodo(filtros):
     queryset = CargaColhida.objects.select_related(
-        "grupo_colheita",
-        "grupo_colheita__propriedade",
-        "grupo_colheita__cad_pro",
+        "propriedade",
+        "cad_pro",
         "armazem",
+    ).filter(
+        status=CargaColhida.Status.ATIVA,
+        movimentacao__movimento_estorno__isnull=True,
     )
     queryset = _periodo(queryset, "data_colheita", filtros)
     if filtros.get("cultura"):
-        queryset = queryset.filter(
-            grupo_colheita__cultura__iexact=filtros["cultura"]
-        )
+        queryset = queryset.filter(cultura__iexact=filtros["cultura"])
     if filtros.get("safra"):
-        queryset = queryset.filter(grupo_colheita__safra=filtros["safra"])
+        queryset = queryset.filter(safra=filtros["safra"])
     if filtros.get("classificacao_codigo"):
         semente = filtros["classificacao_codigo"] == "SEMENTE"
         queryset = queryset.filter(destinado_semente=semente)
@@ -306,15 +319,12 @@ def _rateios_da_carga(carga):
                 restante_kg -= peso
                 restante_sacas -= sacas
                 codigos = item.get("cad_pro_numeros") or []
-                codigo = codigos[0] if len(codigos) == 1 else carga.grupo_colheita.cad_pro.codigo
-                cad_pro = CADPro.objects.filter(
-                    codigo_normalizado=normalizar_codigo_cadpro(codigo)
-                ).first()
+                codigo = codigos[0] if len(codigos) == 1 else carga.cad_pro.codigo
                 reconstruidos.append({
                     "propriedade_id": item["id"],
                     "propriedade_nome": item["nome"],
                     "proprietario": proprietarios.get(int(item["id"]), ""),
-                    "cad_pro_id": str(cad_pro.pk if cad_pro else carga.grupo_colheita.cad_pro_id),
+                    "cad_pro_id": str(carga.cad_pro_id),
                     "cad_pro_numero": codigo,
                     "area_hectares": str(area),
                     "proporcao": str(proporcao.quantize(
@@ -326,17 +336,17 @@ def _rateios_da_carga(carga):
                 })
             return reconstruidos
     return [{
-        "propriedade_id": carga.grupo_colheita.propriedade_id,
-        "propriedade_nome": carga.grupo_colheita.propriedade.nome,
-        "proprietario": carga.grupo_colheita.propriedade.proprietario,
-        "cad_pro_id": str(carga.grupo_colheita.cad_pro_id),
-        "cad_pro_numero": carga.grupo_colheita.cad_pro.codigo,
-        "area_hectares": str(carga.grupo_colheita.propriedade.area_hectares),
+        "propriedade_id": carga.propriedade_id,
+        "propriedade_nome": carga.propriedade.nome,
+        "proprietario": carga.propriedade.proprietario,
+        "cad_pro_id": str(carga.cad_pro_id),
+        "cad_pro_numero": carga.cad_pro.codigo,
+        "area_hectares": str(carga.propriedade.area_hectares),
         "proporcao": "1.000000000",
         "peso_liquido_kg": str(carga.peso_liquido_kg),
         "sacas_60kg": str(carga.sacas_60kg),
         "media_sacas_hectare": _texto_decimal(
-            carga.sacas_60kg / carga.grupo_colheita.propriedade.area_hectares
+            carga.sacas_60kg / carga.propriedade.area_hectares
         ),
     }]
 
@@ -367,8 +377,8 @@ def _item_produtividade(carga, rateio):
         "proprietario": rateio.get("proprietario", ""),
         "cad_pro": rateio["cad_pro_id"],
         "cad_pro_codigo": rateio["cad_pro_numero"],
-        "cultura": carga.grupo_colheita.cultura,
-        "safra": carga.grupo_colheita.safra,
+        "cultura": carga.cultura,
+        "safra": carga.safra,
         "area_hectares": _texto_decimal(Decimal(rateio["area_hectares"])),
         "proporcao": rateio["proporcao"],
         "quantidade_kg": _texto_decimal(peso),
@@ -498,7 +508,7 @@ def selecionar_relatorio_operacional(**filtros):
         "motoristas": motoristas,
     }
     producao_total = sum(
-        (item.quantidade_kg for item in movimentos if item.operacao == MovimentacaoGraos.Operacao.CREDITO_PRODUCAO),
+        (item.quantidade_kg for item in movimentos if _movimento_producao_ativo(item)),
         ZERO,
     )
     reserva_aberta = sum((item.saldo_reservado_kg for item in reservas), ZERO)
@@ -576,13 +586,15 @@ def selecionar_opcoes_relatorio():
             .order_by("numero_contrato")
         ),
         "motoristas": list(
-            CargaColhida.objects.exclude(motorista="")
+            CargaColhida.objects.filter(status=CargaColhida.Status.ATIVA)
+            .exclude(motorista="")
             .values_list("motorista", flat=True)
             .distinct()
             .order_by("motorista")
         ),
         "placas": list(
-            CargaColhida.objects.exclude(placa="")
+            CargaColhida.objects.filter(status=CargaColhida.Status.ATIVA)
+            .exclude(placa="")
             .values_list("placa", flat=True)
             .distinct()
             .order_by("placa")
