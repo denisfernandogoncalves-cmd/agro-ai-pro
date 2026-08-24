@@ -48,3 +48,12 @@ quantidade, custo e tipo.
 A posição retorna saldo por lote, unidade, localização, validade e indicadores
 de vencimento e estoque mínimo. O resumo contabiliza produtos ativos, lotes com
 saldo, lotes vencidos, lotes próximos do vencimento e itens abaixo do mínimo.
+
+## Cadastro na interface
+
+A inclusão e a listagem de depósitos de insumos e produtos agrícolas ficam
+centralizadas na aba **Cadastros agrícolas**, reutilizando estes mesmos
+endpoints. A tela **Estoque** mantém o cadastro de lotes e a operação de
+movimentações, sem formulários duplicados de produto ou local.
+
+Veja [Cadastros agrícolas](CADASTROS_AGRICOLAS.md).

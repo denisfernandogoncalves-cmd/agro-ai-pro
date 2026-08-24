@@ -39,3 +39,13 @@ Para liquidar:
 
 O resumo retorna valores a pagar, a receber, saldos previsto e realizado,
 entradas, saídas, total atrasado e quantidade pendente.
+
+## Cadastro de fornecedores na interface
+
+A inclusão e a listagem de fornecedores ficam centralizadas na aba
+**Cadastros agrícolas**, reutilizando `/api/financeiro/parceiros/`. A criação
+usa `tipo=fornecedor`; a listagem também apresenta parceiros `tipo=ambos`. A
+tela **Financeiro** mantém categorias, centros de custo e a operação financeira,
+sem formulário duplicado de parceiro.
+
+Veja [Cadastros agrícolas](CADASTROS_AGRICOLAS.md).

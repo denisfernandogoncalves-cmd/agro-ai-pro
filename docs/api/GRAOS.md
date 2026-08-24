@@ -14,6 +14,20 @@ CAD/PRO apenas para preservar cadastros históricos ainda sem movimentação. To
 novo comando de saldo exige um lote com CAD/PRO ativo e vinculado à propriedade
 do armazém.
 
+## Cargas diretas e legado de Grupo de Colheita
+
+O fluxo operacional cria a carga diretamente com `propriedade`, `cad_pro`,
+`cultura`, `safra` e `armazem`. O contrato público não expõe criação nem
+manutenção de Grupo de Colheita.
+
+O modelo e os registros históricos de Grupo de Colheita permanecem no banco
+apenas como legado. A referência `grupo_colheita` da carga é anulável e não é
+necessária para novas cargas. Não há rota pública de grupos no domínio de
+grãos.
+
+Criação, retificação, cancelamento e tabela de desconto por umidade estão
+detalhados em [Cargas Colhidas](CARGAS_COLHIDAS.md).
+
 ## Posição de saldo
 
 `PosicaoSaldoGraos` possui chave única composta por:
@@ -193,7 +207,8 @@ Conflitos operacionais retornam HTTP 409:
 Os CRUDs de armazéns e lotes e as consultas de movimentações permanecem em
 `/api/graos/armazens/`, `/api/graos/lotes/` e
 `/api/graos/movimentacoes/`. A criação legada de movimentação agora exige chave
-de idempotência e delega ao núcleo transacional.
+de idempotência e delega ao núcleo transacional. Grupo de Colheita não integra
+mais o contrato operacional público.
 
 ## Migrations
 
@@ -204,7 +219,11 @@ de idempotência e delega ao núcleo transacional.
   ledger, incluindo snapshots sequenciais; aborta se um movimento não puder ser
   associado sem ambiguidade;
 - `0004_saldos_constraints.py`: torna obrigatórios os vínculos do ledger e
-  adiciona constraints e índices finais.
+  adiciona constraints e índices finais;
+- `0009_cargacolhida_contexto_direto_e_cancelamento.py`: adiciona o contexto
+  direto e o ciclo de cancelamento/substituição da carga; valida e preenche os
+  dados históricos antes de tornar `grupo_colheita` opcional, sem apagar o
+  modelo nem seus registros.
 
 Na aplicação, as migrations são aditivas e não removem movimentos, lotes ou
 saldos. Na reversão para `0001`, o esquema antigo não possui conceito de reserva:

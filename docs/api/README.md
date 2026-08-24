@@ -1,6 +1,6 @@
 # API do AGRO-AI-PRO
 
-Documentação funcional: [Grupos de Colheita e Cargas Colhidas](CARGAS_COLHIDAS.md).
+Documentação funcional: [Cargas Colhidas](CARGAS_COLHIDAS.md).
 
 ## Autenticação
 
@@ -125,6 +125,14 @@ O módulo Financeiro oferece cadastros auxiliares, contas a pagar e receber,
 liquidação, filtros e resumo de fluxo de caixa. Consulte
 [Financeiro](FINANCEIRO.md).
 
+## Cadastros agrícolas
+
+A aba **Cadastros agrícolas** centraliza, sem duplicar modelos, a inclusão e a
+consulta de silos/armazéns de grãos, depósitos de insumos, produtos agrícolas
+e fornecedores. As telas operacionais continuam responsáveis por cargas,
+lotes, movimentos e lançamentos. Consulte
+[Cadastros agrícolas](CADASTROS_AGRICOLAS.md).
+
 ## Estoque
 
 O módulo controla produtos, locais, lotes, entradas, saídas, validade, estoque
@@ -132,9 +140,9 @@ mínimo e rastreabilidade. Consulte [Estoque](ESTOQUE.md).
 
 ## Grãos
 
-O módulo de Grãos controla armazéns, lotes, entradas, saídas, transferências,
-capacidade, saldo físico e idempotência para integrações futuras. Consulte
-[Grãos](GRAOS.md).
+O módulo de Grãos controla armazéns, lotes e o ledger imutável de entradas,
+saídas, transferências e estornos. As cargas são registradas diretamente por
+propriedade, CAD/PRO, cultura, safra e armazém. Consulte [Grãos](GRAOS.md).
 
 ## Importações
 
