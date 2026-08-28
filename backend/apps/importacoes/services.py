@@ -696,7 +696,7 @@ def processar_preview_planilha(*, arquivo, usuario):
     status = (
         LoteImportacao.Status.COM_ERROS
         if total_erros
-        else LoteImportacao.Status.CONCLUIDO
+        else LoteImportacao.Status.PRONTO_PARA_CONFIRMACAO
     )
     try:
         with transaction.atomic():

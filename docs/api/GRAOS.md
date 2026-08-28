@@ -53,6 +53,10 @@ A chave de idempotência permite que uma origem futura repita a mesma requisiç�
 sem duplicar o lançamento. Reutilizar a chave com lote, tipo ou quantidade
 diferente gera conflito de validação.
 
+O fluxo de confirmação de `importacoes` usa esta mesma função oficial para cada
+linha. Ele não persiste nem atualiza saldos diretamente; as posições continuam
+derivadas exclusivamente do ledger de `MovimentacaoGraos`.
+
 ## Endpoints
 
 ### Armazéns

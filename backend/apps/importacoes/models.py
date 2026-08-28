@@ -9,6 +9,13 @@ class LoteImportacao(models.Model):
     class Status(models.TextChoices):
         CONCLUIDO = "concluido", "Concluído"
         COM_ERROS = "com_erros", "Concluído com erros"
+        PRONTO_PARA_CONFIRMACAO = (
+            "pronto_confirmacao",
+            "Pronto para confirmação",
+        )
+        CONFIRMANDO = "confirmando", "Confirmando"
+        CONFIRMADO = "confirmado", "Confirmado"
+        FALHOU = "falhou", "Falhou"
 
     arquivo_nome = models.CharField(max_length=255)
     arquivo_tamanho = models.PositiveBigIntegerField()
@@ -29,6 +36,15 @@ class LoteImportacao(models.Model):
         on_delete=models.PROTECT,
         related_name="lotes_importacao",
     )
+    confirmado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="lotes_importacao_confirmados",
+        null=True,
+        blank=True,
+        editable=False,
+    )
+    confirmado_em = models.DateTimeField(null=True, blank=True, editable=False)
     criado_em = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -39,6 +55,12 @@ class LoteImportacao(models.Model):
             models.Index(
                 fields=("status", "criado_em"),
                 name="importacao_status_data_idx",
+            ),
+        ]
+        permissions = [
+            (
+                "confirmar_loteimportacao",
+                "Pode confirmar definitivamente lotes de importação",
             ),
         ]
 
@@ -99,6 +121,14 @@ class LinhaImportacao(models.Model):
         blank=True,
         editable=False,
     )
+    movimentacao_graos = models.OneToOneField(
+        "graos.MovimentacaoGraos",
+        on_delete=models.PROTECT,
+        related_name="linha_importacao",
+        null=True,
+        blank=True,
+        editable=False,
+    )
     criado_em = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -126,4 +156,44 @@ class LinhaImportacao(models.Model):
         return (
             f"{self.lote_importacao_id} - {self.planilha}!"
             f"{self.linha_origem} ({self.get_status_display()})"
+        )
+
+
+class ConfirmacaoImportacao(models.Model):
+    class Status(models.TextChoices):
+        CONFIRMADA = "confirmada", "Confirmada"
+        FALHOU = "falhou", "Falhou"
+
+    lote_importacao = models.ForeignKey(
+        LoteImportacao,
+        on_delete=models.PROTECT,
+        related_name="tentativas_confirmacao",
+    )
+    idempotency_key = models.CharField(max_length=100, unique=True)
+    status = models.CharField(max_length=10, choices=Status.choices, editable=False)
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="confirmacoes_importacao",
+    )
+    resultado = models.JSONField(default=dict, blank=True, editable=False)
+    falha = models.TextField(blank=True, editable=False)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-criado_em", "-id")
+        verbose_name = "confirmação de importação"
+        verbose_name_plural = "confirmações de importação"
+        constraints = [
+            models.UniqueConstraint(
+                fields=("lote_importacao",),
+                condition=models.Q(status="confirmada"),
+                name="importacao_lote_confirmacao_unica",
+            ),
+        ]
+
+    def __str__(self):
+        return (
+            f"{self.lote_importacao_id} - {self.idempotency_key} "
+            f"({self.get_status_display()})"
         )

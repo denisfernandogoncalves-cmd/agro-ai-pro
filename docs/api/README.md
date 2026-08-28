@@ -136,10 +136,9 @@ capacidade, saldo físico e idempotência para integrações futuras. Consulte
 
 ## Importações
 
-O módulo de Importações gera um preview auditável de planilhas XLSX, com
-normalização, erros, advertências, prevenção de duplicidade e associação
-preliminar com Grãos, sem criar movimentações ou alterar saldos. Consulte
-[Importações](IMPORTACOES.md).
+O módulo de Importações gera preview auditável de planilhas XLSX e permite a
+confirmação definitiva, explícita, atômica e idempotente por meio do serviço
+oficial de Grãos. Consulte [Importações](IMPORTACOES.md).
 
 ## Operações
 
