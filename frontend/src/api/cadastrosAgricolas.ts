@@ -8,13 +8,14 @@ import {
   LocalEstoque,
   ProdutoEstoque,
 } from "./estoque";
+import axios from "axios";
 import { api } from "./propriedades";
 
 
 export type ArmazemGraos = {
   id: number;
-  propriedade: number;
-  propriedade_nome: string;
+  propriedade: number | null;
+  propriedade_nome: string | null;
   nome: string;
   capacidade_kg: string;
   ocupacao_kg: string;
@@ -22,7 +23,6 @@ export type ArmazemGraos = {
 };
 
 export type ArmazemGraosInput = {
-  propriedade: string;
   nome: string;
   capacidade_kg: string;
 };
@@ -70,8 +70,20 @@ export async function criarArmazemGraos(dados: ArmazemGraosInput) {
   return (
     await api.post<ArmazemGraos>("/graos/armazens/", {
       ...dados,
-      propriedade: Number(dados.propriedade),
       ativo: true,
     })
   ).data;
+}
+
+export async function atualizarArmazemGraos(id: number, dados: ArmazemGraosInput) {
+  return (await api.patch<ArmazemGraos>(`/graos/armazens/${id}/`, dados)).data;
+}
+
+export async function excluirArmazemGraos(id: number) {
+  try {
+    await api.delete(`/graos/armazens/${id}/`);
+  } catch (falha) {
+    if (!axios.isAxiosError(falha) || falha.response?.status !== 409) throw falha;
+    await api.patch(`/graos/armazens/${id}/`, { ativo: false });
+  }
 }

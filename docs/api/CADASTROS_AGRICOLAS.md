@@ -8,17 +8,20 @@ fontes de verdade paralelas.
 
 ### Silos e armazéns de grãos
 
-Usam `ArmazemGraos` e são os destinos selecionáveis em Cargas Colhidas.
+Usam `ArmazemGraos` e são os destinos selecionáveis em Cargas Colhidas. Uma
+armazenagem é independente de propriedade, permitindo registrar silos próprios,
+cooperativas, cerealistas e outros destinos externos. A propriedade produtora
+permanece registrada diretamente na carga e no CAD/PRO.
 
 ```text
 GET|POST /api/graos/armazens/
 GET|PUT|PATCH|DELETE /api/graos/armazens/{id}/
 ```
 
-O cadastro exige propriedade, nome e capacidade positiva em quilogramas. A
-resposta também informa a ocupação atual. Nome é único dentro da propriedade;
-a propriedade não pode mudar depois da criação de lotes e a capacidade não
-pode ser reduzida abaixo da ocupação.
+O cadastro exige apenas nome e capacidade positiva em quilogramas. A resposta
+também informa a ocupação atual. Novas armazenagens não recebem propriedade;
+vínculos antigos são mantidos somente para preservar o histórico. A capacidade
+não pode ser reduzida abaixo da ocupação.
 
 ### Depósitos de insumos
 
@@ -60,7 +63,7 @@ opcionais.
 
 ## Separação das telas operacionais
 
-- Cargas Colhidas apenas seleciona um armazém de grãos ativo da propriedade;
+- Cargas Colhidas seleciona qualquer armazém de grãos ativo, inclusive externo;
 - Estoque mantém o cadastro de lote e as movimentações, mas produto e depósito
   são incluídos na aba central;
 - Financeiro mantém categorias e centros de custo, mas fornecedores são
@@ -68,4 +71,15 @@ opcionais.
 
 Cadastros já vinculados permanecem protegidos. A API responde HTTP 409 quando
 uma exclusão física violaria os vínculos existentes; a inativação deve ser
-preferida quando houver histórico.
+preferida quando houver histórico. Na interface, todos os itens listados possuem
+ações **Editar** e **Excluir**; ao receber HTTP 409, a exclusão é convertida em
+inativação para preservar cargas, lotes, movimentações e lançamentos anteriores.
+# Contratos comerciais
+
+Cadastros agrícolas inclui **Contratos**, com Empresa, Nº do contrato,
+Quantidade (kg) e Produto. O formulário aceita `35.000,500` e normaliza para
+`35000.500` na API. Permite cadastrar, editar, excluir da seleção e reativar;
+exclusão mantém os vínculos históricos. O mesmo contrato é selecionável em
+Vendas, sem precisar repetir número e empresa. Consulte `docs/api/VENDAS.md`
+para endpoints, idempotência e correções comerciais. Nenhum dado de demonstração
+é inserido automaticamente.

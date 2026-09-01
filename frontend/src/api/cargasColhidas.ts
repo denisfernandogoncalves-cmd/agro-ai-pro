@@ -12,8 +12,8 @@ export type CADPro = {
 
 export type ArmazemGraos = {
   id: number;
-  propriedade: number;
-  propriedade_nome: string;
+  propriedade: number | null;
+  propriedade_nome: string | null;
   nome: string;
   capacidade_kg: string;
   ocupacao_kg: string;
@@ -78,6 +78,8 @@ export type CargaColhidaInput = {
   local_colheita: string;
   observacoes: string;
   talhoes_selecionados: number[];
+  propriedades_selecionadas: number[];
+  cadpros_por_propriedade: Record<string, string>;
   tolerancia_impureza_percentual?: string;
   desconto_impureza_por_ponto?: string;
   tolerancia_defeitos_percentual?: string;

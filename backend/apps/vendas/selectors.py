@@ -1,6 +1,6 @@
 from django.db.models import Prefetch
 
-from .models import DevolucaoVendaGraos, EntregaVendaGraos, VendaGraos
+from .models import AlteracaoVendaGraos, DevolucaoVendaGraos, EntregaVendaGraos, VendaGraos
 
 
 def selecionar_vendas():
@@ -8,11 +8,12 @@ def selecionar_vendas():
         "posicao",
         "posicao__cad_pro",
         "posicao__armazem",
-        "posicao__armazem__propriedade",
+        "posicao__propriedade",
         "lote",
         "reserva",
         "criado_por",
     ).prefetch_related(
+        Prefetch("alteracoes", queryset=AlteracaoVendaGraos.objects.select_related("criado_por")),
         Prefetch(
             "entregas",
             queryset=EntregaVendaGraos.objects.select_related("movimentacao"),
@@ -25,11 +26,11 @@ def selecionar_vendas():
 
 
 def selecionar_entregas():
-    return EntregaVendaGraos.objects.select_related(
+    return EntregaVendaGraos.objects.filter(cancelado_em__isnull=True, venda__excluida_em__isnull=True).select_related(
         "venda",
         "venda__posicao",
         "venda__posicao__cad_pro",
         "venda__posicao__armazem",
-        "venda__posicao__armazem__propriedade",
+        "venda__posicao__propriedade",
         "movimentacao",
     )

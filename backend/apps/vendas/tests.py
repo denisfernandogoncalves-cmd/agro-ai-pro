@@ -100,16 +100,12 @@ class VendaGraosServiceTests(ContextoVendaMixin, TestCase):
         self.assertEqual(self.posicao.saldo_comprometido_kg, Decimal("600.000"))
         self.assertEqual(self.posicao.saldo_disponivel_kg, Decimal("400.000"))
 
-    def test_venda_acima_do_disponivel_e_bloqueada_sem_efeito(self):
+    def test_venda_acima_do_disponivel_deixa_disponivel_negativo(self):
         venda = self.rascunho(quantidade="1000.001")
-        with self.assertRaisesRegex(Exception, "insuficiente"):
-            confirmar_venda(
-                usuario=self.usuario,
-                venda=venda,
-                chave_idempotencia="confirmar-excesso",
-            )
+        confirmar_venda(usuario=self.usuario, venda=venda, chave_idempotencia="confirmar-excesso")
         self.posicao.refresh_from_db()
-        self.assertEqual(self.posicao.saldo_comprometido_kg, Decimal("0.000"))
+        self.assertEqual(self.posicao.saldo_comprometido_kg, Decimal("1000.001"))
+        self.assertEqual(self.posicao.saldo_disponivel_kg, Decimal("-0.001"))
 
     def test_cancelamento_libera_somente_comprometido_aberto(self):
         venda = self.rascunho()
@@ -416,7 +412,7 @@ class VendaGraosConcorrenciaTests(ContextoVendaMixin, TransactionTestCase):
         self.venda_a = self.rascunho(numero="CONC-A", quantidade="80")
         self.venda_b = self.rascunho(numero="CONC-B", quantidade="80")
 
-    def test_duas_confirmacoes_disputam_o_mesmo_saldo(self):
+    def test_duas_confirmacoes_contabilizam_todas_as_reservas(self):
         barreira = Barrier(2)
 
         def confirmar(venda_id, chave):
@@ -439,10 +435,10 @@ class VendaGraosConcorrenciaTests(ContextoVendaMixin, TransactionTestCase):
                 lambda args: confirmar(*args),
                 ((self.venda_a.pk, "conc-a"), (self.venda_b.pk, "conc-b")),
             ))
-        self.assertEqual(resultados.count("ok"), 1, resultados)
+        self.assertEqual(resultados.count("ok"), 2, resultados)
         posicao = PosicaoSaldoGraos.objects.get(pk=self.posicao.pk)
-        self.assertEqual(posicao.saldo_comprometido_kg, Decimal("80.000"))
-        self.assertEqual(posicao.saldo_disponivel_kg, Decimal("20.000"))
+        self.assertEqual(posicao.saldo_comprometido_kg, Decimal("160.000"))
+        self.assertEqual(posicao.saldo_disponivel_kg, Decimal("-60.000"))
 
     def _executar_movimentos_simultaneos(self, funcao, argumentos):
         barreira = Barrier(2)

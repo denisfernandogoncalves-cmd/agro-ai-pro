@@ -1,5 +1,6 @@
 import { api } from "./propriedades";
 import { GeometriaGeoJSON } from "../utils/geometria";
+import { hectaresDeAlqueires } from "../utils/areas";
 
 export type GeometriaTalhao = GeometriaGeoJSON;
 
@@ -88,7 +89,7 @@ function montarFormulario(dados: TalhaoInput) {
   const formulario = new FormData();
   Object.entries(dados).forEach(([campo, valor]) => {
     if (valor !== null && valor !== "") {
-      formulario.append(campo, valor);
+      formulario.append(campo, campo === "area_hectares" ? hectaresDeAlqueires(String(valor)) : valor);
     }
   });
   return formulario;

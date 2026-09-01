@@ -15,6 +15,7 @@ from apps.graos.models import (
     ReservaSaldoGraos,
 )
 from apps.graos.services import (
+    _chave_posicao_lote,
     confirmar_entrega,
     liberar_reserva,
     registrar_devolucao,
@@ -88,6 +89,7 @@ def _repeticao_movimento(modelo, *, chave, hash_requisicao, venda_id):
 def _lote_operacional(posicao):
     lote = (
         LoteGraos.objects.filter(
+            propriedade_id=posicao.propriedade_id,
             cad_pro_id=posicao.cad_pro_id,
             cultura=posicao.cultura,
             safra=posicao.safra,
@@ -106,6 +108,29 @@ def _lote_operacional(posicao):
     return lote
 
 
+def _validar_contexto_venda(venda):
+    if any(
+        getattr(venda.posicao, campo) != valor
+        for campo, valor in _chave_posicao_lote(venda.lote).items()
+    ):
+        raise VendaGraosConflitoError(
+            "O lote operacional não corresponde à posição da venda. "
+            "Revise o vínculo antes de movimentar o saldo."
+        )
+    if venda.reserva_id and venda.reserva.posicao_id != venda.posicao_id:
+        raise VendaGraosConflitoError(
+            "A reserva não corresponde à posição da venda. "
+            "Revise o vínculo antes de movimentar o saldo."
+        )
+
+
+def _validar_resultado_posicao(venda, resultado):
+    if {str(item.id) for item in resultado.posicoes} != {str(venda.posicao_id)}:
+        raise VendaGraosConflitoError(
+            "A posição do lote mudou durante a operação. Atualize os dados."
+        )
+
+
 def _resultado_ledger(resultado):
     origem = OrigemSaldoGraos.objects.get(pk=resultado.origem.id)
     movimento = MovimentacaoGraos.objects.get(pk=resultado.movimentacoes[0].id)
@@ -114,12 +139,19 @@ def _resultado_ledger(resultado):
 
 @transaction.atomic
 def criar_rascunho(
-    *, usuario, posicao, numero_contrato, cliente_nome, quantidade_kg,
+    *, usuario, numero_contrato="", cliente_nome, quantidade_kg, posicao=None, nova_posicao=None,
     chave_idempotencia, data_contrato=None, data_limite_entrega=None,
-    observacoes="",
+    observacoes="", contrato=None,
 ):
     chave = _chave(chave_idempotencia)
     quantidade = _quantidade(quantidade_kg)
+    if nova_posicao:
+        if posicao is not None:
+            raise VendaGraosError("Informe apenas uma origem para o estoque.")
+        from .posicoes_services import resolver_posicao_inicial
+        posicao = resolver_posicao_inicial(nova_posicao)
+    if posicao is None:
+        raise VendaGraosError("Informe a posição de estoque da venda.")
     payload = {
         "posicao": posicao,
         "numero_contrato": str(numero_contrato).strip(),
@@ -129,6 +161,10 @@ def criar_rascunho(
         "data_limite_entrega": data_limite_entrega,
         "observacoes": str(observacoes or "").strip(),
     }
+    if contrato is not None:
+        if not contrato.ativo:
+            raise VendaGraosError("O contrato selecionado está inativo.")
+        payload.update(contrato=contrato, numero_contrato=contrato.numero, cliente_nome=contrato.empresa)
     hash_requisicao = _hash(payload)
     existente = VendaGraos.objects.select_related("reserva").filter(
         chave_criacao=chave
@@ -137,12 +173,12 @@ def criar_rascunho(
         _validar_repeticao(existente.hash_criacao, hash_requisicao)
         return existente
     posicao = PosicaoSaldoGraos.objects.select_related(
-        "cad_pro", "armazem", "armazem__propriedade"
+        "cad_pro", "armazem", "propriedade"
     ).get(pk=posicao.pk)
     if not posicao.cad_pro.ativo or not posicao.armazem.ativo:
         raise VendaGraosError("A posição deve possuir CAD/PRO e armazenagem ativos.")
-    if not payload["numero_contrato"] or not payload["cliente_nome"]:
-        raise VendaGraosError("Informe contrato e cliente.")
+    if not payload["cliente_nome"]:
+        raise VendaGraosError("Informe o comprador ou destino da venda.")
     lote = _lote_operacional(posicao)
     try:
         venda = VendaGraos.objects.create(
@@ -163,6 +199,8 @@ def criar_rascunho(
 def confirmar_venda(*, usuario, venda, chave_idempotencia):
     chave = _chave(chave_idempotencia)
     venda = VendaGraos.objects.select_for_update().get(pk=venda.pk)
+    if venda.excluida_em:
+        raise VendaGraosConflitoError("Esta venda foi excluída; consulte seu histórico.")
     venda.lote = LoteGraos.objects.get(pk=venda.lote_id)
     venda.posicao = PosicaoSaldoGraos.objects.get(pk=venda.posicao_id)
     hash_requisicao = _hash({"venda": venda.pk})
@@ -171,8 +209,10 @@ def confirmar_venda(*, usuario, venda, chave_idempotencia):
         return venda
     if venda.status != VendaGraos.Status.RASCUNHO:
         raise VendaGraosConflitoError("Somente uma venda em rascunho pode ser confirmada.")
+    _validar_contexto_venda(venda)
     resultado = reservar_saldo(
         usuario=usuario,
+        permitir_saldo_negativo=True,
         lote=venda.lote,
         quantidade_kg=venda.quantidade_kg,
         chave_idempotencia=f"vendas:confirmar:{chave}",
@@ -180,12 +220,14 @@ def confirmar_venda(*, usuario, venda, chave_idempotencia):
         observacoes=f"Reserva da venda {venda.numero_contrato}.",
         metadados={"venda_id": venda.pk, "numero_contrato": venda.numero_contrato},
     )
+    _validar_resultado_posicao(venda, resultado)
     venda.reserva = ReservaSaldoGraos.objects.get(pk=resultado.reserva.id)
     venda.status = VendaGraos.Status.CONFIRMADA
     venda.chave_confirmacao = chave
     venda.hash_confirmacao = hash_requisicao
     venda.confirmado_em = timezone.now()
-    venda.save(update_fields=(
+    venda.versao += 1
+    venda.save(update_fields=("versao",
         "reserva", "status", "chave_confirmacao", "hash_confirmacao",
         "confirmado_em", "atualizado_em",
     ))
@@ -196,6 +238,8 @@ def confirmar_venda(*, usuario, venda, chave_idempotencia):
 def cancelar_venda(*, usuario, venda, chave_idempotencia, observacoes=""):
     chave = _chave(chave_idempotencia)
     venda = VendaGraos.objects.select_for_update().get(pk=venda.pk)
+    if venda.excluida_em:
+        raise VendaGraosConflitoError("Esta venda foi excluída; consulte seu histórico.")
     venda.posicao = PosicaoSaldoGraos.objects.get(pk=venda.posicao_id)
     venda.lote = LoteGraos.objects.get(pk=venda.lote_id)
     if venda.reserva_id:
@@ -209,6 +253,9 @@ def cancelar_venda(*, usuario, venda, chave_idempotencia, observacoes=""):
     if venda.status == VendaGraos.Status.RASCUNHO:
         venda.quantidade_cancelada_kg = venda.quantidade_kg
     elif venda.status in (VendaGraos.Status.CONFIRMADA, VendaGraos.Status.PARCIAL):
+        _validar_contexto_venda(venda)
+        if not venda.reserva_id:
+            raise VendaGraosConflitoError("A venda não possui reserva para cancelamento.")
         quantidade_aberta = venda.reserva.saldo_reservado_kg
         if quantidade_aberta > ZERO:
             liberar_reserva(
@@ -227,7 +274,8 @@ def cancelar_venda(*, usuario, venda, chave_idempotencia, observacoes=""):
     venda.chave_cancelamento = chave
     venda.hash_cancelamento = hash_requisicao
     venda.cancelado_em = timezone.now()
-    venda.save(update_fields=(
+    venda.versao += 1
+    venda.save(update_fields=("versao",
         "quantidade_cancelada_kg", "status", "chave_cancelamento",
         "hash_cancelamento", "cancelado_em", "atualizado_em",
     ))
@@ -238,7 +286,7 @@ def cancelar_venda(*, usuario, venda, chave_idempotencia, observacoes=""):
 def registrar_entrega_venda(
     *, usuario, venda, quantidade_kg, chave_idempotencia,
     data_entrega=None, referencia_externa="", observacoes="", destino="",
-    placa="", nota_produtor="", nota_empresa="",
+    placa="", motorista="", nota_produtor="", nota_empresa="",
 ):
     from apps.graos.models import normalizar_placa
 
@@ -260,6 +308,9 @@ def registrar_entrega_venda(
         "nota_produtor": str(nota_produtor or "").strip(),
         "nota_empresa": str(nota_empresa or "").strip(),
     }
+    # Ausência de motorista mantém o hash de requisições legadas.
+    if str(motorista or "").strip():
+        payload["motorista"] = str(motorista).strip()
     hash_requisicao = _hash(payload)
     existente = _repeticao_movimento(
         EntregaVendaGraos, chave=chave, hash_requisicao=hash_requisicao,
@@ -268,21 +319,27 @@ def registrar_entrega_venda(
     if existente:
         return existente
     venda = VendaGraos.objects.select_for_update().get(pk=venda.pk)
+    if venda.excluida_em:
+        raise VendaGraosConflitoError("Esta venda foi excluída; consulte seu histórico.")
     existente = _repeticao_movimento(
         EntregaVendaGraos, chave=chave, hash_requisicao=hash_requisicao,
         venda_id=venda.pk,
     )
     if existente:
         return existente
+    if venda.status not in (VendaGraos.Status.CONFIRMADA, VendaGraos.Status.PARCIAL):
+        raise VendaGraosConflitoError("A venda não está aberta para entrega.")
+    if not venda.reserva_id:
+        raise VendaGraosConflitoError("A venda não possui reserva para entrega.")
     venda.reserva = ReservaSaldoGraos.objects.get(pk=venda.reserva_id)
     venda.lote = LoteGraos.objects.get(pk=venda.lote_id)
     venda.posicao = PosicaoSaldoGraos.objects.get(pk=venda.posicao_id)
-    if venda.status not in (VendaGraos.Status.CONFIRMADA, VendaGraos.Status.PARCIAL):
-        raise VendaGraosConflitoError("A venda não está aberta para entrega.")
+    _validar_contexto_venda(venda)
     if quantidade > venda.reserva.saldo_reservado_kg:
         raise VendaGraosConflitoError("A entrega excede a reserva aberta da venda.")
     resultado = confirmar_entrega(
         usuario=usuario,
+        permitir_saldo_negativo=True,
         reserva=venda.reserva,
         quantidade_kg=quantidade,
         chave_idempotencia=f"vendas:entrega:{chave}",
@@ -299,6 +356,7 @@ def registrar_entrega_venda(
         referencia_externa=payload["referencia_externa"],
         destino=payload["destino"],
         placa=payload["placa"],
+        motorista=payload.get("motorista", ""),
         nota_produtor=payload["nota_produtor"],
         nota_empresa=payload["nota_empresa"],
         observacoes=payload["observacoes"],
@@ -314,8 +372,28 @@ def registrar_entrega_venda(
         if venda.quantidade_entregue_kg == venda.quantidade_kg
         else VendaGraos.Status.PARCIAL
     )
-    venda.save(update_fields=("quantidade_entregue_kg", "status", "atualizado_em"))
+    venda.versao += 1
+    venda.save(update_fields=("versao", "quantidade_entregue_kg", "status", "atualizado_em"))
     return entrega
+
+
+@transaction.atomic
+def registrar_venda_com_saida(*, usuario, chave_idempotencia, dados):
+    """Cria, reserva e entrega tudo ou nada, sem rascunho órfão em caso de erro."""
+    token = _hash({"chave": _chave(chave_idempotencia)})
+    campos_venda = ("contrato", "numero_contrato", "cliente_nome", "posicao", "nova_posicao",
+                    "quantidade_kg", "data_contrato", "data_limite_entrega", "observacoes")
+    campos_entrega = ("quantidade_kg", "destino", "placa", "motorista",
+                      "nota_produtor", "nota_empresa", "referencia_externa", "observacoes")
+    venda = criar_rascunho(usuario=usuario, chave_idempotencia=f"sv:{token}:criar",
+        **{campo: dados[campo] for campo in campos_venda if campo in dados})
+    venda = confirmar_venda(usuario=usuario, venda=venda, chave_idempotencia=f"sv:{token}:res")
+    registrar_entrega_venda(usuario=usuario, venda=venda,
+        chave_idempotencia=f"sv:{token}:ent",
+        data_entrega=dados.get("data_movimento") or dados.get("data_contrato"),
+        **{campo: dados[campo] for campo in campos_entrega if campo in dados})
+    venda.refresh_from_db()
+    return venda
 
 
 @transaction.atomic
@@ -340,6 +418,8 @@ def registrar_devolucao_venda(
     if existente:
         return existente
     venda = VendaGraos.objects.select_for_update().get(pk=venda.pk)
+    if venda.excluida_em:
+        raise VendaGraosConflitoError("Esta venda foi excluída; consulte seu histórico.")
     existente = _repeticao_movimento(
         DevolucaoVendaGraos, chave=chave, hash_requisicao=hash_requisicao,
         venda_id=venda.pk,
@@ -350,6 +430,7 @@ def registrar_devolucao_venda(
     venda.posicao = PosicaoSaldoGraos.objects.get(pk=venda.posicao_id)
     if venda.reserva_id:
         venda.reserva = ReservaSaldoGraos.objects.get(pk=venda.reserva_id)
+    _validar_contexto_venda(venda)
     devolvivel = venda.quantidade_entregue_kg - venda.quantidade_devolvida_kg
     if quantidade > devolvivel:
         raise VendaGraosConflitoError(
@@ -365,6 +446,7 @@ def registrar_devolucao_venda(
         observacoes=payload["observacoes"],
         metadados={"venda_id": venda.pk},
     )
+    _validar_resultado_posicao(venda, resultado)
     origem, movimento = _resultado_ledger(resultado)
     devolucao = DevolucaoVendaGraos.objects.create(
         venda=venda,
@@ -379,5 +461,6 @@ def registrar_devolucao_venda(
         criado_por=usuario,
     )
     venda.quantidade_devolvida_kg += quantidade
-    venda.save(update_fields=("quantidade_devolvida_kg", "atualizado_em"))
+    venda.versao += 1
+    venda.save(update_fields=("versao", "quantidade_devolvida_kg", "atualizado_em"))
     return devolucao

@@ -52,8 +52,20 @@ function mensagemErro(falha: unknown) {
 
 type Props = { propriedades: Propriedade[] };
 
+export function filtrarLotesProducao(lotes: LoteGraos[], propriedade = "") {
+  return lotes.filter((lote) =>
+    lote.ativo
+    && lote.cad_pro
+    && (!propriedade || String(lote.propriedade_id) === propriedade)
+  );
+}
+
 export function BotaoCreditarProducao({ desabilitado }: { desabilitado: boolean }) {
   return <button disabled={desabilitado} type="submit">Creditar produção</button>;
+}
+
+export function mesmosFiltrosSaldo(a: FiltrosSaldo, b: FiltrosSaldo) {
+  return (Object.keys(filtrosVazios) as (keyof FiltrosSaldo)[]).every(chave => (a[chave] || "") === (b[chave] || ""));
 }
 
 export default function ProducaoSaldosPage({ propriedades }: Props) {
@@ -63,6 +75,8 @@ export default function ProducaoSaldosPage({ propriedades }: Props) {
   const [armazens, setArmazens] = useState<ArmazemGraos[]>([]);
   const [lotes, setLotes] = useState<LoteGraos[]>([]);
   const [filtros, setFiltros] = useState<FiltrosSaldo>(filtrosVazios);
+  const [filtrosAplicados, setFiltrosAplicados] = useState<FiltrosSaldo>(filtrosVazios);
+  const ultimaConsulta = useRef(0);
   const [credito, setCredito] = useState(creditoVazio);
   const [carregando, setCarregando] = useState(false);
   const [creditando, setCreditando] = useState(false);
@@ -71,6 +85,7 @@ export default function ProducaoSaldosPage({ propriedades }: Props) {
   const controladorCredito = useRef(criarControladorCreditoProducao());
 
   async function carregar(filtrosAtuais = filtros) {
+    const consulta = ++ultimaConsulta.current;
     setCarregando(true);
     setErro("");
     try {
@@ -79,35 +94,47 @@ export default function ProducaoSaldosPage({ propriedades }: Props) {
         listarMovimentacoesSaldo(filtrosAtuais),
         carregarOpcoesProducaoSaldo(),
       ]);
+      if (consulta !== ultimaConsulta.current) return;
       setPainel(dadosPainel);
+      setFiltrosAplicados({ ...filtrosAtuais });
       setMovimentos(dadosMovimentos.slice(0, 30));
       setCadpros(opcoes.cadpros);
       setArmazens(opcoes.armazens);
       setLotes(opcoes.lotes);
     } catch (falha) {
-      setErro(mensagemErro(falha));
+      if (consulta === ultimaConsulta.current) setErro(mensagemErro(falha));
     } finally {
-      setCarregando(false);
+      if (consulta === ultimaConsulta.current) setCarregando(false);
     }
   }
 
   useEffect(() => { void carregar(filtrosVazios); }, []);
 
-  const armazensFiltrados = useMemo(
-    () => armazens.filter(
-      (item) => !filtros.propriedade || String(item.propriedade) === filtros.propriedade,
+  const cadprosFiltrados = useMemo(
+    () => cadpros.filter((item) =>
+      !filtros.propriedade
+      || item.propriedades.includes(Number(filtros.propriedade))
     ),
-    [armazens, filtros.propriedade],
+    [cadpros, filtros.propriedade],
   );
 
   const lotesAtivos = useMemo(
-    () => lotes.filter((item) => item.ativo && item.cad_pro),
-    [lotes],
+    () => filtrarLotesProducao(lotes, filtros.propriedade),
+    [lotes, filtros.propriedade],
   );
+  const loteCreditoValido = lotesAtivos.some((item) => item.id === credito.lote);
+  const propriedadeSelecionada = propriedades.find(
+    (item) => String(item.id) === filtrosAplicados.propriedade,
+  );
+  const filtrosPendentes = !mesmosFiltrosSaldo(filtros, filtrosAplicados);
 
   async function registrarProducao(evento: FormEvent) {
     evento.preventDefault();
     if (controladorCredito.current.emAndamento()) return;
+    if (!loteCreditoValido) {
+      setErro("Selecione um lote da propriedade consultada antes de creditar a produção.");
+      return;
+    }
     setErro("");
     setSucesso("");
     setCreditando(true);
@@ -141,21 +168,23 @@ export default function ProducaoSaldosPage({ propriedades }: Props) {
       {sucesso && <p className="sucesso card">{sucesso}</p>}
 
       <form className="card filtros-saldos" onSubmit={(evento) => { evento.preventDefault(); void carregar(); }}>
-        <select aria-label="Filtrar saldo por propriedade" value={filtros.propriedade} onChange={(e) => setFiltros({ ...filtros, propriedade: e.target.value, armazem: "" })}><option value="">Todas as propriedades</option>{propriedades.map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select>
-        <select aria-label="Filtrar saldo por CAD/PRO" value={filtros.cad_pro} onChange={(e) => setFiltros({ ...filtros, cad_pro: e.target.value })}><option value="">Todos os CAD/PROs</option>{cadpros.map((item) => <option key={item.id} value={item.id}>{item.codigo}</option>)}</select>
+        <select aria-label="Filtrar saldo por propriedade" value={filtros.propriedade} onChange={(e) => { const propriedade = e.target.value; const cadproAtualValido = cadpros.some((item) => item.id === filtros.cad_pro && (!propriedade || item.propriedades.includes(Number(propriedade)))); const novos = { ...filtros, propriedade, cad_pro: cadproAtualValido ? filtros.cad_pro : "" }; setFiltros(novos); setCredito(atual => ({ ...atual, lote: 0 })); void carregar(novos); }}><option value="">Todas as propriedades</option>{propriedades.map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select>
+        <select aria-label="Filtrar saldo por CAD/PRO" value={filtros.cad_pro} onChange={(e) => setFiltros({ ...filtros, cad_pro: e.target.value })}><option value="">Todos os CAD/PROs da propriedade</option>{cadprosFiltrados.map((item) => <option key={item.id} value={item.id}>{item.codigo}</option>)}</select>
         <input aria-label="Filtrar saldo por cultura" placeholder="Cultura" value={filtros.cultura} onChange={(e) => setFiltros({ ...filtros, cultura: e.target.value })} />
         <input aria-label="Filtrar saldo por safra" placeholder="Safra" value={filtros.safra} onChange={(e) => setFiltros({ ...filtros, safra: e.target.value })} />
         <input aria-label="Filtrar saldo por classificação" placeholder="Classificação" value={filtros.classificacao_codigo} onChange={(e) => setFiltros({ ...filtros, classificacao_codigo: e.target.value })} />
-        <select aria-label="Filtrar saldo por armazenagem" value={filtros.armazem} onChange={(e) => setFiltros({ ...filtros, armazem: e.target.value })}><option value="">Todas as armazenagens</option>{armazensFiltrados.map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select>
+        <select aria-label="Filtrar saldo por armazenagem" value={filtros.armazem} onChange={(e) => setFiltros({ ...filtros, armazem: e.target.value })}><option value="">Todas as armazenagens</option>{armazens.map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select>
         <button disabled={carregando} type="submit">Aplicar filtros</button>
         <button className="secundario" type="button" onClick={() => { setFiltros(filtrosVazios); void carregar(filtrosVazios); }}>Limpar</button>
       </form>
 
+      {carregando ? <p role="status">Atualizando saldos da consulta...</p> : filtrosPendentes && <p role="status">Filtros alterados. Clique em Aplicar filtros para consultar os saldos selecionados.</p>}
+      <div hidden={carregando || filtrosPendentes}>
       <section className="resumo-saldos">
         <article className="card"><span>Saldo físico</span><strong>{kg(painel?.resumo.saldo_fisico_kg ?? "0")}</strong></article>
         <article className="card"><span>Comprometido</span><strong>{kg(painel?.resumo.saldo_comprometido_kg ?? "0")}</strong></article>
         <article className="card destaque-disponivel"><span>Disponível</span><strong>{kg(painel?.resumo.saldo_disponivel_kg ?? "0")}</strong></article>
-        <article className="card"><span>CAD/PROs · posições</span><strong>{painel?.resumo.cadpros ?? 0} · {painel?.resumo.posicoes ?? 0}</strong></article>
+        <article className="card"><span>Propriedades · CAD/PROs · posições</span><strong>{painel?.resumo.propriedades ?? 0} · {painel?.resumo.cadpros ?? 0} · {painel?.resumo.posicoes ?? 0}</strong><small>Na consulta atual</small></article>
       </section>
 
       <section className="grade producao-saldos-grade">
@@ -167,24 +196,25 @@ export default function ProducaoSaldosPage({ propriedades }: Props) {
           <label>Data do movimento<input required type="date" value={credito.data_movimento} onChange={(e) => setCredito({ ...credito, data_movimento: e.target.value })} /></label>
           <label>Referência externa<input maxLength={160} placeholder="Romaneio, ticket ou documento" value={credito.referencia_externa} onChange={(e) => setCredito({ ...credito, referencia_externa: e.target.value })} /></label>
           <label>Observações<textarea value={credito.observacoes} onChange={(e) => setCredito({ ...credito, observacoes: e.target.value })} /></label>
-          <BotaoCreditarProducao desabilitado={carregando || creditando} />
+          <BotaoCreditarProducao desabilitado={carregando || creditando || !loteCreditoValido} />
         </form>
 
         <section className="conteudo saldo-consolidado">
-          <h3>Consolidado por CAD/PRO</h3>
-          <div className="lista">{painel?.consolidado_cadpro.length ? painel.consolidado_cadpro.map((item) => <article className="card item saldo-cadpro" key={item.cad_pro}><div><span className="kicker">{item.cad_pro_codigo}</span><h3>{item.cad_pro_descricao}</h3><p>{item.posicoes} posição(ões) nas dimensões filtradas</p></div><div className="metricas-saldo"><span>Físico <strong>{kg(item.saldo_fisico_kg)}</strong></span><span>Comprometido <strong>{kg(item.saldo_comprometido_kg)}</strong></span><span>Disponível <strong>{kg(item.saldo_disponivel_kg)}</strong></span></div></article>) : <div className="card vazio">Nenhum saldo encontrado.</div>}</div>
+          <h3>{propriedadeSelecionada ? `Produção de ${propriedadeSelecionada.nome}` : "Consolidado por propriedade"}</h3>
+          <div className="lista">{painel?.consolidado_propriedade?.length ? painel.consolidado_propriedade.map((item) => <article className="card item saldo-cadpro" key={item.propriedade ?? "historico"}><div><span className="kicker">CAD/PRO {item.cadpros.map(c => c.codigo).join(" · ")}</span><h3>{item.propriedade_nome}</h3><p>{item.posicoes} posição(ões) nas dimensões filtradas</p></div><div className="metricas-saldo"><span>Físico <strong>{kg(item.saldo_fisico_kg)}</strong></span><span>Comprometido <strong>{kg(item.saldo_comprometido_kg)}</strong></span><span>Disponível <strong>{kg(item.saldo_disponivel_kg)}</strong></span></div></article>) : <div className="card vazio">Nenhum saldo encontrado.</div>}</div>
         </section>
       </section>
 
       <section className="card tabela-saldos">
         <h3>Posições por cultura · safra · classificação · armazenagem</h3>
-        <div className="tabela-scroll"><table><thead><tr><th>CAD/PRO</th><th>Cultura</th><th>Safra</th><th>Classificação</th><th>Armazenagem</th><th>Físico</th><th>Comprometido</th><th>Disponível</th><th>Versão</th></tr></thead><tbody>{painel?.posicoes.map((item) => <tr key={item.id}><td>{item.cad_pro_codigo}</td><td>{item.cultura}</td><td>{item.safra}</td><td>{item.classificacao_codigo}</td><td>{item.armazem_nome}</td><td>{kg(item.saldo_fisico_kg)}</td><td>{kg(item.saldo_comprometido_kg)}</td><td><strong>{kg(item.saldo_disponivel_kg)}</strong></td><td>{item.versao}</td></tr>)}</tbody></table></div>
+        <div className="tabela-scroll"><table><thead><tr><th>Propriedade produtora</th><th>CAD/PRO</th><th>Cultura</th><th>Safra</th><th>Classificação</th><th>Armazenagem</th><th>Físico</th><th>Comprometido</th><th>Disponível</th><th>Versão</th></tr></thead><tbody>{painel?.posicoes.map((item) => <tr key={item.id}><td>{item.propriedade_nome || "Produção histórica sem propriedade"}</td><td>{item.cad_pro_codigo}</td><td>{item.cultura}</td><td>{item.safra}</td><td>{item.classificacao_codigo}</td><td>{item.armazem_nome}</td><td>{kg(item.saldo_fisico_kg)}</td><td>{kg(item.saldo_comprometido_kg)}</td><td><strong>{kg(item.saldo_disponivel_kg)}</strong></td><td>{item.versao}</td></tr>)}</tbody></table></div>
       </section>
 
       <section className="card rastreabilidade-saldos">
         <h3>Rastreabilidade recente</h3>
         <div className="lista">{movimentos.length ? movimentos.map((item) => <article className="movimento-saldo" key={item.id}><div><span className="kicker">{item.data_movimento} · {item.operacao.split("_").join(" ")}</span><strong>{item.cad_pro_codigo} · {item.lote_codigo}</strong><small>{item.cultura} {item.safra} · {item.classificacao_codigo} · {item.armazem_nome}</small></div><div><strong>{numero(item.delta_fisico_kg) >= 0 ? "+" : ""}{kg(item.delta_fisico_kg)}</strong><small>{item.referencia_externa || item.origem_chave_idempotencia}</small></div></article>) : <p>Nenhuma movimentação encontrada.</p>}</div>
       </section>
+      </div>
     </section>
   );
 }

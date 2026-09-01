@@ -13,9 +13,10 @@ from .models import (
 
 @admin.register(ArmazemGraos)
 class ArmazemGraosAdmin(admin.ModelAdmin):
-    list_display = ("nome", "propriedade", "capacidade_kg", "ativo")
-    list_filter = ("ativo", "propriedade")
-    search_fields = ("nome", "propriedade__nome")
+    list_display = ("nome", "capacidade_kg", "ativo")
+    list_filter = ("ativo",)
+    search_fields = ("nome",)
+    readonly_fields = ("propriedade",)
 
 
 @admin.register(LoteGraos)

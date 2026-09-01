@@ -21,6 +21,7 @@ import MapaTalhao from "../../components/MapaTalhao";
 import HistoricoAgronomicoPanel from "./HistoricoAgronomicoPanel";
 import TalhaoForm from "./TalhaoForm";
 import TalhaoLista from "./TalhaoLista";
+import { areaEmAlqueires, valorAlqueiresParaFormulario } from "../../utils/areas";
 
 
 const formularioVazio: TalhaoInput = {
@@ -190,7 +191,7 @@ export default function TalhoesPage() {
     setFormulario({
       propriedade: String(talhao.propriedade),
       nome: talhao.nome,
-      area_hectares: talhao.area_hectares,
+      area_hectares: valorAlqueiresParaFormulario(talhao.area_hectares),
       cultura_atual: talhao.cultura_atual,
       safra: talhao.safra,
       tipo_solo: talhao.tipo_solo,
@@ -326,8 +327,8 @@ export default function TalhoesPage() {
             <section className="detalhes">
               {selecionado.area_calculada_hectares && (
                 <p className="card metadado-geografico">
-                  Área declarada: {selecionado.area_hectares} ha · Área
-                  geodésica calculada: {selecionado.area_calculada_hectares} ha
+                  Área declarada: {areaEmAlqueires(selecionado.area_hectares)} alq. · Área
+                  geodésica calculada: {areaEmAlqueires(selecionado.area_calculada_hectares)} alq.
                   {selecionado.divergencia_area_percentual &&
                     ` · Diferença: ${selecionado.divergencia_area_percentual}%`}
                 </p>

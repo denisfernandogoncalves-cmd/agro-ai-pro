@@ -42,16 +42,22 @@ try {
   const { default: OperacoesPage } = await servidor.ssrLoadModule(
     "/src/pages/Operacoes/OperacoesPage.tsx",
   );
-  const { default: CargasColhidasPage } = await servidor.ssrLoadModule(
+  const {
+    default: CargasColhidasPage,
+    parcelaDaCarga,
+    CartaoCargaColhida,
+    cargaCorrespondeBusca,
+    selecionarPropriedadeConsultada,
+  } = await servidor.ssrLoadModule(
     "/src/pages/CargasColhidas/CargasColhidasPage.tsx",
   );
   const { default: CadastrosAgricolasPage } = await servidor.ssrLoadModule(
     "/src/pages/CadastrosAgricolas/CadastrosAgricolasPage.tsx",
   );
-  const { default: ProducaoSaldosPage, BotaoCreditarProducao } = await servidor.ssrLoadModule(
+  const { default: ProducaoSaldosPage, BotaoCreditarProducao, filtrarLotesProducao, mesmosFiltrosSaldo } = await servidor.ssrLoadModule(
     "/src/pages/ProducaoSaldos/ProducaoSaldosPage.tsx",
   );
-  const { default: VendasPage, BotaoMutacaoVenda, RastreabilidadeVenda } = await servidor.ssrLoadModule(
+  const { default: VendasPage, AcoesLancamentoVenda, BotaoMutacaoVenda, RastreabilidadeVenda, dataPlanilhaVenda, identificacaoCadProVenda, numeroPlanilhaVenda, rotuloPosicaoVenda } = await servidor.ssrLoadModule(
     "/src/pages/Vendas/VendasPage.tsx",
   );
   const { criarControladorMutacaoVenda } = await servidor.ssrLoadModule(
@@ -272,21 +278,113 @@ try {
     React.createElement(CargasColhidasPage, { propriedades: [propriedade] }),
   );
   assert.match(htmlCargas, /Registrar carga manual/);
-  assert.match(htmlCargas, /Propriedade/);
   assert.match(htmlCargas, /CAD\/PRO/);
-  assert.match(htmlCargas, /Talhões da propriedade/);
+  assert.match(htmlCargas, /Escolha as propriedades/);
+  assert.doesNotMatch(htmlCargas, /<label>Propriedade<select/);
+  assert.match(htmlCargas, /Talhões das propriedades/);
   assert.match(htmlCargas, /Nome do motorista/);
   assert.match(htmlCargas, /Peso líquido/);
+  assert.match(htmlCargas, /Propriedade consultada/);
+  assert.match(htmlCargas, /Parcela da propriedade/);
+  assert.match(htmlCargas, /Peso líquido da propriedade/);
+  assert.match(htmlCargas, /Sacas 60 kg da propriedade/);
+  assert.doesNotMatch(htmlCargas, /<th>Peso bruto<\/th>/);
   assert.match(htmlCargas, /Nenhuma carga colhida ativa/);
   assert.doesNotMatch(htmlCargas, /Grupo de colheita/);
+
+  const cargaRateada = {
+    propriedade: 1,
+    propriedade_nome: "Fazenda Modelo",
+    cad_pro: "cad-principal",
+    cad_pro_codigo: "CAD-1",
+    destinado_semente: true,
+    peso_liquido_kg: "975.000",
+    sacas_60kg: "16.250",
+    contexto_colheita: {
+      rateio_producao: [
+        {
+          propriedade_id: 1,
+          cad_pro_id: "cad-principal",
+          cad_pro_numero: "CAD-1",
+          peso_liquido_kg: "650.000",
+          sacas_60kg: "10.833",
+        },
+        {
+          propriedade_id: 2,
+          cad_pro_id: "cad-associado",
+          cad_pro_numero: "CAD-2",
+          peso_liquido_kg: "325.000",
+          sacas_60kg: "5.417",
+        },
+      ],
+    },
+  };
+  assert.deepEqual(parcelaDaCarga(cargaRateada, 1), {
+    peso: 650,
+    sacas: 10.833,
+    sacasSemente: 10.833,
+    cadproId: "cad-principal",
+    cadproCodigo: "CAD-1",
+  });
+  assert.deepEqual(parcelaDaCarga(cargaRateada, 2), {
+    peso: 325,
+    sacas: 5.417,
+    sacasSemente: 5.417,
+    cadproId: "cad-associado",
+    cadproCodigo: "CAD-2",
+  });
+  assert.equal(parcelaDaCarga(cargaRateada, 3), null);
+  assert.equal(selecionarPropriedadeConsultada([1, 2], 2), 2);
+  assert.equal(selecionarPropriedadeConsultada([1, 2], 99), 1);
+
+  const cargaDoisCadpros = {
+    ...cargaRateada, id: 41, status: "ativa", data_colheita: "2026-08-30",
+    propriedade: 8, propriedade_nome: "SÍTIO SAGRILO", cad_pro_codigo: "987654321",
+    motorista: "DENIS", placa: "", cultura: "Milho", safra: "2026",
+    armazem_nome: "teste", peso_bruto_kg: "60000.000", desconto_total_percentual: "1.750",
+    peso_liquido_kg: "58950.000", sacas_60kg: "982.500", movimentacao: 56,
+    destinado_semente: false, umidade_percentual: "15.00", impureza_percentual: "1.00",
+    defeitos_percentual: "0.00", ph: "0.00", contexto_colheita: {
+      rateio_producao: [
+        { propriedade_id: 8, propriedade_nome: "SÍTIO SAGRILO", cad_pro_numero: "987654321", peso_liquido_kg: "41265.000", sacas_60kg: "687.750" },
+        { propriedade_id: 7, propriedade_nome: "teste 2", cad_pro_numero: "2056", peso_liquido_kg: "17685.000", sacas_60kg: "294.750" },
+      ],
+    },
+  };
+  const renderizarCarga = (item) => renderToStaticMarkup(React.createElement(CartaoCargaColhida, {
+    item, carregando: false, onEditar() {}, onExcluir() {},
+  }));
+  const htmlCargaCompartilhada = renderizarCarga(cargaDoisCadpros);
+  assert.match(htmlCargaCompartilhada, /Carga compartilhada · 2 propriedades/);
+  assert.match(htmlCargaCompartilhada, /SÍTIO SAGRILO[\s\S]*?CAD\/PRO 987654321[\s\S]*?41\.265 kg[\s\S]*?687,75 sc/);
+  assert.match(htmlCargaCompartilhada, /teste 2[\s\S]*?CAD\/PRO 2056[\s\S]*?17\.685 kg[\s\S]*?294,75 sc/);
+  assert.match(htmlCargaCompartilhada, /Total da carga[\s\S]*?982,5 sc/);
+  assert.match(htmlCargaCompartilhada, /Líquido total[\s\S]*?58\.950 kg/);
+  assert.equal((htmlCargaCompartilhada.match(/>Editar</g) || []).length, 1);
+  assert.equal((htmlCargaCompartilhada.match(/>Excluir</g) || []).length, 1);
+  assert.equal(cargaCorrespondeBusca(cargaDoisCadpros, " TESTE 2 "), true);
+  assert.equal(cargaCorrespondeBusca(cargaDoisCadpros, "2056"), true);
+  assert.equal(cargaCorrespondeBusca(cargaDoisCadpros, "SAGRILO"), true);
+  assert.equal(cargaCorrespondeBusca(cargaDoisCadpros, "milho"), true);
+  assert.equal(cargaCorrespondeBusca(cargaDoisCadpros, "inexistente"), false);
+  const htmlCargaHistorica = renderizarCarga({ ...cargaDoisCadpros, status: "cancelada" });
+  assert.match(htmlCargaHistorica, /CAD\/PRO 2056/);
+  assert.match(htmlCargaHistorica, /Cancelada/);
+  assert.doesNotMatch(htmlCargaHistorica, /<button/);
+  const htmlCargaLegada = renderizarCarga({ ...cargaDoisCadpros, contexto_colheita: {} });
+  assert.match(htmlCargaLegada, /SÍTIO SAGRILO/);
+  assert.match(htmlCargaLegada, /CAD\/PRO 987654321/);
+  assert.doesNotMatch(htmlCargaLegada, /Carga compartilhada|CAD\/PRO 2056/);
 
   const htmlCadastrosAgricolas = renderToStaticMarkup(
     React.createElement(CadastrosAgricolasPage, { propriedades: [propriedade] }),
   );
   assert.match(htmlCadastrosAgricolas, /Silos e armazéns de grãos/);
+  assert.match(htmlCadastrosAgricolas, /Destinos independentes de propriedades/);
   assert.match(htmlCadastrosAgricolas, /Depósitos de insumos/);
   assert.match(htmlCadastrosAgricolas, /Produtos agrícolas/);
   assert.match(htmlCadastrosAgricolas, /Fornecedores/);
+  assert.match(htmlCadastrosAgricolas, /Silos e armazéns de grãos[\s\S]*?<form class="conteudo"><label>Nome/);
 
   const htmlProducaoSaldos = renderToStaticMarkup(
     React.createElement(ProducaoSaldosPage, { propriedades: [propriedade] }),
@@ -297,6 +395,23 @@ try {
   assert.match(htmlProducaoSaldos, /Disponível/);
   assert.match(htmlProducaoSaldos, /classificação · armazenagem/);
   assert.match(htmlProducaoSaldos, /Rastreabilidade recente/);
+
+  const lotesMesmoCadpro = [
+    { id: 1, propriedade_id: 1, cad_pro: "cad-compartilhado", armazem: 10, ativo: true },
+    { id: 2, propriedade_id: 2, cad_pro: "cad-compartilhado", armazem: 10, ativo: true },
+    { id: 3, propriedade_id: null, cad_pro: "cad-compartilhado", armazem: 10, ativo: true },
+    { id: 4, propriedade_id: 1, cad_pro: "cad-compartilhado", armazem: 20, ativo: true },
+    { id: 5, propriedade_id: 1, cad_pro: "cad-compartilhado", armazem: 10, ativo: false },
+    { id: 6, propriedade_id: 1, cad_pro: null, armazem: 10, ativo: true },
+  ];
+  assert.deepEqual(filtrarLotesProducao(lotesMesmoCadpro, "1").map((lote) => lote.id), [1, 4]);
+  assert.deepEqual(filtrarLotesProducao(lotesMesmoCadpro, "2").map((lote) => lote.id), [2]);
+  assert.deepEqual(filtrarLotesProducao(lotesMesmoCadpro).map((lote) => lote.id), [1, 2, 3, 4]);
+  assert.deepEqual(filtrarLotesProducao(lotesMesmoCadpro, "99"), []);
+  assert.equal(mesmosFiltrosSaldo({ propriedade: "3", cultura: "Trigo" }, { cultura: "Trigo", propriedade: "3" }), true);
+  assert.equal(mesmosFiltrosSaldo({ propriedade: "3" }, { propriedade: "1" }), false);
+  assert.equal(mesmosFiltrosSaldo({ propriedade: "3", cultura: "Trigo" }, { propriedade: "3", cultura: "Milho" }), false);
+
 
   const htmlBotaoPendente = renderToStaticMarkup(
     React.createElement(BotaoCreditarProducao, { desabilitado: true }),
@@ -350,9 +465,91 @@ try {
   });
 
   const htmlVendas = renderToStaticMarkup(React.createElement(VendasPage));
-  assert.match(htmlVendas, /Vendas com bloqueio por saldo/);
-  assert.match(htmlVendas, /Novo contrato/);
-  assert.match(htmlVendas, /Criar rascunho/);
+  assert.match(htmlVendas, /Vendas de grãos/);
+  assert.match(htmlVendas, /Nova venda/);
+  assert.ok(htmlVendas.includes("Propriedade / CAD/PRO / Proprietário"));
+  assert.match(htmlVendas, /Contrato \/ empresa/);
+  assert.match(htmlCadastrosAgricolas, /Nº do contrato/);
+  assert.match(htmlCadastrosAgricolas, /Quantidade \(kg\)/);
+  assert.match(htmlCadastrosAgricolas, /Cadastrar contrato/);
+  assert.match(htmlVendas, /Registrar venda e saída/);
+  assert.match(htmlVendas, /formulario-venda-horizontal/);
+  const estilosVendas = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
+  const regraFormularioVendas = estilosVendas.match(/\.formulario-venda-horizontal\s*\{([^}]*)\}/);
+  assert.ok(regraFormularioVendas, "Estilos do formulário horizontal de vendas devem existir");
+  assert.match(regraFormularioVendas[1], /position:\s*static/);
+  assert.doesNotMatch(regraFormularioVendas[1], /position:\s*sticky/);
+  assert.match(htmlVendas, /Apenas rascunho/);
+  assert.match(htmlVendas, /Sem contrato/);
+  const seletorContrato = htmlVendas.match(/Contrato \/ empresa \(Nº do contrato, opcional\)<select([^>]*)>/);
+  assert.ok(seletorContrato, "Contrato opcional deve estar disponível");
+  assert.doesNotMatch(seletorContrato[1], /required/);
+  for (const campo of ["Data", "Destino", "Placa", "Motorista", "CAD/PRO", "Nº do contrato", "Nº nota produtor", "Nº nota empresa", "Peso líquido (kg)"]) assert.ok(htmlVendas.includes(campo), campo);
+  assert.match(htmlVendas, /Placa \/ Motorista/);
+  assert.match(htmlVendas, /controle-planilha-vendas/);
+  assert.match(htmlVendas, /vendas-planilha/);
+  assert.match(htmlVendas, /Quantidade \(sacas de 60 kg\)/);
+  assert.equal(dataPlanilhaVenda("2026-08-29"), "29/08/2026");
+  assert.equal(dataPlanilhaVenda(""), "—");
+  assert.equal(numeroPlanilhaVenda("37440.000", 3), "37.440,000");
+  assert.equal(numeroPlanilhaVenda(661.833), "661,83");
+  assert.equal(identificacaoCadProVenda(
+    { propriedade: 1, propriedade_nome: "Sítio 2 Irmãos", cad_pro_codigo: "9602264537" },
+    [{ id: 1, proprietario: "Gilsonei" }],
+  ), "Sítio 2 Irmãos - 9602264537 - Gilsonei");
+  const { quantidadeContrato } = await servidor.ssrLoadModule("/src/pages/CadastrosAgricolas/ContratosComerciais.tsx");
+  assert.equal(quantidadeContrato("35.000,500"), "35000.500");
+  assert.equal(quantidadeContrato("1.234.567,89"), "1234567.89");
+  assert.equal(quantidadeContrato("30,5"), "30.5");
+  assert.equal(quantidadeContrato("30.000"), "30000");
+  for (const invalido of ["0", "-1", "1.5", "1,000.50", "abc", "Infinity", "1,1234"]) assert.throws(() => quantidadeContrato(invalido));
+  const acoesLivres = renderToStaticMarkup(React.createElement(AcoesLancamentoVenda, { desabilitado: false, editar() {}, excluir() {} }));
+  assert.match(acoesLivres, /Editar/);
+  assert.match(acoesLivres, /Excluir/);
+  assert.doesNotMatch(acoesLivres, /disabled/);
+  const acoesOcupadas = renderToStaticMarkup(React.createElement(AcoesLancamentoVenda, { desabilitado: true, editar() {}, excluir() {} }));
+  assert.equal((acoesOcupadas.match(/disabled/g) || []).length, 2);
+
+  const posicaoCompartilhada = {
+    cad_pro_codigo: "CAD-COMPARTILHADO", cultura: "Soja", safra: "2026/2027",
+    classificacao_codigo: "PADRAO", armazem_nome: "Silo externo",
+    saldo_disponivel_kg: "1000.000",
+  };
+  const rotuloNorte = rotuloPosicaoVenda({ ...posicaoCompartilhada, propriedade_nome: "Produtora Norte" });
+  const rotuloSul = rotuloPosicaoVenda({ ...posicaoCompartilhada, propriedade_nome: "Produtora Sul" });
+  assert.match(rotuloNorte, /^Produtora Norte · CAD-COMPARTILHADO/);
+  assert.match(rotuloSul, /^Produtora Sul · CAD-COMPARTILHADO/);
+  assert.notEqual(rotuloNorte, rotuloSul);
+  assert.match(rotuloPosicaoVenda({ ...posicaoCompartilhada, propriedade_nome: null }), /^Produção histórica sem propriedade/);
+  const { opcoesOrigemVenda, posicoesDaOrigemVenda } = await servidor.ssrLoadModule("/src/pages/Vendas/origemVenda.ts");
+  const posicoesVenda = [
+    { ...posicaoCompartilhada, id: 1, cad_pro: "CAD-A", propriedade_id: 1, propriedade_nome: "Produtora Norte" },
+    { ...posicaoCompartilhada, id: 2, cad_pro: "CAD-A", propriedade_id: 2, propriedade_nome: "Produtora Sul" },
+    { ...posicaoCompartilhada, id: 3, cad_pro: "CAD-A", propriedade_id: 1, cultura: "Trigo" },
+    { ...posicaoCompartilhada, id: 4, cad_pro: "CAD-B", propriedade_id: 3, saldo_disponivel_kg: "0" },
+  ];
+  const propriedadesVenda = [
+    { id: 1, nome: "Produtora Norte", proprietario: "Ana" },
+    { id: 2, nome: "Produtora Sul", proprietario: "João" },
+  ];
+  const origensVenda = opcoesOrigemVenda(posicoesVenda, propriedadesVenda);
+  assert.deepEqual(origensVenda.map(o => o.rotulo), [
+    "Produtora Norte / CAD/PRO CAD-COMPARTILHADO / Ana",
+    "Produtora Sul / CAD/PRO CAD-COMPARTILHADO / João",
+    "Propriedade #3 / CAD/PRO CAD-COMPARTILHADO / Proprietário não informado",
+  ]);
+  assert.deepEqual(posicoesDaOrigemVenda(posicoesVenda, origensVenda[0].chave).map(p => p.id), [1, 3]);
+  assert.deepEqual(posicoesDaOrigemVenda(posicoesVenda, origensVenda[1].chave).map(p => p.id), [2]);
+  assert.equal(posicoesDaOrigemVenda(posicoesVenda, "").length, 0);
+  const historicoVenda = { ...posicaoCompartilhada, cad_pro: "CAD-A", propriedade_id: null };
+  const origensHistoricas = opcoesOrigemVenda([...posicoesVenda, historicoVenda], []);
+  assert.equal(origensHistoricas.length, 4);
+  assert.deepEqual(posicoesDaOrigemVenda(posicoesVenda, "CAD-B:3").map(p => p.id), [4]);
+  assert.equal(opcoesOrigemVenda([{ ...posicoesVenda[0], saldo_disponivel_kg: "-100" }], propriedadesVenda).length, 1);
+  const origemSemEntrada = opcoesOrigemVenda([], propriedadesVenda, [{ id: "CAD-NOVO", codigo: "NOVO", ativo: true, propriedades: [1, 2] }]);
+  assert.equal(origemSemEntrada.length, 2);
+  assert.notEqual(origemSemEntrada[0].chave, origemSemEntrada[1].chave);
+  assert.ok(origensHistoricas.some(o => o.rotulo === "Produção histórica sem propriedade / CAD/PRO CAD-COMPARTILHADO / Proprietário não informado"));
   const htmlRastreabilidadeVenda = renderToStaticMarkup(
     React.createElement(RastreabilidadeVenda, {
       venda: { posicao: 17, lote_operacional_codigo: "COLH-2-PADRAO" },
@@ -429,6 +626,62 @@ try {
   assert.match(htmlTabelaRelatorios, /Físico/);
   assert.match(htmlTabelaRelatorios, /disponível/);
 
+  const produtividade = {
+    id: 41, data: "2026-08-30", propriedade_nome: "SÍTIO SAGRILO",
+    cad_pro_codigo: "987654321", cultura: "Milho", safra: "2026",
+    area_hectares: "70.000", quantidade_kg: "41265.000", sacas_60kg: "687.750",
+    media_sacas_hectare: "9.825", destinado_semente: true, semente_sacas_60kg: "687.750",
+  };
+  const htmlProdutividade = renderToStaticMarkup(React.createElement(TabelaRelatorio, {
+    secao: "produtividade", itens: [produtividade, {
+      ...produtividade, id: 42, propriedade_nome: "teste 2", cad_pro_codigo: "2056",
+      area_hectares: "30.000", quantidade_kg: "17685.000", sacas_60kg: "294.750",
+      destinado_semente: false,
+    }],
+  }));
+  for (const valor of ["28,926 alq.", "12,397 alq.", "41.265,000 kg", "17.685,000 kg", "687,750 sc", "294,750 sc", "23,777 sc/alq."]) {
+    assert.ok(htmlProdutividade.includes(valor), valor);
+  }
+  assert.doesNotMatch(htmlProdutividade, /70\.000 ha|30\.000 ha|687\.750 sc|9\.825 sc/);
+  assert.match(htmlProdutividade, />987654321</);
+  assert.match(htmlProdutividade, />2056</);
+  assert.match(htmlProdutividade, />2026</);
+  const htmlTransporte = renderToStaticMarkup(React.createElement(TabelaRelatorio, {
+    secao: "motoristas", itens: [{ id: 1, motorista: "Teste", quantidade_cargas: 1234,
+      quantidade_kg: "100000.000", sacas_60kg: "1666.667", semente_kg: "0.000" }],
+  }));
+  assert.match(htmlTransporte, />1\.234</);
+  assert.match(htmlTransporte, /1\.666,667 sc/);
+  assert.match(htmlTransporte, /100\.000,000 kg/);
+  const htmlDecimaisPequenos = renderToStaticMarkup(React.createElement(TabelaRelatorio, {
+    secao: "produtividade", itens: [{ ...produtividade, quantidade_kg: "-1250.125",
+      sacas_60kg: "0.000", media_sacas_hectare: "0.151", area_hectares: null }],
+  }));
+  assert.match(htmlDecimaisPequenos, /-1\.250,125 kg/);
+  assert.match(htmlDecimaisPequenos, /0,000 sc/);
+  assert.match(htmlDecimaisPequenos, /0,365 sc\/alq\./);
+  assert.match(htmlDecimaisPequenos, /0,000 alq\./);
+
+  const totaisProducao = { area_alqueires: "10.000", quantidade_kg: "6000.000", sacas_60kg: "100.000", semente_kg: "600.000", semente_sacas_60kg: "10.000", outros_locais_kg: "1200.000", media_sacas_alqueire: "10.000" };
+  const htmlProducaoPropriedade = renderToStaticMarkup(React.createElement(TabelaRelatorio, {
+    secao: "producao_propriedade", totaisProducao,
+    colunasProducao: ["propriedade", "cad_pro", "area", "kg", "media"],
+    itens: [{ id: "1:cad", propriedade_nome: "Fazenda Modelo", cad_pro_codigo: "CAD-1", area_alqueires: "10.000", quantidade_kg: "6000.000", sacas_60kg: "100.000", media_sacas_alqueire: "10.000" }],
+  }));
+  for (const valor of ["Fazenda Modelo", "CAD-1", "10,000 alq.", "6.000,000 kg", "10,000 sc/alq.", "TOTAL"]) assert.ok(htmlProducaoPropriedade.includes(valor), valor);
+  assert.doesNotMatch(htmlProducaoPropriedade, /Outros locais|Armazenagens/);
+
+  const { alqueiresDeHectares, hectaresDeAlqueires } = await servidor.ssrLoadModule("/src/utils/areas.ts");
+  assert.equal(alqueiresDeHectares("2.42"), 1);
+  assert.equal(hectaresDeAlqueires("1"), "2.42");
+  const mapaTalhaoFonte = await readFile(new URL("../src/components/MapaTalhao.tsx", import.meta.url), "utf8");
+  const mapaPropriedadeFonte = await readFile(new URL("../src/components/MapaPropriedade.tsx", import.meta.url), "utf8");
+  for (const fonteMapa of [mapaTalhaoFonte, mapaPropriedadeFonte]) {
+    assert.match(fonteMapa, /World_Imagery/);
+    assert.match(fonteMapa, /Satélite/);
+    assert.match(fonteMapa, /Mapa convencional/);
+  }
+
   const htmlRastreabilidadeRelatorios = renderToStaticMarkup(
     React.createElement(TabelaRelatorio, {
       secao: "rastreabilidade",
@@ -495,9 +748,38 @@ try {
     "utf8",
   );
   assert.match(appFonte, /Cadastros agrícolas/);
+  const { default: TransferenciasSaldoPage, agruparHistoricoTransferencias, culturasTransferencia, opcoesPosicaoTransferencia, posicaoDestinoCompativel, rotuloPosicaoTransferencia, safrasTransferencia } = await servidor.ssrLoadModule("/src/pages/TransferenciasSaldo/TransferenciasSaldoPage.tsx");
+  const htmlTransferencia = renderToStaticMarkup(React.createElement(TransferenciasSaldoPage));
+  for (const rotulo of ["Cultura", "Ano / safra", "Propriedade / CAD/PRO de origem / Proprietário", "Propriedade / CAD/PRO de destino / Proprietário", "Quantidade (kg)", "Transferir saldo", "Referência / documento", "Observações", "Registro"]) assert.ok(htmlTransferencia.includes(rotulo));
+  assert.doesNotMatch(htmlTransferencia, /Lote de origem|Lote de destino/);
+  const posicaoCerta = { id: 1, cad_pro: "A", cad_pro_codigo: "123", propriedade_id: 1, propriedade_nome: "Sítio São Silvestre", cultura: "Soja", safra: "2026", classificacao_codigo: "PADRAO", armazem: 1, armazem_nome: "Silo", saldo_fisico_kg: "100", saldo_comprometido_kg: "0", saldo_disponivel_kg: "100", versao: 1, atualizado_em: "2026-08-31" };
+  assert.equal(posicaoDestinoCompativel(posicaoCerta, { ...posicaoCerta, id: 2, cad_pro: "B" }), true);
+  assert.equal(posicaoDestinoCompativel(posicaoCerta, posicaoCerta), false);
+  assert.equal(posicaoDestinoCompativel(posicaoCerta, { ...posicaoCerta, id: 2, cultura: "Trigo" }), false);
+  assert.match(rotuloPosicaoTransferencia(posicaoCerta, [{ id: 1, nome: "Sítio A", proprietario: "Maria" }]), /^Sítio A \/ CAD\/PRO 123 \/ Maria/);
+  const origensCompartilhadas = opcoesPosicaoTransferencia([
+    posicaoCerta,
+    { ...posicaoCerta, id: 2, propriedade_id: 2, propriedade_nome: "Lote 27 - Conrado" },
+    { ...posicaoCerta, id: 3, propriedade_id: 3, saldo_disponivel_kg: "0" },
+  ], [], true);
+  assert.equal(origensCompartilhadas.length, 2);
+  assert.notEqual(origensCompartilhadas[0].chave, origensCompartilhadas[1].chave);
+  const posicoesSafras = [posicaoCerta, { ...posicaoCerta, id: 2, cultura: "Milho", safra: "2025" }, { ...posicaoCerta, id: 3, safra: "2024" }, { ...posicaoCerta, id: 4, cultura: "Trigo", saldo_disponivel_kg: "0" }];
+  assert.deepEqual(culturasTransferencia(posicoesSafras), ["Milho", "Soja"]);
+  assert.deepEqual(safrasTransferencia(posicoesSafras, "Soja"), ["2026", "2024"]);
+  const movimentosTransferencia = [
+    { id: 1, origem_chave_idempotencia: "t-1", operacao: "transferencia_saida" },
+    { id: 2, origem_chave_idempotencia: "t-1", operacao: "transferencia_entrada" },
+  ];
+  const historicoTransferencia = agruparHistoricoTransferencias(movimentosTransferencia);
+  assert.equal(historicoTransferencia.length, 1);
+  assert.equal(historicoTransferencia[0].saida.id, 1);
+  assert.equal(historicoTransferencia[0].entrada.id, 2);
+  assert.ok(appFonte.indexOf('onClick={() => setModulo("transferencias")}') < appFonte.indexOf('onClick={() => setModulo("vendas")}'));
+
   assert.doesNotMatch(appFonte, /Grupos de colheita/);
 
-  console.log("24 testes de componentes, submissão, geometria e PWA aprovados.");
+  console.log("40 testes de componentes, submissão, geometria e PWA aprovados.");
 } finally {
   await servidor.close();
 }

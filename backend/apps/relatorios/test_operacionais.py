@@ -46,9 +46,9 @@ class RelatorioOperacionalBase:
         self.armazem_c = ArmazemGraos.objects.create(
             propriedade=self.propriedade_c, nome="Silo C", capacidade_kg="100000"
         )
-        self.lote_a = self._lote(self.armazem_a, self.cad_a, "A", "Soja", "2026/2027", "PADRAO")
-        self.lote_b = self._lote(self.armazem_b, self.cad_a, "B", "Milho", "2026/2027", "SEMENTE")
-        self.lote_c = self._lote(self.armazem_c, self.cad_b, "C", "Soja", "2025/2026", "PADRAO")
+        self.lote_a = self._lote(self.armazem_a, self.propriedade_a, self.cad_a, "A", "Soja", "2026/2027", "PADRAO")
+        self.lote_b = self._lote(self.armazem_b, self.propriedade_b, self.cad_a, "B", "Milho", "2026/2027", "SEMENTE")
+        self.lote_c = self._lote(self.armazem_c, self.propriedade_c, self.cad_b, "C", "Soja", "2025/2026", "PADRAO")
         self._credito(self.lote_a, "1000", "credito:a", date(2026, 8, 1))
         self._credito(self.lote_b, "2000", "credito:b", date(2026, 8, 2))
         self._credito(self.lote_c, "3000", "credito:c", date(2026, 7, 1))
@@ -81,9 +81,10 @@ class RelatorioOperacionalBase:
             data_entrega=date(2026, 8, 4),
         )
 
-    def _lote(self, armazem, cad, codigo, cultura, safra, classificacao):
+    def _lote(self, armazem, propriedade, cad, codigo, cultura, safra, classificacao):
         return LoteGraos.objects.create(
             armazem=armazem,
+            propriedade=propriedade,
             cad_pro=cad,
             codigo=codigo,
             cultura=cultura,
@@ -298,6 +299,21 @@ class RelatorioOperacionalSelectorTests(RelatorioOperacionalBase, TestCase):
         self.assertEqual(producao_b["dados"]["resultados"][0]["quantidade_kg"], "800.000")
         self.assertEqual(producao_b["dados"]["resultados"][0]["armazem_nome"], "Silo A")
         self.assertEqual(producao_b["totais"]["semente_kg"], "800.000")
+
+        agrupado_b = self.relatorio(
+            secao="producao_propriedade", propriedade=self.propriedade_b.pk
+        )
+        self.assertEqual(agrupado_b["dados"]["total"], 1)
+        linha = agrupado_b["dados"]["resultados"][0]
+        self.assertEqual(linha["cad_pro_codigo"], "CAD-A")
+        self.assertEqual(linha["area_alqueires"], "33.058")
+        self.assertEqual(linha["quantidade_kg"], "800.000")
+        self.assertEqual(linha["outros_locais_kg"], "800.000")
+        self.assertEqual(linha["semente_kg"], "800.000")
+        self.assertEqual(
+            agrupado_b["totais_producao_propriedade"]["quantidade_kg"],
+            "800.000",
+        )
 
         transporte = self.relatorio(secao="motoristas", motorista="João")
         self.assertEqual(transporte["dados"]["total"], 1)

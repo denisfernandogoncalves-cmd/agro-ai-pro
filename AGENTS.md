@@ -21,6 +21,19 @@ Se o conflito envolver regra de negócio, perda de dados, credenciais, custo ext
 
 ## Modo autônomo
 
+### Backup obrigatório — orientação do Product Owner em 30/08/2026
+
+- Sempre fazer backup antes de iniciar alterações em cada tarefa e antes de
+  migrations, atualizações do ambiente ou operações que alterem dados existentes.
+- Preservar o código atual, inclusive mudanças não commitadas; incluir banco e
+  uploads quando a tarefa envolver o aplicativo ou seus dados persistentes.
+- Usar pasta privada com data/hora, fora de áreas públicas e ignorada pelo Git.
+  Não sobrescrever, apagar ou publicar backups anteriores.
+- Verificar integridade e registrar caminho, conteúdo e hashes. Se o backup
+  falhar, corrigir a falha antes de prosseguir com as alterações.
+- Backup não autoriza exclusão nem restauração sobre dados atuais. Restaurações
+  exigem decisão explícita e devem ser ensaiadas primeiro em ambiente isolado.
+
 Para cada tarefa:
 
 1. confirme a branch e o estado do repositório;

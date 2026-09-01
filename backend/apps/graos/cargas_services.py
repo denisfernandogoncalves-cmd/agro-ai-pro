@@ -15,9 +15,11 @@ from .models import (
     GrupoColheita,
     LoteGraos,
     MovimentacaoGraos,
+    RateioCargaColhida,
     normalizar_placa,
 )
 from .services import (
+    _bloquear_armazens,
     bloquear_cadpro_para_saldo,
     creditar_producao,
     estornar_movimentacao,
@@ -263,7 +265,8 @@ def _fingerprint(
 
 
 def _montar_contexto_colheita(
-    *, propriedade, cad_pro, propriedades_ids, talhoes_ids, grupo=None
+    *, propriedade, cad_pro, propriedades_ids, talhoes_ids,
+    cadpros_por_propriedade=None, grupo=None
 ):
     cad_pro_principal = cad_pro
     propriedades_ids = tuple(dict.fromkeys(
@@ -273,12 +276,21 @@ def _montar_contexto_colheita(
         raise CargaColhidaError(
             "A propriedade principal deve fazer parte da colheita selecionada."
         )
-    if grupo is None and propriedades_ids != (propriedade.pk,):
+    cadpros_por_propriedade = cadpros_por_propriedade or {}
+    try:
+        cadpros_escolhidos = {
+            int(propriedade_id): str(cad_pro_id)
+            for propriedade_id, cad_pro_id in cadpros_por_propriedade.items()
+            if cad_pro_id
+        }
+    except (TypeError, ValueError, AttributeError) as exc:
         raise CargaColhidaError(
-            "O fluxo direto aceita uma propriedade por carga. Registre cargas "
-            "separadas para manter o saldo oficial de cada CAD/PRO."
+            "As escolhas de CAD/PRO por propriedade são inválidas."
+        ) from exc
+    if set(cadpros_escolhidos) - set(propriedades_ids):
+        raise CargaColhidaError(
+            "Há CAD/PRO informado para uma propriedade não selecionada."
         )
-
     propriedades = list(
         Propriedade.objects.filter(pk__in=propriedades_ids)
         .prefetch_related("vinculos_cadpro__cad_pro")
@@ -315,9 +327,22 @@ def _montar_contexto_colheita(
             for vinculo in item.vinculos_cadpro.all()
             if vinculo.ativo and vinculo.cad_pro.ativo
         ]
+        cad_pro_escolhido_id = cadpros_escolhidos.get(item.pk)
         if item.pk == propriedade.pk:
             cad_pro_item = next(
                 (cad for cad in cadpros if cad.pk == cad_pro_principal.pk),
+                None,
+            )
+            if (
+                cad_pro_escolhido_id
+                and cad_pro_escolhido_id != str(cad_pro_principal.pk)
+            ):
+                raise CargaColhidaError(
+                    "O CAD/PRO principal diverge da escolha da propriedade principal."
+                )
+        elif cad_pro_escolhido_id:
+            cad_pro_item = next(
+                (cad for cad in cadpros if str(cad.pk) == cad_pro_escolhido_id),
                 None,
             )
         elif len(cadpros) == 1:
@@ -330,8 +355,7 @@ def _montar_contexto_colheita(
                     f"A propriedade {item.nome} não possui CAD/PRO ativo."
                 )
             raise CargaColhidaError(
-                f"A propriedade {item.nome} possui mais de um CAD/PRO ativo. "
-                "Mantenha um único CAD/PRO ativo para realizar o rateio."
+                f"Selecione um CAD/PRO ativo vinculado à propriedade {item.nome}."
             )
         propriedades_contexto.append(
             {
@@ -425,13 +449,14 @@ def _aplicar_rateio_producao(contexto, *, peso_liquido_kg, sacas_60kg):
 
 
 def _obter_lote(
-    *, cad_pro, cultura, safra, armazem, destinado_semente, grupo=None
+    *, propriedade, cad_pro, cultura, safra, armazem, destinado_semente, grupo=None
 ):
     classificacao = "SEMENTE" if destinado_semente else "PADRAO"
     if grupo is None:
         lote = (
             LoteGraos.objects.filter(
                 armazem=armazem,
+                propriedade=propriedade,
                 cad_pro=cad_pro,
                 cultura__iexact=cultura,
                 safra=safra,
@@ -442,7 +467,14 @@ def _obter_lote(
             .first()
         )
         semente_codigo = "|".join(
-            (str(cad_pro.pk), str(armazem.pk), cultura.upper(), safra.upper(), classificacao)
+            (
+                str(propriedade.pk),
+                str(cad_pro.pk),
+                str(armazem.pk),
+                cultura.upper(),
+                safra.upper(),
+                classificacao,
+            )
         )
         codigo = (
             f"COLH-{hashlib.sha256(semente_codigo.encode('utf-8')).hexdigest()[:12].upper()}"
@@ -459,6 +491,7 @@ def _obter_lote(
 
     if lote:
         dimensoes = (
+            lote.propriedade_id == propriedade.pk,
             lote.cad_pro_id == cad_pro.pk,
             lote.cultura.casefold() == cultura.casefold(),
             lote.safra == safra,
@@ -473,6 +506,7 @@ def _obter_lote(
 
     lote = LoteGraos(
         armazem=armazem,
+        propriedade=propriedade,
         cad_pro=cad_pro,
         codigo=codigo,
         cultura=cultura,
@@ -487,6 +521,7 @@ def _obter_lote(
     except IntegrityError:
         lote = LoteGraos.objects.get(armazem=armazem, codigo=codigo)
         dimensoes = (
+            lote.propriedade_id == propriedade.pk,
             lote.cad_pro_id == cad_pro.pk,
             lote.cultura.casefold() == cultura.casefold(),
             lote.safra == safra,
@@ -531,6 +566,13 @@ def _resolver_contexto_principal(*, propriedade, cad_pro, grupo_colheita):
     return propriedade, cad_pro, grupo
 
 
+def _bloquear_recursos_carga(*, cad_pro_ids, armazem_ids):
+    # O conjunto completo deve ser bloqueado antes da primeira parcela.
+    for cad_pro_id in sorted({str(item) for item in cad_pro_ids}):
+        bloquear_cadpro_para_saldo(cad_pro_id)
+    _bloquear_armazens(armazem_ids)
+
+
 @transaction.atomic
 def registrar_carga_colhida(
     *,
@@ -560,6 +602,7 @@ def registrar_carga_colhida(
     desconto_ph_por_ponto=None,
     grupo_colheita=None,
     propriedades_selecionadas=(),
+    cadpros_por_propriedade=None,
     correcao_de_id=None,
     chave_registro="",
 ):
@@ -582,8 +625,6 @@ def registrar_carga_colhida(
     armazem = ArmazemGraos.objects.select_related("propriedade").get(pk=armazem.pk)
     if not armazem.ativo:
         raise CargaColhidaError("A armazenagem está inativa.")
-    if armazem.propriedade_id != propriedade.pk:
-        raise CargaColhidaError("A armazenagem deve pertencer à propriedade da carga.")
 
     contexto_colheita = _montar_contexto_colheita(
         propriedade=propriedade,
@@ -591,6 +632,7 @@ def registrar_carga_colhida(
         grupo=grupo,
         propriedades_ids=propriedades_selecionadas,
         talhoes_ids=talhoes_selecionados,
+        cadpros_por_propriedade=cadpros_por_propriedade,
     )
     contexto_colheita.update(cultura=cultura, safra=safra)
 
@@ -643,14 +685,6 @@ def registrar_carga_colhida(
         contexto_colheita["chave_registro"] = " ".join(
             str(chave_registro).strip().split()
         )
-    lote = _obter_lote(
-        cad_pro=cad_pro,
-        cultura=cultura,
-        safra=safra,
-        armazem=armazem,
-        destinado_semente=destinado_semente,
-        grupo=grupo,
-    )
     metadados = {
         "origem": "registro_manual_carga_colhida",
         "propriedade_id": propriedade.pk,
@@ -665,17 +699,48 @@ def registrar_carga_colhida(
         metadados["grupo_colheita_legado_id"] = grupo.pk
     if correcao_de_id:
         metadados["correcao_de_carga_id"] = correcao_de_id
-    resultado = creditar_producao(
-        usuario=usuario,
-        lote=lote,
-        quantidade_kg=liquido,
-        chave_idempotencia=f"carga-colhida:{fingerprint}",
-        data_movimento=data_colheita,
-        referencia_externa=f"CARGA-{fingerprint[:12]}",
-        observacoes=observacoes,
-        metadados=metadados,
+    _bloquear_recursos_carga(
+        cad_pro_ids=(item["cad_pro_id"] for item in contexto_colheita["rateio_producao"]),
+        armazem_ids=(armazem.pk,),
     )
-    movimento = MovimentacaoGraos.objects.get(pk=resultado.movimentacoes[0].id)
+    creditos = []
+    for parcela in contexto_colheita["rateio_producao"]:
+        propriedade_rateio = Propriedade.objects.get(pk=parcela["propriedade_id"])
+        cad_pro_rateio = CADPro.objects.get(pk=parcela["cad_pro_id"])
+        lote_rateio = _obter_lote(
+            propriedade=propriedade_rateio,
+            cad_pro=cad_pro_rateio,
+            cultura=cultura,
+            safra=safra,
+            armazem=armazem,
+            destinado_semente=destinado_semente,
+            grupo=grupo if propriedade_rateio.pk == propriedade.pk else None,
+        )
+        resultado = creditar_producao(
+            usuario=usuario,
+            lote=lote_rateio,
+            quantidade_kg=parcela["peso_liquido_kg"],
+            chave_idempotencia=(
+                f"carga-colhida:{fingerprint}:propriedade:{parcela['propriedade_id']}"
+            ),
+            data_movimento=data_colheita,
+            referencia_externa=f"CARGA-{fingerprint[:12]}",
+            observacoes=observacoes,
+            metadados={
+                **metadados,
+                "propriedade_rateio_id": parcela["propriedade_id"],
+                "cad_pro_rateio_id": parcela["cad_pro_id"],
+                "proporcao_rateio": parcela["proporcao"],
+            },
+        )
+        movimento_rateio = MovimentacaoGraos.objects.get(
+            pk=resultado.movimentacoes[0].id
+        )
+        creditos.append((parcela, lote_rateio, movimento_rateio))
+    parcela_principal, lote, movimento = next(
+        item for item in creditos
+        if item[0]["propriedade_id"] == propriedade.pk
+    )
     carga = CargaColhida(
         grupo_colheita=grupo,
         propriedade=propriedade,
@@ -708,6 +773,18 @@ def registrar_carga_colhida(
     try:
         carga.full_clean()
         carga.save()
+        for parcela, lote_rateio, movimento_rateio in creditos:
+            RateioCargaColhida.objects.create(
+                carga=carga,
+                propriedade_id=parcela["propriedade_id"],
+                cad_pro_id=parcela["cad_pro_id"],
+                lote=lote_rateio,
+                movimentacao=movimento_rateio,
+                area_hectares=parcela["area_hectares"],
+                proporcao=parcela["proporcao"],
+                peso_liquido_kg=parcela["peso_liquido_kg"],
+                sacas_60kg=parcela["sacas_60kg"],
+            )
     except IntegrityError as exc:
         raise CargaColhidaDuplicadaError(
             "Esta carga já foi registrada para o mesmo contexto, data, veículo e peso bruto."
@@ -727,27 +804,39 @@ def cancelar_carga_colhida(*, usuario, carga, motivo="Exclusão solicitada pelo 
         raise CargaColhidaSubstituidaError(
             substituida_por_id=carga.substituida_por_id
         )
-    estorno_existente = (
-        MovimentacaoGraos.objects.filter(estorno_de_id=carga.movimentacao_id)
-        .order_by("criado_em", "id")
-        .first()
+    movimentos = list(
+        MovimentacaoGraos.objects.filter(rateio_carga_colhida__carga=carga)
+        .select_related("posicao")
+        .order_by("rateio_carga_colhida__propriedade_id")
+    ) or [carga.movimentacao]
+    _bloquear_recursos_carga(
+        cad_pro_ids=(item.posicao.cad_pro_id for item in movimentos),
+        armazem_ids=(item.posicao.armazem_id for item in movimentos),
     )
-    if estorno_existente is None:
-        estornar_movimentacao(
-            usuario=usuario,
-            movimentacao=carga.movimentacao,
-            chave_idempotencia=f"carga-colhida:cancelar:{carga.pk}",
-            data_movimento=timezone.localdate(),
-            referencia_externa=f"CARGA-CANCELADA-{carga.pk}",
-            observacoes=motivo,
-            metadados={"carga_colhida_id": carga.pk, "operacao": "cancelamento"},
-            permitir_carga_colhida=True,
+    estornos = []
+    for indice, movimento_rateio in enumerate(movimentos):
+        estorno_existente = (
+            MovimentacaoGraos.objects.filter(estorno_de_id=movimento_rateio.pk)
+            .order_by("criado_em", "id")
+            .first()
         )
-        cancelada_em = timezone.now()
-        cancelada_por = usuario
-    else:
-        cancelada_em = estorno_existente.criado_em
-        cancelada_por = estorno_existente.criado_por
+        if estorno_existente is None:
+            resultado = estornar_movimentacao(
+                usuario=usuario,
+                movimentacao=movimento_rateio,
+                chave_idempotencia=f"carga-colhida:cancelar:{carga.pk}:rateio:{indice}",
+                data_movimento=timezone.localdate(),
+                referencia_externa=f"CARGA-CANCELADA-{carga.pk}",
+                observacoes=motivo,
+                metadados={"carga_colhida_id": carga.pk, "operacao": "cancelamento"},
+                permitir_carga_colhida=True,
+            )
+            estorno_existente = MovimentacaoGraos.objects.get(
+                pk=resultado.movimentacoes[0].id
+            )
+        estornos.append(estorno_existente)
+    cancelada_em = max(item.criado_em for item in estornos)
+    cancelada_por = usuario
     carga._registrar_encerramento(
         status=CargaColhida.Status.CANCELADA,
         cancelada_em=cancelada_em,
@@ -765,32 +854,59 @@ def corrigir_carga_colhida(*, usuario, carga, motivo="Correção solicitada pelo
         raise CargaColhidaError(
             "Esta carga já foi encerrada. Edite a versão ativa mais recente."
         )
-    if MovimentacaoGraos.objects.filter(estorno_de_id=original.movimentacao_id).exists():
+    movimentos_originais = list(
+        MovimentacaoGraos.objects.filter(rateio_carga_colhida__carga=original)
+        .select_related("posicao")
+        .order_by("rateio_carga_colhida__propriedade_id")
+    ) or [original.movimentacao]
+    if MovimentacaoGraos.objects.filter(
+        estorno_de_id__in=[item.pk for item in movimentos_originais]
+    ).exists():
         raise CargaColhidaError(
             "A carga já possui estorno e não pode ser editada. Atualize a listagem."
         )
-    destino_cad_pro = dados.get("cad_pro")
-    destino_grupo = dados.get("grupo_colheita")
-    destino_cad_pro_id = (
-        getattr(destino_cad_pro, "pk", None)
-        or getattr(destino_grupo, "cad_pro_id", None)
-        or original.cad_pro_id
+    propriedade_destino, cad_pro_destino, grupo_destino = _resolver_contexto_principal(
+        propriedade=dados.get("propriedade"),
+        cad_pro=dados.get("cad_pro"),
+        grupo_colheita=dados.get("grupo_colheita"),
     )
-    for cad_pro_id in sorted(
-        {original.cad_pro_id, destino_cad_pro_id},
-        key=str,
-    ):
-        bloquear_cadpro_para_saldo(cad_pro_id)
-    estornar_movimentacao(
-        usuario=usuario,
-        movimentacao=original.movimentacao,
-        chave_idempotencia=f"carga-colhida:retificar:{original.pk}",
-        data_movimento=timezone.localdate(),
-        referencia_externa=f"CARGA-RETIFICADA-{original.pk}",
-        observacoes=motivo,
-        metadados={"carga_colhida_id": original.pk, "operacao": "retificacao"},
-        permitir_carga_colhida=True,
+    contexto_destino = _montar_contexto_colheita(
+        propriedade=propriedade_destino,
+        cad_pro=cad_pro_destino,
+        grupo=grupo_destino,
+        propriedades_ids=dados.get("propriedades_selecionadas", ()),
+        talhoes_ids=dados.get("talhoes_selecionados", ()),
+        cadpros_por_propriedade=dados.get("cadpros_por_propriedade"),
     )
+    armazem_destino = dados.get("armazem")
+    if armazem_destino is None:
+        raise CargaColhidaError("Informe a armazenagem de destino da carga.")
+    # Fixa também as escolhas implícitas para não resolver outro CAD/PRO após os locks.
+    dados["cadpros_por_propriedade"] = {
+        str(item["id"]): item["cad_pro_id"]
+        for item in contexto_destino["propriedades"]
+    }
+    _bloquear_recursos_carga(
+        cad_pro_ids=[
+            *(item.posicao.cad_pro_id for item in movimentos_originais),
+            *dados["cadpros_por_propriedade"].values(),
+        ],
+        armazem_ids=[
+            *(item.posicao.armazem_id for item in movimentos_originais),
+            armazem_destino.pk,
+        ],
+    )
+    for indice, movimento_rateio in enumerate(movimentos_originais):
+        estornar_movimentacao(
+            usuario=usuario,
+            movimentacao=movimento_rateio,
+            chave_idempotencia=f"carga-colhida:retificar:{original.pk}:rateio:{indice}",
+            data_movimento=timezone.localdate(),
+            referencia_externa=f"CARGA-RETIFICADA-{original.pk}",
+            observacoes=motivo,
+            metadados={"carga_colhida_id": original.pk, "operacao": "retificacao"},
+            permitir_carga_colhida=True,
+        )
     substituta = registrar_carga_colhida(
         usuario=usuario,
         correcao_de_id=original.pk,

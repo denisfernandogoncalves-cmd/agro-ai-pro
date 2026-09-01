@@ -12,6 +12,7 @@ import {
   OperacaoAgricola,
 } from "../../api/operacoes";
 import { Talhao } from "../../api/talhoes";
+import { areaEmAlqueires, valorAlqueiresParaFormulario } from "../../utils/areas";
 
 
 const hoje = new Date().toISOString().slice(0, 10);
@@ -130,13 +131,13 @@ export default function OperacoesPage() {
           <h2>Planejar operação</h2>
           <label>Talhão<select required value={formulario.talhao} onChange={(e) => {
             const talhao = talhoes.find((item) => String(item.id) === e.target.value);
-            setFormulario({ ...formulario, talhao: e.target.value, area_hectares: talhao?.area_hectares ?? "" });
+            setFormulario({ ...formulario, talhao: e.target.value, area_hectares: valorAlqueiresParaFormulario(talhao?.area_hectares) });
           }}><option value="">Selecione</option>{talhoes.map((item) => <option key={item.id} value={item.id}>{item.nome} · {item.propriedade_nome}</option>)}</select></label>
           <label>Tipo<select value={formulario.tipo} onChange={(e) => setFormulario({ ...formulario, tipo: e.target.value })}><option value="preparo">Preparo do solo</option><option value="plantio">Plantio</option><option value="adubacao">Adubação</option><option value="pulverizacao">Pulverização</option><option value="irrigacao">Irrigação</option><option value="colheita">Colheita</option><option value="outra">Outra</option></select></label>
           <label>Descrição<input required value={formulario.descricao} onChange={(e) => setFormulario({ ...formulario, descricao: e.target.value })} /></label>
           <div className="linha">
             <label>Data planejada<input required type="date" value={formulario.data_planejada} onChange={(e) => setFormulario({ ...formulario, data_planejada: e.target.value })} /></label>
-            <label>Área (ha)<input required max={talhaoSelecionado?.area_hectares} min="0.01" step="0.01" type="number" value={formulario.area_hectares} onChange={(e) => setFormulario({ ...formulario, area_hectares: e.target.value })} /></label>
+            <label>Área (alqueires paulistas)<input required max={valorAlqueiresParaFormulario(talhaoSelecionado?.area_hectares)} min="0.01" step="0.01" type="number" value={formulario.area_hectares} onChange={(e) => setFormulario({ ...formulario, area_hectares: e.target.value })} /></label>
           </div>
           <label>Responsável<input value={formulario.responsavel} onChange={(e) => setFormulario({ ...formulario, responsavel: e.target.value })} /></label>
           <label>Custo estimado<input min="0" step="0.01" type="number" value={formulario.custo_estimado} onChange={(e) => setFormulario({ ...formulario, custo_estimado: e.target.value })} /></label>
@@ -154,7 +155,7 @@ export default function OperacoesPage() {
           <div className="lista">
             {operacoes.length === 0 ? <div className="card vazio">Nenhuma operação planejada.</div> : operacoes.map((item) => (
               <article className={`card item ${selecionada?.id === item.id ? "ativo" : ""}`} key={item.id} onClick={() => setSelecionada(item)}>
-                <div><h3>{item.descricao}</h3><p>{item.talhao_nome} · {item.data_planejada} · {item.status.replace("_", " ")}</p><small>{item.area_hectares} ha · {item.responsavel || "Sem responsável"}</small></div>
+                <div><h3>{item.descricao}</h3><p>{item.talhao_nome} · {item.data_planejada} · {item.status.replace("_", " ")}</p><small>{areaEmAlqueires(item.area_hectares)} alq. · {item.responsavel || "Sem responsável"}</small></div>
                 <strong>{Number(item.custo_estimado).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong>
               </article>
             ))}

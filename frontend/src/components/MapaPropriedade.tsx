@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import {
   CircleMarker,
+  LayersControl,
   MapContainer,
   Polygon,
   Popup,
@@ -39,10 +40,14 @@ export default function MapaPropriedade({
       className="mapa"
       key={`${latitude}-${longitude}`}
     >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
-      />
+      <LayersControl position="topright">
+        <LayersControl.BaseLayer checked name="Satélite">
+          <TileLayer attribution="Tiles &copy; Esri" url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" />
+        </LayersControl.BaseLayer>
+        <LayersControl.BaseLayer name="Mapa convencional">
+          <TileLayer attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>' url="https://tile.openstreetmap.org/{z}/{x}/{y}.png" />
+        </LayersControl.BaseLayer>
+      </LayersControl>
       <CircleMarker center={[latitude, longitude]} radius={8}>
         <Popup>{nome}</Popup>
       </CircleMarker>

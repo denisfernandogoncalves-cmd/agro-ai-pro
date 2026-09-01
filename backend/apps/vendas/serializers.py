@@ -1,16 +1,40 @@
+from decimal import Decimal
+
 from rest_framework import serializers
 
-from apps.graos.models import PosicaoSaldoGraos
+from apps.cadpro.models import CADPro
+from apps.propriedades.models import Propriedade
+from apps.graos.models import ArmazemGraos, PosicaoSaldoGraos
 
-from .models import DevolucaoVendaGraos, EntregaVendaGraos, VendaGraos
+from .models import ContratoComercial, DevolucaoVendaGraos, EntregaVendaGraos, VendaGraos
+
+
+class ContratoComercialSerializer(serializers.ModelSerializer):
+    quantidade_kg = serializers.DecimalField(max_digits=16, decimal_places=3, min_value=Decimal("0.001"))
+    produto = serializers.CharField(max_length=80, allow_blank=False)
+
+    class Meta:
+        model = ContratoComercial
+        fields = ("id", "numero", "empresa", "quantidade_kg", "produto", "ativo")
+
+
+class NovaPosicaoVendaSerializer(serializers.Serializer):
+    propriedade = serializers.PrimaryKeyRelatedField(queryset=Propriedade.objects.all())
+    cad_pro = serializers.PrimaryKeyRelatedField(queryset=CADPro.objects.filter(ativo=True))
+    cultura = serializers.ChoiceField(choices=("Soja", "Milho", "Trigo"))
+    safra = serializers.CharField(max_length=20)
+    classificacao_codigo = serializers.CharField(max_length=50, default="PADRAO")
+    armazem = serializers.PrimaryKeyRelatedField(queryset=ArmazemGraos.objects.filter(ativo=True))
 
 
 class VendaGraosCriacaoSerializer(serializers.Serializer):
-    numero_contrato = serializers.CharField(max_length=80)
-    cliente_nome = serializers.CharField(max_length=160)
+    contrato = serializers.PrimaryKeyRelatedField(queryset=ContratoComercial.objects.all(), required=False, allow_null=True)
+    numero_contrato = serializers.CharField(max_length=80, required=False, allow_blank=True, default="")
+    cliente_nome = serializers.CharField(max_length=160, required=False, allow_blank=True)
     posicao = serializers.PrimaryKeyRelatedField(
-        queryset=PosicaoSaldoGraos.objects.select_related("cad_pro", "armazem")
+        queryset=PosicaoSaldoGraos.objects.select_related("cad_pro", "armazem"), required=False
     )
+    nova_posicao = NovaPosicaoVendaSerializer(required=False)
     quantidade_kg = serializers.DecimalField(max_digits=16, decimal_places=3)
     data_contrato = serializers.DateField(required=False)
     data_limite_entrega = serializers.DateField(
@@ -19,6 +43,21 @@ class VendaGraosCriacaoSerializer(serializers.Serializer):
     observacoes = serializers.CharField(required=False, allow_blank=True)
 
     def validate(self, attrs):
+        if attrs.get("posicao") and attrs.get("nova_posicao"):
+            raise serializers.ValidationError("Informe a posição existente ou os dados de uma nova posição, nunca ambos.")
+        if not self.partial and not attrs.get("posicao") and not attrs.get("nova_posicao"):
+            raise serializers.ValidationError("Selecione a posição ou informe cultura, safra e armazenagem para iniciar o saldo.")
+        if self.partial and attrs.get("nova_posicao"):
+            raise serializers.ValidationError("Para editar, selecione uma posição existente.")
+        if attrs.get("contrato"):
+            attrs["numero_contrato"] = attrs["contrato"].numero
+            attrs["cliente_nome"] = attrs["contrato"].empresa
+        elif not self.partial:
+            attrs["cliente_nome"] = attrs.get("cliente_nome") or attrs.get("destino", "").strip()
+            if not attrs["cliente_nome"]:
+                raise serializers.ValidationError({"cliente_nome": "Informe o comprador ou destino da venda."})
+        elif "cliente_nome" in attrs and not attrs["cliente_nome"]:
+            raise serializers.ValidationError({"cliente_nome": "Informe o comprador da venda."})
         limite = attrs.get("data_limite_entrega")
         contrato = attrs.get("data_contrato")
         if limite and contrato and limite < contrato:
@@ -30,6 +69,16 @@ class VendaGraosCriacaoSerializer(serializers.Serializer):
 
 class CancelamentoSerializer(serializers.Serializer):
     observacoes = serializers.CharField(required=False, allow_blank=True)
+
+
+class AlteracaoSerializer(serializers.Serializer):
+    versao = serializers.IntegerField(min_value=1)
+    motivo = serializers.CharField(max_length=500, allow_blank=False)
+
+
+class EdicaoVendaSerializer(VendaGraosCriacaoSerializer):
+    versao = serializers.IntegerField(min_value=1)
+    motivo = serializers.CharField(max_length=500, allow_blank=False)
 
 
 class MovimentoVendaSerializer(serializers.Serializer):
@@ -44,8 +93,13 @@ class MovimentoVendaSerializer(serializers.Serializer):
 class EntregaMovimentoVendaSerializer(MovimentoVendaSerializer):
     destino = serializers.CharField(max_length=160, required=False, allow_blank=True)
     placa = serializers.CharField(max_length=12, required=False, allow_blank=True)
+    motorista = serializers.CharField(max_length=160, required=False, allow_blank=True)
     nota_produtor = serializers.CharField(max_length=80, required=False, allow_blank=True)
     nota_empresa = serializers.CharField(max_length=80, required=False, allow_blank=True)
+
+
+class SaidaVendaSerializer(VendaGraosCriacaoSerializer, EntregaMovimentoVendaSerializer):
+    """Um lançamento reúne o contexto comercial e os dados da saída."""
 
 
 class EntregaVendaSerializer(serializers.ModelSerializer):
@@ -55,8 +109,8 @@ class EntregaVendaSerializer(serializers.ModelSerializer):
         model = EntregaVendaGraos
         fields = (
             "id", "quantidade_kg", "data_entrega", "referencia_externa",
-            "destino", "placa", "nota_produtor", "nota_empresa",
-            "observacoes", "movimentacao_id", "criado_em",
+            "destino", "placa", "motorista", "nota_produtor", "nota_empresa",
+            "observacoes", "movimentacao_id", "criado_em", "cancelado_em",
         )
 
 
@@ -67,7 +121,7 @@ class DevolucaoVendaSerializer(serializers.ModelSerializer):
         model = DevolucaoVendaGraos
         fields = (
             "id", "quantidade_kg", "data_devolucao", "referencia_externa",
-            "observacoes", "movimentacao_id", "criado_em",
+            "observacoes", "movimentacao_id", "criado_em", "cancelado_em",
         )
 
 
@@ -88,10 +142,10 @@ class VendaGraosSerializer(serializers.ModelSerializer):
         source="posicao.armazem.nome", read_only=True
     )
     propriedade = serializers.IntegerField(
-        source="posicao.armazem.propriedade_id", read_only=True
+        source="posicao.propriedade_id", read_only=True, allow_null=True
     )
     propriedade_nome = serializers.CharField(
-        source="posicao.armazem.propriedade.nome", read_only=True
+        source="posicao.propriedade.nome", read_only=True, allow_null=True
     )
     lote_operacional = serializers.IntegerField(source="lote_id", read_only=True)
     lote_operacional_codigo = serializers.CharField(
@@ -109,11 +163,16 @@ class VendaGraosSerializer(serializers.ModelSerializer):
     )
     entregas = EntregaVendaSerializer(many=True, read_only=True)
     devolucoes = DevolucaoVendaSerializer(many=True, read_only=True)
+    alteracoes = serializers.SerializerMethodField()
+
+    def get_alteracoes(self, obj):
+        return [{"id": a.pk, "tipo": a.tipo, "motivo": a.motivo, "criado_em": a.criado_em,
+                 "usuario": a.criado_por.username} for a in obj.alteracoes.all()]
 
     class Meta:
         model = VendaGraos
         fields = (
-            "id", "numero_contrato", "cliente_nome", "status", "posicao",
+            "id", "numero_contrato", "cliente_nome", "status", "posicao", "contrato", "versao", "excluida_em", "alteracoes",
             "lote_operacional", "lote_operacional_codigo",
             "origem_fisica_alocada", "cad_pro", "cad_pro_codigo", "cultura",
             "safra", "classificacao_codigo", "armazem", "armazem_nome",

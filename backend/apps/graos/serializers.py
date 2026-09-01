@@ -27,10 +27,8 @@ class UUIDPrimaryKeyRelatedField(serializers.PrimaryKeyRelatedField):
 
 
 class ArmazemGraosSerializer(serializers.ModelSerializer):
-    propriedade_nome = serializers.CharField(
-        source="propriedade.nome",
-        read_only=True,
-    )
+    propriedade = serializers.PrimaryKeyRelatedField(read_only=True)
+    propriedade_nome = serializers.SerializerMethodField()
     ocupacao_kg = serializers.SerializerMethodField()
 
     class Meta:
@@ -41,10 +39,10 @@ class ArmazemGraosSerializer(serializers.ModelSerializer):
     def get_ocupacao_kg(self, obj):
         return saldo_armazem(obj)
 
+    def get_propriedade_nome(self, obj):
+        return obj.propriedade.nome if obj.propriedade_id else None
+
     def validate(self, attrs):
-        propriedade_original = (
-            self.instance.propriedade_id if self.instance else None
-        )
         instancia = self.instance or ArmazemGraos()
         for campo, valor in attrs.items():
             setattr(instancia, campo, valor)
@@ -55,19 +53,6 @@ class ArmazemGraosSerializer(serializers.ModelSerializer):
         if self.instance:
             ocupacao = saldo_armazem(self.instance)
             capacidade = attrs.get("capacidade_kg", self.instance.capacidade_kg)
-            propriedade = attrs.get("propriedade")
-            if (
-                propriedade
-                and propriedade.id != propriedade_original
-            ):
-                raise serializers.ValidationError(
-                    {
-                        "propriedade": (
-                            "A propriedade da armazenagem não pode mudar após "
-                            "o cadastro. Crie uma nova armazenagem."
-                        )
-                    }
-                )
             if capacidade < ocupacao:
                 raise serializers.ValidationError(
                     {
@@ -83,19 +68,8 @@ class ArmazemGraosSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         armazem = (
             ArmazemGraos.objects.select_for_update()
-            .select_related("propriedade")
             .get(pk=instance.pk)
         )
-        propriedade = validated_data.get("propriedade")
-        if propriedade and propriedade.pk != armazem.propriedade_id:
-            raise serializers.ValidationError(
-                {
-                    "propriedade": (
-                        "A propriedade da armazenagem não pode mudar após o "
-                        "cadastro. Crie uma nova armazenagem."
-                    )
-                }
-            )
         ocupacao = saldo_armazem(armazem)
         capacidade = validated_data.get("capacidade_kg", armazem.capacidade_kg)
         if capacidade < ocupacao:
@@ -197,6 +171,18 @@ class CargaColhidaSerializer(serializers.ModelSerializer):
         write_only=True,
         required=False,
         default=list,
+    )
+    propriedades_selecionadas = serializers.ListField(
+        child=serializers.IntegerField(min_value=1),
+        write_only=True,
+        required=False,
+        default=list,
+    )
+    cadpros_por_propriedade = serializers.DictField(
+        child=serializers.UUIDField(),
+        write_only=True,
+        required=False,
+        default=dict,
     )
     propriedade_nome = serializers.CharField(
         source="propriedade.nome",
@@ -309,6 +295,8 @@ class CargaColhidaSerializer(serializers.ModelSerializer):
             "destinado_semente",
             "local_colheita",
             "talhoes_selecionados",
+            "propriedades_selecionadas",
+            "cadpros_por_propriedade",
             "tolerancia_impureza_percentual",
             "desconto_impureza_por_ponto",
             "tolerancia_defeitos_percentual",
@@ -414,6 +402,24 @@ class CargaColhidaSerializer(serializers.ModelSerializer):
                 if item.get("id")
             ],
         )
+        propriedades = validated_data.pop(
+            "propriedades_selecionadas",
+            [
+                item["id"]
+                for item in (instance.contexto_colheita or {}).get("propriedades", [])
+                if item.get("id")
+            ],
+        )
+        cadpros_por_propriedade = validated_data.pop(
+            "cadpros_por_propriedade",
+            {
+                str(item["id"]): item["cad_pro_id"]
+                for item in (instance.contexto_colheita or {}).get(
+                    "propriedades", []
+                )
+                if item.get("id") and item.get("cad_pro_id")
+            },
+        )
         campos = (
             "propriedade",
             "cad_pro",
@@ -438,6 +444,8 @@ class CargaColhidaSerializer(serializers.ModelSerializer):
         }
         dados.update(regras)
         dados["talhoes_selecionados"] = talhoes
+        dados["propriedades_selecionadas"] = propriedades
+        dados["cadpros_por_propriedade"] = cadpros_por_propriedade
         return corrigir_carga_colhida(
             usuario=self.context["request"].user,
             carga=instance,
@@ -450,11 +458,11 @@ class LoteGraosSerializer(serializers.ModelSerializer):
     cad_pro = UUIDPrimaryKeyRelatedField(queryset=CADPro.objects.all())
     armazem_nome = serializers.CharField(source="armazem.nome", read_only=True)
     propriedade_id = serializers.IntegerField(
-        source="armazem.propriedade_id",
         read_only=True,
+        allow_null=True,
     )
     propriedade_nome = serializers.CharField(
-        source="armazem.propriedade.nome",
+        source="propriedade.nome",
         read_only=True,
     )
     talhao_nome = serializers.CharField(source="talhao.nome", read_only=True)
@@ -470,16 +478,21 @@ class LoteGraosSerializer(serializers.ModelSerializer):
         if self.instance:
             originais = {
                 "armazem": self.instance.armazem_id,
+                "propriedade": self.instance.propriedade_id,
                 "cad_pro": self.instance.cad_pro_id,
                 "talhao": self.instance.talhao_id,
                 "cultura": self.instance.cultura,
                 "safra": self.instance.safra,
                 "classificacao_codigo": self.instance.classificacao_codigo,
             }
-        elif not attrs.get("cad_pro"):
-            raise serializers.ValidationError(
-                {"cad_pro": "O CAD/PRO é obrigatório para novos lotes."}
-            )
+        else:
+            erros = {}
+            if not attrs.get("propriedade"):
+                erros["propriedade"] = "A propriedade produtora é obrigatória."
+            if not attrs.get("cad_pro"):
+                erros["cad_pro"] = "O CAD/PRO é obrigatório para novos lotes."
+            if erros:
+                raise serializers.ValidationError(erros)
         instancia = self.instance or LoteGraos()
         for campo, valor in attrs.items():
             setattr(instancia, campo, valor)
@@ -489,7 +502,7 @@ class LoteGraosSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError(exc.message_dict) from exc
         if self.instance and self.instance.movimentacoes.exists():
             alterados = []
-            for campo in ("armazem", "cad_pro", "talhao"):
+            for campo in ("armazem", "propriedade", "cad_pro", "talhao"):
                 if campo in attrs:
                     novo_id = getattr(attrs[campo], "id", None)
                     if novo_id != originais[campo]:
@@ -515,6 +528,7 @@ class LoteGraosSerializer(serializers.ModelSerializer):
         lote_bloqueado = LoteGraos.objects.select_for_update().get(pk=instance.pk)
         campos_estruturais = (
             "armazem",
+            "propriedade",
             "cad_pro",
             "talhao",
             "cultura",
@@ -527,7 +541,7 @@ class LoteGraosSerializer(serializers.ModelSerializer):
                 continue
             valor_atual = getattr(lote_bloqueado, f"{campo}_id", None)
             novo_valor = validated_data[campo]
-            if campo in ("armazem", "cad_pro", "talhao"):
+            if campo in ("armazem", "propriedade", "cad_pro", "talhao"):
                 novo_valor = getattr(novo_valor, "pk", None)
             else:
                 valor_atual = getattr(lote_bloqueado, campo)
@@ -560,7 +574,7 @@ class MovimentacaoGraosSerializer(serializers.ModelSerializer):
         read_only=True,
     )
     propriedade_id = serializers.IntegerField(
-        source="posicao.armazem.propriedade_id",
+        source="posicao.propriedade_id",
         read_only=True,
     )
     armazem_nome = serializers.CharField(source="posicao.armazem.nome", read_only=True)
@@ -671,6 +685,9 @@ class FiltrosGraosSerializer(serializers.Serializer):
 
 
 class PosicaoSaldoGraosSerializer(serializers.ModelSerializer):
+    propriedade_nome = serializers.CharField(
+        source="propriedade.nome", read_only=True, allow_null=True,
+    )
     cad_pro = serializers.UUIDField(source="cad_pro_id", read_only=True)
     saldo_disponivel_kg = serializers.DecimalField(
         max_digits=16,
@@ -680,8 +697,8 @@ class PosicaoSaldoGraosSerializer(serializers.ModelSerializer):
     cad_pro_codigo = serializers.CharField(source="cad_pro.codigo", read_only=True)
     armazem_nome = serializers.CharField(source="armazem.nome", read_only=True)
     propriedade_id = serializers.IntegerField(
-        source="armazem.propriedade_id",
         read_only=True,
+        allow_null=True,
     )
 
     class Meta:
@@ -798,11 +815,25 @@ class EstornoMovimentacaoSerializer(serializers.Serializer):
 
 
 class TransferirSaldoFisicoSerializer(serializers.Serializer):
+    posicao_origem = serializers.PrimaryKeyRelatedField(
+        queryset=PosicaoSaldoGraos.objects.select_related("armazem", "cad_pro", "propriedade"),
+        required=False,
+        write_only=True,
+    )
+    posicao_destino = serializers.PrimaryKeyRelatedField(
+        queryset=PosicaoSaldoGraos.objects.select_related("armazem", "cad_pro", "propriedade"),
+        required=False,
+        write_only=True,
+    )
     lote_origem = serializers.PrimaryKeyRelatedField(
-        queryset=LoteGraos.objects.select_related("armazem", "cad_pro")
+        queryset=LoteGraos.objects.select_related("armazem", "cad_pro"),
+        required=False,
+        write_only=True,
     )
     lote_destino = serializers.PrimaryKeyRelatedField(
-        queryset=LoteGraos.objects.select_related("armazem", "cad_pro")
+        queryset=LoteGraos.objects.select_related("armazem", "cad_pro"),
+        required=False,
+        write_only=True,
     )
     quantidade_kg = serializers.DecimalField(
         max_digits=16,
@@ -814,6 +845,56 @@ class TransferirSaldoFisicoSerializer(serializers.Serializer):
     referencia_externa = serializers.CharField(max_length=160, required=False, allow_blank=True)
     observacoes = serializers.CharField(required=False, allow_blank=True)
     metadados = serializers.JSONField(required=False)
+
+    @staticmethod
+    def _lote_adaptador(posicao):
+        return (
+            LoteGraos.objects.select_related("armazem", "cad_pro")
+            .filter(
+                ativo=True,
+                propriedade_id=posicao.propriedade_id,
+                cad_pro_id=posicao.cad_pro_id,
+                cultura=posicao.cultura,
+                safra=posicao.safra,
+                classificacao_codigo=posicao.classificacao_codigo,
+                armazem_id=posicao.armazem_id,
+            )
+            .order_by("pk")
+            .first()
+        )
+
+    def validate(self, attrs):
+        informou_posicao = "posicao_origem" in attrs or "posicao_destino" in attrs
+        informou_lote = "lote_origem" in attrs or "lote_destino" in attrs
+        if informou_posicao and informou_lote:
+            raise serializers.ValidationError(
+                "Informe posições oficiais ou lotes legados, nunca os dois formatos."
+            )
+        if informou_posicao:
+            if "posicao_origem" not in attrs or "posicao_destino" not in attrs:
+                raise serializers.ValidationError(
+                    "Informe a posição oficial de origem e a posição oficial de destino."
+                )
+            if attrs["posicao_origem"].pk == attrs["posicao_destino"].pk:
+                raise serializers.ValidationError(
+                    "A origem e o destino devem ser posições oficiais diferentes."
+                )
+            for lado in ("origem", "destino"):
+                posicao = attrs.pop(f"posicao_{lado}")
+                lote = self._lote_adaptador(posicao)
+                if not lote:
+                    raise serializers.ValidationError({
+                        f"posicao_{lado}": (
+                            "A posição não possui um adaptador operacional ativo. "
+                            "Atualize os cadastros de produção antes de transferir."
+                        )
+                    })
+                attrs[f"lote_{lado}"] = lote
+        elif "lote_origem" not in attrs or "lote_destino" not in attrs:
+            raise serializers.ValidationError(
+                "Informe a posição oficial de origem e a posição oficial de destino."
+            )
+        return attrs
 
 
 class ReconciliarPosicaoSerializer(serializers.Serializer):
@@ -863,9 +944,16 @@ def serializar_painel_saldos(resultado):
         for campo in campos_saldo:
             consolidado[campo] = _decimal_api(consolidado[campo])
         consolidados.append(consolidado)
+    propriedades = []
+    for item in resultado["consolidado_propriedade"]:
+        propriedade = dict(item)
+        for campo in campos_saldo:
+            propriedade[campo] = _decimal_api(propriedade[campo])
+        propriedades.append(propriedade)
     return {
         "resumo": resumo,
         "consolidado_cadpro": consolidados,
+        "consolidado_propriedade": propriedades,
         "posicoes": PosicaoSaldoGraosSerializer(
             resultado["posicoes"],
             many=True,

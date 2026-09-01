@@ -2,7 +2,9 @@
 
 O fluxo registra diretamente a produção recebida por propriedade, CAD/PRO,
 cultura, safra e armazenagem. O peso líquido calculado é creditado no ledger
-oficial do CAD/PRO na mesma transação de banco.
+oficial do CAD/PRO na mesma transação de banco. Uma carga pode reunir várias
+propriedades: suas áreas declaradas são somadas e o peso líquido é rateado
+proporcionalmente, com uma parcela auditável no CAD/PRO de cada propriedade.
 
 Grupo de Colheita não participa mais da operação, da API ou da interface. A
 entidade e seus registros permanecem no banco apenas como legado protegido para
@@ -18,9 +20,15 @@ Cada carga possui como dimensões próprias e obrigatórias:
 - `safra`;
 - `armazem`.
 
-O backend valida que o CAD/PRO está ativo e possui vínculo ativo com a
-propriedade, que o armazém está ativo e pertence à mesma propriedade e que os
-IDs enviados em `talhoes_selecionados` pertencem a ela. O lote de grãos é
+O backend valida que o CAD/PRO principal está ativo e possui vínculo ativo com a
+propriedade principal. `propriedades_selecionadas` aceita uma ou mais
+propriedades. A interface apresenta apenas essa seleção múltipla e solicita o
+CAD/PRO dentro de cada propriedade marcada, sem um seletor singular redundante.
+`cadpros_por_propriedade` registra essas escolhas e cada CAD/PRO deve possuir
+vínculo ativo com sua respectiva propriedade. Os IDs
+enviados em `talhoes_selecionados` devem pertencer a uma das propriedades
+selecionadas. A armazenagem deve estar ativa e é um
+destino independente e pode representar silo próprio ou externo. O lote de grãos é
 determinado pelo servidor e mantém coerência com CAD/PRO, cultura, safra,
 classificação e armazenagem.
 
@@ -28,7 +36,9 @@ Placa e motorista são opcionais isoladamente, mas ao menos um deles deve ser
 informado. A placa é normalizada e deve conter sete letras e números.
 
 `contexto_colheita` congela o contexto produtivo usado no registro, incluindo
-propriedade, CAD/PRO, talhões, áreas e rateio de produção quando aplicável. O
+propriedades, CAD/PROs, talhões, áreas e rateio de produção. Cada parcela também
+é persistida em `RateioCargaColhida` e possui lote e movimentação próprios, para
+que saldo, correção e cancelamento sejam aplicados a todos os CAD/PROs. O
 fingerprint de duplicidade usa as dimensões diretas, data, veículo e peso bruto;
 não depende de Grupo de Colheita.
 
@@ -129,6 +139,23 @@ A listagem aceita `propriedade`, `cad_pro`, `cultura`, `safra`, `armazem`,
 motorista, local de colheita, propriedade, CAD/PRO, cultura e safra. Os status
 são `ativa`, `cancelada` e `substituida`.
 
+Os filtros `propriedade` e `cad_pro` consideram todas as parcelas persistidas
+do rateio. Quando combinados, devem corresponder à mesma parcela. A busca
+textual também inclui o nome da propriedade e o código do CAD/PRO secundários.
+Uma carga aparece uma única vez, mesmo que várias parcelas correspondam à
+consulta. Os pesos retornados continuam sendo os da carga completa; o filtro
+não transforma a listagem em um resumo de peso por propriedade.
+
+Na interface, cargas compartilhadas exibem todas as propriedades e seus
+CAD/PROs, com peso líquido e sacas de cada parcela do snapshot. O total da carga
+fica identificado separadamente. A busca local também considera os produtores
+secundários, e os botões de edição/cancelamento continuam atuando sobre a carga
+inteira. Não há recálculo ou gravação de saldo para montar esse cartão.
+
+Cargas históricas sem parcelas persistidas continuam sendo filtradas pelas
+dimensões principais. Não se inferem novos rateios a partir dos vínculos atuais
+entre CAD/PRO e propriedades. Os filtros de estado e período são mantidos.
+
 ### Criação
 
 Exemplo mínimo, além das medições obrigatórias:
@@ -168,8 +195,9 @@ fingerprint canônico do contexto e da carga.
 Uma carga e sua movimentação nunca são reescritas. `PATCH` executa uma
 retificação atômica:
 
-1. bloqueia em ordem estável os CAD/PROs de origem e destino e estorna a
-   movimentação da carga original;
+1. resolve os CAD/PROs de todas as propriedades de destino, bloqueia em ordem
+   estável todos os CAD/PROs e armazéns de origem e destino e estorna cada
+   parcela da carga original;
 2. registra uma nova carga com o contexto corrigido;
 3. marca a original como `substituida` e grava `substituida_por`;
 4. reverte toda a transação se o estorno ou a substituição falhar.
@@ -190,7 +218,7 @@ estornado com segurança, a operação retorna conflito e nada é alterado.
 
 ### Cancelamento por `DELETE`
 
-`DELETE` representa cancelamento operacional: cria o estorno exato no ledger,
+`DELETE` representa cancelamento operacional: cria o estorno exato de cada parcela no ledger,
 marca a carga como `cancelada` e registra usuário, instante e motivo. Nenhuma
 linha de carga ou movimentação é apagada. O retorno de sucesso é HTTP 204.
 
@@ -203,6 +231,25 @@ operador agir sobre a versão ativa e não perder silenciosamente sua intenção
 
 Duplicidade de carga e conflitos do ledger retornam HTTP 409. Demais violações
 do contrato retornam HTTP 400.
+
+### Integridade de rateios e concorrência
+
+Movimentações ligadas à carga, inclusive parcelas secundárias do rateio, não
+podem ser estornadas individualmente pelas rotas genéricas de movimentação ou
+saldo. A API retorna HTTP 409 e orienta a corrigir ou cancelar a própria carga.
+O parâmetro interno `permitir_carga_colhida` não é aceito como autorização pelo
+contrato público da API.
+
+Registro, cancelamento e correção bloqueiam o conjunto completo de CAD/PROs,
+ordenado por UUID, antes dos armazéns e antes de processar a primeira parcela.
+Na correção, esse conjunto inclui as parcelas antigas e novas, mesmo que seus
+CAD/PROs não sejam os principais da carga. Isso impede que operações com CAD/PROs
+cruzados adquiram bloqueios em ordens opostas. Os armazéns também são bloqueados
+em ordem estável, incluindo origem e destino na correção.
+
+Se uma parcela não puder ser estornada, inclusive por saldo reservado, toda a
+operação é revertida: parcelas anteriores, saldos, origens de auditoria e status
+da carga permanecem inalterados. O cancelamento repetido permanece idempotente.
 
 ## Banco e legado
 

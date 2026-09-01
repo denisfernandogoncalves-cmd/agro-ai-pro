@@ -1,0 +1,130 @@
+.somente-impressao { display: none; }
+
+@page {
+  size: A4 portrait;
+  margin: 3cm 2cm 2cm 3cm;
+}
+
+@page vendas {
+  size: A4 portrait;
+  margin: 1cm;
+}
+
+@media print {
+  :root, body { background: white !important; color: #111 !important; min-width: 0; font-size: 10pt; }
+  .pagina { width: auto; max-width: none; margin: 0; padding: 0; }
+  .pagina * { box-shadow: none !important; text-shadow: none !important; }
+  .pagina nav, .cabecalho-acoes, .pagina button, .pagina form, .pagina dialog,
+  .pagina input, .pagina select, .pagina textarea, .pagina .formulario,
+  .pagina .movimentos-venda, .pagina .linha-transicao, .pagina .sucesso,
+  .leaflet-control-container, .nao-imprimir { display: none !important; }
+  .somente-impressao { display: block; }
+  .impressao-contexto { font-size: 8pt; border-bottom: 1px solid #777; padding-bottom: 3mm; }
+  .pagina > header { margin-bottom: 3mm; }
+  h1 { font-size: 18pt; }
+  h2 { font-size: 14pt; }
+  h3 { font-size: 11pt; }
+  h1, h2, h3, h4, summary { break-after: avoid; }
+  p, li { orphans: 3; widows: 3; }
+  .pagina :is(.grade, .conteudo, .lista, .auxiliares-grade, .historico, .historico-lista,
+    .detalhes, .detalhe-venda, .controle-planilha, .rastreabilidade-lista,
+    [class^="modulo-"]) { display: block; }
+  .pagina .card { padding: 3mm; margin-bottom: 3mm; border-radius: 0; }
+  .pagina article, .pagina tr, .pagina figure { break-inside: avoid; }
+  .pagina .item { display: block; }
+  .pagina .item + .item { margin-top: 3mm; }
+  .pagina :is(.resumo-saldos, .resumo-venda, .resumo-controle, .resumos-operacionais,
+    .resumos-financeiros, .resumos-estoque, .resumos-mercado, .previsoes-grade,
+    .noticias-mercado, .corn-belt-grade, .lista-insights, .rastreabilidade-grade) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3mm;
+  }
+  .pagina :is(.tabela-scroll, .tabela-responsiva, .controle-planilha, .grafico-mercado) {
+    overflow: visible; max-height: none; border-radius: 0;
+  }
+  .pagina table { width: 100%; min-width: 0; max-width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 8pt; }
+  .pagina thead { display: table-header-group; }
+  .pagina tfoot { display: table-footer-group; }
+  .pagina th, .pagina td { padding: 1.5mm 1mm; font-size: inherit; overflow-wrap: anywhere; white-space: normal; }
+  .pagina th { color: #111; border-bottom: 1px solid #777; text-transform: none; }
+  .pagina :is(.metricas-saldo, .metricas-venda, .controle-planilha-total) { min-width: 0; }
+  .pagina :is(.controle-planilha-titulo, .cargas-cabecalho, .carga-item-topo, .detalhe-venda-topo) { display: block; }
+  .pagina :is(.controle-planilha-total, .metricas-saldo) { text-align: left; }
+  .pagina .carga-item-total { flex-shrink: 1; }
+  .pagina .posicao strong, .pagina .movimento-estoque strong { white-space: normal; }
+  .pagina .mapa { height: 7cm; break-inside: avoid; }
+  .pagina svg, .pagina img { max-width: 100%; }
+  .pagina a { color: inherit; text-decoration: none; }
+  .pagina .paginacao { margin: 3mm 0; font-size: 8pt; }
+  .pagina [hidden] { display: none !important; }
+
+  .modulo-vendas { page: vendas; }
+  body:has(.modulo-vendas) .pagina > header,
+  body:has(.modulo-vendas) .pagina > .impressao-contexto { display: none !important; }
+  .modulo-vendas > * { display: none !important; }
+  .modulo-vendas > .vendas-grade { display: block !important; }
+  .modulo-vendas > .vendas-grade > * { display: none !important; }
+  .modulo-vendas > .vendas-grade > .controle-planilha-vendas { display: block !important; }
+  .controle-planilha-vendas {
+    border: 0;
+    color: #000;
+    font-family: "Times New Roman", Times, serif;
+    overflow: visible;
+  }
+  .controle-planilha-vendas .titulo-impressao-vendas {
+    background: #c6e0b4;
+    border: 1px solid #000;
+    display: block;
+    font-size: 16pt;
+    margin: 0;
+    padding: 2mm;
+    text-align: center;
+  }
+  .controle-planilha-vendas .controle-planilha-titulo {
+    align-items: stretch;
+    background: #c6e0b4;
+    border: 1px solid #000;
+    border-top: 0;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    padding: 2mm 3mm;
+  }
+  .controle-planilha-vendas .controle-planilha-titulo .kicker { color: #000; }
+  .controle-planilha-vendas .controle-planilha-titulo h3,
+  .controle-planilha-vendas .controle-planilha-titulo p { margin: 0; }
+  .controle-planilha-vendas .controle-planilha-total { min-width: 38mm; text-align: center; }
+  .controle-planilha-vendas .tabela-responsiva { border: 0; overflow: visible; }
+  .controle-planilha-vendas .vendas-planilha {
+    border-collapse: collapse;
+    font-size: 8pt;
+    min-width: 0;
+    table-layout: fixed;
+    width: 100%;
+  }
+  .controle-planilha-vendas .vendas-planilha th,
+  .controle-planilha-vendas .vendas-planilha td {
+    border: 1px solid #000;
+    color: #000;
+    padding: 1.5mm 1mm;
+    text-align: center;
+    vertical-align: middle;
+  }
+  .controle-planilha-vendas .vendas-planilha th {
+    background: #c6e0b4 !important;
+    font-size: 8pt;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .controle-planilha-vendas .vendas-planilha th:nth-child(1) { width: 9%; }
+  .controle-planilha-vendas .vendas-planilha th:nth-child(2) { width: 13%; }
+  .controle-planilha-vendas .vendas-planilha th:nth-child(3) { width: 9%; }
+  .controle-planilha-vendas .vendas-planilha th:nth-child(4) { width: 22%; }
+  .controle-planilha-vendas .vendas-planilha th:nth-child(5) { width: 8%; }
+  .controle-planilha-vendas .vendas-planilha th:nth-child(6) { width: 10%; }
+  .controle-planilha-vendas .vendas-planilha th:nth-child(7) { width: 9%; }
+  .controle-planilha-vendas .vendas-planilha th:nth-child(8) { width: 10%; }
+  .controle-planilha-vendas .vendas-planilha th:nth-child(9) { width: 10%; }
+  .controle-planilha-vendas .vendas-planilha .cadpro-impressao {
+    display: inline;
+    text-transform: uppercase;
+  }
+}

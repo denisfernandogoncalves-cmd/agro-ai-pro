@@ -42,6 +42,8 @@ class ArmazemGraos(models.Model):
         Propriedade,
         on_delete=models.PROTECT,
         related_name="armazens_graos",
+        null=True,
+        blank=True,
     )
     nome = models.CharField(max_length=120)
     capacidade_kg = models.DecimalField(
@@ -62,6 +64,11 @@ class ArmazemGraos(models.Model):
                 fields=("propriedade", "nome"),
                 name="graos_armazem_nome_propriedade_unico",
             ),
+            models.UniqueConstraint(
+                fields=("nome",),
+                condition=models.Q(propriedade__isnull=True),
+                name="graos_armazem_externo_nome_unico",
+            ),
             models.CheckConstraint(
                 condition=models.Q(capacidade_kg__gt=0),
                 name="graos_armazem_capacidade_positiva",
@@ -69,7 +76,9 @@ class ArmazemGraos(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.nome} - {self.propriedade.nome}"
+        if self.propriedade_id:
+            return f"{self.nome} - {self.propriedade.nome}"
+        return self.nome
 
 
 class LoteGraos(models.Model):
@@ -84,6 +93,14 @@ class LoteGraos(models.Model):
         related_name="lotes_graos",
         null=True,
         blank=True,
+    )
+    propriedade = models.ForeignKey(
+        Propriedade,
+        on_delete=models.PROTECT,
+        related_name="lotes_graos",
+        null=True,
+        blank=True,
+        help_text="Propriedade produtora; independe da armazenagem física.",
     )
     talhao = models.ForeignKey(
         Talhao,
@@ -166,10 +183,6 @@ class LoteGraos(models.Model):
             ),
         ]
 
-    @property
-    def propriedade_id(self):
-        return self.armazem.propriedade_id
-
     def clean(self):
         super().clean()
         self.cultura = " ".join(str(self.cultura or "").strip().split())
@@ -180,25 +193,21 @@ class LoteGraos(models.Model):
         erros = {}
         if not self.classificacao_codigo:
             erros["classificacao_codigo"] = "Informe a classificação dos grãos."
-        if (
-            self.talhao_id
-            and self.armazem_id
-            and self.talhao.propriedade_id != self.armazem.propriedade_id
-        ):
-            erros["talhao"] = (
-                "O talhão e o armazém devem pertencer à mesma propriedade."
-            )
-        if self.cad_pro_id and self.armazem_id:
+        if self.propriedade_id and self.cad_pro_id:
             from apps.cadpro.models import CADProPropriedade
 
             if not CADProPropriedade.objects.filter(
+                propriedade_id=self.propriedade_id,
                 cad_pro_id=self.cad_pro_id,
-                propriedade_id=self.armazem.propriedade_id,
                 ativo=True,
-                cad_pro__ativo=True,
             ).exists():
                 erros["cad_pro"] = (
-                    "O CAD/PRO deve possuir vínculo ativo com a propriedade do armazém."
+                    "O CAD/PRO deve possuir vínculo ativo com a propriedade produtora."
+                )
+        if self.talhao_id and self.propriedade_id:
+            if self.talhao.propriedade_id != self.propriedade_id:
+                erros["talhao"] = (
+                    "O talhão deve pertencer à propriedade produtora do lote."
                 )
         if erros:
             raise ValidationError(erros)
@@ -570,11 +579,83 @@ class CargaColhida(models.Model):
         return f"{self.data_colheita} - {identificador} - {self.peso_liquido_kg} kg"
 
 
+class RateioCargaColhida(models.Model):
+    carga = models.ForeignKey(
+        CargaColhida,
+        on_delete=models.PROTECT,
+        related_name="rateios",
+    )
+    propriedade = models.ForeignKey(
+        Propriedade,
+        on_delete=models.PROTECT,
+        related_name="rateios_cargas_colhidas",
+    )
+    cad_pro = models.ForeignKey(
+        "cadpro.CADPro",
+        on_delete=models.PROTECT,
+        related_name="rateios_cargas_colhidas",
+    )
+    lote = models.ForeignKey(
+        LoteGraos,
+        on_delete=models.PROTECT,
+        related_name="rateios_cargas_colhidas",
+    )
+    movimentacao = models.OneToOneField(
+        "MovimentacaoGraos",
+        on_delete=models.PROTECT,
+        related_name="rateio_carga_colhida",
+    )
+    area_hectares = models.DecimalField(max_digits=14, decimal_places=4)
+    proporcao = models.DecimalField(max_digits=12, decimal_places=9)
+    peso_liquido_kg = models.DecimalField(max_digits=16, decimal_places=3)
+    sacas_60kg = models.DecimalField(max_digits=16, decimal_places=3)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("carga_id", "propriedade_id")
+        verbose_name = "rateio de carga colhida"
+        verbose_name_plural = "rateios de cargas colhidas"
+        constraints = [
+            models.UniqueConstraint(
+                fields=("carga", "propriedade"),
+                name="graos_rateio_carga_propriedade_unico",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(area_hectares__gt=0),
+                name="graos_rateio_area_positiva",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(proporcao__gt=0) & models.Q(proporcao__lte=1),
+                name="graos_rateio_proporcao_valida",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(peso_liquido_kg__gt=0),
+                name="graos_rateio_peso_positivo",
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValidationError("Rateios de cargas colhidas são imutáveis.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError("Rateios de cargas colhidas são imutáveis.")
+
+
 class PosicaoSaldoGraos(models.Model):
     cad_pro = models.ForeignKey(
         "cadpro.CADPro",
         on_delete=models.PROTECT,
         related_name="posicoes_saldo_graos",
+    )
+    propriedade = models.ForeignKey(
+        Propriedade,
+        on_delete=models.PROTECT,
+        related_name="posicoes_saldo_graos",
+        null=True,
+        blank=True,
+        help_text="Propriedade produtora; independe da armazenagem física.",
     )
     cultura = models.CharField(max_length=50)
     safra = models.CharField(max_length=20)
@@ -605,30 +686,25 @@ class PosicaoSaldoGraos(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=(
+                    "propriedade",
                     "cad_pro",
                     "cultura",
                     "safra",
                     "classificacao_codigo",
                     "armazem",
                 ),
-                name="graos_posicao_chave_unica",
-            ),
-            models.CheckConstraint(
-                condition=models.Q(saldo_fisico_kg__gte=0),
-                name="graos_posicao_fisico_nao_negativo",
+                name="graos_posicao_prop_chave_unica",
             ),
             models.CheckConstraint(
                 condition=models.Q(saldo_comprometido_kg__gte=0),
                 name="graos_posicao_comprom_nao_negativo",
             ),
-            models.CheckConstraint(
-                condition=models.Q(
-                    saldo_comprometido_kg__lte=models.F("saldo_fisico_kg")
-                ),
-                name="graos_posicao_comprom_ate_fisico",
-            ),
         ]
         indexes = [
+            models.Index(
+                fields=("propriedade", "cad_pro", "cultura", "safra"),
+                name="graos_posicao_prop_cad_idx",
+            ),
             models.Index(
                 fields=("cad_pro", "cultura", "safra"),
                 name="graos_posicao_cad_cult_idx",

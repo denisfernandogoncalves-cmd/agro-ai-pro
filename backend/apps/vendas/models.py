@@ -2,11 +2,28 @@ from decimal import Decimal
 
 from django.conf import settings
 from django.core.validators import MinValueValidator
+from django.core.serializers.json import DjangoJSONEncoder
 from django.db import models
 from django.utils import timezone
 
 
 ZERO = Decimal("0.000")
+
+
+class ContratoComercial(models.Model):
+    numero = models.CharField(max_length=80)
+    empresa = models.CharField(max_length=160)
+    quantidade_kg = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True, validators=[MinValueValidator(Decimal("0.001"))])
+    produto = models.CharField(max_length=80, blank=True)
+    ativo = models.BooleanField(default=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("empresa", "numero", "id")
+        constraints = [models.UniqueConstraint(fields=("numero", "empresa"), name="vendas_contrato_empresa_unico")]
+
+    def __str__(self):
+        return f"{self.numero} · {self.empresa}"
 
 
 class VendaGraos(models.Model):
@@ -17,7 +34,10 @@ class VendaGraos(models.Model):
         ENTREGUE = "entregue", "Entregue"
         CANCELADA = "cancelada", "Cancelada"
 
-    numero_contrato = models.CharField(max_length=80, unique=True)
+    numero_contrato = models.CharField(max_length=80, blank=True)
+    contrato = models.ForeignKey(ContratoComercial, null=True, blank=True, on_delete=models.PROTECT, related_name="vendas")
+    versao = models.PositiveIntegerField(default=1)
+    excluida_em = models.DateTimeField(null=True, blank=True)
     cliente_nome = models.CharField(max_length=160)
     posicao = models.ForeignKey(
         "graos.PosicaoSaldoGraos",
@@ -140,10 +160,11 @@ class VendaGraos(models.Model):
         )
 
     def __str__(self):
-        return f"{self.numero_contrato} - {self.cliente_nome}"
+        return f"{self.numero_contrato or 'Sem contrato'} - {self.cliente_nome}"
 
 
 class EntregaVendaGraos(models.Model):
+    cancelado_em = models.DateTimeField(null=True, blank=True)
     venda = models.ForeignKey(
         VendaGraos, on_delete=models.PROTECT, related_name="entregas"
     )
@@ -152,6 +173,7 @@ class EntregaVendaGraos(models.Model):
     referencia_externa = models.CharField(max_length=120, blank=True)
     destino = models.CharField(max_length=160, blank=True)
     placa = models.CharField(max_length=12, blank=True)
+    motorista = models.CharField(max_length=160, blank=True)
     nota_produtor = models.CharField(max_length=80, blank=True)
     nota_empresa = models.CharField(max_length=80, blank=True)
     observacoes = models.TextField(blank=True)
@@ -184,6 +206,7 @@ class EntregaVendaGraos(models.Model):
         ]
 
 class DevolucaoVendaGraos(models.Model):
+    cancelado_em = models.DateTimeField(null=True, blank=True)
     venda = models.ForeignKey(
         VendaGraos, on_delete=models.PROTECT, related_name="devolucoes"
     )
@@ -218,3 +241,18 @@ class DevolucaoVendaGraos(models.Model):
                 name="vendas_devolucao_quantidade_positiva",
             )
         ]
+
+
+class AlteracaoVendaGraos(models.Model):
+    venda = models.ForeignKey(VendaGraos, on_delete=models.PROTECT, related_name="alteracoes")
+    tipo = models.CharField(max_length=40)
+    chave = models.CharField(max_length=120, unique=True)
+    hash_requisicao = models.CharField(max_length=64)
+    motivo = models.CharField(max_length=500)
+    antes = models.JSONField(encoder=DjangoJSONEncoder)
+    depois = models.JSONField(encoder=DjangoJSONEncoder)
+    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-id",)

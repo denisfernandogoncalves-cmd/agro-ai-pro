@@ -20,9 +20,11 @@ from .models import (
     CargaColhida,
     GrupoColheita,
     MovimentacaoGraos,
+    OrigemSaldoGraos,
     PosicaoSaldoGraos,
+    RateioCargaColhida,
 )
-from .services import SaldoGraosError, estornar_movimentacao
+from .services import SaldoGraosError, estornar_movimentacao, reservar_saldo
 
 
 class CargaColhidaBase:
@@ -173,6 +175,69 @@ class CalculoCargaColhidaTests(CargaColhidaBase, TestCase):
             {Decimal(item["peso_liquido_kg"]) for item in rateios},
             {Decimal("650.000"), Decimal("325.000")},
         )
+        self.assertEqual(RateioCargaColhida.objects.filter(carga=carga).count(), 2)
+        self.assertEqual(
+            sum(
+                RateioCargaColhida.objects.filter(carga=carga).values_list(
+                    "peso_liquido_kg", flat=True
+                )
+            ),
+            carga.peso_liquido_kg,
+        )
+        posicoes = PosicaoSaldoGraos.objects.filter(
+            cad_pro=self.cad_pro,
+        ).order_by("propriedade_id")
+        self.assertEqual(posicoes.count(), 2)
+        self.assertEqual(
+            {
+                item.propriedade_id: item.saldo_fisico_kg
+                for item in posicoes
+            },
+            {
+                self.propriedade.pk: Decimal("650.000"),
+                outra.pk: Decimal("325.000"),
+            },
+        )
+
+    def test_rateia_e_credita_o_saldo_de_cada_cadpro(self):
+        outra = Propriedade.objects.create(
+            nome="Fazenda Associada", municipio="Sorriso", uf="MT",
+            area_hectares="500.00",
+        )
+        outro_cadpro = CADPro.objects.create(
+            codigo="CAD/PRO 456",
+            descricao="Titular da propriedade associada",
+        )
+        CADProPropriedade.objects.create(cad_pro=self.cad_pro, propriedade=outra)
+        CADProPropriedade.objects.create(cad_pro=outro_cadpro, propriedade=outra)
+        dados = self.dados_carga()
+        dados["propriedades_selecionadas"] = [self.propriedade.pk, outra.pk]
+        dados["cadpros_por_propriedade"] = {
+            str(self.propriedade.pk): str(self.cad_pro.pk),
+            str(outra.pk): str(outro_cadpro.pk),
+        }
+
+        carga = registrar_carga_colhida(usuario=self.usuario, **dados)
+
+        self.assertEqual(
+            PosicaoSaldoGraos.objects.get(cad_pro=self.cad_pro).saldo_fisico_kg,
+            Decimal("650.000"),
+        )
+        self.assertEqual(
+            PosicaoSaldoGraos.objects.get(cad_pro=outro_cadpro).saldo_fisico_kg,
+            Decimal("325.000"),
+        )
+        self.assertEqual(
+            set(
+                RateioCargaColhida.objects.filter(carga=carga).values_list(
+                    "cad_pro_id", "peso_liquido_kg"
+                )
+            ),
+            {
+                (self.cad_pro.pk, Decimal("650.000")),
+                (outro_cadpro.pk, Decimal("325.000")),
+            },
+        )
 
 
 class CargaColhidaApiTests(CargaColhidaBase, APITestCase):
@@ -191,6 +256,10 @@ class CargaColhidaApiTests(CargaColhidaBase, APITestCase):
         dados["armazem"] = self.armazem.pk
         dados["data_colheita"] = dados["data_colheita"].isoformat()
         dados["talhoes_selecionados"] = []
+        dados["propriedades_selecionadas"] = [self.propriedade.pk]
+        dados["cadpros_por_propriedade"] = {
+            str(self.propriedade.pk): str(self.cad_pro.pk),
+        }
         dados["tolerancia_impureza_percentual"] = "1.00"
         dados["desconto_impureza_por_ponto"] = "0.500"
         dados["tolerancia_defeitos_percentual"] = "2.00"
@@ -224,24 +293,19 @@ class CargaColhidaApiTests(CargaColhidaBase, APITestCase):
         self.assertEqual(CargaColhida.objects.count(), 1)
         self.assertEqual(MovimentacaoGraos.objects.count(), 1)
 
-    def test_rejeita_armazem_de_outra_propriedade(self):
-        outra = Propriedade.objects.create(
-            nome="Outra Fazenda",
-            municipio="Lucas do Rio Verde",
-            uf="MT",
-            area_hectares="500",
-        )
+    def test_aceita_armazenagem_externa_sem_propriedade(self):
         armazem = ArmazemGraos.objects.create(
-            propriedade=outra,
             nome="Silo Externo",
             capacidade_kg="5000",
         )
         payload = self.payload()
         payload["armazem"] = armazem.pk
         resposta = self.client.post(self.url, payload, format="json")
-        self.assertEqual(resposta.status_code, 400)
-        self.assertEqual(CargaColhida.objects.count(), 0)
-        self.assertEqual(MovimentacaoGraos.objects.count(), 0)
+        self.assertEqual(resposta.status_code, 201, resposta.data)
+        self.assertEqual(resposta.data["propriedade"], self.propriedade.pk)
+        self.assertEqual(resposta.data["armazem"], armazem.pk)
+        self.assertEqual(CargaColhida.objects.count(), 1)
+        self.assertEqual(MovimentacaoGraos.objects.count(), 1)
 
     def test_exige_autenticacao(self):
         self.client.force_authenticate(user=None)
@@ -330,6 +394,91 @@ class CargaColhidaApiTests(CargaColhidaBase, APITestCase):
             PosicaoSaldoGraos.objects.get(cad_pro=self.cad_pro).saldo_fisico_kg,
             Decimal("975.000"),
         )
+
+    def _criar_carga_rateada(self):
+        outra = Propriedade.objects.create(
+            nome="Fazenda Secundária", municipio="Sorriso", uf="MT",
+            area_hectares="500.00",
+        )
+        outro_cadpro = CADPro.objects.create(
+            codigo="CAD-RATEIO-SECUNDARIO", descricao="Titular da parcela secundária",
+        )
+        CADProPropriedade.objects.create(cad_pro=outro_cadpro, propriedade=outra)
+        dados = self.payload()
+        dados["propriedades_selecionadas"].append(outra.pk)
+        dados["cadpros_por_propriedade"][str(outra.pk)] = str(outro_cadpro.pk)
+        resposta = self.client.post(self.url, dados, format="json")
+        self.assertEqual(resposta.status_code, 201, resposta.data)
+        carga = CargaColhida.objects.get(pk=resposta.data["id"])
+        return carga, carga.rateios.get(propriedade=outra)
+
+    def test_bloqueia_estorno_generico_de_todas_as_parcelas_pelas_duas_rotas(self):
+        carga, secundaria = self._criar_carga_rateada()
+        saldos = list(PosicaoSaldoGraos.objects.order_by("pk").values_list("saldo_fisico_kg", flat=True))
+        origens = OrigemSaldoGraos.objects.count()
+        for movimento_id in (carga.movimentacao_id, secundaria.movimentacao_id):
+            rotas = (
+                reverse("movimentacoes-graos-estornar", args=(movimento_id,)),
+                reverse("saldos-graos-estornar-movimentacao"),
+            )
+            for indice, rota in enumerate(rotas):
+                with self.subTest(movimento=movimento_id, rota=rota):
+                    resposta = self.client.post(rota, {
+                        "movimentacao": movimento_id,
+                        "chave_idempotencia": f"estorno-parcela:{movimento_id}:{indice}",
+                        "permitir_carga_colhida": True,
+                    }, format="json")
+                    self.assertEqual(resposta.status_code, 409, resposta.data)
+                    self.assertIn("pela própria carga", str(resposta.data))
+        carga.refresh_from_db()
+        self.assertEqual(carga.status, CargaColhida.Status.ATIVA)
+        self.assertEqual(MovimentacaoGraos.objects.count(), 2)
+        self.assertEqual(OrigemSaldoGraos.objects.count(), origens)
+        self.assertEqual(list(PosicaoSaldoGraos.objects.order_by("pk").values_list("saldo_fisico_kg", flat=True)), saldos)
+
+    def test_cancelamento_rateado_estorna_todas_as_parcelas_uma_unica_vez(self):
+        carga, _ = self._criar_carga_rateada()
+        detalhe = reverse("cargas-colhidas-detail", args=(carga.pk,))
+        self.assertEqual(self.client.delete(detalhe).status_code, 204)
+        self.assertEqual(self.client.delete(detalhe).status_code, 204)
+        carga.refresh_from_db()
+        self.assertEqual(carga.status, CargaColhida.Status.CANCELADA)
+        self.assertEqual(carga.rateios.count(), 2)
+        self.assertEqual(MovimentacaoGraos.objects.count(), 4)
+        self.assertEqual(set(PosicaoSaldoGraos.objects.values_list("saldo_fisico_kg", flat=True)), {Decimal("0")})
+
+    def test_correcao_rateada_substitui_todas_as_parcelas(self):
+        carga, _ = self._criar_carga_rateada()
+        resposta = self.client.patch(
+            reverse("cargas-colhidas-detail", args=(carga.pk,)),
+            {"peso_bruto_kg": "900.000"}, format="json",
+        )
+        self.assertEqual(resposta.status_code, 200, resposta.data)
+        carga.refresh_from_db()
+        self.assertEqual(carga.status, CargaColhida.Status.SUBSTITUIDA)
+        self.assertEqual(carga.substituida_por_id, resposta.data["id"])
+        self.assertEqual(carga.substituida_por.rateios.count(), 2)
+        self.assertEqual(MovimentacaoGraos.objects.count(), 6)
+        self.assertEqual(set(PosicaoSaldoGraos.objects.values_list("saldo_fisico_kg", flat=True)), {Decimal("585.000"), Decimal("292.500")})
+
+    def test_cancelamento_e_correcao_com_parcela_reservada_nao_estornam_parcialmente(self):
+        carga, secundaria = self._criar_carga_rateada()
+        reservar_saldo(usuario=self.usuario, lote=secundaria.lote, quantidade_kg="1.000", chave_idempotencia="reserva-parcela")
+        saldos = list(PosicaoSaldoGraos.objects.order_by("pk").values_list("saldo_fisico_kg", "saldo_comprometido_kg"))
+        movimentos = MovimentacaoGraos.objects.count()
+        origens = OrigemSaldoGraos.objects.count()
+        detalhe = reverse("cargas-colhidas-detail", args=(carga.pk,))
+        for metodo in ("delete", "patch"):
+            with self.subTest(metodo=metodo):
+                resposta = getattr(self.client, metodo)(detalhe, {"peso_bruto_kg": "900.000"}, format="json")
+                self.assertEqual(resposta.status_code, 409, resposta.data)
+                carga.refresh_from_db()
+                self.assertEqual(carga.status, CargaColhida.Status.ATIVA)
+                self.assertIsNone(carga.substituida_por_id)
+                self.assertEqual(CargaColhida.objects.count(), 1)
+                self.assertEqual(MovimentacaoGraos.objects.count(), movimentos)
+                self.assertEqual(OrigemSaldoGraos.objects.count(), origens)
+                self.assertEqual(list(PosicaoSaldoGraos.objects.order_by("pk").values_list("saldo_fisico_kg", "saldo_comprometido_kg")), saldos)
 
     def test_chaves_distintas_permite_viagens_reais_com_mesmos_dados(self):
         primeira = self.payload()

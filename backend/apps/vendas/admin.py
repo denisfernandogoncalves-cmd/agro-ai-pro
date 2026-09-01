@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import DevolucaoVendaGraos, EntregaVendaGraos, VendaGraos
+from .models import AlteracaoVendaGraos, ContratoComercial, DevolucaoVendaGraos, EntregaVendaGraos, VendaGraos
 
 
 class TrilhaComercialSomenteLeituraAdmin(admin.ModelAdmin):
@@ -14,6 +14,10 @@ class TrilhaComercialSomenteLeituraAdmin(admin.ModelAdmin):
 
     def has_delete_permission(self, request, obj=None):
         return False
+
+
+admin.site.register(ContratoComercial, TrilhaComercialSomenteLeituraAdmin)
+admin.site.register(AlteracaoVendaGraos, TrilhaComercialSomenteLeituraAdmin)
 
 
 @admin.register(VendaGraos)

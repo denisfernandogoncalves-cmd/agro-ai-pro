@@ -52,7 +52,7 @@ export default function TalhaoForm({
         />
       </label>
       <label>
-        Área (ha)
+        Área (alqueires paulistas)
         <input
           required
           min="0.01"

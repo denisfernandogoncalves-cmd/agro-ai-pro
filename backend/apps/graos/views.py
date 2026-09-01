@@ -16,7 +16,11 @@ from .models import (
     LoteGraos,
     MovimentacaoGraos,
 )
-from .selectors import selecionar_origens, selecionar_reservas
+from .selectors import (
+    filtrar_cargas_por_produtor,
+    selecionar_origens,
+    selecionar_reservas,
+)
 from .serializers import (
     AjusteSaldoSerializer,
     ArmazemGraosSerializer,
@@ -148,6 +152,8 @@ class CargaColhidaViewSet(
         "local_colheita",
         "propriedade__nome",
         "cad_pro__codigo",
+        "rateios__propriedade__nome",
+        "rateios__cad_pro__codigo",
         "cultura",
         "safra",
     )
@@ -155,10 +161,12 @@ class CargaColhidaViewSet(
     ordering = ("-data_colheita", "-id")
 
     def get_queryset(self):
-        queryset = super().get_queryset()
+        queryset = filtrar_cargas_por_produtor(
+            super().get_queryset(),
+            propriedade=self.request.query_params.get("propriedade", "").strip(),
+            cad_pro=self.request.query_params.get("cad_pro", "").strip(),
+        )
         for parametro, campo in (
-            ("propriedade", "propriedade_id"),
-            ("cad_pro", "cad_pro_id"),
             ("armazem", "armazem_id"),
             ("data_colheita", "data_colheita"),
             ("safra", "safra"),
@@ -261,13 +269,15 @@ class LoteGraosViewSet(CadastroGraosMixin, viewsets.ModelViewSet):
         queryset = super().get_queryset()
         for parametro, campo in (
             ("armazem", "armazem_id"),
-            ("propriedade", "armazem__propriedade_id"),
             ("talhao", "talhao_id"),
             ("safra", "safra"),
         ):
             valor = self.request.query_params.get(parametro, "").strip()
             if valor:
                 queryset = queryset.filter(**{campo: valor})
+        propriedade = self.request.query_params.get("propriedade", "").strip()
+        if propriedade:
+            queryset = queryset.filter(propriedade_id=propriedade)
         cultura = self.request.query_params.get("cultura", "").strip()
         ativo = self.request.query_params.get("ativo", "").strip().lower()
         if cultura:
@@ -353,7 +363,6 @@ class MovimentacaoGraosViewSet(
             ("posicao", "posicao_id"),
             ("cad_pro", "posicao__cad_pro_id"),
             ("armazem", "posicao__armazem_id"),
-            ("propriedade", "posicao__armazem__propriedade_id"),
             ("safra", "posicao__safra"),
             ("classificacao_codigo", "posicao__classificacao_codigo"),
             ("origem", "origem_id"),
@@ -361,6 +370,9 @@ class MovimentacaoGraosViewSet(
             valor = self.request.query_params.get(parametro, "").strip()
             if valor:
                 queryset = queryset.filter(**{campo: valor})
+        propriedade = self.request.query_params.get("propriedade", "").strip()
+        if propriedade:
+            queryset = queryset.filter(posicao__propriedade_id=propriedade)
         cultura = self.request.query_params.get("cultura", "").strip()
         if cultura:
             queryset = queryset.filter(posicao__cultura__iexact=cultura)

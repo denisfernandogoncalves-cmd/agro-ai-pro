@@ -1,4 +1,5 @@
 import { api } from "./propriedades";
+import axios from "axios";
 
 
 export type CategoriaFinanceira = {
@@ -138,6 +139,19 @@ export async function criarParceiro(dados: ParceiroFinanceiroInput) {
 
 export async function criarFornecedor(dados: FornecedorInput) {
   return criarParceiro({ ...dados, tipo: "fornecedor" });
+}
+
+export async function atualizarFornecedor(id: number, dados: FornecedorInput) {
+  return (await api.patch<ParceiroFinanceiro>(`/financeiro/parceiros/${id}/`, dados)).data;
+}
+
+export async function excluirFornecedor(id: number) {
+  try {
+    await api.delete(`/financeiro/parceiros/${id}/`);
+  } catch (falha) {
+    if (!axios.isAxiosError(falha) || falha.response?.status !== 409) throw falha;
+    await api.patch(`/financeiro/parceiros/${id}/`, { ativo: false });
+  }
 }
 
 export async function criarCentroCusto(

@@ -15,6 +15,7 @@ from apps.propriedades.models import Propriedade
 
 
 ZERO = Decimal("0.000")
+HECTARES_POR_ALQUEIRE_PAULISTA = Decimal("2.42")
 
 
 def _texto_decimal(valor):
@@ -44,7 +45,7 @@ def _filtrar_posicoes(filtros):
     )
     if filtros.get("proprietario"):
         queryset = queryset.filter(
-            armazem__propriedade__proprietario__iexact=filtros["proprietario"]
+            propriedade__proprietario__iexact=filtros["proprietario"]
         )
     return queryset.order_by(
         "cad_pro__codigo_normalizado",
@@ -69,13 +70,14 @@ def _periodo(queryset, campo, filtros):
 
 
 def _item_posicao(item):
+    propriedade = item.propriedade
     return {
         "id": item.pk,
         "cad_pro": str(item.cad_pro_id),
         "cad_pro_codigo": item.cad_pro.codigo,
         "cad_pro_descricao": item.cad_pro.descricao,
-        "propriedade": item.armazem.propriedade_id,
-        "propriedade_nome": item.armazem.propriedade.nome,
+        "propriedade": item.propriedade_id,
+        "propriedade_nome": propriedade.nome if propriedade else "",
         "cultura": item.cultura,
         "safra": item.safra,
         "classificacao_codigo": item.classificacao_codigo,
@@ -125,9 +127,10 @@ def _movimentos(filtros, posicao_ids):
 
 
 def _item_movimento(item):
-    carga = getattr(item, "carga_colhida", None)
-    if carga is None and item.estorno_de_id:
-        carga = getattr(item.estorno_de, "carga_colhida", None)
+    original = item.estorno_de if item.estorno_de_id else item
+    rateio = getattr(original, "rateio_carga_colhida", None)
+    carga = rateio.carga if rateio else getattr(original, "carga_colhida", None)
+    produtor = rateio or carga
     return {
         "id": item.pk,
         "operacao": item.operacao,
@@ -146,10 +149,10 @@ def _item_movimento(item):
         "snapshot_posterior": item.snapshot_posterior,
         "carga_colhida": carga.pk if carga else None,
         "carga_status": carga.status if carga else "",
-        "propriedade": carga.propriedade_id if carga else None,
-        "propriedade_nome": carga.propriedade.nome if carga else "",
-        "cad_pro": str(carga.cad_pro_id) if carga else None,
-        "cad_pro_codigo": carga.cad_pro.codigo if carga else "",
+        "propriedade": produtor.propriedade_id if produtor else None,
+        "propriedade_nome": produtor.propriedade.nome if produtor else "",
+        "cad_pro": str(produtor.cad_pro_id) if produtor else None,
+        "cad_pro_codigo": produtor.cad_pro.codigo if produtor else "",
         "cultura": carga.cultura if carga else item.posicao.cultura,
         "safra": carga.safra if carga else item.posicao.safra,
         "placa_carga": carga.placa if carga else "",
@@ -175,7 +178,7 @@ def _item_reserva(item):
 
 
 def _vendas(filtros, posicao_ids):
-    queryset = selecionar_vendas().filter(posicao_id__in=posicao_ids)
+    queryset = selecionar_vendas().filter(posicao_id__in=posicao_ids, excluida_em__isnull=True)
     if filtros.get("numero_contrato"):
         queryset = queryset.filter(
             numero_contrato__icontains=filtros["numero_contrato"]
@@ -230,6 +233,7 @@ def _item_entrega(item):
         "quantidade_kg": _texto_decimal(item.quantidade_kg),
         "destino": item.destino or item.venda.cliente_nome,
         "placa": item.placa,
+        "motorista": item.motorista,
         "nota_produtor": item.nota_produtor,
         "nota_empresa": item.nota_empresa,
         "movimentacao": item.movimentacao_id,
@@ -391,6 +395,7 @@ def _item_produtividade(carga, rateio):
         ),
         "armazem": carga.armazem_id,
         "armazem_nome": carga.armazem.nome,
+        "armazem_propriedade": carga.armazem.propriedade_id,
         "placa": carga.placa,
         "motorista": carga.motorista,
     }
@@ -484,6 +489,78 @@ def _produtividade_por_cad_pro(itens):
     return resultado
 
 
+def _producao_por_propriedade_cad_pro(itens):
+    grupos = {}
+    for item in itens:
+        chave = (
+            item["propriedade"], item["cad_pro"], item["cultura"], item["safra"]
+        )
+        grupo = grupos.setdefault(chave, {
+            "id": f'{item["propriedade"]}:{item["cad_pro"]}:{item["cultura"]}:{item["safra"]}',
+            "propriedade": item["propriedade"],
+            "propriedade_nome": item["propriedade_nome"],
+            "proprietario": item.get("proprietario", ""),
+            "cad_pro": item["cad_pro"],
+            "cad_pro_codigo": item["cad_pro_codigo"],
+            "cultura": item["cultura"],
+            "safra": item["safra"],
+            "area_hectares": Decimal(item["area_hectares"]),
+            "quantidade_kg": ZERO,
+            "sacas_60kg": ZERO,
+            "semente_kg": ZERO,
+            "semente_sacas_60kg": ZERO,
+            "outros_locais_kg": ZERO,
+            "armazenagens": set(),
+        })
+        peso = Decimal(item["quantidade_kg"])
+        sacas = Decimal(item["sacas_60kg"])
+        grupo["quantidade_kg"] += peso
+        grupo["sacas_60kg"] += sacas
+        grupo["semente_kg"] += Decimal(item["semente_kg"])
+        grupo["semente_sacas_60kg"] += Decimal(item["semente_sacas_60kg"])
+        grupo["armazenagens"].add(item["armazem_nome"])
+        if item.get("armazem_propriedade") != item["propriedade"]:
+            grupo["outros_locais_kg"] += peso
+
+    resultado = []
+    for grupo in grupos.values():
+        area_alqueires = grupo["area_hectares"] / HECTARES_POR_ALQUEIRE_PAULISTA
+        media = grupo["sacas_60kg"] / area_alqueires if area_alqueires else ZERO
+        resultado.append({
+            **grupo,
+            "area_hectares": _texto_decimal(grupo["area_hectares"]),
+            "area_alqueires": _texto_decimal(area_alqueires),
+            "quantidade_kg": _texto_decimal(grupo["quantidade_kg"]),
+            "sacas_60kg": _texto_decimal(grupo["sacas_60kg"]),
+            "semente_kg": _texto_decimal(grupo["semente_kg"]),
+            "semente_sacas_60kg": _texto_decimal(grupo["semente_sacas_60kg"]),
+            "outros_locais_kg": _texto_decimal(grupo["outros_locais_kg"]),
+            "media_sacas_alqueire": _texto_decimal(media),
+            "armazenagens": sorted(grupo["armazenagens"]),
+        })
+    return sorted(
+        resultado,
+        key=lambda item: (
+            item["propriedade_nome"].casefold(), item["cad_pro_codigo"],
+            item["cultura"].casefold(), item["safra"],
+        ),
+    )
+
+
+def _totais_producao_propriedade(itens):
+    campos = (
+        "area_alqueires", "quantidade_kg", "sacas_60kg", "semente_kg",
+        "semente_sacas_60kg", "outros_locais_kg",
+    )
+    totais = {
+        campo: sum((Decimal(item[campo]) for item in itens), ZERO)
+        for campo in campos
+    }
+    area = totais["area_alqueires"]
+    totais["media_sacas_alqueire"] = totais["sacas_60kg"] / area if area else ZERO
+    return {campo: _texto_decimal(valor) for campo, valor in totais.items()}
+
+
 def selecionar_relatorio_operacional(**filtros):
     secao = filtros["secao"]
     pagina, por_pagina = filtros["pagina"], filtros["por_pagina"]
@@ -494,6 +571,7 @@ def selecionar_relatorio_operacional(**filtros):
     vendas = list(_vendas(filtros, ids))
     entregas = list(_entregas(filtros, ids))
     produtividade = _produtividade(filtros)
+    producao_propriedade = _producao_por_propriedade_cad_pro(produtividade)
     motoristas = _motoristas(filtros)
 
     secoes = {
@@ -505,6 +583,7 @@ def selecionar_relatorio_operacional(**filtros):
         "movimentacoes": [_item_movimento(item) for item in movimentos],
         "rastreabilidade": _rastreabilidade(movimentos),
         "produtividade": produtividade,
+        "producao_propriedade": producao_propriedade,
         "motoristas": motoristas,
     }
     producao_total = sum(
@@ -543,10 +622,16 @@ def selecionar_relatorio_operacional(**filtros):
         ),
         "por_propriedade": _subtotais(
             posicoes,
-            lambda item: (item.armazem.propriedade_id, item.armazem.propriedade.nome),
+            lambda item: (
+                item.propriedade_id or "",
+                item.propriedade.nome
+                if item.propriedade_id
+                else "Produção histórica sem propriedade",
+            ),
             "propriedade",
         ),
         "produtividade_por_cad_pro": _produtividade_por_cad_pro(produtividade),
+        "totais_producao_propriedade": _totais_producao_propriedade(producao_propriedade),
         "secao": secao,
         "dados": _pagina(secoes[secao], pagina, por_pagina),
     }
@@ -554,7 +639,7 @@ def selecionar_relatorio_operacional(**filtros):
 
 def selecionar_opcoes_relatorio():
     posicoes = selecionar_posicoes()
-    vendas = selecionar_vendas()
+    vendas = selecionar_vendas().filter(excluida_em__isnull=True)
     return {
         "cadpros": list(
             selecionar_cadpros().values("id", "codigo", "descricao").order_by("codigo_normalizado")
@@ -570,7 +655,8 @@ def selecionar_opcoes_relatorio():
             .order_by("nome", "id")
         ),
         "proprietarios": list(
-            ArmazemGraos.objects.exclude(propriedade__proprietario="")
+            posicoes.exclude(propriedade__proprietario="")
+            .exclude(propriedade__isnull=True)
             .values_list("propriedade__proprietario", flat=True)
             .distinct()
             .order_by("propriedade__proprietario")

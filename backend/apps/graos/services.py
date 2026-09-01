@@ -270,7 +270,9 @@ def _posicao_dto(posicao):
         classificacao_codigo=posicao.classificacao_codigo,
         armazem_id=str(posicao.armazem_id),
         armazem_nome=posicao.armazem.nome,
-        propriedade_id=str(posicao.armazem.propriedade_id),
+        propriedade_id=(
+            str(posicao.propriedade_id) if posicao.propriedade_id else ""
+        ),
         saldo_fisico_kg=posicao.saldo_fisico_kg,
         saldo_comprometido_kg=posicao.saldo_comprometido_kg,
         versao=str(posicao.versao),
@@ -289,7 +291,11 @@ def _movimentacao_dto(movimento):
         cultura=movimento.lote.cultura,
         safra=movimento.lote.safra,
         armazem_id=str(movimento.lote.armazem_id),
-        propriedade_id=str(movimento.lote.armazem.propriedade_id),
+        propriedade_id=(
+            str(movimento.posicao.propriedade_id)
+            if movimento.posicao.propriedade_id
+            else ""
+        ),
         posicao_id=str(movimento.posicao_id),
         origem_id=str(movimento.origem_id),
         reserva_id=str(movimento.reserva_id) if movimento.reserva_id else None,
@@ -474,29 +480,19 @@ def _bloquear_lote_para_aumento(lote):
 
 
 def _validar_posicao_ativa(posicao):
-    from apps.cadpro.models import CADProPropriedade
-
     posicao = PosicaoSaldoGraos.objects.select_related(
-        "cad_pro", "armazem"
+        "propriedade", "cad_pro", "armazem"
     ).get(pk=posicao.pk)
     if not posicao.cad_pro.ativo:
         raise SaldoGraosError("O CAD/PRO da posição precisa estar ativo.")
     if not posicao.armazem.ativo:
         raise SaldoGraosError("O armazém da posição precisa estar ativo.")
-    if not CADProPropriedade.objects.filter(
-        cad_pro_id=posicao.cad_pro_id,
-        propriedade_id=posicao.armazem.propriedade_id,
-        ativo=True,
-        cad_pro__ativo=True,
-    ).exists():
-        raise SaldoGraosError(
-            "O CAD/PRO deve possuir vínculo ativo com a propriedade do armazém."
-        )
     return posicao
 
 
 def _chave_posicao_lote(lote):
     return {
+        "propriedade_id": lote.propriedade_id,
         "cad_pro_id": lote.cad_pro_id,
         "cultura": lote.cultura,
         "safra": lote.safra,
@@ -555,7 +551,8 @@ def _bloquear_contexto_reserva(reserva_id):
 
 
 def _ocupacao_armazem_bloqueada(armazem_id):
-    return PosicaoSaldoGraos.objects.filter(armazem_id=armazem_id).aggregate(
+    # Déficit comercial de uma posição não libera espaço ocupado por outra.
+    return PosicaoSaldoGraos.objects.filter(armazem_id=armazem_id, saldo_fisico_kg__gt=0).aggregate(
         total=Coalesce(
             Sum("saldo_fisico_kg"),
             Value(ZERO),
@@ -564,11 +561,15 @@ def _ocupacao_armazem_bloqueada(armazem_id):
     )["total"]
 
 
-def _aplicar_delta(posicao, *, fisico=ZERO, comprometido=ZERO):
+def _variacao_ocupacao(posicao, delta):
+    return max(ZERO, posicao.saldo_fisico_kg + delta) - max(ZERO, posicao.saldo_fisico_kg)
+
+
+def _aplicar_delta(posicao, *, fisico=ZERO, comprometido=ZERO, permitir_saldo_negativo=False):
     anterior = _snapshot_posicao(posicao)
     novo_fisico = posicao.saldo_fisico_kg + fisico
     novo_comprometido = posicao.saldo_comprometido_kg + comprometido
-    if novo_fisico < 0:
+    if not permitir_saldo_negativo and novo_fisico < min(ZERO, posicao.saldo_fisico_kg):
         raise SaldoGraosInsuficienteError(
             f"Saldo físico insuficiente. Atual: {posicao.saldo_fisico_kg} kg."
         )
@@ -576,7 +577,7 @@ def _aplicar_delta(posicao, *, fisico=ZERO, comprometido=ZERO):
         raise ReservaSaldoGraosInvalidaError(
             "O saldo comprometido não pode ficar negativo."
         )
-    if novo_comprometido > novo_fisico:
+    if not permitir_saldo_negativo and novo_fisico - novo_comprometido < min(ZERO, posicao.saldo_disponivel_kg):
         raise SaldoGraosInsuficienteError(
             f"Saldo disponível insuficiente. Atual: {posicao.saldo_disponivel_kg} kg."
         )
@@ -699,7 +700,7 @@ def creditar_producao(
     armazem = _bloquear_armazens((lote.armazem_id,))[lote.armazem_id]
     posicao = _bloquear_posicao_lote(lote)
     ocupacao = _ocupacao_armazem_bloqueada(armazem.pk)
-    if ocupacao + quantidade > armazem.capacidade_kg:
+    if ocupacao + _variacao_ocupacao(posicao, quantidade) > armazem.capacidade_kg:
         raise CapacidadeArmazemExcedidaError(
             f"Capacidade insuficiente. Disponível: {armazem.capacidade_kg - ocupacao} kg."
         )
@@ -717,7 +718,7 @@ def creditar_producao(
 @transaction.atomic
 def reservar_saldo(
     *, usuario, lote, quantidade_kg, chave_idempotencia,
-    referencia_externa="", observacoes="", metadados=None,
+    referencia_externa="", observacoes="", metadados=None, permitir_saldo_negativo=False,
 ):
     quantidade = _quantidade_positiva(quantidade_kg)
     payload = {"lote": lote, "quantidade_kg": quantidade,
@@ -732,7 +733,7 @@ def reservar_saldo(
     lote = _validar_lote(lote)
     _bloquear_armazens((lote.armazem_id,))
     posicao = _bloquear_posicao_lote(lote)
-    anterior, posterior = _aplicar_delta(posicao, comprometido=quantidade)
+    anterior, posterior = _aplicar_delta(posicao, comprometido=quantidade, permitir_saldo_negativo=permitir_saldo_negativo)
     reserva = ReservaSaldoGraos.objects.create(
         posicao=posicao, origem=origem, quantidade_kg=quantidade,
         saldo_reservado_kg=quantidade, referencia_externa=referencia_externa,
@@ -760,6 +761,7 @@ def _status_reserva(reserva, *, liberacao=False):
 
 def _lote_da_posicao(posicao):
     lote = LoteGraos.objects.filter(
+        propriedade_id=posicao.propriedade_id,
         cad_pro_id=posicao.cad_pro_id,
         cultura=posicao.cultura,
         safra=posicao.safra,
@@ -815,7 +817,7 @@ def liberar_reserva(
 @transaction.atomic
 def confirmar_entrega(
     *, usuario, reserva, chave_idempotencia, quantidade_kg=None,
-    data_movimento=None, referencia_externa="", observacoes="", metadados=None,
+    data_movimento=None, referencia_externa="", observacoes="", metadados=None, permitir_saldo_negativo=False,
 ):
     reserva_id = reserva.pk
     payload = {"reserva": reserva_id, "quantidade_kg": quantidade_kg,
@@ -839,7 +841,7 @@ def confirmar_entrega(
     _validar_posicao_ativa(posicao)
     lote = _lote_da_posicao(posicao)
     anterior, posterior = _aplicar_delta(
-        posicao, fisico=-quantidade, comprometido=-quantidade
+        posicao, fisico=-quantidade, comprometido=-quantidade, permitir_saldo_negativo=permitir_saldo_negativo
     )
     reserva.saldo_reservado_kg -= quantidade
     reserva.status = _status_reserva(reserva)
@@ -874,7 +876,7 @@ def registrar_devolucao(
     armazem = _bloquear_armazens((lote.armazem_id,))[lote.armazem_id]
     posicao = _bloquear_posicao_lote(lote)
     ocupacao = _ocupacao_armazem_bloqueada(armazem.pk)
-    if ocupacao + quantidade > armazem.capacidade_kg:
+    if ocupacao + _variacao_ocupacao(posicao, quantidade) > armazem.capacidade_kg:
         raise CapacidadeArmazemExcedidaError("A devolução excede a capacidade do armazém.")
     anterior, posterior = _aplicar_delta(posicao, fisico=quantidade)
     movimento = _criar_movimento(
@@ -913,6 +915,7 @@ def registrar_ajuste(
         lote = _bloquear_lote_para_aumento(lote)
     else:
         lote = _validar_lote(lote)
+        _bloquear_cadpros_ativos_para_saldo((lote.cad_pro_id,))
     if delta_fisico > 0:
         armazem = _bloquear_armazens((lote.armazem_id,))[lote.armazem_id]
     else:
@@ -920,7 +923,7 @@ def registrar_ajuste(
     posicao = _bloquear_posicao_lote(lote)
     if delta_fisico > 0:
         if (
-            _ocupacao_armazem_bloqueada(armazem.pk) + delta_fisico
+            _ocupacao_armazem_bloqueada(armazem.pk) + _variacao_ocupacao(posicao, delta_fisico)
             > armazem.capacidade_kg
         ):
             raise CapacidadeArmazemExcedidaError(
@@ -944,7 +947,7 @@ def registrar_ajuste(
 def estornar_movimentacao(
     *, usuario, movimentacao, chave_idempotencia, data_movimento=None,
     referencia_externa="", observacoes="", metadados=None,
-    permitir_carga_colhida=False,
+    permitir_carga_colhida=False, permitir_venda=False,
 ):
     movimento_id = movimentacao.pk
     payload = {"movimentacao": movimento_id, "data": data_movimento,
@@ -961,12 +964,21 @@ def estornar_movimentacao(
     ).get(pk=movimento_id)
     if (
         not permitir_carga_colhida
-        and hasattr(movimento, "carga_colhida")
+        and (
+            hasattr(movimento, "carga_colhida")
+            or hasattr(movimento, "rateio_carga_colhida")
+        )
     ):
         raise SaldoGraosError(
             "Movimentações de cargas colhidas devem ser canceladas ou corrigidas "
             "pela própria carga."
         )
+    if not permitir_venda and (
+        hasattr(movimento, "entrega_venda") or hasattr(movimento, "devolucao_venda")
+        or movimento.origem.metadados.get("venda_id")
+        or (movimento.reserva_id and movimento.reserva.origem.metadados.get("venda_id"))
+    ):
+        raise SaldoGraosError("Movimentações comerciais devem ser editadas ou excluídas pela venda.")
     if movimento.operacao == MovimentacaoGraos.Operacao.ESTORNO:
         raise SaldoGraosError("Não é permitido estornar um estorno.")
     operacoes_transferencia = {
@@ -1038,7 +1050,7 @@ def estornar_movimentacao(
     acrescimos_por_armazem = {}
     reducoes_por_armazem = {}
     for item in movimentos:
-        delta = -item.delta_fisico_kg
+        delta = _variacao_ocupacao(posicoes_bloqueadas[item.posicao_id], -item.delta_fisico_kg)
         armazem_id = item.posicao.armazem_id
         if delta > 0:
             acrescimos_por_armazem[armazem_id] = (
@@ -1081,6 +1093,7 @@ def estornar_movimentacao(
             posicao,
             fisico=delta_fisico,
             comprometido=delta_comprometido,
+            permitir_saldo_negativo=permitir_venda,
         )
         estornos.append(
             _criar_movimento(
@@ -1132,16 +1145,24 @@ def transferir_saldo_fisico(
     )
     if not criada:
         return _resultado_existente(origem, "saldo_transferido")
-    try:
-        destino_lote = _bloquear_lote_para_aumento(lote_destino)
-    except LoteGraos.DoesNotExist as exc:
-        raise SaldoGraosError(
-            "Lote de origem ou destino não encontrado."
-        ) from exc
-    origem_lote = LoteGraos.objects.filter(pk=lote_origem.pk).first()
-    if not origem_lote:
+    referencias = {lote.pk: lote for lote in LoteGraos.objects.filter(
+        pk__in=(lote_origem.pk, lote_destino.pk)
+    )}
+    if len(referencias) != 2:
         raise SaldoGraosError("Lote de origem ou destino não encontrado.")
-    origem_lote = _validar_lote(origem_lote)
+    if any(not lote.cad_pro_id for lote in referencias.values()):
+        raise SaldoGraosError("O lote deve estar normalizado com um CAD/PRO.")
+    # Transferências opostas precisam da mesma ordem de locks em ambos os lados.
+    cadpros = _bloquear_cadpros_para_saldo(lote.cad_pro_id for lote in referencias.values())
+    if not cadpros[referencias[lote_destino.pk].cad_pro_id].ativo:
+        raise SaldoGraosError("O CAD/PRO precisa estar ativo para receber saldo.")
+    bloqueados = {lote.pk: lote for lote in LoteGraos.objects.select_for_update()
+                  .filter(pk__in=referencias).order_by("pk")}
+    for recebido in (lote_origem, lote_destino):
+        if bloqueados[recebido.pk].cad_pro_id != referencias[recebido.pk].cad_pro_id or recebido.cad_pro_id != referencias[recebido.pk].cad_pro_id:
+            raise SaldoGraosError("O CAD/PRO do lote mudou. Atualize os dados e tente novamente.")
+    origem_lote = _validar_estado_lote(bloqueados[lote_origem.pk])
+    destino_lote = _validar_estado_lote(bloqueados[lote_destino.pk])
     if (origem_lote.cultura, origem_lote.safra, origem_lote.classificacao_codigo) != (
         destino_lote.cultura, destino_lote.safra, destino_lote.classificacao_codigo
     ):
@@ -1152,7 +1173,8 @@ def transferir_saldo_fisico(
     pos_origem, pos_destino = _bloquear_posicoes_lotes(
         (origem_lote, destino_lote)
     )
-    posicoes = (pos_origem, pos_destino)
+    if pos_origem.pk == pos_destino.pk:
+        raise SaldoGraosError("A origem e o destino devem ser posições de estoque diferentes.")
     if quantidade > pos_origem.saldo_disponivel_kg:
         raise SaldoGraosInsuficienteError(
             f"Saldo disponível insuficiente. Atual: {pos_origem.saldo_disponivel_kg} kg."
@@ -1160,7 +1182,7 @@ def transferir_saldo_fisico(
     if pos_destino.armazem_id != pos_origem.armazem_id:
         armazem_destino = armazens[pos_destino.armazem_id]
         ocupacao = _ocupacao_armazem_bloqueada(armazem_destino.pk)
-        if ocupacao + quantidade > armazem_destino.capacidade_kg:
+        if ocupacao + _variacao_ocupacao(pos_destino, quantidade) > armazem_destino.capacidade_kg:
             raise CapacidadeArmazemExcedidaError("A transferência excede a capacidade do destino.")
     anterior_origem, posterior_origem = _aplicar_delta(
         pos_origem, fisico=-quantidade
@@ -1195,6 +1217,7 @@ def painel_saldos_cadpro(**filtros):
     """Consolida as posições oficiais sem criar uma segunda fonte de saldo."""
     posicoes = list(selecionar_posicoes(**filtros))
     consolidados = {}
+    propriedades = {}
     total_fisico = ZERO
     total_comprometido = ZERO
 
@@ -1215,6 +1238,15 @@ def painel_saldos_cadpro(**filtros):
         consolidado["saldo_fisico_kg"] += posicao.saldo_fisico_kg
         consolidado["saldo_comprometido_kg"] += posicao.saldo_comprometido_kg
         consolidado["posicoes"] += 1
+        produtora = propriedades.setdefault(posicao.propriedade_id, {
+            "propriedade": posicao.propriedade_id,
+            "propriedade_nome": posicao.propriedade.nome if posicao.propriedade_id else "Produção histórica sem propriedade",
+            "cadpros": {}, "saldo_fisico_kg": ZERO, "saldo_comprometido_kg": ZERO, "posicoes": 0,
+        })
+        produtora["cadpros"][str(posicao.cad_pro_id)] = posicao.cad_pro.codigo
+        produtora["saldo_fisico_kg"] += posicao.saldo_fisico_kg
+        produtora["saldo_comprometido_kg"] += posicao.saldo_comprometido_kg
+        produtora["posicoes"] += 1
 
     for consolidado in consolidados.values():
         consolidado["saldo_disponivel_kg"] = (
@@ -1222,8 +1254,13 @@ def painel_saldos_cadpro(**filtros):
             - consolidado["saldo_comprometido_kg"]
         )
 
+    for produtora in propriedades.values():
+        produtora["saldo_disponivel_kg"] = produtora["saldo_fisico_kg"] - produtora["saldo_comprometido_kg"]
+        produtora["cadpros"] = [{"id": chave, "codigo": codigo} for chave, codigo in sorted(produtora["cadpros"].items(), key=lambda item: item[1])]
+
     return {
         "resumo": {
+            "propriedades": len([chave for chave in propriedades if chave is not None]),
             "cadpros": len(consolidados),
             "posicoes": len(posicoes),
             "saldo_fisico_kg": total_fisico,
@@ -1234,6 +1271,7 @@ def painel_saldos_cadpro(**filtros):
             consolidados.values(),
             key=lambda item: (item["cad_pro_codigo"], item["cad_pro"]),
         ),
+        "consolidado_propriedade": sorted(propriedades.values(), key=lambda item: (item["propriedade_nome"].casefold(), item["propriedade"] or 0)),
         "posicoes": posicoes,
     }
 
@@ -1279,7 +1317,7 @@ def reconciliar_posicao(*, usuario, posicao, chave_idempotencia, metadados=None)
         posicao.saldo_fisico_kg != totais["fisico"]
         or posicao.saldo_comprometido_kg != totais["comprometido"]
     )
-    if totais["fisico"] < 0 or not ZERO <= totais["comprometido"] <= totais["fisico"]:
+    if totais["comprometido"] < ZERO:
         raise SaldoGraosError("O ledger possui saldos inválidos e não pode ser reconciliado.")
     if divergente:
         posicao.saldo_fisico_kg = totais["fisico"]
@@ -1318,12 +1356,9 @@ def saldo_lote(lote):
 
 
 def saldo_armazem(armazem):
-    materializado = PosicaoSaldoGraos.objects.filter(armazem=armazem).aggregate(
-        saldo=Coalesce(Sum("saldo_fisico_kg"), Value(ZERO), output_field=CAMPO_QUANTIDADE)
-    )["saldo"]
-    if materializado:
-        return materializado
-    return _saldo_agregado(MovimentacaoGraos.objects.filter(lote__armazem=armazem))
+    if PosicaoSaldoGraos.objects.filter(armazem=armazem).exists():
+        return _ocupacao_armazem_bloqueada(armazem.pk)
+    return max(ZERO, _saldo_agregado(MovimentacaoGraos.objects.filter(lote__armazem=armazem)))
 
 
 @transaction.atomic
@@ -1363,16 +1398,23 @@ def transferir_graos(**dados):
 
 
 def posicao_graos(queryset=None, *, propriedade=None, armazem=None, cultura="", safra=""):
-    filtros = {"armazem": armazem, "cultura": cultura, "safra": safra}
+    filtros = {
+        "propriedade": propriedade,
+        "armazem": armazem,
+        "cultura": cultura,
+        "safra": safra,
+    }
     posicoes = selecionar_posicoes(**filtros)
-    if propriedade:
-        posicoes = posicoes.filter(armazem__propriedade_id=propriedade)
     return [
         {"posicao_id": item.pk, "cultura": item.cultura, "safra": item.safra,
          "classificacao_codigo": item.classificacao_codigo,
          "armazem_id": item.armazem_id, "armazem": item.armazem.nome,
-         "propriedade_id": item.armazem.propriedade_id,
-         "propriedade": item.armazem.propriedade.nome,
+         "propriedade_id": item.propriedade_id,
+         "propriedade": (
+             item.propriedade.nome
+             if item.propriedade_id
+             else None
+         ),
          "saldo_fisico_kg": item.saldo_fisico_kg,
          "saldo_comprometido_kg": item.saldo_comprometido_kg,
          "saldo_disponivel_kg": item.saldo_disponivel_kg,

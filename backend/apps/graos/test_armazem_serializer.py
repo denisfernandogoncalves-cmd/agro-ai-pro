@@ -64,17 +64,12 @@ class ArmazemGraosSerializerTests(TestCase):
         self.armazem.refresh_from_db()
         self.assertEqual(str(self.armazem.capacidade_kg), "1000.000")
 
-    def test_propriedade_e_imutavel_apos_cadastro(self):
-        outra = Propriedade.objects.create(
-            nome="Outra Fazenda",
-            municipio="Sorriso",
-            uf="MT",
-            area_hectares="100",
-        )
+    def test_cria_armazenagem_independente_de_propriedade(self):
         serializer = ArmazemGraosSerializer(
-            self.armazem,
-            data={"propriedade": outra.pk},
-            partial=True,
+            data={"nome": "Armazém externo", "capacidade_kg": "5000.000"},
         )
-        self.assertFalse(serializer.is_valid())
-        self.assertIn("propriedade", serializer.errors)
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        armazem = serializer.save()
+
+        self.assertIsNone(armazem.propriedade_id)
+        self.assertTrue(serializer.fields["propriedade"].read_only)

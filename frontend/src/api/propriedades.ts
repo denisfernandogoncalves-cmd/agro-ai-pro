@@ -48,6 +48,7 @@ export type PropriedadeInput = {
 };
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000/api";
+const hectaresDeAlqueires = (valor: string) => (Number(valor.replace(",", ".")) * 2.42).toFixed(2);
 
 type RequisicaoComRetry = InternalAxiosRequestConfig & {
   _retry?: boolean;
@@ -238,7 +239,7 @@ function montarFormulario(dados: PropriedadeInput) {
   const formulario = new FormData();
   Object.entries(dados).forEach(([campo, valor]) => {
     if (valor !== null && valor !== "") {
-      formulario.append(campo, valor);
+      formulario.append(campo, campo === "area_hectares" ? hectaresDeAlqueires(String(valor)) : valor);
     }
   });
   return formulario;

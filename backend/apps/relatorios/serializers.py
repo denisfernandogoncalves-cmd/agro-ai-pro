@@ -30,6 +30,7 @@ class FiltrosRelatorioOperacionalSerializer(serializers.Serializer):
             "movimentacoes",
             "rastreabilidade",
             "produtividade",
+            "producao_propriedade",
             "motoristas",
         ),
     )

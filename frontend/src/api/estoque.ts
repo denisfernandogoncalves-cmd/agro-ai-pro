@@ -1,4 +1,5 @@
 import { api } from "./propriedades";
+import axios from "axios";
 
 
 export type ProdutoEstoque = {
@@ -148,6 +149,35 @@ export async function criarLocal(dados: LocalEstoqueInput) {
       propriedade: dados.propriedade || null,
     })
   ).data;
+}
+
+export async function atualizarLocal(id: number, dados: LocalEstoqueInput) {
+  return (await api.patch<LocalEstoque>(`/estoque/locais/${id}/`, {
+    ...dados,
+    propriedade: dados.propriedade || null,
+  })).data;
+}
+
+export async function excluirLocal(id: number) {
+  try {
+    await api.delete(`/estoque/locais/${id}/`);
+  } catch (falha) {
+    if (!axios.isAxiosError(falha) || falha.response?.status !== 409) throw falha;
+    await api.patch(`/estoque/locais/${id}/`, { ativo: false });
+  }
+}
+
+export async function atualizarProduto(id: number, dados: ProdutoEstoqueInput) {
+  return (await api.patch<ProdutoEstoque>(`/estoque/produtos/${id}/`, dados)).data;
+}
+
+export async function excluirProduto(id: number) {
+  try {
+    await api.delete(`/estoque/produtos/${id}/`);
+  } catch (falha) {
+    if (!axios.isAxiosError(falha) || falha.response?.status !== 409) throw falha;
+    await api.patch(`/estoque/produtos/${id}/`, { ativo: false });
+  }
 }
 
 export async function criarLote(dados: {
