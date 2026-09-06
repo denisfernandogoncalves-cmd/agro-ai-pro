@@ -152,6 +152,11 @@ fica identificado separadamente. A busca local também considera os produtores
 secundários, e os botões de edição/cancelamento continuam atuando sobre a carga
 inteira. Não há recálculo ou gravação de saldo para montar esse cartão.
 
+A impressão usa uma planilha dedicada em A4 paisagem, no padrão visual de
+Vendas. Ela respeita a busca e a opção de histórico da tela, identifica todas as
+propriedades e CAD/PROs da carga e totaliza peso bruto, peso líquido e sacas.
+Formulário, filtros e cartões operacionais não são impressos.
+
 Cargas históricas sem parcelas persistidas continuam sendo filtradas pelas
 dimensões principais. Não se inferem novos rateios a partir dos vínculos atuais
 entre CAD/PRO e propriedades. Os filtros de estado e período são mantidos.
@@ -270,3 +275,14 @@ perda de informação. Nesse cenário deve-se manter a migration ou restaurar um
 backup compatível.
 
 Não há migration destrutiva nesta entrega.
+
+## Layout do registro manual
+
+Na interface desktop, o formulário **Registrar carga manual** ocupa toda a
+largura do módulo e distribui seus campos em quatro colunas. Os grupos de
+propriedades e talhões também aproveitam a disposição horizontal. O histórico
+de cargas permanece abaixo do formulário, usando toda a largura disponível.
+
+Entre 861 e 1200 pixels o formulário usa duas colunas. Em telas de até 860
+pixels, todos os campos retornam para uma única coluna, preservando a
+legibilidade e a operação em dispositivos menores.

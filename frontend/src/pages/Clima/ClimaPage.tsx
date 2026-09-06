@@ -6,7 +6,7 @@ import {
   listarPrevisoes,
   PrevisaoClima,
 } from "../../api/clima";
-import { Propriedade } from "../../api/propriedades";
+import { Propriedade, rotuloPropriedade } from "../../api/propriedades";
 
 
 type Props = {
@@ -109,7 +109,7 @@ export default function ClimaPage({ propriedades }: Props) {
           >
             {propriedades.map((item) => (
               <option key={item.id} value={item.id}>
-                {item.nome} — {item.municipio}/{item.uf}
+                {rotuloPropriedade(item)} — {item.municipio}/{item.uf}
               </option>
             ))}
           </select>

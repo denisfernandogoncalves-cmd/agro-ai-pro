@@ -1,8 +1,10 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from apps.cadpro.models import CADPro, CADProPropriedade
@@ -18,6 +20,7 @@ from apps.propriedades.models import Propriedade
 from apps.vendas.services import confirmar_venda, criar_rascunho, registrar_entrega_venda
 
 from .selectors import selecionar_relatorio_operacional
+from .selectors import _totais_producao_propriedade
 
 
 class RelatorioOperacionalBase:
@@ -52,13 +55,15 @@ class RelatorioOperacionalBase:
         self._credito(self.lote_a, "1000", "credito:a", date(2026, 8, 1))
         self._credito(self.lote_b, "2000", "credito:b", date(2026, 8, 2))
         self._credito(self.lote_c, "3000", "credito:c", date(2026, 7, 1))
-        reservar_saldo(
-            usuario=self.usuario,
-            lote=self.lote_a,
-            quantidade_kg="250",
-            chave_idempotencia="reserva:a",
-            referencia_externa="RES-A",
-        )
+        momento_reservas = timezone.make_aware(datetime(2026, 8, 3, 12, 0))
+        with patch("django.utils.timezone.now", return_value=momento_reservas):
+            reservar_saldo(
+                usuario=self.usuario,
+                lote=self.lote_a,
+                quantidade_kg="250",
+                chave_idempotencia="reserva:a",
+                referencia_externa="RES-A",
+            )
         self.venda = criar_rascunho(
             usuario=self.usuario,
             chave_idempotencia="venda:a",
@@ -68,11 +73,12 @@ class RelatorioOperacionalBase:
             quantidade_kg="100",
             data_contrato=date(2026, 8, 3),
         )
-        confirmar_venda(
-            usuario=self.usuario,
-            venda=self.venda,
-            chave_idempotencia="venda:a:confirmar",
-        )
+        with patch("django.utils.timezone.now", return_value=momento_reservas):
+            confirmar_venda(
+                usuario=self.usuario,
+                venda=self.venda,
+                chave_idempotencia="venda:a:confirmar",
+            )
         registrar_entrega_venda(
             usuario=self.usuario,
             venda=self.venda,
@@ -319,6 +325,27 @@ class RelatorioOperacionalSelectorTests(RelatorioOperacionalBase, TestCase):
         self.assertEqual(transporte["dados"]["total"], 1)
         self.assertEqual(transporte["dados"]["resultados"][0]["quantidade_kg"], "1800.000")
         self.assertEqual(transporte["dados"]["resultados"][0]["armazens"], ["Silo A"])
+
+    def test_totais_nao_duplicam_area_em_cadpros_da_mesma_propriedade(self):
+        base = {
+            "propriedade": self.propriedade_a.pk,
+            "cultura": "Soja",
+            "safra": "2026/2027",
+            "area_alqueires": "10.000",
+            "quantidade_kg": "6000.000",
+            "sacas_60kg": "100.000",
+            "semente_kg": "0.000",
+            "semente_sacas_60kg": "0.000",
+            "outros_locais_kg": "0.000",
+        }
+        totais = _totais_producao_propriedade([
+            {**base, "cad_pro": self.cad_a.pk},
+            {**base, "cad_pro": self.cad_b.pk},
+        ])
+        self.assertEqual(totais["area_alqueires"], "10.000")
+        self.assertEqual(totais["quantidade_kg"], "12000.000")
+        self.assertEqual(totais["sacas_60kg"], "200.000")
+        self.assertEqual(totais["media_sacas_alqueire"], "20.000")
 
 
 class RelatorioOperacionalApiTests(RelatorioOperacionalBase, APITestCase):

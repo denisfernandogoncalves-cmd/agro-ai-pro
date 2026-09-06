@@ -47,6 +47,14 @@ const entregaVazia: DadosEntrega = {
   nota_empresa: "",
 };
 
+const COLUNAS_VENDAS = [
+  ["data", "Data"], ["destino", "Destino"], ["placa", "Placa / Motorista"],
+  ["cad_pro", "Propriedade / CAD-PRO / proprietário"], ["contrato", "Contrato"],
+  ["nota_produtor", "Nº da nota de produtor"], ["nota_empresa", "Nº da nota da empresa"],
+  ["peso", "Peso líquido (kg)"], ["sacas", "Quantidade (sacas de 60 kg)"],
+] as const;
+type ColunaVenda = typeof COLUNAS_VENDAS[number][0];
+
 function kg(valor: string) {
   return `${Number(valor || 0).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} kg`;
 }
@@ -76,6 +84,46 @@ export function identificacaoCadProVenda(
 export function rotuloPosicaoVenda(posicao: PosicaoSaldo) {
   const propriedade = posicao.propriedade_nome || "Produção histórica sem propriedade";
   return `${propriedade} · ${posicao.cad_pro_codigo} · ${posicao.cultura} ${posicao.safra} · ${posicao.classificacao_codigo} · ${posicao.armazem_nome} · ${kg(posicao.saldo_disponivel_kg)} disponíveis`;
+}
+
+export type LinhaImpressaoVenda = {
+  venda: VendaGraos;
+  entrega: VendaGraos["entregas"][number];
+};
+
+export function TabelaImpressaoVendas({
+  linhas,
+  propriedades,
+  colunas,
+}: {
+  linhas: LinhaImpressaoVenda[];
+  propriedades: Pick<Propriedade, "id" | "proprietario">[];
+  colunas: ColunaVenda[];
+}) {
+  const visiveis = COLUNAS_VENDAS.filter(([id]) => colunas.includes(id));
+  const pesoTotal = linhas.reduce((total, item) => total + Number(item.entrega.quantidade_kg), 0);
+  const totalDaColuna = (id: ColunaVenda, indice: number) => {
+    const rotulo = indice === 0 ? <small>Total das linhas impressas</small> : null;
+    if (id === "peso") return <td key={id}><strong>{numeroPlanilhaVenda(pesoTotal, 3)}</strong>{rotulo}</td>;
+    if (id === "sacas") return <td key={id}><strong>{numeroPlanilhaVenda(pesoTotal / 60)}</strong>{rotulo}</td>;
+    return <td key={id}><strong>{indice === 0 ? "TOTAL" : "—"}</strong>{rotulo}</td>;
+  };
+  return <div className="tabela-responsiva"><table className="tabela-relatorio tabela-controle vendas-planilha">
+    <caption>Vendas registradas e total das linhas impressas</caption>
+    <thead><tr>{visiveis.map(([id, nome]) => <th key={id} className={`coluna-venda-${id}`}>{nome}</th>)}</tr></thead>
+    <tbody>{linhas.length ? linhas.map(({ venda, entrega }) => <tr key={`saida-${entrega.id}`}>
+      {colunas.includes("data") && <td>{dataPlanilhaVenda(entrega.data_entrega)}</td>}
+      {colunas.includes("destino") && <td>{entrega.destino || venda.cliente_nome}</td>}
+      {colunas.includes("placa") && <td>{entrega.placa || "—"}<small>{entrega.motorista || "—"}</small></td>}
+      {colunas.includes("cad_pro") && <td>{identificacaoCadProVenda(venda, propriedades)}</td>}
+      {colunas.includes("contrato") && <td>{venda.numero_contrato || "Sem contrato"}</td>}
+      {colunas.includes("nota_produtor") && <td>{entrega.nota_produtor || "—"}</td>}
+      {colunas.includes("nota_empresa") && <td>{entrega.nota_empresa || "—"}</td>}
+      {colunas.includes("peso") && <td>{numeroPlanilhaVenda(entrega.quantidade_kg, 3)}</td>}
+      {colunas.includes("sacas") && <td>{numeroPlanilhaVenda(Number(entrega.quantidade_kg) / 60)}</td>}
+    </tr>) : <tr><td colSpan={Math.max(1, colunas.length)}>Nenhuma saída registrada para os filtros informados.</td></tr>}</tbody>
+    {linhas.length > 0 && <tfoot><tr>{visiveis.map(([id], indice) => totalDaColuna(id, indice))}</tr></tfoot>}
+  </table></div>;
 }
 
 function mensagemErro(falha: unknown) {
@@ -189,15 +237,22 @@ export default function VendasPage() {
   const saldoSelecionado = selecionada
     ? posicoes.find((item) => item.id === selecionada.posicao)
     : null;
-  const saidas = vendas.filter(v => !v.excluida_em).flatMap((venda) => venda.entregas.filter(e => !e.cancelado_em).map((entrega) => ({ venda, entrega })));
-  const totalEntregue = saidas.reduce((total, item) => total + Number(item.entrega.quantidade_kg), 0);
-  const totalDevolvido = vendas.filter(v => !v.excluida_em).reduce((total, item) => total + Number(item.quantidade_devolvida_kg), 0);
-  const propriedadesSaida = Array.from(new Set(vendas.map(
-    (item) => item.propriedade_nome || "Produção histórica sem propriedade",
+  const saidas = useMemo(
+    () => vendas.filter(v => !v.excluida_em).flatMap((venda) =>
+      venda.entregas.filter(e => !e.cancelado_em).map((entrega) => ({ venda, entrega }))
+    ),
+    [vendas],
+  );
+  const saidasImpressao = saidas;
+  const vendasImpressao = vendas.filter((venda) => !venda.excluida_em);
+  const totalEntregue = saidasImpressao.reduce((total, item) => total + Number(item.entrega.quantidade_kg), 0);
+  const totalDevolvido = vendasImpressao.reduce((total, item) => total + Number(item.quantidade_devolvida_kg), 0);
+  const propriedadesSaida = Array.from(new Set(saidasImpressao.map(
+    ({ venda }) => venda.propriedade_nome || "Produção histórica sem propriedade",
   )));
-  const cadprosSaida = Array.from(new Set(vendas.map((item) => item.cad_pro_codigo)));
-  const culturasSaida = Array.from(new Set(vendas.map((item) => item.cultura)));
-  const safrasSaida = Array.from(new Set(vendas.map((item) => item.safra)));
+  const cadprosSaida = Array.from(new Set(saidasImpressao.map(({ venda }) => venda.cad_pro_codigo)));
+  const culturasSaida = Array.from(new Set(saidasImpressao.map(({ venda }) => venda.cultura)));
+  const safrasSaida = Array.from(new Set(saidasImpressao.map(({ venda }) => venda.safra)));
 
   return (
     <section className="modulo-vendas">
@@ -234,10 +289,10 @@ export default function VendasPage() {
           <BotaoMutacaoVenda processando={processando}>{tipoLancamento === "saida" ? "Registrar venda e saída" : "Criar rascunho"}</BotaoMutacaoVenda>
         </form>
 
-        <section className="card controle-planilha controle-planilha-vendas somente-impressao">
-          <h2 className="somente-impressao titulo-impressao-vendas">Vendas</h2>
+        <section className="card controle-planilha controle-planilha-impressao controle-planilha-vendas somente-impressao">
+          <h2 className="somente-impressao titulo-impressao-planilha titulo-impressao-vendas">Vendas</h2>
           <div className="controle-planilha-titulo"><div><span className="kicker">Controle de saída de grãos</span><h3>{propriedadesSaida.join(" · ") || "Todas as propriedades"}</h3><p>CAD/PRO {cadprosSaida.join(", ") || "—"} · {culturasSaida.join(", ") || "todas as culturas"} · safra {safrasSaida.join(", ") || "todas"}</p></div><div className="controle-planilha-total"><span>Saída líquida</span><strong>{kg(String(totalEntregue - totalDevolvido))}</strong><small>{((totalEntregue - totalDevolvido) / 60).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} sacas de 60 kg</small></div></div>
-          <div className="tabela-responsiva"><table className="tabela-relatorio tabela-controle vendas-planilha"><thead><tr><th>Data</th><th>Destino</th><th><span className="nao-imprimir">Placa / Motorista</span><span className="somente-impressao">Placa</span></th><th>CAD/PRO</th><th>Contrato</th><th>Nº da nota de produtor</th><th>Nº nota empresa</th><th>Peso líquido (kg)</th><th>Quantidade (sacas de 60 kg)</th><th>Ações</th></tr></thead><tbody>{saidas.length ? saidas.map(({ venda, entrega }) => <tr key={`saida-${entrega.id}`}><td>{dataPlanilhaVenda(entrega.data_entrega)}</td><td>{entrega.destino || venda.cliente_nome}</td><td>{entrega.placa || "—"}<small className="nao-imprimir">{entrega.motorista || "—"}</small></td><td><span className="nao-imprimir">{venda.cad_pro_codigo}</span><span className="somente-impressao cadpro-impressao">{identificacaoCadProVenda(venda, propriedades)}</span></td><td>{venda.numero_contrato || "Sem contrato"}</td><td>{entrega.nota_produtor || "—"}</td><td>{entrega.nota_empresa || "—"}</td><td>{numeroPlanilhaVenda(entrega.quantidade_kg, 3)}</td><td>{numeroPlanilhaVenda(Number(entrega.quantidade_kg) / 60)}</td><td><AcoesLancamentoVenda desabilitado={processando} editar={() => setEditor({ venda, natureza: "entrega", movimento: entrega, excluir: false })} excluir={() => setEditor({ venda, natureza: "entrega", movimento: entrega, excluir: true })} /></td></tr>) : <tr><td colSpan={10}>Nenhuma saída registrada para os filtros informados.</td></tr>}</tbody></table></div>
+          <TabelaImpressaoVendas linhas={saidasImpressao} propriedades={propriedades} colunas={COLUNAS_VENDAS.map(([id]) => id)} />
         </section>
 
         <section className="conteudo">

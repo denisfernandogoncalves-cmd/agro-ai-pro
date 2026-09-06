@@ -8,6 +8,37 @@ e `fluxo_mensal`, além do instante de geração e dos filtros aplicados.
 Indicadores são gerenciais e refletem os registros persistidos no momento da
 consulta.
 
+## Central de relatórios
+
+A aba **Relatórios** concentra todas as consultas gerenciais e operacionais
+disponíveis no sistema. Os módulos de origem continuam responsáveis pelo
+cadastro e pelas alterações; a central não cria, edita nem exclui registros.
+
+Os relatórios estão organizados em três grupos:
+
+- **Gestão rural:** estrutura rural, financeiro, estoque de insumos, operações
+  agrícolas e máquinas/custos;
+- **Produção e comercial:** estoque e saldos de grãos, produção, produção
+  detalhada por carga, produção por Propriedade/CAD-PRO, transporte por
+  motorista, reservas, vendas, entregas, histórico e rastreabilidade;
+- **Inteligência e auditoria:** clima das propriedades, mercado/Corn Belt e
+  importações de planilhas.
+
+Todos usam `GET /api/relatorios/operacionais/`, paginação e os filtros
+aplicáveis de propriedade, proprietário, cultura, safra e período. Filtros
+específicos de CAD/PRO, classificação, armazenagem, motorista, placa, contrato
+e comprador são aplicados aos relatórios de grãos e vendas. Um filtro sem
+relação com a seção escolhida não altera dados daquela seção.
+
+As novas seções aceitas em `secao` são `estrutura`, `financeiro`,
+`estoque_insumos`, `operacoes_agricolas`, `maquinas`, `clima`, `mercado` e
+`importacoes`.
+
+As respostas permanecem no envelope `dados`, com `pagina`, `por_pagina`,
+`total`, `total_paginas` e `resultados`. Datas e valores são retornados pela API
+sem arredondamentos acumulados; áreas apresentadas ao usuário são convertidas
+para alqueire paulista usando `1 alqueire = 2,42 hectares`.
+
 ## Relatórios operacionais
 
 A interface usa o padrão numérico brasileiro em kg, alqueires paulistas, sacas e médias:
@@ -21,9 +52,10 @@ aplicada apenas na apresentação, sem recalcular ou gravar estoque.
 `GET /api/relatorios/operacionais/` exige JWT e é estritamente somente leitura.
 Aceita `cad_pro`, `propriedade`, `cultura`, `safra`,
 `classificacao_codigo`, `armazem`, `data_inicio`, `data_fim`, `pagina` e
-`por_pagina`. `secao` seleciona `saldos`, `producao`,
-`producao_propriedade`, `reservas`, `vendas`, `entregas`, `movimentacoes` ou
-`rastreabilidade`.
+`por_pagina`. `secao` seleciona uma das opções da central descrita acima,
+incluindo as visões de grãos `saldos`, `producao`, `produtividade`,
+`producao_propriedade`, `motoristas`, `reservas`, `vendas`, `entregas`,
+`movimentacoes` e `rastreabilidade`.
 
 A resposta contém totais gerais, subtotais por CAD/PRO e por propriedade e a
 seção paginada. Saldos são lidos exclusivamente de `PosicaoSaldoGraos` pelo
@@ -79,6 +111,10 @@ original e o estorno, sem reconstrução ou gravação de movimentos.
 Qualquer tentativa de `POST`, `PUT`, `PATCH` ou `DELETE` nesses endpoints
 retorna HTTP 405. Na interface, a impressão da produção por propriedade permite
 selecionar de forma reversível as colunas visíveis; a prévia e a impressão usam
-a mesma seleção e apresentam os somatórios correspondentes. Não há geração de
+a mesma seleção e apresentam os somatórios correspondentes. A seleção é gravada
+no navegador, impede uma tabela sem nenhuma coluna e pode ser restaurada pelo
+comando `Selecionar todas`. A aba consolidada se chama **Produção por
+Propriedade/CAD-PRO**; a visão por carga foi renomeada para **Produção detalhada
+por carga** para não haver duas opções ambíguas. Não há geração de
 arquivo de exportação nesta entrega porque o projeto não possui um mecanismo
 gratuito já estabelecido para esse relatório.

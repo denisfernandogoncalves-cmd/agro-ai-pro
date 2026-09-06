@@ -15,7 +15,7 @@ import {
   ParceiroFinanceiro,
   ResumoFinanceiro,
 } from "../../api/financeiro";
-import { Propriedade } from "../../api/propriedades";
+import { Propriedade, rotuloPropriedade } from "../../api/propriedades";
 
 
 const hoje = new Date().toISOString().slice(0, 10);
@@ -169,7 +169,7 @@ export default function FinanceiroPage({ propriedades }: Props) {
           <label>Parceiro<select value={formulario.parceiro} onChange={(e) => setFormulario({ ...formulario, parceiro: e.target.value })}><option value="">Sem parceiro</option>{parceiros.map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select></label>
           <label>Centro de custo<select value={formulario.centro_custo} onChange={(e) => setFormulario({ ...formulario, centro_custo: e.target.value })}><option value="">Sem centro</option>{centros.map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select></label>
           <div className="linha">
-            <label>Propriedade<select value={formulario.propriedade} onChange={(e) => setFormulario({ ...formulario, propriedade: e.target.value })}><option value="">Geral</option>{propriedades.map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select></label>
+            <label>Propriedade<select value={formulario.propriedade} onChange={(e) => setFormulario({ ...formulario, propriedade: e.target.value })}><option value="">Geral</option>{propriedades.map((item) => <option key={item.id} value={item.id}>{rotuloPropriedade(item)}</option>)}</select></label>
             <label>Safra<input value={formulario.safra} onChange={(e) => setFormulario({ ...formulario, safra: e.target.value })} /></label>
           </div>
           <div className="linha">

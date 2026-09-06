@@ -307,10 +307,22 @@ A nova aba não oferece estorno. O histórico agrupa débito e crédito e aprese
 data, propriedades, CAD/PROs, armazenagens, produto, safra, classificação,
 quantidade, referência, observações, usuário e data/hora do registro.
 
+A impressão da aba de transferências usa uma planilha dedicada em A4 paisagem,
+no padrão de Vendas. Cada transferência aparece uma única vez, reunindo débito
+e crédito, com origem, destino, contexto produtivo, referência, observações e
+registro. O rodapé totaliza a quantidade transferida; o formulário operacional
+não é impresso.
+
 Em Produção e saldos, títulos derivam da propriedade das posições filtradas,
 não da descrição genérica do CAD/PRO compartilhado. Mudança de propriedade
 consulta imediatamente os dados; filtros em edição ocultam resultados anteriores
 até aplicar a consulta. Respostas atrasadas não substituem a consulta mais recente.
+
+A impressão A4 de Produção e saldos utiliza uma planilha dedicada no mesmo
+padrão visual de Vendas. Ela imprime somente as posições dos filtros aplicados,
+com contexto de propriedade, CAD/PRO, cultura e safra, além dos totais físico,
+comprometido e disponível. Formulários, cartões e rastreabilidade permanecem na
+tela e são omitidos do papel.
 
 O painel mantém `consolidado_cadpro` para compatibilidade e acrescenta
 `consolidado_propriedade`: uma entrada por propriedade, com lista de CAD/PROs,

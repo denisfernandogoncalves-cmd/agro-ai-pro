@@ -1,7 +1,7 @@
 import axios from "axios";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
-import { Propriedade } from "../../api/propriedades";
+import { Propriedade, rotuloPropriedade } from "../../api/propriedades";
 import {
   carregarOpcoesProducaoSaldo,
   consultarPainelSaldos,
@@ -11,6 +11,7 @@ import {
   LoteGraos,
   MovimentacaoSaldo,
   PainelSaldos,
+  PosicaoSaldo,
 } from "../../api/producaoSaldos";
 import { ArmazemGraos, CADPro } from "../../api/cargasColhidas";
 import { criarControladorCreditoProducao } from "./creditoProducaoSubmission";
@@ -38,6 +39,47 @@ function numero(valor: string) {
 
 function kg(valor: string) {
   return `${numero(valor).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} kg`;
+}
+
+export function numeroPlanilhaSaldo(valor: string | number) {
+  return Number(valor || 0).toLocaleString("pt-BR", {
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
+  });
+}
+
+export function identificacaoPosicaoSaldo(
+  posicao: Pick<PosicaoSaldo, "propriedade_id" | "propriedade_nome" | "cad_pro_codigo">,
+  propriedades: Pick<Propriedade, "id" | "proprietario">[],
+) {
+  const proprietario = propriedades.find(
+    item => item.id === posicao.propriedade_id,
+  )?.proprietario?.trim();
+  return [
+    posicao.propriedade_nome || "Produção histórica sem propriedade",
+    posicao.cad_pro_codigo,
+    proprietario,
+  ].filter(Boolean).join(" - ");
+}
+
+export function TabelaImpressaoSaldos({
+  posicoes,
+  propriedades,
+}: {
+  posicoes: PosicaoSaldo[];
+  propriedades: Pick<Propriedade, "id" | "proprietario">[];
+}) {
+  const totais = posicoes.reduce((acumulado, item) => ({
+    fisico: acumulado.fisico + numero(item.saldo_fisico_kg),
+    comprometido: acumulado.comprometido + numero(item.saldo_comprometido_kg),
+    disponivel: acumulado.disponivel + numero(item.saldo_disponivel_kg),
+  }), { fisico: 0, comprometido: 0, disponivel: 0 });
+  return <div className="tabela-responsiva"><table className="tabela-relatorio tabela-controle producao-saldos-planilha">
+    <caption>Posições de produção e totais dos filtros aplicados</caption>
+    <thead><tr><th className="coluna-saldo-origem">Propriedade / CAD-PRO / proprietário</th><th>Cultura</th><th>Safra</th><th>Armazenagem</th><th>Físico (kg)</th><th>Comprometido (kg)</th><th>Disponível (kg)</th></tr></thead>
+    <tbody>{posicoes.length ? posicoes.map(item => <tr key={`saldo-impressao-${item.id}`}><td>{identificacaoPosicaoSaldo(item, propriedades)}</td><td>{item.cultura}</td><td>{item.safra}</td><td>{item.armazem_nome}</td><td>{numeroPlanilhaSaldo(item.saldo_fisico_kg)}</td><td>{numeroPlanilhaSaldo(item.saldo_comprometido_kg)}</td><td><strong>{numeroPlanilhaSaldo(item.saldo_disponivel_kg)}</strong></td></tr>) : <tr><td colSpan={7}>Nenhuma posição encontrada para os filtros informados.</td></tr>}</tbody>
+    {posicoes.length > 0 && <tfoot><tr><td><strong>TOTAL</strong><small>Total das posições impressas</small></td><td>—</td><td>—</td><td>—</td><td><strong>{numeroPlanilhaSaldo(totais.fisico)}</strong></td><td><strong>{numeroPlanilhaSaldo(totais.comprometido)}</strong></td><td><strong>{numeroPlanilhaSaldo(totais.disponivel)}</strong></td></tr></tfoot>}
+  </table></div>;
 }
 
 function mensagemErro(falha: unknown) {
@@ -127,6 +169,13 @@ export default function ProducaoSaldosPage({ propriedades }: Props) {
     (item) => String(item.id) === filtrosAplicados.propriedade,
   );
   const filtrosPendentes = !mesmosFiltrosSaldo(filtros, filtrosAplicados);
+  const posicoesImpressao = painel?.posicoes ?? [];
+  const propriedadesImpressao = [...new Set(posicoesImpressao.map(
+    item => item.propriedade_nome || "Produção histórica sem propriedade",
+  ))];
+  const cadprosImpressao = [...new Set(posicoesImpressao.map(item => item.cad_pro_codigo))];
+  const culturasImpressao = [...new Set(posicoesImpressao.map(item => item.cultura))];
+  const safrasImpressao = [...new Set(posicoesImpressao.map(item => item.safra))];
 
   async function registrarProducao(evento: FormEvent) {
     evento.preventDefault();
@@ -167,8 +216,14 @@ export default function ProducaoSaldosPage({ propriedades }: Props) {
       {erro && <p className="erro card" role="alert">{erro}</p>}
       {sucesso && <p className="sucesso card">{sucesso}</p>}
 
+      <section className="card controle-planilha controle-planilha-impressao controle-planilha-producao somente-impressao" hidden={carregando || filtrosPendentes}>
+        <h2 className="somente-impressao titulo-impressao-planilha">Produção e saldos</h2>
+        <div className="controle-planilha-titulo"><div><span className="kicker">Controle de produção e estoque</span><h3>{propriedadesImpressao.join(" · ") || "Todas as propriedades"}</h3><p>CAD/PRO {cadprosImpressao.join(", ") || "—"} · {culturasImpressao.join(", ") || "todas as culturas"} · safra {safrasImpressao.join(", ") || "todas"}</p></div><div className="controle-planilha-total"><span>Saldo disponível</span><strong>{kg(painel?.resumo.saldo_disponivel_kg ?? "0")}</strong><small>Físico {kg(painel?.resumo.saldo_fisico_kg ?? "0")} · comprometido {kg(painel?.resumo.saldo_comprometido_kg ?? "0")}</small></div></div>
+        <TabelaImpressaoSaldos posicoes={posicoesImpressao} propriedades={propriedades} />
+      </section>
+
       <form className="card filtros-saldos" onSubmit={(evento) => { evento.preventDefault(); void carregar(); }}>
-        <select aria-label="Filtrar saldo por propriedade" value={filtros.propriedade} onChange={(e) => { const propriedade = e.target.value; const cadproAtualValido = cadpros.some((item) => item.id === filtros.cad_pro && (!propriedade || item.propriedades.includes(Number(propriedade)))); const novos = { ...filtros, propriedade, cad_pro: cadproAtualValido ? filtros.cad_pro : "" }; setFiltros(novos); setCredito(atual => ({ ...atual, lote: 0 })); void carregar(novos); }}><option value="">Todas as propriedades</option>{propriedades.map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select>
+        <select aria-label="Filtrar saldo por propriedade" value={filtros.propriedade} onChange={(e) => { const propriedade = e.target.value; const cadproAtualValido = cadpros.some((item) => item.id === filtros.cad_pro && (!propriedade || item.propriedades.includes(Number(propriedade)))); const novos = { ...filtros, propriedade, cad_pro: cadproAtualValido ? filtros.cad_pro : "" }; setFiltros(novos); setCredito(atual => ({ ...atual, lote: 0 })); void carregar(novos); }}><option value="">Todas as propriedades</option>{propriedades.map((item) => <option key={item.id} value={item.id}>{rotuloPropriedade(item)}</option>)}</select>
         <select aria-label="Filtrar saldo por CAD/PRO" value={filtros.cad_pro} onChange={(e) => setFiltros({ ...filtros, cad_pro: e.target.value })}><option value="">Todos os CAD/PROs da propriedade</option>{cadprosFiltrados.map((item) => <option key={item.id} value={item.id}>{item.codigo}</option>)}</select>
         <input aria-label="Filtrar saldo por cultura" placeholder="Cultura" value={filtros.cultura} onChange={(e) => setFiltros({ ...filtros, cultura: e.target.value })} />
         <input aria-label="Filtrar saldo por safra" placeholder="Safra" value={filtros.safra} onChange={(e) => setFiltros({ ...filtros, safra: e.target.value })} />

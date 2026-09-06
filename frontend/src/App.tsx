@@ -362,7 +362,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
         <>
           {erro && <p className="erro card">{erro}</p>}
 
-          <section className="grade">
+          <section className="grade modulo-propriedades">
         <form className="card formulario" onSubmit={salvar}>
           <h2>{edicaoId ? "Editar propriedade" : "Nova propriedade"}</h2>
           <label>Nome<input required value={formulario.nome} onChange={(e) => setFormulario({ ...formulario, nome: e.target.value })} /></label>
@@ -396,7 +396,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
           ) : propriedades.length === 0 ? (
             <div className="card vazio">Nenhuma propriedade cadastrada.</div>
           ) : (
-            <div className="lista">
+            <div className="lista propriedades-lista">
               {propriedades.map((item) => (
                 <article className={`card item ${selecionada?.id === item.id ? "ativo" : ""}`} key={item.id} onClick={() => setSelecionada(item)}>
                   <div>

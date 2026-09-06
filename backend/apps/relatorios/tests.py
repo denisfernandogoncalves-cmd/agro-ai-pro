@@ -79,3 +79,28 @@ class DashboardApiTests(DashboardBase, APITestCase):
         self.assertEqual(resposta.status_code, 200)
         self.assertEqual(resposta.data["estrutura"]["talhoes"], 1)
         self.assertEqual(resposta.data["operacoes"]["custo_realizado"], 900)
+
+    def test_centraliza_relatorios_de_todos_os_modulos(self):
+        esperados = {
+            "estrutura": ("propriedade_nome", "Fazenda Relatório"),
+            "financeiro": ("descricao", "Venda"),
+            "operacoes_agricolas": ("descricao", "Plantio"),
+            "maquinas": ("identificacao", "REL-1"),
+        }
+        for secao, (campo, valor) in esperados.items():
+            with self.subTest(secao=secao):
+                resposta = self.client.get(
+                    "/api/relatorios/operacionais/",
+                    {"secao": secao, "propriedade": self.propriedade.pk},
+                )
+                self.assertEqual(resposta.status_code, 200)
+                self.assertEqual(resposta.data["secao"], secao)
+                self.assertEqual(resposta.data["dados"]["resultados"][0][campo], valor)
+
+        for secao in ("estoque_insumos", "clima", "mercado", "importacoes"):
+            with self.subTest(secao=secao):
+                resposta = self.client.get(
+                    "/api/relatorios/operacionais/", {"secao": secao}
+                )
+                self.assertEqual(resposta.status_code, 200)
+                self.assertEqual(resposta.data["secao"], secao)

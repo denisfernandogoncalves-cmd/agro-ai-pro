@@ -1,6 +1,6 @@
 import { api } from "./propriedades";
 
-export type SecaoRelatorio = "saldos" | "producao" | "produtividade" | "producao_propriedade" | "motoristas" | "reservas" | "vendas" | "entregas" | "movimentacoes" | "rastreabilidade";
+export type SecaoRelatorio = "saldos" | "producao" | "produtividade" | "producao_propriedade" | "motoristas" | "reservas" | "vendas" | "entregas" | "movimentacoes" | "rastreabilidade" | "estrutura" | "financeiro" | "estoque_insumos" | "operacoes_agricolas" | "maquinas" | "clima" | "mercado" | "importacoes";
 export type FiltrosRelatorio = { cad_pro?: string; propriedade?: string; proprietario?: string; cultura?: string; safra?: string; classificacao_codigo?: string; armazem?: string; destinado_semente?: string; motorista?: string; placa?: string; numero_contrato?: string; comprador?: string; data_inicio?: string; data_fim?: string; secao?: SecaoRelatorio; pagina?: number; por_pagina?: number };
 export type TotaisOperacionais = { posicoes: number; saldo_fisico_kg: string; saldo_comprometido_kg: string; saldo_disponivel_kg: string; producao_kg: string; producao_rateada_kg: string; semente_kg: string; reservas_abertas_kg: string; vendas_kg: string; entregas_kg: string };
 export type PosicaoRelatorio = { id: number; cad_pro: string; cad_pro_codigo: string; cad_pro_descricao: string; propriedade: number; propriedade_nome: string; cultura: string; safra: string; classificacao_codigo: string; armazem: number; armazem_nome: string; saldo_fisico_kg: string; saldo_comprometido_kg: string; saldo_disponivel_kg: string };

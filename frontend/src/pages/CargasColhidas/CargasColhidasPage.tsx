@@ -11,9 +11,9 @@ import {
   criarCargaColhida,
   excluirCargaColhida,
 } from "../../api/cargasColhidas";
-import { Propriedade } from "../../api/propriedades";
+import { Propriedade, rotuloPropriedade } from "../../api/propriedades";
 import { Talhao } from "../../api/talhoes";
-import { alqueiresDeHectares, areaEmAlqueires } from "../../utils/areas";
+import { areaEmAlqueires } from "../../utils/areas";
 
 
 function dataLocalISO() {
@@ -145,6 +145,50 @@ function produtoresDaCarga(item: CargaColhida) {
   }];
 }
 
+export function numeroPlanilhaCarga(valor: string | number) {
+  return Number(valor || 0).toLocaleString("pt-BR", {
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
+  });
+}
+
+export function dataPlanilhaCarga(valor?: string) {
+  const [ano, mes, dia] = (valor || "").slice(0, 10).split("-");
+  return ano && mes && dia ? `${dia}/${mes}/${ano}` : "—";
+}
+
+export function identificacaoCargaColhida(
+  item: CargaColhida,
+  propriedades: Pick<Propriedade, "id" | "proprietario">[],
+) {
+  return produtoresDaCarga(item).map(produtor => {
+    const proprietario = propriedades.find(
+      propriedade => propriedade.id === Number(produtor.propriedadeId),
+    )?.proprietario?.trim();
+    return [produtor.nome, produtor.cadpro, proprietario].filter(Boolean).join(" - ");
+  }).join(" · ");
+}
+
+export function TabelaImpressaoCargas({
+  cargas,
+  propriedades,
+}: {
+  cargas: CargaColhida[];
+  propriedades: Pick<Propriedade, "id" | "proprietario">[];
+}) {
+  const totais = cargas.reduce((acumulado, item) => ({
+    bruto: acumulado.bruto + numero(item.peso_bruto_kg),
+    liquido: acumulado.liquido + numero(item.peso_liquido_kg),
+    sacas: acumulado.sacas + numero(item.sacas_60kg),
+  }), { bruto: 0, liquido: 0, sacas: 0 });
+  return <div className="tabela-responsiva"><table className="tabela-relatorio tabela-controle cargas-planilha">
+    <caption>Cargas colhidas e totais das linhas impressas</caption>
+    <thead><tr><th>Data</th><th>Placa / motorista</th><th className="coluna-carga-origem">Propriedade / CAD-PRO / proprietário</th><th>Produto / safra</th><th>Armazenagem</th><th>Status</th><th>Peso bruto (kg)</th><th>Peso líquido (kg)</th><th>Sacas de 60 kg</th></tr></thead>
+    <tbody>{cargas.length ? cargas.map(item => <tr key={`carga-impressao-${item.id}`}><td>{dataPlanilhaCarga(item.data_colheita)}</td><td>{item.placa || "—"}<small>{item.motorista || "—"}</small></td><td>{identificacaoCargaColhida(item, propriedades)}</td><td>{item.cultura}<small>{item.safra}</small></td><td>{item.armazem_nome}</td><td>{item.status}</td><td>{numeroPlanilhaCarga(item.peso_bruto_kg)}</td><td><strong>{numeroPlanilhaCarga(item.peso_liquido_kg)}</strong></td><td>{numeroPlanilhaCarga(item.sacas_60kg)}</td></tr>) : <tr><td colSpan={9}>Nenhuma carga encontrada para os filtros informados.</td></tr>}</tbody>
+    {cargas.length > 0 && <tfoot><tr><td><strong>TOTAL</strong><small>Total das linhas impressas</small></td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td><td><strong>{numeroPlanilhaCarga(totais.bruto)}</strong></td><td><strong>{numeroPlanilhaCarga(totais.liquido)}</strong></td><td><strong>{numeroPlanilhaCarga(totais.sacas)}</strong></td></tr></tfoot>}
+  </table></div>;
+}
+
 export function cargaCorrespondeBusca(item: CargaColhida, busca: string) {
   const termo = busca.trim().toLocaleLowerCase("pt-BR");
   return !termo || [
@@ -190,40 +234,6 @@ export function CartaoCargaColhida({ item, carregando, onEditar, onExcluir }: {
       {item.status === "ativa" && <div className="acoes carga-item-acoes"><button disabled={carregando} className="secundario" type="button" onClick={() => onEditar(item)}>Editar</button><button disabled={carregando} className="perigo" type="button" onClick={() => onExcluir(item)}>Excluir</button></div>}
     </article>
   );
-}
-
-export function parcelaDaCarga(item: CargaColhida, propriedadeId: number) {
-  const parcela = rateiosDoContexto(item).find(
-    (rateio) => Number(rateio.propriedade_id) === propriedadeId,
-  );
-  if (parcela) {
-    const sacas = numero(texto(parcela.sacas_60kg));
-    return {
-      peso: numero(texto(parcela.peso_liquido_kg)),
-      sacas,
-      sacasSemente: item.destinado_semente ? sacas : 0,
-      cadproId: texto(parcela.cad_pro_id),
-      cadproCodigo: texto(parcela.cad_pro_numero),
-    };
-  }
-  if (item.propriedade !== propriedadeId) return null;
-  const sacas = numero(item.sacas_60kg);
-  return {
-    peso: numero(item.peso_liquido_kg),
-    sacas,
-    sacasSemente: item.destinado_semente ? sacas : 0,
-    cadproId: item.cad_pro,
-    cadproCodigo: item.cad_pro_codigo,
-  };
-}
-
-export function selecionarPropriedadeConsultada(
-  propriedadesSelecionadas: number[],
-  propriedadeSolicitada: number,
-) {
-  return propriedadesSelecionadas.includes(propriedadeSolicitada)
-    ? propriedadeSolicitada
-    : propriedadesSelecionadas[0] || 0;
 }
 
 function regrasDaCarga(item: CargaColhida) {
@@ -285,7 +295,6 @@ export default function CargasColhidasPage({ propriedades }: Props) {
   const [cargas, setCargas] = useState<CargaColhida[]>([]);
   const [talhoes, setTalhoes] = useState<Talhao[]>([]);
   const [carga, setCarga] = useState<CargaColhidaInput>(() => novaCarga());
-  const [propriedadeConsultaSolicitada, setPropriedadeConsultaSolicitada] = useState(0);
   const [edicaoId, setEdicaoId] = useState<number | null>(null);
   const [busca, setBusca] = useState("");
   const [mostrarHistorico, setMostrarHistorico] = useState(false);
@@ -318,16 +327,6 @@ export default function CargasColhidasPage({ propriedades }: Props) {
   const propriedadesSelecionadas = propriedades.filter((item) =>
     propriedadesSelecionadasIds.includes(item.id)
   );
-  const propriedadeControleId = selecionarPropriedadeConsultada(
-    propriedadesSelecionadasIds,
-    propriedadeConsultaSolicitada,
-  );
-  const propriedadeSelecionada = propriedades.find(
-    (item) => item.id === propriedadeControleId,
-  );
-  const cadproSelecionado = cadpros.find(
-    (item) => item.id === carga.cadpros_por_propriedade[String(propriedadeControleId)],
-  );
   const armazensDisponiveis = armazens.filter((item) =>
     item.ativo || String(item.id) === carga.armazem
   );
@@ -343,32 +342,20 @@ export default function CargasColhidasPage({ propriedades }: Props) {
     if (!mostrarHistorico && item.status !== "ativa") return false;
     return cargaCorrespondeBusca(item, busca);
   });
-  const cargasDoControle = cargas.filter((item) => {
-    if (!propriedadeControleId || !carga.safra.trim()) return false;
-    return item.status === "ativa"
-      && Boolean(parcelaDaCarga(item, propriedadeControleId))
-      && item.safra.toLowerCase() === carga.safra.trim().toLowerCase()
-      && item.cultura.toLowerCase() === carga.cultura.toLowerCase();
-  });
-  const producaoTotalKg = cargasDoControle.reduce(
-    (total, item) => total + (parcelaDaCarga(item, propriedadeControleId)?.peso ?? 0), 0,
-  );
-  const producaoTotalSacas = cargasDoControle.reduce(
-    (total, item) => total + (parcelaDaCarga(item, propriedadeControleId)?.sacas ?? 0), 0,
-  );
-  const sementeTotalSacas = cargasDoControle.reduce(
-    (total, item) => total
-      + (parcelaDaCarga(item, propriedadeControleId)?.sacasSemente ?? 0),
-    0,
+  const propriedadesImpressao = [...new Set(cargasFiltradas.flatMap(
+    item => produtoresDaCarga(item).map(produtor => produtor.nome),
+  ))];
+  const cadprosImpressao = [...new Set(cargasFiltradas.flatMap(
+    item => produtoresDaCarga(item).map(produtor => produtor.cadpro).filter(Boolean),
+  ))];
+  const culturasImpressao = [...new Set(cargasFiltradas.map(item => item.cultura))];
+  const safrasImpressao = [...new Set(cargasFiltradas.map(item => item.safra))];
+  const pesoLiquidoImpressao = cargasFiltradas.reduce(
+    (total, item) => total + numero(item.peso_liquido_kg), 0,
   );
   const areaTotalSelecionada = propriedadesSelecionadas.reduce(
     (total, item) => total + numero(item.area_hectares), 0,
   );
-  const areaPropriedade = numero(propriedadeSelecionada?.area_hectares);
-  const areaPropriedadeAlqueires = alqueiresDeHectares(areaPropriedade);
-  const mediaSacasAlqueire = areaPropriedadeAlqueires > 0
-    ? producaoTotalSacas / areaPropriedadeAlqueires
-    : 0;
   const previaRateio = propriedadesSelecionadas.map((item, indice) => {
     const area = numero(item.area_hectares);
     const proporcao = areaTotalSelecionada > 0 ? area / areaTotalSelecionada : 0;
@@ -409,9 +396,6 @@ export default function CargasColhidasPage({ propriedades }: Props) {
     const propriedadePrincipal = ids.includes(propriedadeId)
       ? propriedadeId
       : ids[0] || 0;
-    setPropriedadeConsultaSolicitada(
-      selecionarPropriedadeConsultada(ids, propriedadeControleId),
-    );
     const propriedadesMantidas = new Set(ids);
     setCarga({
       ...carga,
@@ -441,7 +425,6 @@ export default function CargasColhidasPage({ propriedades }: Props) {
 
   function cancelarEdicao() {
     setEdicaoId(null);
-    setPropriedadeConsultaSolicitada(0);
     setCarga(novaCarga());
   }
 
@@ -475,7 +458,6 @@ export default function CargasColhidasPage({ propriedades }: Props) {
       motivo_correcao: "",
       ...regrasDaCarga(item),
     });
-    setPropriedadeConsultaSolicitada(propriedadesDaCarga[0] || item.propriedade);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -547,6 +529,12 @@ export default function CargasColhidasPage({ propriedades }: Props) {
       {erro && <p className="erro card" role="alert">{erro}</p>}
       {sucesso && <p className="sucesso card" role="status">{sucesso}</p>}
 
+      <section className="card controle-planilha controle-planilha-impressao controle-planilha-cargas somente-impressao" hidden={carregando}>
+        <h2 className="somente-impressao titulo-impressao-planilha">Cargas colhidas</h2>
+        <div className="controle-planilha-titulo"><div><span className="kicker">Controle de entrada de produção</span><h3>{propriedadesImpressao.join(" · ") || "Todas as propriedades"}</h3><p>CAD/PRO {cadprosImpressao.join(", ") || "—"} · {culturasImpressao.join(", ") || "todas as culturas"} · safra {safrasImpressao.join(", ") || "todas"}</p></div><div className="controle-planilha-total"><span>Entrada líquida</span><strong>{numeroPlanilhaCarga(pesoLiquidoImpressao)} kg</strong><small>{numeroPlanilhaCarga(pesoLiquidoImpressao / 60)} sacas de 60 kg</small></div></div>
+        <TabelaImpressaoCargas cargas={cargasFiltradas} propriedades={propriedades} />
+      </section>
+
       <div className="cargas-cabecalho">
         <div>
           <span className="kicker">Produção recebida</span>
@@ -557,7 +545,7 @@ export default function CargasColhidasPage({ propriedades }: Props) {
       </div>
 
       <section className="grade cargas-grade">
-        <form className="card formulario" onSubmit={salvarCarga}>
+        <form className="card formulario formulario-carga-horizontal" onSubmit={salvarCarga}>
           <h3>{edicaoId ? `Editar carga #${edicaoId}` : "Registrar carga manual"}</h3>
           {edicaoId && <p className="aviso-contexto">Ao salvar, a carga original será estornada e preservada; uma versão corrigida será criada.</p>}
           <fieldset>
@@ -568,7 +556,7 @@ export default function CargasColhidasPage({ propriedades }: Props) {
                 cadpro.ativo && cadpro.propriedades.includes(item.id)
               );
               return <div key={`rateio-${item.id}`}>
-                <label className="opcao-checkbox"><input type="checkbox" checked={selecionada} onChange={(e) => alternarPropriedadeRateio(item.id, e.target.checked)} /> {item.nome} · {areaEmAlqueires(item.area_hectares)} alq.</label>
+                <label className="opcao-checkbox"><input type="checkbox" checked={selecionada} onChange={(e) => alternarPropriedadeRateio(item.id, e.target.checked)} /> {rotuloPropriedade(item)} · {areaEmAlqueires(item.area_hectares)} alq.</label>
                 {selecionada && <label>CAD/PRO de {item.nome}<select required value={carga.cadpros_por_propriedade[String(item.id)] || ""} onChange={(e) => alterarCadproDaPropriedade(item.id, e.target.value)}><option value="">Selecione</option>{opcoesCadpro.map((cadpro) => <option key={cadpro.id} value={cadpro.id}>{cadpro.codigo} · {cadpro.descricao}</option>)}</select></label>}
                 {selecionada && opcoesCadpro.length === 0 && <p className="aviso-contexto">Esta propriedade não possui CAD/PRO ativo.</p>}
               </div>;
@@ -620,15 +608,6 @@ export default function CargasColhidasPage({ propriedades }: Props) {
         </form>
 
         <section className="conteudo">
-          <section className="card controle-planilha">
-            <div className="controle-planilha-titulo"><div><span className="kicker">Controle de estoque por propriedade</span><label>Propriedade consultada<select aria-label="Propriedade consultada" disabled={propriedadesSelecionadas.length === 0} value={propriedadeControleId || ""} onChange={(e) => setPropriedadeConsultaSolicitada(numero(e.target.value))}><option value="">Selecione propriedades no formulário</option>{propriedadesSelecionadas.map((item) => <option key={`consulta-${item.id}`} value={item.id}>{item.nome}</option>)}</select></label><h3>{propriedadeSelecionada?.nome || "Selecione uma propriedade"}</h3><p>Área {areaEmAlqueires(areaPropriedade)} alq. · cultura {propriedadeSelecionada ? carga.cultura : "—"} · safra {propriedadeSelecionada ? carga.safra || "informe no formulário" : "—"}</p></div><div className="controle-planilha-total"><span>Parcela da propriedade</span><strong>{producaoTotalSacas.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} sc</strong><small>{producaoTotalKg.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} kg</small></div></div>
-            <div className="resumo-controle"><span>Média de produção<strong>{mediaSacasAlqueire.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} sc/alq.</strong></span><span>Destinada a semente<strong>{sementeTotalSacas.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} sc</strong></span><span>CAD/PRO<strong>{cadproSelecionado?.codigo || "—"}</strong></span><span>Área declarada<strong>{areaEmAlqueires(areaPropriedade)} alq.</strong></span></div>
-            <div className="tabela-responsiva"><table className="tabela-relatorio tabela-controle"><thead><tr><th>Data</th><th>Placa / motorista</th><th>CAD/PRO</th><th>Umidade</th><th>Impureza</th><th>Quebrados</th><th>PH</th><th>Semente</th><th>Silo de armazenagem</th><th>Peso líquido da propriedade</th><th>Sacas 60 kg da propriedade</th></tr></thead><tbody>{cargasDoControle.length ? cargasDoControle.map((item) => {
-              const parcela = parcelaDaCarga(item, propriedadeControleId);
-              if (!parcela) return null;
-              return <tr key={`controle-${item.id}`}><td>{item.data_colheita}</td><td>{item.placa || "—"}<small>{item.motorista || "—"}</small></td><td>{parcela.cadproCodigo || cadproSelecionado?.codigo || "—"}</td><td>{item.umidade_percentual}%</td><td>{item.impureza_percentual}%</td><td>{item.defeitos_percentual}%</td><td>{item.ph || "—"}</td><td>{item.destinado_semente ? `${parcela.sacasSemente.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} sc` : "Não"}</td><td>{item.armazem_nome}</td><td>{parcela.peso.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} kg</td><td>{parcela.sacas.toLocaleString("pt-BR", { maximumFractionDigits: 3 })}</td></tr>;
-            }) : <tr><td colSpan={11}>Nenhuma carga ativa corresponde à propriedade, safra e cultura selecionadas.</td></tr>}</tbody></table></div>
-          </section>
           <div className="painel-filtros">
             <input aria-label="Buscar cargas" placeholder="Buscar placa, propriedade, CAD/PRO, cultura, safra ou local" value={busca} onChange={(e) => setBusca(e.target.value)} />
             <label className="opcao-checkbox"><input type="checkbox" checked={mostrarHistorico} onChange={(e) => setMostrarHistorico(e.target.checked)} /> Mostrar histórico</label>

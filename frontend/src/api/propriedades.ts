@@ -47,6 +47,18 @@ export type PropriedadeInput = {
   arquivo_kml: File | null;
 };
 
+type PropriedadeComCadPro = Pick<Propriedade, "nome"> &
+  Partial<Pick<Propriedade, "cad_pro_numeros">>;
+
+export function rotuloPropriedade(propriedade: PropriedadeComCadPro) {
+  const cadPros = [...new Set(
+    (propriedade.cad_pro_numeros ?? [])
+      .map((numero) => numero.trim())
+      .filter(Boolean),
+  )];
+  return `${propriedade.nome} — CAD/PRO ${cadPros.length ? cadPros.join(", ") : "não informado"}`;
+}
+
 const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000/api";
 const hectaresDeAlqueires = (valor: string) => (Number(valor.replace(",", ".")) * 2.42).toFixed(2);
 

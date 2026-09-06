@@ -24,7 +24,7 @@ import {
   LocalEstoque,
   ProdutoEstoque,
 } from "../../api/estoque";
-import { Propriedade } from "../../api/propriedades";
+import { Propriedade, rotuloPropriedade } from "../../api/propriedades";
 import ContratosComerciais from "./ContratosComerciais";
 
 
@@ -167,7 +167,7 @@ export default function CadastrosAgricolasPage({ propriedades }: Props) {
   }
 
   return (
-    <section className="modulo-estoque">
+    <section className="modulo-estoque modulo-cadastros-agricolas">
       <div className="cargas-cabecalho">
         <div>
           <span className="kicker">Cadastros centrais</span>
@@ -209,7 +209,7 @@ export default function CadastrosAgricolasPage({ propriedades }: Props) {
             () => { setLocal(localVazio); setEdicaoLocal(null); },
           )}>
             <label>Nome<input required placeholder="Ex.: Galpão norte" value={local.nome} onChange={(e) => setLocal({ ...local, nome: e.target.value })} /></label>
-            <label>Propriedade<select value={local.propriedade} onChange={(e) => setLocal({ ...local, propriedade: e.target.value })}><option value="">Sem propriedade específica</option>{propriedades.map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select></label>
+            <label>Propriedade<select value={local.propriedade} onChange={(e) => setLocal({ ...local, propriedade: e.target.value })}><option value="">Sem propriedade específica</option>{propriedades.map((item) => <option key={item.id} value={item.id}>{rotuloPropriedade(item)}</option>)}</select></label>
             <label>Descrição<input placeholder="Localização ou finalidade" value={local.descricao} onChange={(e) => setLocal({ ...local, descricao: e.target.value })} /></label>
             <div className="acoes"><button disabled={carregando || Boolean(processando)} type="submit">{edicaoLocal ? "Salvar depósito" : "Cadastrar depósito"}</button>{edicaoLocal && <button className="secundario" type="button" onClick={() => { setLocal(localVazio); setEdicaoLocal(null); }}>Cancelar</button>}</div>
           </form>

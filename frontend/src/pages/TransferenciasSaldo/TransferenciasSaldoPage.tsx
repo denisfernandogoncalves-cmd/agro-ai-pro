@@ -59,9 +59,44 @@ export function agruparHistoricoTransferencias(movimentos: MovimentacaoSaldo[]) 
   }));
 }
 
+type HistoricoTransferencia = ReturnType<typeof agruparHistoricoTransferencias>[number];
+
 function dataBR(valor?: string) {
   const [ano, mes, dia] = (valor || "").slice(0, 10).split("-");
   return ano && mes && dia ? `${dia}/${mes}/${ano}` : "—";
+}
+
+export function numeroPlanilhaTransferencia(valor: string | number) {
+  return Number(valor || 0).toLocaleString("pt-BR", {
+    minimumFractionDigits: 3,
+    maximumFractionDigits: 3,
+  });
+}
+
+export function nomePropriedadeTransferencia(
+  movimento: MovimentacaoSaldo | undefined,
+  propriedades: PropriedadeResumo[],
+) {
+  return propriedades.find(item => item.id === movimento?.propriedade_id)?.nome
+    || (movimento?.propriedade_id ? `Propriedade #${movimento.propriedade_id}` : "Produção histórica");
+}
+
+export function TabelaImpressaoTransferencias({
+  historico,
+  propriedades,
+}: {
+  historico: HistoricoTransferencia[];
+  propriedades: PropriedadeResumo[];
+}) {
+  const quantidadeTotal = historico.reduce((total, item) => total + Number(
+    (item.saida || item.entrada)?.quantidade_kg || 0,
+  ), 0);
+  return <div className="tabela-responsiva"><table className="tabela-relatorio tabela-controle transferencias-planilha">
+    <caption>Transferências registradas e total das linhas impressas</caption>
+    <thead><tr><th>Data</th><th>Origem</th><th>Destino</th><th>Produto / safra</th><th>Quantidade (kg)</th><th>Referência / documento</th><th>Observações</th><th>Registro</th></tr></thead>
+    <tbody>{historico.length ? historico.map(item => { const movimento = item.saida || item.entrada; return <tr key={`transferencia-impressao-${item.chave}`}><td>{dataBR(movimento?.data_movimento)}</td><td><strong>{nomePropriedadeTransferencia(item.saida, propriedades)}</strong><small>CAD/PRO {item.saida?.cad_pro_codigo || "—"} · {item.saida?.armazem_nome || "—"}</small></td><td><strong>{nomePropriedadeTransferencia(item.entrada, propriedades)}</strong><small>CAD/PRO {item.entrada?.cad_pro_codigo || "—"} · {item.entrada?.armazem_nome || "—"}</small></td><td>{movimento?.cultura || "—"}<small>{movimento?.safra || "—"} · {movimento?.classificacao_codigo || "—"}</small></td><td><strong>{numeroPlanilhaTransferencia(movimento?.quantidade_kg || 0)}</strong></td><td>{movimento?.referencia_externa || "—"}</td><td>{movimento?.observacoes || "—"}</td><td>{movimento?.criado_por_nome || "—"}<small>{movimento?.criado_em ? new Date(movimento.criado_em).toLocaleString("pt-BR") : "—"}</small></td></tr>; }) : <tr><td colSpan={8}>Nenhuma transferência registrada.</td></tr>}</tbody>
+    {historico.length > 0 && <tfoot><tr><td><strong>TOTAL</strong><small>Total das linhas impressas</small></td><td>—</td><td>—</td><td>—</td><td><strong>{numeroPlanilhaTransferencia(quantidadeTotal)}</strong></td><td>—</td><td>—</td><td>—</td></tr></tfoot>}
+  </table></div>;
 }
 
 function mensagem(falha: unknown) {
@@ -124,12 +159,30 @@ export default function TransferenciasSaldoPage() {
   }
 
   const historico = agruparHistoricoTransferencias(dados?.movimentos || []);
-  const nomePropriedade = (movimento?: MovimentacaoSaldo) => propriedades.find(item => item.id === movimento?.propriedade_id)?.nome || (movimento?.propriedade_id ? `Propriedade #${movimento.propriedade_id}` : "Produção histórica");
+  const movimentosHistorico = historico.map(item => item.saida || item.entrada).filter(Boolean) as MovimentacaoSaldo[];
+  const propriedadesImpressao = [...new Set(historico.flatMap(item => [
+    nomePropriedadeTransferencia(item.saida, propriedades),
+    nomePropriedadeTransferencia(item.entrada, propriedades),
+  ]))];
+  const cadprosImpressao = [...new Set(historico.flatMap(item => [
+    item.saida?.cad_pro_codigo,
+    item.entrada?.cad_pro_codigo,
+  ]).filter((codigo): codigo is string => Boolean(codigo)))];
+  const culturasImpressao = [...new Set(movimentosHistorico.map(item => item.cultura))];
+  const safrasImpressao = [...new Set(movimentosHistorico.map(item => item.safra))];
+  const quantidadeImpressao = historico.reduce((total, item) => total + Number(
+    (item.saida || item.entrada)?.quantidade_kg || 0,
+  ), 0);
 
-  return <section className="modulo-producao-saldos">
+  return <section className="modulo-producao-saldos modulo-transferencias-saldo">
     <h2>Transferência de saldo entre CAD/PROs</h2>
     <p>Selecione a cultura e o ano/safra e, em seguida, as propriedades e os CAD/PROs de origem e destino. Não é necessário escolher lotes; débito e crédito ficam vinculados no histórico.</p>
     {erro && <p className="erro card" role="alert">{erro}</p>}{sucesso && <p className="sucesso card" role="status">{sucesso}</p>}
+    <section className="card controle-planilha controle-planilha-impressao controle-planilha-transferencias somente-impressao" hidden={carregando}>
+      <h2 className="somente-impressao titulo-impressao-planilha">Transferência de saldo</h2>
+      <div className="controle-planilha-titulo"><div><span className="kicker">Controle de transferências entre posições</span><h3>{propriedadesImpressao.join(" · ") || "Todas as propriedades"}</h3><p>CAD/PRO {cadprosImpressao.join(", ") || "—"} · {culturasImpressao.join(", ") || "todas as culturas"} · safra {safrasImpressao.join(", ") || "todas"}</p></div><div className="controle-planilha-total"><span>Total transferido</span><strong>{numeroPlanilhaTransferencia(quantidadeImpressao)} kg</strong><small>{numeroPlanilhaTransferencia(quantidadeImpressao / 60)} sacas de 60 kg</small></div></div>
+      <TabelaImpressaoTransferencias historico={historico} propriedades={propriedades} />
+    </section>
     <form className="card formulario transferencia-saldo" onSubmit={enviar}><fieldset disabled={ocupado || carregando}>
       <div className="linha"><label>Cultura<select required value={form.cultura} onChange={e => setForm({ ...form, cultura: e.target.value, safra: "", posicao_origem: 0, posicao_destino: 0 })}><option value="">Selecione a cultura</option>{culturas.map(cultura => <option key={cultura} value={cultura}>{cultura}</option>)}</select></label><label>Ano / safra<select required disabled={!form.cultura} value={form.safra} onChange={e => setForm({ ...form, safra: e.target.value, posicao_origem: 0, posicao_destino: 0 })}><option value="">{form.cultura ? "Selecione o ano / safra" : "Selecione primeiro a cultura"}</option>{safras.map(safra => <option key={safra} value={safra}>{safra}</option>)}</select></label></div>
       <div className="linha"><label>Propriedade / CAD/PRO de origem / Proprietário<select required disabled={!form.safra} value={form.posicao_origem || ""} onChange={e => setForm({ ...form, posicao_origem: Number(e.target.value), posicao_destino: 0 })}><option value="">{form.safra ? "Selecione a propriedade e o CAD/PRO" : "Selecione primeiro a cultura e o ano / safra"}</option>{origens.map(opcao => <option key={opcao.chave} value={opcao.chave}>{opcao.rotulo}</option>)}</select></label><label>Propriedade / CAD/PRO de destino / Proprietário<select required disabled={!origem} value={form.posicao_destino || ""} onChange={e => setForm({ ...form, posicao_destino: Number(e.target.value) })}><option value="">{origem ? "Selecione a propriedade e o CAD/PRO" : "Selecione primeiro a origem"}</option>{destinos.map(opcao => <option key={opcao.chave} value={opcao.chave}>{opcao.rotulo}</option>)}</select></label></div>
@@ -139,6 +192,6 @@ export default function TransferenciasSaldoPage() {
       <label>Referência / documento<input maxLength={160} value={form.referencia_externa} onChange={e => setForm({ ...form, referencia_externa: e.target.value })} /></label><label>Observações<textarea value={form.observacoes} onChange={e => setForm({ ...form, observacoes: e.target.value })} /></label>
       <button type="submit" disabled={!origem || !destino}>Transferir saldo</button>
     </fieldset></form>
-    <section className="card"><div className="acoes"><h3>Histórico de transferências</h3><button type="button" className="secundario" disabled={ocupado || carregando} onClick={() => void carregar()}>Atualizar</button></div><p>Todos os dados inseridos são apresentados abaixo; as duas movimentações pertencem ao mesmo lançamento.</p><div className="tabela-responsiva"><table className="tabela-relatorio tabela-transferencias"><thead><tr><th>Data</th><th>Origem</th><th>Destino</th><th>Produto / safra</th><th>Quantidade</th><th>Referência / documento</th><th>Observações</th><th>Registro</th></tr></thead><tbody>{historico.map(item => { const movimento = item.saida || item.entrada; return <tr key={item.chave}><td>{dataBR(movimento?.data_movimento)}</td><td><strong>{nomePropriedade(item.saida)}</strong><small>CAD/PRO {item.saida?.cad_pro_codigo || "—"} · {item.saida?.armazem_nome || "—"}</small></td><td><strong>{nomePropriedade(item.entrada)}</strong><small>CAD/PRO {item.entrada?.cad_pro_codigo || "—"} · {item.entrada?.armazem_nome || "—"}</small></td><td>{movimento?.cultura || "—"} · {movimento?.safra || "—"}<small>{movimento?.classificacao_codigo || "—"}</small></td><td>{kg(movimento?.quantidade_kg || "0")}</td><td>{movimento?.referencia_externa || "—"}</td><td>{movimento?.observacoes || "—"}</td><td>{movimento?.criado_por_nome || "—"}<small>{movimento?.criado_em ? new Date(movimento.criado_em).toLocaleString("pt-BR") : "—"}</small></td></tr>; })}{!historico.length && <tr><td colSpan={8}>{carregando ? "Carregando..." : "Nenhuma transferência registrada."}</td></tr>}</tbody></table></div></section>
+    <section className="card"><div className="acoes"><h3>Histórico de transferências</h3><button type="button" className="secundario" disabled={ocupado || carregando} onClick={() => void carregar()}>Atualizar</button></div><p>Todos os dados inseridos são apresentados abaixo; as duas movimentações pertencem ao mesmo lançamento.</p><div className="tabela-responsiva"><table className="tabela-relatorio tabela-transferencias"><thead><tr><th>Data</th><th>Origem</th><th>Destino</th><th>Produto / safra</th><th>Quantidade</th><th>Referência / documento</th><th>Observações</th><th>Registro</th></tr></thead><tbody>{historico.map(item => { const movimento = item.saida || item.entrada; return <tr key={item.chave}><td>{dataBR(movimento?.data_movimento)}</td><td><strong>{nomePropriedadeTransferencia(item.saida, propriedades)}</strong><small>CAD/PRO {item.saida?.cad_pro_codigo || "—"} · {item.saida?.armazem_nome || "—"}</small></td><td><strong>{nomePropriedadeTransferencia(item.entrada, propriedades)}</strong><small>CAD/PRO {item.entrada?.cad_pro_codigo || "—"} · {item.entrada?.armazem_nome || "—"}</small></td><td>{movimento?.cultura || "—"} · {movimento?.safra || "—"}<small>{movimento?.classificacao_codigo || "—"}</small></td><td>{kg(movimento?.quantidade_kg || "0")}</td><td>{movimento?.referencia_externa || "—"}</td><td>{movimento?.observacoes || "—"}</td><td>{movimento?.criado_por_nome || "—"}<small>{movimento?.criado_em ? new Date(movimento.criado_em).toLocaleString("pt-BR") : "—"}</small></td></tr>; })}{!historico.length && <tr><td colSpan={8}>{carregando ? "Carregando..." : "Nenhuma transferência registrada."}</td></tr>}</tbody></table></div></section>
   </section>;
 }

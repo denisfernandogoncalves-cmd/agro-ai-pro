@@ -12,7 +12,7 @@ import {
   registrarMovimento,
   ResumoEstoque,
 } from "../../api/estoque";
-import { Propriedade } from "../../api/propriedades";
+import { Propriedade, rotuloPropriedade } from "../../api/propriedades";
 
 
 const hoje = new Date().toISOString().slice(0, 10);
@@ -164,7 +164,7 @@ export default function EstoquePage({ propriedades }: Props) {
           <label>Propriedade
             <select value={movimento.propriedade} onChange={(e) => setMovimento({ ...movimento, propriedade: e.target.value })}>
               <option value="">Não vinculada</option>
-              {propriedades.map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}
+              {propriedades.map((item) => <option key={item.id} value={item.id}>{rotuloPropriedade(item)}</option>)}
             </select>
           </label>
           <label>Safra<input placeholder="2026/2027" value={movimento.safra} onChange={(e) => setMovimento({ ...movimento, safra: e.target.value })} /></label>

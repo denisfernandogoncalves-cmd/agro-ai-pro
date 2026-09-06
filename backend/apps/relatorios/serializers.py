@@ -32,6 +32,14 @@ class FiltrosRelatorioOperacionalSerializer(serializers.Serializer):
             "produtividade",
             "producao_propriedade",
             "motoristas",
+            "estrutura",
+            "financeiro",
+            "estoque_insumos",
+            "operacoes_agricolas",
+            "maquinas",
+            "clima",
+            "mercado",
+            "importacoes",
         ),
     )
     pagina = serializers.IntegerField(required=False, default=1, min_value=1)

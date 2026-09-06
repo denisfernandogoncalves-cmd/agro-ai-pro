@@ -185,3 +185,14 @@ novas, cria a coluna preenchendo registros antigos com texto vazio. O retorno da
 migration preserva a coluna física e seus dados, oferecendo default vazio para
 inserções por versões anteriores. Reaplicar é seguro; o retorno não remove nomes
 de motoristas. Ciclos de migrations devem ser executados somente em banco de teste.
+
+## Impressão de vendas
+
+A impressão de Vendas inclui automaticamente todas as colunas da planilha e
+todas as propriedades presentes no resultado filtrado. Não há seletores de
+colunas ou propriedades na tela; os filtros de Vendas definem o conjunto
+impresso.
+
+O rodapé da planilha soma o peso e as sacas de todas as linhas impressas. O
+cabeçalho mantém a saída líquida, que desconta as devoluções registradas; por
+isso ela pode ser diferente do total entregue exibido no rodapé.
