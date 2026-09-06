@@ -161,7 +161,35 @@ header { align-items: center; display: flex; justify-content: space-between; mar
 .aviso-contexto { background: #fff3d6; border-radius: 8px; color: #76520a; padding: 0.7rem; }
 .cargas-cabecalho { align-items: center; display: flex; gap: 1rem; justify-content: space-between; }
 .cargas-cabecalho h2 { margin: 0.2rem 0; }
-.cargas-grade { grid-template-columns: minmax(340px, 470px) 1fr; }
+.cargas-grade { grid-template-columns: 1fr; }
+.formulario-carga-horizontal {
+  background: #fbfdfb;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  max-height: none;
+  overflow-y: visible;
+  position: static;
+}
+.formulario-carga-horizontal > h3,
+.formulario-carga-horizontal > .aviso-contexto,
+.formulario-carga-horizontal > fieldset,
+.formulario-carga-horizontal > .resumo-peso,
+.formulario-carga-horizontal > .configuracao-descontos,
+.formulario-carga-horizontal > small,
+.formulario-carga-horizontal > .acoes { grid-column: 1 / -1; }
+.formulario-carga-horizontal > h3 { margin-bottom: 0; }
+.formulario-carga-horizontal > .linha { display: contents; }
+.formulario-carga-horizontal > fieldset {
+  display: grid;
+  gap: 0.8rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  min-width: 0;
+}
+.formulario-carga-horizontal > fieldset > legend { margin-bottom: 0.5rem; }
+.formulario-carga-horizontal > label,
+.formulario-carga-horizontal > .linha > label { min-width: 0; }
+.formulario-carga-horizontal > label:has(textarea) { grid-column: 1 / -1; }
+.formulario-carga-horizontal > .acoes { justify-content: flex-end; }
+
 .grupo-colheita-form { position: static; }
 .regras-desconto { display: grid; gap: 0.8rem; grid-template-columns: repeat(3, 1fr); }
 .regras-desconto fieldset { border: 1px solid #d9e3db; border-radius: 10px; display: grid; gap: 0.6rem; margin: 0; padding: 0.8rem; }
@@ -211,7 +239,23 @@ header { align-items: center; display: flex; justify-content: space-between; mar
 .snapshot-rastreabilidade span { color: #445a4d; font-size: 0.84rem; }
 .conteudo-atualizando { opacity: 0.55; }
 
+@media (max-width: 1200px) {
+  .formulario-carga-horizontal,
+  .formulario-carga-horizontal > fieldset { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 @media (max-width: 860px) {
+  .formulario-carga-horizontal,
+  .formulario-carga-horizontal > fieldset { grid-template-columns: 1fr; }
+  .formulario-carga-horizontal > h3,
+  .formulario-carga-horizontal > .aviso-contexto,
+  .formulario-carga-horizontal > fieldset,
+  .formulario-carga-horizontal > .resumo-peso,
+  .formulario-carga-horizontal > .configuracao-descontos,
+  .formulario-carga-horizontal > label:has(textarea),
+  .formulario-carga-horizontal > small,
+  .formulario-carga-horizontal > .acoes { grid-column: 1; }
+
   .pagina { padding: 1rem; }
   header { align-items: flex-start; gap: 1rem; }
   .cabecalho-acoes { align-items: flex-end; flex-direction: column-reverse; }

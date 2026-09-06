@@ -151,7 +151,7 @@ export default function CargasColhidasPage({ propriedades }: Props) {
       </div>
 
       <section className="grade cargas-grade">
-        <form className="card formulario" onSubmit={salvarCarga}>
+        <form className="card formulario formulario-carga-horizontal" onSubmit={salvarCarga}>
           <h3>Registrar carga manual</h3>
           <label>Grupo de colheita<select required value={carga.grupo_colheita} onChange={(e) => { const selecionado = grupos.find((item) => String(item.id) === e.target.value); setCarga({ ...carga, grupo_colheita: e.target.value, armazem: selecionado?.armazem_padrao ? String(selecionado.armazem_padrao) : "" }); }}><option value="">Selecione</option>{grupos.map((item) => <option key={item.id} value={item.id}>{item.nome} · {item.propriedade_nome} · {item.cultura} {item.safra}</option>)}</select></label>
           <label>Armazenagem<select required value={carga.armazem} onChange={(e) => setCarga({ ...carga, armazem: e.target.value })}><option value="">Selecione</option>{armazensDisponiveis.map((item) => <option key={item.id} value={item.id}>{item.nome} · ocupação {numero(item.ocupacao_kg).toLocaleString("pt-BR")} kg</option>)}</select></label>

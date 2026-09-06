@@ -62,3 +62,9 @@ armazenagem padrão e preenche grupos existentes pela primeira carga ou pelo
 primeiro armazém ativo da propriedade, quando disponível. Nenhuma delas remove
 dados. O fluxo reutiliza `apps.propriedades`, `apps.cadpro`, `apps.graos` e os
 campos já normalizados por `apps.importacoes`.
+
+## Formulário horizontal — 03/09/2026
+
+O registro manual ocupa toda a largura acima do histórico: quatro colunas no
+desktop, duas em telas intermediárias e uma no celular. A alteração é visual,
+sem mudanças em cálculos, validações, API ou banco.

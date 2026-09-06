@@ -271,6 +271,12 @@ try {
     React.createElement(CargasColhidasPage, { propriedades: [propriedade] }),
   );
   assert.match(htmlCargas, /Registrar carga manual/);
+  assert.match(htmlCargas, /formulario-carga-horizontal/);
+  const estilosTela = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
+  assert.match(estilosTela, /\.cargas-grade\s*\{\s*grid-template-columns:\s*1fr/);
+  assert.match(estilosTela, /\.formulario-carga-horizontal\s*\{[\s\S]*?grid-template-columns:\s*repeat\(4,/);
+  assert.match(estilosTela, /@media\s*\(max-width:\s*1200px\)[\s\S]*?grid-template-columns:\s*repeat\(2,/);
+  assert.match(estilosTela, /@media\s*\(max-width:\s*860px\)[\s\S]*?\.formulario-carga-horizontal,[\s\S]*?grid-template-columns:\s*1fr/);
   assert.match(htmlCargas, /Peso líquido/);
   assert.match(htmlCargas, /Nenhuma carga colhida registrada/);
 
