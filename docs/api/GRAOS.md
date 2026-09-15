@@ -1,5 +1,14 @@
 # API de Estoque de Grãos
 
+## Seleção de lote para crédito de produção
+
+Em Produção e Saldos, o seletor de crédito respeita todos os filtros da consulta:
+propriedade produtora, CAD/PRO, cultura, safra, classificação e armazenagem.
+A cultura ignora maiúsculas/minúsculas; safra e classificação seguem a
+normalização da consulta de saldos. Lotes inativos ou sem CAD/PRO não são
+oferecidos. Um lote que deixe de atender aos filtros não pode ser submetido.
+Limpar os filtros permite consultar novamente os demais lotes elegíveis.
+
 O recebimento manual de produção e o crédito atômico no saldo por CAD/PRO são
 documentados em [Cargas Colhidas](CARGAS_COLHIDAS.md).
 

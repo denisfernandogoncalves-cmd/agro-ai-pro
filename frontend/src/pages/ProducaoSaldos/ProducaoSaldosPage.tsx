@@ -94,11 +94,16 @@ function mensagemErro(falha: unknown) {
 
 type Props = { propriedades: Propriedade[] };
 
-export function filtrarLotesProducao(lotes: LoteGraos[], propriedade = "") {
+export function filtrarLotesProducao(lotes: LoteGraos[], filtros: FiltrosSaldo = {}) {
   return lotes.filter((lote) =>
     lote.ativo
     && lote.cad_pro
-    && (!propriedade || String(lote.propriedade_id) === propriedade)
+    && (!filtros.propriedade || String(lote.propriedade_id) === filtros.propriedade)
+    && (!filtros.cad_pro || lote.cad_pro === filtros.cad_pro)
+    && (!filtros.cultura || lote.cultura.toLowerCase() === filtros.cultura.trim().toLowerCase())
+    && (!filtros.safra || lote.safra === filtros.safra.trim())
+    && (!filtros.classificacao_codigo || lote.classificacao_codigo === filtros.classificacao_codigo.trim().toUpperCase())
+    && (!filtros.armazem || String(lote.armazem) === filtros.armazem)
   );
 }
 
@@ -161,8 +166,8 @@ export default function ProducaoSaldosPage({ propriedades }: Props) {
   );
 
   const lotesAtivos = useMemo(
-    () => filtrarLotesProducao(lotes, filtros.propriedade),
-    [lotes, filtros.propriedade],
+    () => filtrarLotesProducao(lotes, filtros),
+    [lotes, filtros],
   );
   const loteCreditoValido = lotesAtivos.some((item) => item.id === credito.lote);
   const propriedadeSelecionada = propriedades.find(
@@ -181,7 +186,7 @@ export default function ProducaoSaldosPage({ propriedades }: Props) {
     evento.preventDefault();
     if (controladorCredito.current.emAndamento()) return;
     if (!loteCreditoValido) {
-      setErro("Selecione um lote da propriedade consultada antes de creditar a produção.");
+      setErro("Selecione um lote compatível com os filtros antes de creditar a produção.");
       return;
     }
     setErro("");
@@ -245,7 +250,7 @@ export default function ProducaoSaldosPage({ propriedades }: Props) {
       <section className="grade producao-saldos-grade">
         <form className="card formulario" onSubmit={registrarProducao}>
           <h3>Registrar produção</h3>
-          <p>O crédito usa o lote e os bloqueios canônicos já validados pelo núcleo de Grãos.</p>
+          <p>Selecione um lote compatível com os filtros da consulta para registrar a produção.</p>
           <label>Lote<select required value={credito.lote || ""} onChange={(e) => setCredito({ ...credito, lote: Number(e.target.value) })}><option value="">Selecione</option>{lotesAtivos.map((item) => <option key={item.id} value={item.id}>{item.codigo} · {item.cad_pro_codigo} · {item.cultura} {item.safra} · {item.classificacao_codigo} · {item.armazem_nome}</option>)}</select></label>
           <label>Quantidade líquida (kg)<input required min="0.001" step="0.001" type="number" value={credito.quantidade_kg} onChange={(e) => setCredito({ ...credito, quantidade_kg: e.target.value })} /></label>
           <label>Data do movimento<input required type="date" value={credito.data_movimento} onChange={(e) => setCredito({ ...credito, data_movimento: e.target.value })} /></label>

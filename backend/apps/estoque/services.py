@@ -58,7 +58,7 @@ def registrar_movimentacao(*, usuario, **dados):
 
 def _lotes_no_escopo(queryset=None, *, propriedade=None, safra=""):
     lotes = queryset if queryset is not None else LoteEstoque.objects.all()
-    lotes = lotes.select_related("produto", "local")
+    lotes = lotes.select_related("produto", "local", "fornecedor")
     if propriedade:
         lotes = lotes.filter(local__propriedade_id=propriedade)
     if safra:
@@ -116,7 +116,9 @@ def posicao_estoque(queryset=None, *, propriedade=None, safra=""):
                 "categoria": lote.produto.categoria,
                 "unidade": lote.produto.unidade,
                 "local_id": lote.local_id,
-                "local": lote.local.nome,
+                "local": lote.local.nome if lote.local else "",
+                "fornecedor_id": lote.fornecedor_id,
+                "fornecedor": lote.fornecedor.nome if lote.fornecedor else "",
                 "codigo_lote": lote.codigo,
                 "data_validade": lote.data_validade,
                 "vencido": bool(lote.data_validade and lote.data_validade < hoje),

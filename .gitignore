@@ -6,3 +6,4 @@ backend/media/
 backend/test.sqlite3
 frontend/dist/
 *.tsbuildinfo
+install/output/

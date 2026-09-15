@@ -1,5 +1,6 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
+from .compras import CompraEstoqueViewSet
 
 from .views import (
     LocalEstoqueViewSet,
@@ -10,6 +11,7 @@ from .views import (
 
 
 router = DefaultRouter()
+router.register("compras", CompraEstoqueViewSet, basename="compras-estoque")
 router.register("produtos", ProdutoEstoqueViewSet, basename="produtos")
 router.register("locais", LocalEstoqueViewSet, basename="locais")
 router.register("lotes", LoteEstoqueViewSet, basename="lotes")

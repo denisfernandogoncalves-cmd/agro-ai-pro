@@ -26,8 +26,10 @@ export type LoteEstoque = {
   produto: number;
   produto_nome: string;
   produto_unidade: string;
-  local: number;
+  local: number | null;
   local_nome: string;
+  fornecedor: number | null;
+  fornecedor_nome: string;
   codigo: string;
   data_validade: string | null;
   observacoes: string;
@@ -42,7 +44,9 @@ export type PosicaoEstoque = {
   produto: string;
   categoria: string;
   unidade: string;
-  local_id: number;
+  local_id: number | null;
+  fornecedor_id: number | null;
+  fornecedor: string;
   local: string;
   codigo_lote: string;
   data_validade: string | null;
@@ -60,6 +64,7 @@ export type MovimentacaoEstoque = {
   unidade: string;
   lote_codigo: string;
   local_nome: string;
+  fornecedor_nome: string;
   quantidade: string;
   custo_unitario: string | null;
   data_movimento: string;
@@ -79,6 +84,40 @@ export type ResumoEstoque = {
   lotes_vencendo: number;
   itens_abaixo_minimo: number;
 };
+
+export type CompraEstoqueInput = {
+  safra: string;
+  id: string;
+  data_compra: string;
+  produto: string;
+  cultura: string;
+  quantidade_embalagens: string;
+  embalagem: string;
+  conteudo_embalagem: string;
+  fornecedor: string;
+  custo_embalagem: string;
+  data_vencimento: string;
+};
+
+export type CompraEstoque = Omit<CompraEstoqueInput, "produto" | "fornecedor" | "data_vencimento"> & {
+  data_vencimento: string | null;
+  produto_nome: string;
+  fornecedor_nome: string;
+  unidade: string;
+  quantidade_total: string;
+  valor_por_unidade: string;
+  valor_total: string;
+};
+
+export async function listarComprasEstoque(search = "") {
+  return (await api.get<CompraEstoque[]>("/estoque/compras/", { params: { search } })).data;
+}
+
+export async function registrarCompraEstoque(dados: CompraEstoqueInput) {
+  return (await api.post<CompraEstoque>("/estoque/compras/", {
+    ...dados, data_vencimento: dados.data_vencimento || null,
+  })).data;
+}
 
 export type ProdutoEstoqueInput = {
   nome: string;
@@ -182,7 +221,7 @@ export async function excluirProduto(id: number) {
 
 export async function criarLote(dados: {
   produto: string;
-  local: string;
+  fornecedor: string;
   codigo: string;
   data_validade: string;
 }) {

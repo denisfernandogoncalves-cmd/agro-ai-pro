@@ -78,6 +78,28 @@ header { align-items: center; display: flex; justify-content: space-between; mar
 .noticias-mercado a { color: #237447; font-weight: 700; }
 .aviso-mercado { border-left: 4px solid #d7a633; color: #5f522e; }
 .modulo-financeiro { display: grid; gap: 1.4rem; }
+.compras-estoque { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.4rem; min-width: 0; }
+.compras-estoque > .card { min-width: 0; }
+.compra-campos { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.1rem; border: 0; padding: 0; margin: 0; min-width: 0; }
+.compra-campos label { align-content: start; }
+.compra-campos small { color: #607168; font-weight: 400; }
+.compra-campos output { padding: .8rem; background: #eef5ef; border: 1px solid #cdded0; border-radius: 8px; font-size: 1.05rem; }
+.compra-rodape, .compra-lista-cabecalho { display: flex; gap: 1rem; justify-content: space-between; align-items: center; margin-top: 1rem; }
+.compra-rodape p { color: #607168; margin: 0; }
+.compra-rodape button { flex-shrink: 0; }
+.compra-tabela-scroll { overflow-x: auto; max-width: 100%; margin-top: 1rem; }
+.compra-tabela { width: 100%; min-width: 1480px; border-collapse: collapse; font-size: .85rem; }
+.compra-tabela th { background: #237447; color: white; padding: .85rem .65rem; text-align: left; }
+.compra-tabela td { padding: .85rem .65rem; border-bottom: 1px solid #d9e2da; }
+.compra-tabela tbody tr:nth-child(even) { background: #eef5ef; }
+.estoque-movimentos > summary { cursor: pointer; font-weight: 700; padding: .3rem 0 1rem; }
+.estoque-movimentos .formulario { position: static; }
+.modulo-estoque > * { min-width: 0; }
+@media (max-width: 1000px) { .compra-campos { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 700px) { .compra-campos { grid-template-columns: repeat(2, minmax(0, 1fr)); } .compra-lista-cabecalho, .compra-rodape { flex-direction: column; align-items: stretch; } }
+@media (max-width: 420px) { .compra-campos { grid-template-columns: minmax(0, 1fr); } }
+.modulo-financeiro .formulario { position: static; top: auto; min-width: 0; }
+.modulo-financeiro > *, .financeiro-grade > * { min-width: 0; }
 .resumos-financeiros { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
 .resumos-financeiros article { display: grid; gap: 0.4rem; }
 .resumos-financeiros strong { font-size: 1.3rem; }

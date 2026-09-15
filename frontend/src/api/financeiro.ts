@@ -39,12 +39,16 @@ export type CentroCusto = {
 };
 
 export type LancamentoFinanceiro = {
+  recebedor_nome: string;
+  parcela_numero: number | null;
+  total_boletos: number | null;
+  codigo_barras: string;
   id: number;
   tipo: "pagar" | "receber";
   descricao: string;
   valor: string;
   categoria: number;
-  categoria_nome: string;
+  categoria_nome: string | null;
   parceiro: number | null;
   parceiro_nome: string | null;
   centro_custo: number | null;
@@ -73,6 +77,7 @@ export type ResumoFinanceiro = {
 };
 
 export type LancamentoInput = {
+  codigo_barras?: string;
   tipo: "pagar" | "receber";
   descricao: string;
   valor: string;
@@ -85,6 +90,28 @@ export type LancamentoInput = {
   data_vencimento: string;
   observacoes: string;
 };
+
+export type LeituraCodigoFinanceiro = {
+  linha_digitavel?: string;
+  linha_digitavel_formatada?: string;
+  formato_entrada?: string;
+  descricao_sugerida?: string;
+  detalhes?: { campo: string; valor: string }[];
+  codigo_barras: string;
+  tipo: "boleto" | "arrecadacao";
+  banco_codigo: string | null;
+  banco_nome?: string | null;
+  segmento: string | null;
+  identificacao_emissor: string | null;
+  valor: string | null;
+  vencimentos_possiveis: string[];
+  avisos: string[];
+  lancamentos_existentes: { id: number; descricao: string; status: string }[];
+};
+
+export async function lerCodigoFinanceiro(codigo: string): Promise<LeituraCodigoFinanceiro> {
+  return (await api.post<LeituraCodigoFinanceiro>("/financeiro/lancamentos/ler-codigo/", { codigo })).data;
+}
 
 export async function listarParceirosFinanceiros() {
   return (
@@ -175,6 +202,34 @@ export async function criarLancamento(dados: LancamentoInput) {
     centro_custo: dados.centro_custo ? Number(dados.centro_custo) : null,
     propriedade: dados.propriedade ? Number(dados.propriedade) : null,
   });
+}
+
+export type ParcelamentoInput = {
+  idempotency_key: string;
+  tipo: "pagar" | "receber";
+  descricao: string;
+  recebedor_nome: string;
+  valor_total: string;
+  quantidade: number;
+  data_emissao: string;
+  primeiro_vencimento: string;
+  observacoes: string;
+  codigo_barras: string;
+};
+
+export async function criarParcelamento(dados: ParcelamentoInput) {
+  return (await api.post<{ id: string; replay: boolean; parcelas: LancamentoFinanceiro[] }>("/financeiro/lancamentos/parcelar/", dados)).data;
+}
+
+export type BoletoCompraInput = Omit<ParcelamentoInput, "quantidade" | "valor_total" | "primeiro_vencimento"> & {
+  parcela_numero: number;
+  total_boletos: number;
+  valor: string;
+  data_vencimento: string;
+};
+
+export async function registrarBoleto(dados: BoletoCompraInput) {
+  return (await api.post<{ boleto: LancamentoFinanceiro; replay: boolean }>("/financeiro/lancamentos/registrar-boleto/", dados)).data;
 }
 
 export async function liquidarLancamento(

@@ -69,6 +69,22 @@ class VendaSemEntradaTests(GraosSaldoBase, APITestCase):
         self.creditar('250', 'entrada-final')
         self.saldo('50')
 
+    def test_sobra_tecnica_permite_venda_e_preserva_negativo_no_painel(self):
+        self.creditar('200', 'estoque-registrado')
+        resposta = self.enviar(chave='venda-sobra-tecnica')
+        self.assertEqual(resposta.status_code, 201, resposta.data)
+        self.saldo('-100')
+        painel = self.client.get('/api/graos/saldos/painel/', {
+            'propriedade': self.propriedade.pk,
+            'cad_pro': str(self.cad_pro.pk),
+        })
+        self.assertEqual(painel.status_code, 200, painel.data)
+        self.assertEqual(Decimal(painel.data['resumo']['saldo_fisico_kg']), Decimal('-100'))
+        self.assertEqual(Decimal(painel.data['resumo']['saldo_disponivel_kg']), Decimal('-100'))
+        self.assertEqual(self.enviar(chave='venda-sobra-tecnica').data['id'], resposta.data['id'])
+        self.saldo('-100')
+        self.assertEqual(MovimentacaoGraos.objects.filter(delta_fisico_kg__gt=0).count(), 1)
+
     def test_reserva_generica_nao_pode_agravar_deficit(self):
         self.lancar()
         with self.assertRaises(SaldoGraosInsuficienteError):

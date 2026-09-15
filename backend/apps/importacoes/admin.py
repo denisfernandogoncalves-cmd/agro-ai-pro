@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import LinhaImportacao, LoteImportacao
+from .models import ConfirmacaoImportacao, LinhaImportacao, LoteImportacao
 
 
 class SomenteLeituraAdminMixin:
@@ -51,4 +51,25 @@ class LinhaImportacaoAdmin(SomenteLeituraAdminMixin, admin.ModelAdmin):
     )
     readonly_fields = tuple(
         campo.name for campo in LinhaImportacao._meta.fields
+    )
+
+
+@admin.register(ConfirmacaoImportacao)
+class ConfirmacaoImportacaoAdmin(SomenteLeituraAdminMixin, admin.ModelAdmin):
+    list_display = (
+        "lote_importacao",
+        "idempotency_key",
+        "status",
+        "usuario",
+        "criado_em",
+    )
+    list_filter = ("status", "criado_em")
+    search_fields = (
+        "lote_importacao__arquivo_nome",
+        "lote_importacao__arquivo_sha256",
+        "idempotency_key",
+        "usuario__username",
+    )
+    readonly_fields = tuple(
+        campo.name for campo in ConfirmacaoImportacao._meta.fields
     )

@@ -13,6 +13,7 @@ import {
 } from "../../api/cargasColhidas";
 import { Propriedade, rotuloPropriedade } from "../../api/propriedades";
 import { Talhao } from "../../api/talhoes";
+import { aplicarGrupoNaCarga, GrupoPropriedades, listarGruposPropriedades } from "../../api/gruposPropriedades";
 import { areaEmAlqueires } from "../../utils/areas";
 
 
@@ -290,6 +291,13 @@ function resumoCalculado(carga: CargaColhidaInput) {
 type Props = { propriedades: Propriedade[] };
 
 export default function CargasColhidasPage({ propriedades }: Props) {
+  const [grupos, setGrupos] = useState<GrupoPropriedades[]>([]);
+  const [erroGrupos, setErroGrupos] = useState("");
+  async function carregarGrupos() {
+    try { setGrupos(await listarGruposPropriedades()); setErroGrupos(""); }
+    catch { setErroGrupos("Não foi possível carregar os grupos. A seleção manual continua disponível."); }
+  }
+  useEffect(() => { void carregarGrupos(); }, []);
   const [armazens, setArmazens] = useState<ArmazemGraos[]>([]);
   const [cadpros, setCadpros] = useState<CADPro[]>([]);
   const [cargas, setCargas] = useState<CargaColhida[]>([]);
@@ -548,6 +556,23 @@ export default function CargasColhidasPage({ propriedades }: Props) {
         <form className="card formulario formulario-carga-horizontal" onSubmit={salvarCarga}>
           <h3>{edicaoId ? `Editar carga #${edicaoId}` : "Registrar carga manual"}</h3>
           {edicaoId && <p className="aviso-contexto">Ao salvar, a carga original será estornada e preservada; uma versão corrigida será criada.</p>}
+          <label>Usar grupo de colheita
+            <select value="" disabled={carregando} onChange={e => {
+              const grupo = grupos.find(g => String(g.id) === e.target.value);
+              if (!grupo) return;
+              try {
+                const preenchida = aplicarGrupoNaCarga(carga, grupo);
+                if (grupo.membros.some(m => !propriedades.some(p => p.id === m.propriedade))) throw new Error("Atualize as propriedades antes de usar este grupo.");
+                setCarga(preenchida); setErroGrupos("");
+              } catch (falha) { setErroGrupos(falha instanceof Error ? falha.message : "Não foi possível aplicar o grupo."); }
+            }}>
+              <option value="">Selecione para preencher as propriedades</option>
+              {grupos.filter(g => g.ativo).map(g => <option key={g.id} value={g.id}>{g.nome}</option>)}
+            </select>
+          </label>
+          <button type="button" onClick={() => void carregarGrupos()}>Atualizar grupos</button>
+          {erroGrupos && <p className="erro" role="alert">{erroGrupos}</p>}
+          <p>Cadastre grupos em Talhões. Após aplicar, confira as propriedades abaixo; você pode ajustar a seleção e os CAD/PROs antes de salvar.</p>
           <fieldset>
             <legend>Escolha as propriedades</legend>
             {propriedades.map((item) => {

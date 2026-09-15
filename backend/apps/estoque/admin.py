@@ -20,8 +20,8 @@ admin.site.register(LocalEstoque)
 
 @admin.register(LoteEstoque)
 class LoteEstoqueAdmin(admin.ModelAdmin):
-    list_display = ("codigo", "produto", "local", "data_validade", "ativo")
-    list_filter = ("ativo", "data_validade", "local")
+    list_display = ("codigo", "produto", "fornecedor", "local", "data_validade", "ativo")
+    list_filter = ("ativo", "data_validade", "fornecedor", "local")
     search_fields = ("codigo", "produto__nome")
 
 

@@ -180,10 +180,10 @@ class AssociadorGraos:
                 propriedade
             )
         self.lotes = {}
-        queryset = LoteGraos.objects.select_related("armazem__propriedade")
+        queryset = LoteGraos.objects.filter(ativo=True).select_related("propriedade")
         for lote in queryset:
             chave = (
-                lote.armazem.propriedade_id,
+                lote.propriedade_id,
                 chave_texto(lote.cultura),
                 lote.safra,
             )
@@ -696,7 +696,7 @@ def processar_preview_planilha(*, arquivo, usuario):
     status = (
         LoteImportacao.Status.COM_ERROS
         if total_erros
-        else LoteImportacao.Status.CONCLUIDO
+        else LoteImportacao.Status.PRONTO_PARA_CONFIRMACAO
     )
     try:
         with transaction.atomic():

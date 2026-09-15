@@ -85,3 +85,33 @@ Quando uma tarefa não indicar Sprint específica, o agente deve:
 4. implementar uma entrega testável e compatível com o escopo;
 5. atualizar os documentos somente com evidências;
 6. nunca fazer commit, push ou merge sem a autorização aplicável.
+
+## Incremento — Grupos de propriedades para colheita
+
+**Status:** `[x]` — implementado e validado em 07/09/2026.
+
+- Cadastro e edição em Talhões, com propriedades e CAD/PROs compartilhados ou diferentes.
+- Preenchimento opcional em Cargas colhidas, preservando seleção manual e rateio proporcional.
+- Migration aditiva aplicada localmente; testes de API, frontend e rateios aprovados.
+- Evidências, comandos e limitações em `docs/api/GRUPOS_PROPRIEDADES_COLHEITA.md`.
+
+## Incremento — Confirmação de importações no domínio atual
+
+**Status:** `[x]` — implementado e validado em 07/09/2026.
+
+- Interface de prévia, revisão paginada e confirmação explícita com permissão.
+- Associação à propriedade produtora e validação do CAD/PRO atual.
+- Confirmação atômica, idempotência e proteção de hashes confirmados no banco.
+- Validação conjunta com grupos e cargas: 366 testes na suíte SQLite
+  (36 ignorados), 48 testes direcionados no PostgreSQL, testes do frontend e build.
+- Migrations aplicadas e aplicativo local saudável. Limitações e evidências
+  finais em `docs/decisoes/2026-09-07-importacoes-grupos.md`.
+## Incremento — Estoque por embalagens e tabela de compras
+
+**Status:** `[x]` — implementado e validado em 14/09/2026.
+
+- Formulário e tabela com os 12 campos aprovados; Produtor excluído.
+- Vencimento de pagamento separado da validade; quantidade e valores calculados.
+- Compra e entrada atômicas, reenvio protegido contra duplicação; dados antigos preservados.
+- 50 testes aprovados em SQLite e PostgreSQL, frontend e build aprovados; migration aditiva aplicada e tela conferida no navegador.
+- Evidências e limitações em `docs/decisoes/2026-09-14-estoque-compras-embalagens.md`.
