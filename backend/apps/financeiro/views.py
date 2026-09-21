@@ -5,6 +5,9 @@ from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from .codigos import CodigoPagamentoInvalido, ler_codigo_pagamento
+from .parcelamentos import ParcelamentoSerializer, ParcelamentoConflitante, criar_parcelamento
+from .parcelamentos import BoletoCompraSerializer, registrar_boleto
 
 from .models import (
     CategoriaFinanceira,
@@ -61,6 +64,44 @@ class CentroCustoViewSet(CadastroFinanceiroMixin, viewsets.ModelViewSet):
 
 
 class LancamentoFinanceiroViewSet(viewsets.ModelViewSet):
+    @action(detail=False, methods=["post"], url_path="registrar-boleto")
+    def registrar_boleto(self, request):
+        entrada = BoletoCompraSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        try:
+            boleto, replay = registrar_boleto(entrada.validated_data)
+        except ParcelamentoConflitante as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+        return Response({"boleto": LancamentoFinanceiroSerializer(boleto).data, "replay": replay},
+                        status=status.HTTP_200_OK if replay else status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=["post"], url_path="parcelar")
+    def parcelar(self, request):
+        entrada = ParcelamentoSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        try:
+            grupo, replay = criar_parcelamento(entrada.validated_data)
+        except ParcelamentoConflitante as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+        return Response({
+            "id": grupo.pk, "replay": replay,
+            "parcelas": LancamentoFinanceiroSerializer(grupo.parcelas.order_by("parcela_numero"), many=True).data,
+        }, status=status.HTTP_200_OK if replay else status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=["post"], url_path="ler-codigo")
+    def ler_codigo(self, request):
+        if not isinstance(request.data, dict):
+            return Response({"detail": "Envie um objeto com o campo codigo."}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            dados = ler_codigo_pagamento(request.data.get("codigo"))
+        except CodigoPagamentoInvalido as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        dados["lancamentos_existentes"] = list(
+            LancamentoFinanceiro.objects.filter(codigo_barras=dados["codigo_barras"])
+            .values("id", "descricao", "status")[:10]
+        )
+        return Response(dados)
+
     queryset = LancamentoFinanceiro.objects.select_related(
         "categoria",
         "parceiro",
@@ -70,7 +111,7 @@ class LancamentoFinanceiroViewSet(viewsets.ModelViewSet):
     serializer_class = LancamentoFinanceiroSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ("descricao", "parceiro__nome", "observacoes", "safra")
+    search_fields = ("descricao", "recebedor_nome", "parceiro__nome", "observacoes", "safra")
     ordering_fields = ("data_vencimento", "valor", "descricao", "status", "tipo")
     ordering = ("data_vencimento", "id")
 

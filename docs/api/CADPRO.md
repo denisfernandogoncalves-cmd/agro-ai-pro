@@ -44,15 +44,24 @@ POST /api/cadpros/{id}/propriedades/
 POST /api/cadpros/{id}/inativar/
 ```
 
+`GET /api/cadpros/?propriedade={id}` limita a resposta aos vínculos ativos. A
+API de Propriedades aceita `cad_pro_numero` e reutiliza o cadastro oficial
+normalizado, criando somente o vínculo quando o número já existe.
+
 A listagem aceita `ativo=true|false`, `search` e `ordering`. O POST de vínculo
 recebe `{"propriedade": <id>}`. DELETE e PUT respondem `405 Method Not Allowed`.
 
-## Limites da V1
+## Integração com Cargas Colhidas
 
-O módulo não altera os domínios de grãos, comercial, relatórios ou frontend.
-Integrações de produção devem chamar `validar_vinculo` antes de persistir sua
-entidade produtiva; a introdução de um campo CAD/PRO em outros domínios depende
-do contrato específico dessas entregas.
+A carga valida o CAD/PRO ativo no contexto da propriedade e grava seu UUID
+diretamente. Esse vínculo participa do contexto do crédito imutável criado no
+ledger de grãos e é preservado em retificações, estornos e rastreabilidade.
+
+O código continua sendo tratado como identificador, não como valor numérico
+para cálculos. Não há renovação automática nem integração externa com órgãos
+públicos.
+
+Veja [Cargas Colhidas](CARGAS_COLHIDAS.md).
 
 ## Validação
 

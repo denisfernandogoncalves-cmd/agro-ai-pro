@@ -87,6 +87,15 @@ class LoteEstoque(models.Model):
         LocalEstoque,
         on_delete=models.PROTECT,
         related_name="lotes",
+        null=True,
+        blank=True,
+    )
+    fornecedor = models.ForeignKey(
+        "financeiro.ParceiroFinanceiro",
+        on_delete=models.PROTECT,
+        related_name="lotes_estoque",
+        null=True,
+        blank=True,
     )
     codigo = models.CharField(max_length=100)
     data_validade = models.DateField(null=True, blank=True)
@@ -100,6 +109,11 @@ class LoteEstoque(models.Model):
             models.UniqueConstraint(
                 fields=("produto", "local", "codigo"),
                 name="estoque_lote_produto_local_codigo_unico",
+            ),
+            models.UniqueConstraint(
+                fields=("produto", "fornecedor", "codigo"),
+                condition=models.Q(local__isnull=True),
+                name="estoque_lote_prod_forn_codigo_unico",
             ),
         ]
 
@@ -182,3 +196,24 @@ class MovimentacaoEstoque(models.Model):
 
     def __str__(self):
         return f"{self.get_tipo_display()} - {self.lote}"
+
+
+class CompraEstoque(models.Model):
+    """Dados da compra em embalagens, ligados à entrada na unidade do produto."""
+
+    id = models.UUIDField(primary_key=True, editable=False)
+    assinatura = models.CharField(max_length=64, editable=False)
+    movimento = models.OneToOneField(MovimentacaoEstoque, on_delete=models.PROTECT, related_name="compra")
+    cultura = models.CharField(max_length=100, blank=True)
+    quantidade_embalagens = models.DecimalField(max_digits=14, decimal_places=3, validators=[MinValueValidator(Decimal("0.001"))])
+    embalagem = models.CharField(max_length=20)
+    conteudo_embalagem = models.DecimalField(max_digits=14, decimal_places=3, validators=[MinValueValidator(Decimal("0.001"))])
+    custo_embalagem = models.DecimalField(max_digits=14, decimal_places=4, validators=[MinValueValidator(Decimal("0"))])
+    data_vencimento = models.DateField(null=True, blank=True)
+    valor_total = models.DecimalField(max_digits=24, decimal_places=2)
+
+    class Meta:
+        ordering = ("-movimento__data_movimento", "-movimento_id")
+        constraints = [
+            models.CheckConstraint(condition=models.Q(quantidade_embalagens__gt=0, conteudo_embalagem__gt=0, custo_embalagem__gte=0, valor_total__gte=0), name="estoque_compra_valores_validos"),
+        ]

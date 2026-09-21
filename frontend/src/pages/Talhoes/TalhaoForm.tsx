@@ -1,6 +1,6 @@
 import { FormEvent } from "react";
 
-import { Propriedade } from "../../api/propriedades";
+import { Propriedade, rotuloPropriedade } from "../../api/propriedades";
 import { TalhaoInput } from "../../api/talhoes";
 
 
@@ -38,7 +38,7 @@ export default function TalhaoForm({
           <option value="">Selecione</option>
           {propriedades.map((propriedade) => (
             <option key={propriedade.id} value={propriedade.id}>
-              {propriedade.nome}
+              {rotuloPropriedade(propriedade)}
             </option>
           ))}
         </select>
@@ -52,7 +52,7 @@ export default function TalhaoForm({
         />
       </label>
       <label>
-        Área (ha)
+        Área (alqueires paulistas)
         <input
           required
           min="0.01"

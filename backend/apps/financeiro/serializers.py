@@ -1,6 +1,7 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils import timezone
 from rest_framework import serializers
+from .codigos import CodigoPagamentoInvalido, ler_codigo_pagamento
 
 from .models import (
     CategoriaFinanceira,
@@ -37,7 +38,8 @@ class CentroCustoSerializer(serializers.ModelSerializer):
 
 
 class LancamentoFinanceiroSerializer(serializers.ModelSerializer):
-    categoria_nome = serializers.CharField(source="categoria.nome", read_only=True)
+    codigo_barras = serializers.CharField(max_length=100, required=False, allow_blank=True)
+    categoria_nome = serializers.CharField(source="categoria.nome", read_only=True, allow_null=True)
     parceiro_nome = serializers.CharField(source="parceiro.nome", read_only=True)
     centro_custo_nome = serializers.CharField(
         source="centro_custo.nome",
@@ -53,6 +55,8 @@ class LancamentoFinanceiroSerializer(serializers.ModelSerializer):
         model = LancamentoFinanceiro
         fields = "__all__"
         read_only_fields = (
+            "parcelamento",
+            "parcela_numero",
             "status",
             "data_liquidacao",
             "valor_liquidado",
@@ -64,6 +68,14 @@ class LancamentoFinanceiroSerializer(serializers.ModelSerializer):
         if not self.instance and value < timezone.localdate().replace(year=timezone.localdate().year - 10):
             raise serializers.ValidationError("A data de vencimento é muito antiga.")
         return value
+
+    def validate_codigo_barras(self, value):
+        if not value:
+            return ""
+        try:
+            return ler_codigo_pagamento(value)["codigo_barras"]
+        except CodigoPagamentoInvalido as exc:
+            raise serializers.ValidationError(str(exc)) from exc
 
     def validate(self, attrs):
         instancia = self.instance or LancamentoFinanceiro()

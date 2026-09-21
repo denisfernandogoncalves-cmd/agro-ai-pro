@@ -3,7 +3,6 @@ from django.contrib import admin
 from .models import (
     ArmazemGraos,
     CargaColhida,
-    GrupoColheita,
     LoteGraos,
     MovimentacaoGraos,
     OrigemSaldoGraos,
@@ -14,9 +13,10 @@ from .models import (
 
 @admin.register(ArmazemGraos)
 class ArmazemGraosAdmin(admin.ModelAdmin):
-    list_display = ("nome", "propriedade", "capacidade_kg", "ativo")
-    list_filter = ("ativo", "propriedade")
-    search_fields = ("nome", "propriedade__nome")
+    list_display = ("nome", "capacidade_kg", "ativo")
+    list_filter = ("ativo",)
+    search_fields = ("nome",)
+    readonly_fields = ("propriedade",)
 
 
 @admin.register(LoteGraos)
@@ -26,34 +26,36 @@ class LoteGraosAdmin(admin.ModelAdmin):
     search_fields = ("codigo", "cultura", "safra", "armazem__nome")
 
 
-@admin.register(GrupoColheita)
-class GrupoColheitaAdmin(admin.ModelAdmin):
-    list_display = (
-        "nome",
-        "propriedade",
-        "cad_pro",
-        "armazem_padrao",
-        "cultura",
-        "safra",
-        "ativo",
-    )
-    list_filter = ("ativo", "cultura", "safra", "propriedade", "armazem_padrao")
-    search_fields = ("nome", "propriedade__nome", "cad_pro__codigo")
-
-
 @admin.register(CargaColhida)
 class CargaColhidaAdmin(admin.ModelAdmin):
     list_display = (
         "data_colheita",
         "placa",
-        "grupo_colheita",
+        "propriedade",
+        "cad_pro",
+        "cultura",
+        "safra",
         "armazem",
         "peso_bruto_kg",
         "peso_liquido_kg",
         "sacas_60kg",
+        "status",
     )
-    list_filter = ("data_colheita", "destinado_semente", "grupo_colheita", "armazem")
-    search_fields = ("placa", "grupo_colheita__nome", "local_colheita")
+    list_filter = (
+        "status",
+        "data_colheita",
+        "destinado_semente",
+        "cultura",
+        "safra",
+        "armazem",
+    )
+    search_fields = (
+        "placa",
+        "motorista",
+        "propriedade__nome",
+        "cad_pro__codigo",
+        "local_colheita",
+    )
     readonly_fields = tuple(campo.name for campo in CargaColhida._meta.fields)
 
     def has_add_permission(self, request):

@@ -8,7 +8,9 @@ from .serializers import PropriedadeSerializer
 
 
 class PropriedadeViewSet(viewsets.ModelViewSet):
-    queryset = Propriedade.objects.all().order_by("nome", "id")
+    queryset = Propriedade.objects.prefetch_related(
+        "vinculos_cadpro__cad_pro",
+    ).order_by("nome", "id")
     serializer_class = PropriedadeSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]

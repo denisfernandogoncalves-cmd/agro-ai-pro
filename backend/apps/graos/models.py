@@ -42,6 +42,8 @@ class ArmazemGraos(models.Model):
         Propriedade,
         on_delete=models.PROTECT,
         related_name="armazens_graos",
+        null=True,
+        blank=True,
     )
     nome = models.CharField(max_length=120)
     capacidade_kg = models.DecimalField(
@@ -62,6 +64,11 @@ class ArmazemGraos(models.Model):
                 fields=("propriedade", "nome"),
                 name="graos_armazem_nome_propriedade_unico",
             ),
+            models.UniqueConstraint(
+                fields=("nome",),
+                condition=models.Q(propriedade__isnull=True),
+                name="graos_armazem_externo_nome_unico",
+            ),
             models.CheckConstraint(
                 condition=models.Q(capacidade_kg__gt=0),
                 name="graos_armazem_capacidade_positiva",
@@ -69,7 +76,9 @@ class ArmazemGraos(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.nome} - {self.propriedade.nome}"
+        if self.propriedade_id:
+            return f"{self.nome} - {self.propriedade.nome}"
+        return self.nome
 
 
 class LoteGraos(models.Model):
@@ -84,6 +93,14 @@ class LoteGraos(models.Model):
         related_name="lotes_graos",
         null=True,
         blank=True,
+    )
+    propriedade = models.ForeignKey(
+        Propriedade,
+        on_delete=models.PROTECT,
+        related_name="lotes_graos",
+        null=True,
+        blank=True,
+        help_text="Propriedade produtora; independe da armazenagem física.",
     )
     talhao = models.ForeignKey(
         Talhao,
@@ -166,10 +183,6 @@ class LoteGraos(models.Model):
             ),
         ]
 
-    @property
-    def propriedade_id(self):
-        return self.armazem.propriedade_id
-
     def clean(self):
         super().clean()
         self.cultura = " ".join(str(self.cultura or "").strip().split())
@@ -180,25 +193,21 @@ class LoteGraos(models.Model):
         erros = {}
         if not self.classificacao_codigo:
             erros["classificacao_codigo"] = "Informe a classificação dos grãos."
-        if (
-            self.talhao_id
-            and self.armazem_id
-            and self.talhao.propriedade_id != self.armazem.propriedade_id
-        ):
-            erros["talhao"] = (
-                "O talhão e o armazém devem pertencer à mesma propriedade."
-            )
-        if self.cad_pro_id and self.armazem_id:
+        if self.propriedade_id and self.cad_pro_id:
             from apps.cadpro.models import CADProPropriedade
 
             if not CADProPropriedade.objects.filter(
+                propriedade_id=self.propriedade_id,
                 cad_pro_id=self.cad_pro_id,
-                propriedade_id=self.armazem.propriedade_id,
                 ativo=True,
-                cad_pro__ativo=True,
             ).exists():
                 erros["cad_pro"] = (
-                    "O CAD/PRO deve possuir vínculo ativo com a propriedade do armazém."
+                    "O CAD/PRO deve possuir vínculo ativo com a propriedade produtora."
+                )
+        if self.talhao_id and self.propriedade_id:
+            if self.talhao.propriedade_id != self.propriedade_id:
+                erros["talhao"] = (
+                    "O talhão deve pertencer à propriedade produtora do lote."
                 )
         if erros:
             raise ValidationError(erros)
@@ -223,6 +232,7 @@ class GrupoColheita(models.Model):
         on_delete=models.PROTECT,
         related_name="grupos_colheita_padrao",
         null=True,
+        blank=True,
     )
     nome = models.CharField(max_length=120)
     cultura = models.CharField(max_length=50)
@@ -259,6 +269,18 @@ class GrupoColheita(models.Model):
         validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
     )
     desconto_defeitos_por_ponto = models.DecimalField(
+        max_digits=6,
+        decimal_places=3,
+        default=ZERO,
+        validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
+    )
+    ph_minimo = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=Decimal("0.00"),
+        validators=[MinValueValidator(Decimal("0")), MaxValueValidator(Decimal("100"))],
+    )
+    desconto_ph_por_ponto = models.DecimalField(
         max_digits=6,
         decimal_places=3,
         default=ZERO,
@@ -328,7 +350,6 @@ class GrupoColheita(models.Model):
                 "cad_pro_id",
                 "cultura",
                 "safra",
-                "armazem_padrao_id",
             )
             if any(
                 getattr(self, campo) != getattr(original, campo)
@@ -368,11 +389,30 @@ class CargaColhidaQuerySet(models.QuerySet):
 
 
 class CargaColhida(models.Model):
+    class Status(models.TextChoices):
+        ATIVA = "ativa", "Ativa"
+        CANCELADA = "cancelada", "Cancelada"
+        SUBSTITUIDA = "substituida", "Substituída por correção"
+
     grupo_colheita = models.ForeignKey(
         GrupoColheita,
         on_delete=models.PROTECT,
         related_name="cargas",
+        null=True,
+        blank=True,
     )
+    propriedade = models.ForeignKey(
+        Propriedade,
+        on_delete=models.PROTECT,
+        related_name="cargas_colhidas",
+    )
+    cad_pro = models.ForeignKey(
+        "cadpro.CADPro",
+        on_delete=models.PROTECT,
+        related_name="cargas_colhidas",
+    )
+    cultura = models.CharField(max_length=50)
+    safra = models.CharField(max_length=20)
     armazem = models.ForeignKey(
         ArmazemGraos,
         on_delete=models.PROTECT,
@@ -384,7 +424,8 @@ class CargaColhida(models.Model):
         related_name="cargas_colhidas",
     )
     data_colheita = models.DateField(default=timezone.localdate)
-    placa = models.CharField(max_length=7)
+    placa = models.CharField(max_length=7, blank=True, default="")
+    motorista = models.CharField(max_length=120, blank=True, default="")
     peso_bruto_kg = models.DecimalField(
         max_digits=16,
         decimal_places=3,
@@ -419,6 +460,7 @@ class CargaColhida(models.Model):
     peso_liquido_kg = models.DecimalField(max_digits=16, decimal_places=3)
     sacas_60kg = models.DecimalField(max_digits=16, decimal_places=3)
     regra_desconto_aplicada = models.JSONField(default=dict)
+    contexto_colheita = models.JSONField(default=dict)
     fingerprint = models.CharField(max_length=64, unique=True, editable=False)
     movimentacao = models.OneToOneField(
         "MovimentacaoGraos",
@@ -429,6 +471,29 @@ class CargaColhida(models.Model):
         editable=False,
     )
     observacoes = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=12,
+        choices=Status.choices,
+        default=Status.ATIVA,
+    )
+    cancelada_em = models.DateTimeField(null=True, blank=True, editable=False)
+    cancelada_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="cargas_colhidas_canceladas",
+        null=True,
+        blank=True,
+        editable=False,
+    )
+    motivo_cancelamento = models.TextField(blank=True, editable=False)
+    substituida_por = models.OneToOneField(
+        "self",
+        on_delete=models.PROTECT,
+        related_name="carga_anterior",
+        null=True,
+        blank=True,
+        editable=False,
+    )
     criado_por = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.PROTECT,
@@ -447,6 +512,18 @@ class CargaColhida(models.Model):
                 fields=("grupo_colheita", "data_colheita"),
                 name="graos_carga_grupo_data_idx",
             ),
+            models.Index(
+                fields=("propriedade", "data_colheita"),
+                name="graos_carga_prop_data_idx",
+            ),
+            models.Index(
+                fields=("cad_pro", "cultura", "safra"),
+                name="graos_carga_cad_cult_saf_idx",
+            ),
+            models.Index(
+                fields=("status", "data_colheita"),
+                name="graos_carga_status_data_idx",
+            ),
             models.Index(fields=("placa", "data_colheita"), name="graos_carga_placa_data_idx"),
         ]
         constraints = [
@@ -464,21 +541,106 @@ class CargaColhida(models.Model):
             ),
         ]
 
-    @property
-    def propriedade_id(self):
-        return self.grupo_colheita.propriedade_id
-
     def save(self, *args, **kwargs):
         if not self._state.adding:
             raise ValidationError("Cargas colhidas são imutáveis.")
         self.placa = normalizar_placa(self.placa)
+        self.motorista = " ".join(str(self.motorista or "").strip().split())
+        self.cultura = " ".join(str(self.cultura or "").strip().split()).title()
+        self.safra = " ".join(str(self.safra or "").strip().split())
         super().save(*args, **kwargs)
+
+    def _registrar_encerramento(
+        self, *, status, cancelada_em, cancelada_por, motivo, substituida_por=None
+    ):
+        if status not in {self.Status.CANCELADA, self.Status.SUBSTITUIDA}:
+            raise ValidationError("Status de encerramento inválido para a carga.")
+        self.status = status
+        self.cancelada_em = cancelada_em
+        self.cancelada_por = cancelada_por
+        self.motivo_cancelamento = " ".join(str(motivo or "").strip().split())
+        self.substituida_por = substituida_por
+        models.Model.save(
+            self,
+            update_fields=(
+                "status",
+                "cancelada_em",
+                "cancelada_por",
+                "motivo_cancelamento",
+                "substituida_por",
+            ),
+        )
 
     def delete(self, *args, **kwargs):
         raise ValidationError("Cargas colhidas são imutáveis.")
 
     def __str__(self):
-        return f"{self.data_colheita} - {self.placa} - {self.peso_liquido_kg} kg"
+        identificador = self.placa or self.motorista
+        return f"{self.data_colheita} - {identificador} - {self.peso_liquido_kg} kg"
+
+
+class RateioCargaColhida(models.Model):
+    carga = models.ForeignKey(
+        CargaColhida,
+        on_delete=models.PROTECT,
+        related_name="rateios",
+    )
+    propriedade = models.ForeignKey(
+        Propriedade,
+        on_delete=models.PROTECT,
+        related_name="rateios_cargas_colhidas",
+    )
+    cad_pro = models.ForeignKey(
+        "cadpro.CADPro",
+        on_delete=models.PROTECT,
+        related_name="rateios_cargas_colhidas",
+    )
+    lote = models.ForeignKey(
+        LoteGraos,
+        on_delete=models.PROTECT,
+        related_name="rateios_cargas_colhidas",
+    )
+    movimentacao = models.OneToOneField(
+        "MovimentacaoGraos",
+        on_delete=models.PROTECT,
+        related_name="rateio_carga_colhida",
+    )
+    area_hectares = models.DecimalField(max_digits=14, decimal_places=4)
+    proporcao = models.DecimalField(max_digits=12, decimal_places=9)
+    peso_liquido_kg = models.DecimalField(max_digits=16, decimal_places=3)
+    sacas_60kg = models.DecimalField(max_digits=16, decimal_places=3)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("carga_id", "propriedade_id")
+        verbose_name = "rateio de carga colhida"
+        verbose_name_plural = "rateios de cargas colhidas"
+        constraints = [
+            models.UniqueConstraint(
+                fields=("carga", "propriedade"),
+                name="graos_rateio_carga_propriedade_unico",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(area_hectares__gt=0),
+                name="graos_rateio_area_positiva",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(proporcao__gt=0) & models.Q(proporcao__lte=1),
+                name="graos_rateio_proporcao_valida",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(peso_liquido_kg__gt=0),
+                name="graos_rateio_peso_positivo",
+            ),
+        ]
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValidationError("Rateios de cargas colhidas são imutáveis.")
+        super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError("Rateios de cargas colhidas são imutáveis.")
 
 
 class PosicaoSaldoGraos(models.Model):
@@ -486,6 +648,14 @@ class PosicaoSaldoGraos(models.Model):
         "cadpro.CADPro",
         on_delete=models.PROTECT,
         related_name="posicoes_saldo_graos",
+    )
+    propriedade = models.ForeignKey(
+        Propriedade,
+        on_delete=models.PROTECT,
+        related_name="posicoes_saldo_graos",
+        null=True,
+        blank=True,
+        help_text="Propriedade produtora; independe da armazenagem física.",
     )
     cultura = models.CharField(max_length=50)
     safra = models.CharField(max_length=20)
@@ -516,30 +686,25 @@ class PosicaoSaldoGraos(models.Model):
         constraints = [
             models.UniqueConstraint(
                 fields=(
+                    "propriedade",
                     "cad_pro",
                     "cultura",
                     "safra",
                     "classificacao_codigo",
                     "armazem",
                 ),
-                name="graos_posicao_chave_unica",
-            ),
-            models.CheckConstraint(
-                condition=models.Q(saldo_fisico_kg__gte=0),
-                name="graos_posicao_fisico_nao_negativo",
+                name="graos_posicao_prop_chave_unica",
             ),
             models.CheckConstraint(
                 condition=models.Q(saldo_comprometido_kg__gte=0),
                 name="graos_posicao_comprom_nao_negativo",
             ),
-            models.CheckConstraint(
-                condition=models.Q(
-                    saldo_comprometido_kg__lte=models.F("saldo_fisico_kg")
-                ),
-                name="graos_posicao_comprom_ate_fisico",
-            ),
         ]
         indexes = [
+            models.Index(
+                fields=("propriedade", "cad_pro", "cultura", "safra"),
+                name="graos_posicao_prop_cad_idx",
+            ),
             models.Index(
                 fields=("cad_pro", "cultura", "safra"),
                 name="graos_posicao_cad_cult_idx",

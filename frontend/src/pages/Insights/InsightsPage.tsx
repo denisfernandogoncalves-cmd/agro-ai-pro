@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { Insight, obterInsights } from "../../api/insights";
-import { Propriedade } from "../../api/propriedades";
+import { Propriedade, rotuloPropriedade } from "../../api/propriedades";
 
 export default function InsightsPage({ propriedades }: { propriedades: Propriedade[] }) {
   const [propriedade, setPropriedade] = useState("");
@@ -25,7 +25,7 @@ export default function InsightsPage({ propriedades }: { propriedades: Proprieda
     <section className="modulo-insights">
       <section className="card controles-insights">
         <div><span className="kicker">Motor explicável</span><h2>Assistente gerencial</h2></div>
-        <label>Propriedade<select value={propriedade} onChange={(e) => setPropriedade(e.target.value)}><option value="">Todas</option>{propriedades.map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select></label>
+        <label>Propriedade<select value={propriedade} onChange={(e) => setPropriedade(e.target.value)}><option value="">Todas</option>{propriedades.map((item) => <option key={item.id} value={item.id}>{rotuloPropriedade(item)}</option>)}</select></label>
         <button type="button" onClick={() => void carregar()}>Analisar dados atuais</button>
       </section>
       {erro && <p className="erro card">{erro}</p>}

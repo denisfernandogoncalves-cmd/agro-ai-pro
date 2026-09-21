@@ -4,7 +4,6 @@ from rest_framework.routers import DefaultRouter
 from .views import (
     ArmazemGraosViewSet,
     CargaColhidaViewSet,
-    GrupoColheitaViewSet,
     LoteGraosViewSet,
     MovimentacaoGraosViewSet,
     OrigemSaldoGraosViewSet,
@@ -15,7 +14,6 @@ from .views import (
 
 router = DefaultRouter()
 router.register("armazens", ArmazemGraosViewSet, basename="armazens-graos")
-router.register("grupos-colheita", GrupoColheitaViewSet, basename="grupos-colheita")
 router.register("cargas-colhidas", CargaColhidaViewSet, basename="cargas-colhidas")
 router.register("lotes", LoteGraosViewSet, basename="lotes-graos")
 router.register(

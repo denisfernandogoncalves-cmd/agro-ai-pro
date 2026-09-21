@@ -1,6 +1,7 @@
 import { api } from "./propriedades";
 import { LoteEstoque } from "./estoque";
 import { Pagina, Talhao } from "./talhoes";
+import { hectaresDeAlqueires } from "../utils/areas";
 
 
 export type InsumoOperacao = {
@@ -66,7 +67,10 @@ export async function carregarOperacoes(filtros?: {
 }
 
 export async function criarOperacao(dados: OperacaoInput) {
-  return (await api.post<OperacaoAgricola>("/producao/operacoes/", dados)).data;
+  return (await api.post<OperacaoAgricola>("/producao/operacoes/", {
+    ...dados,
+    area_hectares: hectaresDeAlqueires(dados.area_hectares),
+  })).data;
 }
 
 export async function adicionarInsumo(dados: {

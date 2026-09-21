@@ -30,6 +30,7 @@ export type Propriedade = {
   diferenca_area_hectares: string | null;
   divergencia_area_percentual: string | null;
   observacoes: string;
+  cad_pro_numeros: string[];
   criado_em: string;
 };
 
@@ -42,10 +43,24 @@ export type PropriedadeInput = {
   latitude: string;
   longitude: string;
   observacoes: string;
+  cad_pro_numero: string;
   arquivo_kml: File | null;
 };
 
+type PropriedadeComCadPro = Pick<Propriedade, "nome"> &
+  Partial<Pick<Propriedade, "cad_pro_numeros">>;
+
+export function rotuloPropriedade(propriedade: PropriedadeComCadPro) {
+  const cadPros = [...new Set(
+    (propriedade.cad_pro_numeros ?? [])
+      .map((numero) => numero.trim())
+      .filter(Boolean),
+  )];
+  return `${propriedade.nome} — CAD/PRO ${cadPros.length ? cadPros.join(", ") : "não informado"}`;
+}
+
 const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000/api";
+const hectaresDeAlqueires = (valor: string) => (Number(valor.replace(",", ".")) * 2.42).toFixed(2);
 
 type RequisicaoComRetry = InternalAxiosRequestConfig & {
   _retry?: boolean;
@@ -236,7 +251,7 @@ function montarFormulario(dados: PropriedadeInput) {
   const formulario = new FormData();
   Object.entries(dados).forEach(([campo, valor]) => {
     if (valor !== null && valor !== "") {
-      formulario.append(campo, valor);
+      formulario.append(campo, campo === "area_hectares" ? hectaresDeAlqueires(String(valor)) : valor);
     }
   });
   return formulario;

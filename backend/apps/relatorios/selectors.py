@@ -1,19 +1,29 @@
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP
 from math import ceil
 
 from django.utils import timezone
 
 from apps.cadpro.selectors import selecionar_cadpros
-from apps.graos.models import ArmazemGraos, MovimentacaoGraos
+from apps.clima.models import PrevisaoClima
+from apps.estoque.models import LoteEstoque, MovimentacaoEstoque
+from apps.financeiro.models import LancamentoFinanceiro
+from apps.graos.models import ArmazemGraos, CargaColhida, MovimentacaoGraos
 from apps.graos.selectors import (
     selecionar_movimentacoes_saldo,
     selecionar_posicoes,
     selecionar_reservas,
 )
 from apps.vendas.selectors import selecionar_entregas, selecionar_vendas
+from apps.importacoes.models import LoteImportacao
+from apps.maquinas.models import Maquina
+from apps.mercado.models import ClimaCornBelt, CotacaoMercado, NoticiaMercado
+from apps.producao.models import OperacaoAgricola
+from apps.propriedades.models import Propriedade
+from apps.talhoes.models import Talhao
 
 
 ZERO = Decimal("0.000")
+HECTARES_POR_ALQUEIRE_PAULISTA = Decimal("2.42")
 
 
 def _texto_decimal(valor):
@@ -33,14 +43,19 @@ def _pagina(itens, numero, tamanho):
 
 
 def _filtrar_posicoes(filtros):
-    return selecionar_posicoes(
+    queryset = selecionar_posicoes(
         cad_pro=filtros.get("cad_pro"),
         propriedade=filtros.get("propriedade"),
         cultura=filtros.get("cultura", ""),
         safra=filtros.get("safra", ""),
         classificacao_codigo=filtros.get("classificacao_codigo", ""),
         armazem=filtros.get("armazem"),
-    ).order_by(
+    )
+    if filtros.get("proprietario"):
+        queryset = queryset.filter(
+            propriedade__proprietario__iexact=filtros["proprietario"]
+        )
+    return queryset.order_by(
         "cad_pro__codigo_normalizado",
         "cultura",
         "safra",
@@ -63,13 +78,14 @@ def _periodo(queryset, campo, filtros):
 
 
 def _item_posicao(item):
+    propriedade = item.propriedade
     return {
         "id": item.pk,
         "cad_pro": str(item.cad_pro_id),
         "cad_pro_codigo": item.cad_pro.codigo,
         "cad_pro_descricao": item.cad_pro.descricao,
-        "propriedade": item.armazem.propriedade_id,
-        "propriedade_nome": item.armazem.propriedade.nome,
+        "propriedade": item.propriedade_id,
+        "propriedade_nome": propriedade.nome if propriedade else "",
         "cultura": item.cultura,
         "safra": item.safra,
         "classificacao_codigo": item.classificacao_codigo,
@@ -119,7 +135,10 @@ def _movimentos(filtros, posicao_ids):
 
 
 def _item_movimento(item):
-    carga = getattr(item, "carga_colhida", None)
+    original = item.estorno_de if item.estorno_de_id else item
+    rateio = getattr(original, "rateio_carga_colhida", None)
+    carga = rateio.carga if rateio else getattr(original, "carga_colhida", None)
+    produtor = rateio or carga
     return {
         "id": item.pk,
         "operacao": item.operacao,
@@ -137,8 +156,13 @@ def _item_movimento(item):
         "snapshot_anterior": item.snapshot_anterior,
         "snapshot_posterior": item.snapshot_posterior,
         "carga_colhida": carga.pk if carga else None,
-        "grupo_colheita": carga.grupo_colheita_id if carga else None,
-        "grupo_colheita_nome": carga.grupo_colheita.nome if carga else "",
+        "carga_status": carga.status if carga else "",
+        "propriedade": produtor.propriedade_id if produtor else None,
+        "propriedade_nome": produtor.propriedade.nome if produtor else "",
+        "cad_pro": str(produtor.cad_pro_id) if produtor else None,
+        "cad_pro_codigo": produtor.cad_pro.codigo if produtor else "",
+        "cultura": carga.cultura if carga else item.posicao.cultura,
+        "safra": carga.safra if carga else item.posicao.safra,
         "placa_carga": carga.placa if carga else "",
     }
 
@@ -162,7 +186,13 @@ def _item_reserva(item):
 
 
 def _vendas(filtros, posicao_ids):
-    queryset = selecionar_vendas().filter(posicao_id__in=posicao_ids)
+    queryset = selecionar_vendas().filter(posicao_id__in=posicao_ids, excluida_em__isnull=True)
+    if filtros.get("numero_contrato"):
+        queryset = queryset.filter(
+            numero_contrato__icontains=filtros["numero_contrato"]
+        )
+    if filtros.get("comprador"):
+        queryset = queryset.filter(cliente_nome__icontains=filtros["comprador"])
     return _periodo(queryset, "data_contrato", filtros).order_by(
         "-data_contrato", "-id"
     )
@@ -188,6 +218,14 @@ def _item_venda(item):
 
 def _entregas(filtros, posicao_ids):
     queryset = selecionar_entregas().filter(venda__posicao_id__in=posicao_ids)
+    if filtros.get("numero_contrato"):
+        queryset = queryset.filter(
+            venda__numero_contrato__icontains=filtros["numero_contrato"]
+        )
+    if filtros.get("comprador"):
+        queryset = queryset.filter(
+            venda__cliente_nome__icontains=filtros["comprador"]
+        )
     return _periodo(queryset, "data_entrega", filtros).order_by(
         "-data_entrega", "-id"
     )
@@ -201,16 +239,28 @@ def _item_entrega(item):
         "cliente_nome": item.venda.cliente_nome,
         "data": item.data_entrega,
         "quantidade_kg": _texto_decimal(item.quantidade_kg),
+        "destino": item.destino or item.venda.cliente_nome,
+        "placa": item.placa,
+        "motorista": item.motorista,
+        "nota_produtor": item.nota_produtor,
+        "nota_empresa": item.nota_empresa,
         "movimentacao": item.movimentacao_id,
         "posicao": _item_posicao(item.venda.posicao),
     }
+
+
+def _movimento_producao_ativo(item):
+    return (
+        item.operacao == MovimentacaoGraos.Operacao.CREDITO_PRODUCAO
+        and getattr(item, "movimento_estorno", None) is None
+    )
 
 
 def _producoes(movimentos):
     return [
         _item_movimento(item)
         for item in movimentos
-        if item.operacao == MovimentacaoGraos.Operacao.CREDITO_PRODUCAO
+        if _movimento_producao_ativo(item)
     ]
 
 
@@ -218,15 +268,614 @@ def _rastreabilidade(movimentos):
     return [_item_movimento(item) for item in movimentos]
 
 
+def _cargas_do_periodo(filtros):
+    queryset = CargaColhida.objects.select_related(
+        "propriedade",
+        "cad_pro",
+        "armazem",
+    ).filter(
+        status=CargaColhida.Status.ATIVA,
+        movimentacao__movimento_estorno__isnull=True,
+    )
+    queryset = _periodo(queryset, "data_colheita", filtros)
+    if filtros.get("cultura"):
+        queryset = queryset.filter(cultura__iexact=filtros["cultura"])
+    if filtros.get("safra"):
+        queryset = queryset.filter(safra=filtros["safra"])
+    if filtros.get("classificacao_codigo"):
+        semente = filtros["classificacao_codigo"] == "SEMENTE"
+        queryset = queryset.filter(destinado_semente=semente)
+    if filtros.get("armazem"):
+        queryset = queryset.filter(armazem_id=filtros["armazem"])
+    if "destinado_semente" in filtros:
+        queryset = queryset.filter(
+            destinado_semente=filtros["destinado_semente"]
+        )
+    if filtros.get("motorista"):
+        queryset = queryset.filter(motorista__icontains=filtros["motorista"])
+    if filtros.get("placa"):
+        queryset = queryset.filter(placa__icontains=filtros["placa"])
+    return queryset.order_by("-data_colheita", "-id")
+
+
+def _rateios_da_carga(carga):
+    contexto = carga.contexto_colheita or {}
+    rateios = contexto.get("rateio_producao")
+    if isinstance(rateios, list) and rateios:
+        return rateios
+    propriedades = contexto.get("propriedades")
+    if isinstance(propriedades, list) and propriedades:
+        area_total = sum(
+            (Decimal(str(item.get("area_hectares", "0"))) for item in propriedades),
+            ZERO,
+        )
+        if area_total > 0:
+            proprietarios = dict(
+                Propriedade.objects.filter(
+                    pk__in=[item.get("id") for item in propriedades]
+                ).values_list("pk", "proprietario")
+            )
+            restante_kg = carga.peso_liquido_kg
+            restante_sacas = carga.sacas_60kg
+            reconstruidos = []
+            for indice, item in enumerate(propriedades):
+                area = Decimal(str(item["area_hectares"]))
+                proporcao = area / area_total
+                ultimo = indice == len(propriedades) - 1
+                peso = restante_kg if ultimo else (
+                    carga.peso_liquido_kg * proporcao
+                ).quantize(Decimal("0.001"), rounding=ROUND_HALF_UP)
+                sacas = restante_sacas if ultimo else (
+                    carga.sacas_60kg * proporcao
+                ).quantize(Decimal("0.001"), rounding=ROUND_HALF_UP)
+                restante_kg -= peso
+                restante_sacas -= sacas
+                codigos = item.get("cad_pro_numeros") or []
+                codigo = codigos[0] if len(codigos) == 1 else carga.cad_pro.codigo
+                reconstruidos.append({
+                    "propriedade_id": item["id"],
+                    "propriedade_nome": item["nome"],
+                    "proprietario": proprietarios.get(int(item["id"]), ""),
+                    "cad_pro_id": str(carga.cad_pro_id),
+                    "cad_pro_numero": codigo,
+                    "area_hectares": str(area),
+                    "proporcao": str(proporcao.quantize(
+                        Decimal("0.000000001"), rounding=ROUND_HALF_UP
+                    )),
+                    "peso_liquido_kg": str(peso),
+                    "sacas_60kg": str(sacas),
+                    "media_sacas_hectare": _texto_decimal(carga.sacas_60kg / area_total),
+                })
+            return reconstruidos
+    return [{
+        "propriedade_id": carga.propriedade_id,
+        "propriedade_nome": carga.propriedade.nome,
+        "proprietario": carga.propriedade.proprietario,
+        "cad_pro_id": str(carga.cad_pro_id),
+        "cad_pro_numero": carga.cad_pro.codigo,
+        "area_hectares": str(carga.propriedade.area_hectares),
+        "proporcao": "1.000000000",
+        "peso_liquido_kg": str(carga.peso_liquido_kg),
+        "sacas_60kg": str(carga.sacas_60kg),
+        "media_sacas_hectare": _texto_decimal(
+            carga.sacas_60kg / carga.propriedade.area_hectares
+        ),
+    }]
+
+
+def _rateio_corresponde(rateio, filtros):
+    propriedade = filtros.get("propriedade")
+    cad_pro = filtros.get("cad_pro")
+    proprietario = filtros.get("proprietario", "").strip().casefold()
+    return (
+        (not propriedade or int(rateio["propriedade_id"]) == propriedade)
+        and (not cad_pro or str(rateio["cad_pro_id"]) == str(cad_pro))
+        and (
+            not proprietario
+            or str(rateio.get("proprietario", "")).strip().casefold() == proprietario
+        )
+    )
+
+
+def _item_produtividade(carga, rateio):
+    peso = Decimal(rateio["peso_liquido_kg"])
+    sacas = Decimal(rateio["sacas_60kg"])
+    return {
+        "id": carga.pk * 1000000 + int(rateio["propriedade_id"]),
+        "carga_colhida": carga.pk,
+        "data": carga.data_colheita,
+        "propriedade": int(rateio["propriedade_id"]),
+        "propriedade_nome": rateio["propriedade_nome"],
+        "proprietario": rateio.get("proprietario", ""),
+        "cad_pro": rateio["cad_pro_id"],
+        "cad_pro_codigo": rateio["cad_pro_numero"],
+        "cultura": carga.cultura,
+        "safra": carga.safra,
+        "area_hectares": _texto_decimal(Decimal(rateio["area_hectares"])),
+        "proporcao": rateio["proporcao"],
+        "quantidade_kg": _texto_decimal(peso),
+        "sacas_60kg": _texto_decimal(sacas),
+        "media_sacas_hectare": rateio["media_sacas_hectare"],
+        "destinado_semente": carga.destinado_semente,
+        "semente_kg": _texto_decimal(peso if carga.destinado_semente else ZERO),
+        "semente_sacas_60kg": _texto_decimal(
+            sacas if carga.destinado_semente else ZERO
+        ),
+        "armazem": carga.armazem_id,
+        "armazem_nome": carga.armazem.nome,
+        "armazem_propriedade": carga.armazem.propriedade_id,
+        "placa": carga.placa,
+        "motorista": carga.motorista,
+    }
+
+
+def _produtividade(filtros):
+    itens = []
+    for carga in _cargas_do_periodo(filtros):
+        for rateio in _rateios_da_carga(carga):
+            if _rateio_corresponde(rateio, filtros):
+                itens.append(_item_produtividade(carga, rateio))
+    return itens
+
+
+def _motoristas(filtros):
+    grupos = {}
+    for carga in _cargas_do_periodo(filtros):
+        rateios = [
+            item for item in _rateios_da_carga(carga)
+            if _rateio_corresponde(item, filtros)
+        ]
+        if not rateios:
+            continue
+        peso = sum((Decimal(item["peso_liquido_kg"]) for item in rateios), ZERO)
+        sacas = sum((Decimal(item["sacas_60kg"]) for item in rateios), ZERO)
+        nome = carga.motorista or "Motorista não informado"
+        chave = " ".join(nome.casefold().split())
+        grupo = grupos.setdefault(chave, {
+            "motorista": nome,
+            "peso_liquido_kg": ZERO,
+            "sacas_60kg": ZERO,
+            "semente_kg": ZERO,
+            "cargas_ids": set(),
+            "placas": set(),
+            "armazens": set(),
+        })
+        grupo["peso_liquido_kg"] += peso
+        grupo["sacas_60kg"] += sacas
+        if carga.destinado_semente:
+            grupo["semente_kg"] += peso
+        grupo["cargas_ids"].add(carga.pk)
+        if carga.placa:
+            grupo["placas"].add(carga.placa)
+        grupo["armazens"].add(carga.armazem.nome)
+    return [
+        {
+            "id": indice,
+            "motorista": item["motorista"],
+            "quantidade_cargas": len(item["cargas_ids"]),
+            "quantidade_kg": _texto_decimal(item["peso_liquido_kg"]),
+            "sacas_60kg": _texto_decimal(item["sacas_60kg"]),
+            "semente_kg": _texto_decimal(item["semente_kg"]),
+            "placas": sorted(item["placas"]),
+            "armazens": sorted(item["armazens"]),
+        }
+        for indice, item in enumerate(
+            sorted(grupos.values(), key=lambda item: item["motorista"].casefold()),
+            start=1,
+        )
+    ]
+
+
+def _produtividade_por_cad_pro(itens):
+    grupos = {}
+    for item in itens:
+        grupo = grupos.setdefault(item["cad_pro"], {
+            "cad_pro": item["cad_pro"],
+            "cad_pro_nome": item["cad_pro_codigo"],
+            "producao_kg": ZERO,
+            "producao_sacas_60kg": ZERO,
+            "semente_kg": ZERO,
+            "areas": {},
+        })
+        grupo["producao_kg"] += Decimal(item["quantidade_kg"])
+        grupo["producao_sacas_60kg"] += Decimal(item["sacas_60kg"])
+        grupo["semente_kg"] += Decimal(item["semente_kg"])
+        chave_area = (item["propriedade"], item["cultura"], item["safra"])
+        grupo["areas"].setdefault(chave_area, Decimal(item["area_hectares"]))
+    resultado = []
+    for grupo in grupos.values():
+        area = sum(grupo.pop("areas").values(), ZERO)
+        media = grupo["producao_sacas_60kg"] / area if area else ZERO
+        resultado.append({
+            **grupo,
+            "producao_kg": _texto_decimal(grupo["producao_kg"]),
+            "producao_sacas_60kg": _texto_decimal(grupo["producao_sacas_60kg"]),
+            "semente_kg": _texto_decimal(grupo["semente_kg"]),
+            "area_hectares": _texto_decimal(area),
+            "media_sacas_hectare": _texto_decimal(media),
+        })
+    return resultado
+
+
+def _producao_por_propriedade_cad_pro(itens):
+    grupos = {}
+    for item in itens:
+        chave = (
+            item["propriedade"], item["cad_pro"], item["cultura"], item["safra"]
+        )
+        grupo = grupos.setdefault(chave, {
+            "id": f'{item["propriedade"]}:{item["cad_pro"]}:{item["cultura"]}:{item["safra"]}',
+            "propriedade": item["propriedade"],
+            "propriedade_nome": item["propriedade_nome"],
+            "proprietario": item.get("proprietario", ""),
+            "cad_pro": item["cad_pro"],
+            "cad_pro_codigo": item["cad_pro_codigo"],
+            "cultura": item["cultura"],
+            "safra": item["safra"],
+            "area_hectares": Decimal(item["area_hectares"]),
+            "quantidade_kg": ZERO,
+            "sacas_60kg": ZERO,
+            "semente_kg": ZERO,
+            "semente_sacas_60kg": ZERO,
+            "outros_locais_kg": ZERO,
+            "armazenagens": set(),
+        })
+        peso = Decimal(item["quantidade_kg"])
+        sacas = Decimal(item["sacas_60kg"])
+        grupo["quantidade_kg"] += peso
+        grupo["sacas_60kg"] += sacas
+        grupo["semente_kg"] += Decimal(item["semente_kg"])
+        grupo["semente_sacas_60kg"] += Decimal(item["semente_sacas_60kg"])
+        grupo["armazenagens"].add(item["armazem_nome"])
+        if item.get("armazem_propriedade") != item["propriedade"]:
+            grupo["outros_locais_kg"] += peso
+
+    resultado = []
+    for grupo in grupos.values():
+        area_alqueires = grupo["area_hectares"] / HECTARES_POR_ALQUEIRE_PAULISTA
+        media = grupo["sacas_60kg"] / area_alqueires if area_alqueires else ZERO
+        resultado.append({
+            **grupo,
+            "area_hectares": _texto_decimal(grupo["area_hectares"]),
+            "area_alqueires": _texto_decimal(area_alqueires),
+            "quantidade_kg": _texto_decimal(grupo["quantidade_kg"]),
+            "sacas_60kg": _texto_decimal(grupo["sacas_60kg"]),
+            "semente_kg": _texto_decimal(grupo["semente_kg"]),
+            "semente_sacas_60kg": _texto_decimal(grupo["semente_sacas_60kg"]),
+            "outros_locais_kg": _texto_decimal(grupo["outros_locais_kg"]),
+            "media_sacas_alqueire": _texto_decimal(media),
+            "armazenagens": sorted(grupo["armazenagens"]),
+        })
+    return sorted(
+        resultado,
+        key=lambda item: (
+            item["propriedade_nome"].casefold(), item["cad_pro_codigo"],
+            item["cultura"].casefold(), item["safra"],
+        ),
+    )
+
+
+def _totais_producao_propriedade(itens):
+    campos = (
+        "quantidade_kg", "sacas_60kg", "semente_kg",
+        "semente_sacas_60kg", "outros_locais_kg",
+    )
+    totais = {
+        campo: sum((Decimal(item[campo]) for item in itens), ZERO)
+        for campo in campos
+    }
+    # A mesma área produtiva pode aparecer em mais de um CAD/PRO. Para o total,
+    # ela participa uma única vez por propriedade, cultura e safra.
+    areas = {}
+    for item in itens:
+        chave_area = (item["propriedade"], item["cultura"], item["safra"])
+        areas.setdefault(chave_area, Decimal(item["area_alqueires"]))
+    area = sum(areas.values(), ZERO)
+    totais["area_alqueires"] = area
+    totais["media_sacas_alqueire"] = totais["sacas_60kg"] / area if area else ZERO
+    return {campo: _texto_decimal(valor) for campo, valor in totais.items()}
+
+
+def _estrutura_rural(filtros):
+    propriedades = Propriedade.objects.prefetch_related("talhoes").order_by("nome", "id")
+    if filtros.get("propriedade"):
+        propriedades = propriedades.filter(pk=filtros["propriedade"])
+    if filtros.get("proprietario"):
+        propriedades = propriedades.filter(proprietario__iexact=filtros["proprietario"])
+    resultado = []
+    for propriedade in propriedades:
+        talhoes = list(propriedade.talhoes.all())
+        if filtros.get("cultura"):
+            talhoes = [item for item in talhoes if item.cultura_atual == filtros["cultura"]]
+        if filtros.get("safra"):
+            talhoes = [item for item in talhoes if item.safra == filtros["safra"]]
+        if (filtros.get("cultura") or filtros.get("safra")) and not talhoes:
+            continue
+        area_talhoes = sum((item.area_hectares for item in talhoes), ZERO)
+        area_declarada = propriedade.area_hectares or ZERO
+        resultado.append({
+            "id": propriedade.pk,
+            "propriedade_nome": propriedade.nome,
+            "proprietario": propriedade.proprietario,
+            "localizacao": " / ".join(filter(None, (propriedade.municipio, propriedade.uf))),
+            "area_alqueires": _texto_decimal(area_declarada / HECTARES_POR_ALQUEIRE_PAULISTA),
+            "area_talhoes_alqueires": _texto_decimal(area_talhoes / HECTARES_POR_ALQUEIRE_PAULISTA),
+            "area_disponivel_alqueires": _texto_decimal((area_declarada - area_talhoes) / HECTARES_POR_ALQUEIRE_PAULISTA),
+            "quantidade_talhoes": len(talhoes),
+            "culturas": sorted({item.cultura_atual for item in talhoes if item.cultura_atual}),
+            "safras": sorted({item.safra for item in talhoes if item.safra}),
+            "possui_mapa": bool(propriedade.geometria_geojson),
+        })
+    return resultado
+
+
+def _financeiro(filtros):
+    queryset = LancamentoFinanceiro.objects.select_related(
+        "categoria", "parceiro", "centro_custo", "propriedade"
+    )
+    if filtros.get("propriedade"):
+        queryset = queryset.filter(propriedade_id=filtros["propriedade"])
+    if filtros.get("proprietario"):
+        queryset = queryset.filter(propriedade__proprietario__iexact=filtros["proprietario"])
+    if filtros.get("safra"):
+        queryset = queryset.filter(safra=filtros["safra"])
+    queryset = _periodo(queryset, "data_vencimento", filtros).order_by("data_vencimento", "id")
+    return [{
+        "id": item.pk,
+        "tipo": item.get_tipo_display(),
+        "descricao": item.descricao,
+        "categoria": item.categoria.nome if item.categoria_id else "",
+        "parceiro": item.recebedor_nome or (item.parceiro.nome if item.parceiro_id else ""),
+        "propriedade_nome": item.propriedade.nome if item.propriedade_id else "",
+        "safra": item.safra,
+        "data_emissao": item.data_emissao,
+        "data_vencimento": item.data_vencimento,
+        "status": item.get_status_display(),
+        "valor": _texto_decimal(item.valor),
+        "valor_liquidado": _texto_decimal(item.valor_liquidado),
+        "atrasado": item.atrasado,
+    } for item in queryset]
+
+
+def _estoque_insumos(filtros):
+    queryset = LoteEstoque.objects.select_related("produto", "local__propriedade").prefetch_related("movimentacoes")
+    if filtros.get("propriedade"):
+        queryset = queryset.filter(local__propriedade_id=filtros["propriedade"])
+    if filtros.get("proprietario"):
+        queryset = queryset.filter(local__propriedade__proprietario__iexact=filtros["proprietario"])
+    resultado = []
+    for lote in queryset.order_by("produto__nome", "local__nome", "codigo", "id"):
+        movimentos = list(lote.movimentacoes.all())
+        if filtros.get("safra"):
+            movimentos = [item for item in movimentos if item.safra == filtros["safra"]]
+        if filtros.get("data_inicio"):
+            movimentos = [item for item in movimentos if item.data_movimento >= filtros["data_inicio"]]
+        if filtros.get("data_fim"):
+            movimentos = [item for item in movimentos if item.data_movimento <= filtros["data_fim"]]
+        saldo = sum((
+            item.quantidade if item.tipo == MovimentacaoEstoque.Tipo.ENTRADA else -item.quantidade
+            for item in movimentos
+        ), ZERO)
+        resultado.append({
+            "id": lote.pk,
+            "produto": lote.produto.nome,
+            "categoria": lote.produto.get_categoria_display(),
+            "unidade": lote.produto.unidade,
+            "lote": lote.codigo,
+            "local": lote.local.nome if lote.local else "",
+            "propriedade_nome": lote.local.propriedade.nome if lote.local and lote.local.propriedade_id else "",
+            "data_validade": lote.data_validade,
+            "vencido": lote.vencido,
+            "saldo": _texto_decimal(saldo),
+            "estoque_minimo": _texto_decimal(lote.produto.estoque_minimo),
+            "abaixo_minimo": saldo < lote.produto.estoque_minimo,
+            "ativo": lote.ativo and lote.produto.ativo and (lote.local.ativo if lote.local else True),
+        })
+    return resultado
+
+
+def _operacoes_agricolas(filtros):
+    queryset = OperacaoAgricola.objects.select_related("talhao__propriedade")
+    if filtros.get("propriedade"):
+        queryset = queryset.filter(talhao__propriedade_id=filtros["propriedade"])
+    if filtros.get("proprietario"):
+        queryset = queryset.filter(talhao__propriedade__proprietario__iexact=filtros["proprietario"])
+    if filtros.get("cultura"):
+        queryset = queryset.filter(talhao__cultura_atual=filtros["cultura"])
+    if filtros.get("safra"):
+        queryset = queryset.filter(talhao__safra=filtros["safra"])
+    queryset = _periodo(queryset, "data_planejada", filtros).order_by("data_planejada", "id")
+    return [{
+        "id": item.pk,
+        "tipo": item.get_tipo_display(),
+        "descricao": item.descricao,
+        "status": item.get_status_display(),
+        "propriedade_nome": item.talhao.propriedade.nome,
+        "talhao": item.talhao.nome,
+        "cultura": item.talhao.cultura_atual,
+        "safra": item.talhao.safra,
+        "data_planejada": item.data_planejada,
+        "data_inicio": item.data_inicio,
+        "data_conclusao": item.data_conclusao,
+        "area_alqueires": _texto_decimal(item.area_hectares / HECTARES_POR_ALQUEIRE_PAULISTA),
+        "responsavel": item.responsavel,
+        "custo_estimado": _texto_decimal(item.custo_estimado),
+        "custo_realizado": _texto_decimal(item.custo_realizado),
+    } for item in queryset]
+
+
+def _maquinas(filtros):
+    queryset = Maquina.objects.select_related("propriedade").prefetch_related(
+        "usos", "abastecimentos", "manutencoes"
+    )
+    if filtros.get("propriedade"):
+        queryset = queryset.filter(propriedade_id=filtros["propriedade"])
+    if filtros.get("proprietario"):
+        queryset = queryset.filter(propriedade__proprietario__iexact=filtros["proprietario"])
+    resultado = []
+    for maquina in queryset.order_by("identificacao"):
+        usos = list(maquina.usos.all())
+        abastecimentos = list(maquina.abastecimentos.all())
+        manutencoes = list(maquina.manutencoes.all())
+        if filtros.get("data_inicio"):
+            inicio = filtros["data_inicio"]
+            usos = [item for item in usos if item.data >= inicio]
+            abastecimentos = [item for item in abastecimentos if item.data >= inicio]
+            manutencoes = [item for item in manutencoes if item.data_prevista >= inicio]
+        if filtros.get("data_fim"):
+            fim = filtros["data_fim"]
+            usos = [item for item in usos if item.data <= fim]
+            abastecimentos = [item for item in abastecimentos if item.data <= fim]
+            manutencoes = [item for item in manutencoes if item.data_prevista <= fim]
+        resultado.append({
+            "id": maquina.pk,
+            "identificacao": maquina.identificacao,
+            "tipo": maquina.get_tipo_display(),
+            "marca_modelo": " ".join(filter(None, (maquina.marca, maquina.modelo))),
+            "ano": maquina.ano,
+            "propriedade_nome": maquina.propriedade.nome if maquina.propriedade_id else "",
+            "status": maquina.get_status_display(),
+            "horimetro_atual": _texto_decimal(maquina.horimetro_atual),
+            "horas_trabalhadas": _texto_decimal(sum((item.horas_trabalhadas for item in usos), ZERO)),
+            "litros": _texto_decimal(sum((item.litros for item in abastecimentos), ZERO)),
+            "custo_combustivel": _texto_decimal(sum((item.valor_total for item in abastecimentos), ZERO)),
+            "manutencoes_pendentes": sum(1 for item in manutencoes if item.status == item.Status.AGENDADA),
+            "custo_manutencoes": _texto_decimal(sum((item.custo for item in manutencoes), ZERO)),
+        })
+    return resultado
+
+
+def _clima(filtros):
+    queryset = PrevisaoClima.objects.select_related("propriedade")
+    if filtros.get("propriedade"):
+        queryset = queryset.filter(propriedade_id=filtros["propriedade"])
+    if filtros.get("proprietario"):
+        queryset = queryset.filter(propriedade__proprietario__iexact=filtros["proprietario"])
+    queryset = _periodo(queryset, "data", filtros).order_by("-data", "propriedade__nome")
+    return [{
+        "id": item.pk,
+        "propriedade_nome": item.propriedade.nome,
+        "data": item.data,
+        "condicao": item.condicao,
+        "temperatura_min": item.temperatura_min,
+        "temperatura_max": item.temperatura_max,
+        "chuva_mm": item.chuva_mm,
+        "probabilidade_chuva": item.probabilidade_chuva,
+        "umidade": item.umidade,
+        "vento_kmh": item.vento_kmh,
+        "alerta": item.alerta_agricola,
+        "fonte": item.fonte,
+    } for item in queryset]
+
+
+def _mercado(filtros):
+    resultado = []
+    cotacoes = _periodo(CotacaoMercado.objects.all(), "data", filtros)
+    if filtros.get("cultura"):
+        cotacoes = cotacoes.filter(produto__iexact=filtros["cultura"])
+    for item in cotacoes.order_by("-data", "produto"):
+        resultado.append({
+            "id": f"cotacao-{item.pk}", "tipo_registro": "Cotação",
+            "referencia": item.get_produto_display(), "data": item.data,
+            "valor_principal": _texto_decimal(item.valor), "unidade": item.unidade,
+            "detalhe": "", "alerta": "", "fonte": item.fonte,
+        })
+    for item in _periodo(ClimaCornBelt.objects.all(), "data", filtros).order_by("-data", "regiao"):
+        resultado.append({
+            "id": f"corn-belt-{item.pk}", "tipo_registro": "Clima Corn Belt",
+            "referencia": item.get_regiao_display(), "data": item.data,
+            "valor_principal": f"{item.temperatura_min} a {item.temperatura_max} °C",
+            "unidade": f"{item.precipitacao_mm} mm", "detalhe": "",
+            "alerta": item.alerta, "fonte": item.fonte,
+        })
+    noticias = NoticiaMercado.objects.filter(ativa=True)
+    if filtros.get("data_inicio"):
+        noticias = noticias.filter(publicada_em__date__gte=filtros["data_inicio"])
+    if filtros.get("data_fim"):
+        noticias = noticias.filter(publicada_em__date__lte=filtros["data_fim"])
+    for item in noticias.order_by("-publicada_em", "-id"):
+        resultado.append({
+            "id": f"noticia-{item.pk}", "tipo_registro": "Notícia",
+            "referencia": item.titulo, "data": item.publicada_em,
+            "valor_principal": "", "unidade": "", "detalhe": item.resumo,
+            "alerta": "", "fonte": item.fonte,
+        })
+    return sorted(resultado, key=lambda item: str(item["data"]), reverse=True)
+
+
+def _importacoes(filtros):
+    queryset = LoteImportacao.objects.select_related("criado_por")
+    if filtros.get("data_inicio"):
+        queryset = queryset.filter(criado_em__date__gte=filtros["data_inicio"])
+    if filtros.get("data_fim"):
+        queryset = queryset.filter(criado_em__date__lte=filtros["data_fim"])
+    return [{
+        "id": item.pk,
+        "arquivo": item.arquivo_nome,
+        "status": item.get_status_display(),
+        "tamanho_bytes": item.arquivo_tamanho,
+        "planilhas": item.total_planilhas,
+        "linhas": item.total_linhas,
+        "validas": item.total_validas,
+        "advertencias": item.total_advertencias,
+        "erros": item.total_erros,
+        "usuario": item.criado_por.get_username(),
+        "criado_em": item.criado_em,
+        "sha256": item.arquivo_sha256,
+    } for item in queryset.order_by("-criado_em", "-id")]
+
+
 def selecionar_relatorio_operacional(**filtros):
     secao = filtros["secao"]
     pagina, por_pagina = filtros["pagina"], filtros["por_pagina"]
+    seletores_gerais = {
+        "estrutura": _estrutura_rural,
+        "financeiro": _financeiro,
+        "estoque_insumos": _estoque_insumos,
+        "operacoes_agricolas": _operacoes_agricolas,
+        "maquinas": _maquinas,
+        "clima": _clima,
+        "mercado": _mercado,
+        "importacoes": _importacoes,
+    }
+    if secao in seletores_gerais:
+        zeros = {
+            "posicoes": 0,
+            "saldo_fisico_kg": _texto_decimal(ZERO),
+            "saldo_comprometido_kg": _texto_decimal(ZERO),
+            "saldo_disponivel_kg": _texto_decimal(ZERO),
+            "producao_kg": _texto_decimal(ZERO),
+            "reservas_abertas_kg": _texto_decimal(ZERO),
+            "vendas_kg": _texto_decimal(ZERO),
+            "entregas_kg": _texto_decimal(ZERO),
+            "producao_rateada_kg": _texto_decimal(ZERO),
+            "semente_kg": _texto_decimal(ZERO),
+        }
+        totais_producao = _totais_producao_propriedade([])
+        return {
+            "gerado_em": timezone.now(),
+            "filtros": {
+                chave: str(valor) if valor is not None else ""
+                for chave, valor in filtros.items()
+                if chave not in {"pagina", "por_pagina"}
+            },
+            "totais": zeros,
+            "por_cad_pro": [],
+            "por_propriedade": [],
+            "produtividade_por_cad_pro": [],
+            "totais_producao_propriedade": totais_producao,
+            "secao": secao,
+            "dados": _pagina(seletores_gerais[secao](filtros), pagina, por_pagina),
+        }
     posicoes = list(_filtrar_posicoes(filtros))
     ids = _ids_posicoes(posicoes)
     movimentos = list(_movimentos(filtros, ids))
     reservas = list(_reservas(filtros, ids))
     vendas = list(_vendas(filtros, ids))
     entregas = list(_entregas(filtros, ids))
+    produtividade = _produtividade(filtros)
+    producao_propriedade = _producao_por_propriedade_cad_pro(produtividade)
+    motoristas = _motoristas(filtros)
 
     secoes = {
         "saldos": [_item_posicao(item) for item in posicoes],
@@ -236,14 +885,23 @@ def selecionar_relatorio_operacional(**filtros):
         "entregas": [_item_entrega(item) for item in entregas],
         "movimentacoes": [_item_movimento(item) for item in movimentos],
         "rastreabilidade": _rastreabilidade(movimentos),
+        "produtividade": produtividade,
+        "producao_propriedade": producao_propriedade,
+        "motoristas": motoristas,
     }
     producao_total = sum(
-        (item.quantidade_kg for item in movimentos if item.operacao == MovimentacaoGraos.Operacao.CREDITO_PRODUCAO),
+        (item.quantidade_kg for item in movimentos if _movimento_producao_ativo(item)),
         ZERO,
     )
     reserva_aberta = sum((item.saldo_reservado_kg for item in reservas), ZERO)
     venda_total = sum((item.quantidade_kg for item in vendas), ZERO)
     entrega_total = sum((item.quantidade_kg for item in entregas), ZERO)
+    producao_rateada = sum(
+        (Decimal(item["quantidade_kg"]) for item in produtividade), ZERO
+    )
+    semente_rateada = sum(
+        (Decimal(item["semente_kg"]) for item in produtividade), ZERO
+    )
     return {
         "gerado_em": timezone.now(),
         "filtros": {
@@ -257,6 +915,8 @@ def selecionar_relatorio_operacional(**filtros):
             "reservas_abertas_kg": _texto_decimal(reserva_aberta),
             "vendas_kg": _texto_decimal(venda_total),
             "entregas_kg": _texto_decimal(entrega_total),
+            "producao_rateada_kg": _texto_decimal(producao_rateada),
+            "semente_kg": _texto_decimal(semente_rateada),
         },
         "por_cad_pro": _subtotais(
             posicoes,
@@ -265,9 +925,16 @@ def selecionar_relatorio_operacional(**filtros):
         ),
         "por_propriedade": _subtotais(
             posicoes,
-            lambda item: (item.armazem.propriedade_id, item.armazem.propriedade.nome),
+            lambda item: (
+                item.propriedade_id or "",
+                item.propriedade.nome
+                if item.propriedade_id
+                else "Produção histórica sem propriedade",
+            ),
             "propriedade",
         ),
+        "produtividade_por_cad_pro": _produtividade_por_cad_pro(produtividade),
+        "totais_producao_propriedade": _totais_producao_propriedade(producao_propriedade),
         "secao": secao,
         "dados": _pagina(secoes[secao], pagina, por_pagina),
     }
@@ -275,12 +942,19 @@ def selecionar_relatorio_operacional(**filtros):
 
 def selecionar_opcoes_relatorio():
     posicoes = selecionar_posicoes()
+    vendas = selecionar_vendas().filter(excluida_em__isnull=True)
+    culturas = set(posicoes.values_list("cultura", flat=True))
+    culturas.update(
+        Talhao.objects.exclude(cultura_atual="").values_list("cultura_atual", flat=True)
+    )
+    safras = set(posicoes.values_list("safra", flat=True))
+    safras.update(Talhao.objects.exclude(safra="").values_list("safra", flat=True))
     return {
         "cadpros": list(
             selecionar_cadpros().values("id", "codigo", "descricao").order_by("codigo_normalizado")
         ),
-        "culturas": list(posicoes.values_list("cultura", flat=True).distinct().order_by("cultura")),
-        "safras": list(posicoes.values_list("safra", flat=True).distinct().order_by("safra")),
+        "culturas": sorted(filter(None, culturas), key=str.casefold),
+        "safras": sorted(filter(None, safras)),
         "classificacoes": list(
             posicoes.values_list("classificacao_codigo", flat=True).distinct().order_by("classificacao_codigo")
         ),
@@ -288,5 +962,36 @@ def selecionar_opcoes_relatorio():
             ArmazemGraos.objects.select_related("propriedade")
             .values("id", "nome", "propriedade_id", "propriedade__nome")
             .order_by("nome", "id")
+        ),
+        "proprietarios": list(
+            posicoes.exclude(propriedade__proprietario="")
+            .exclude(propriedade__isnull=True)
+            .values_list("propriedade__proprietario", flat=True)
+            .distinct()
+            .order_by("propriedade__proprietario")
+        ),
+        "compradores": list(
+            vendas.values_list("cliente_nome", flat=True)
+            .distinct()
+            .order_by("cliente_nome")
+        ),
+        "contratos": list(
+            vendas.values_list("numero_contrato", flat=True)
+            .distinct()
+            .order_by("numero_contrato")
+        ),
+        "motoristas": list(
+            CargaColhida.objects.filter(status=CargaColhida.Status.ATIVA)
+            .exclude(motorista="")
+            .values_list("motorista", flat=True)
+            .distinct()
+            .order_by("motorista")
+        ),
+        "placas": list(
+            CargaColhida.objects.filter(status=CargaColhida.Status.ATIVA)
+            .exclude(placa="")
+            .values_list("placa", flat=True)
+            .distinct()
+            .order_by("placa")
         ),
     }

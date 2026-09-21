@@ -1,6 +1,6 @@
 from django.contrib import admin
 
-from .models import DevolucaoVendaGraos, EntregaVendaGraos, VendaGraos
+from .models import AlteracaoVendaGraos, ContratoComercial, DevolucaoVendaGraos, EntregaVendaGraos, VendaGraos
 
 
 class TrilhaComercialSomenteLeituraAdmin(admin.ModelAdmin):
@@ -16,6 +16,10 @@ class TrilhaComercialSomenteLeituraAdmin(admin.ModelAdmin):
         return False
 
 
+admin.site.register(ContratoComercial, TrilhaComercialSomenteLeituraAdmin)
+admin.site.register(AlteracaoVendaGraos, TrilhaComercialSomenteLeituraAdmin)
+
+
 @admin.register(VendaGraos)
 class VendaGraosAdmin(TrilhaComercialSomenteLeituraAdmin):
     list_display = (
@@ -28,8 +32,11 @@ class VendaGraosAdmin(TrilhaComercialSomenteLeituraAdmin):
 
 @admin.register(EntregaVendaGraos)
 class EntregaVendaGraosAdmin(TrilhaComercialSomenteLeituraAdmin):
-    list_display = ("venda", "quantidade_kg", "data_entrega", "criado_em")
-    search_fields = ("venda__numero_contrato", "referencia_externa")
+    list_display = ("venda", "quantidade_kg", "data_entrega", "destino", "placa", "criado_em")
+    search_fields = (
+        "venda__numero_contrato", "referencia_externa", "destino", "placa",
+        "nota_produtor", "nota_empresa",
+    )
 
 
 @admin.register(DevolucaoVendaGraos)

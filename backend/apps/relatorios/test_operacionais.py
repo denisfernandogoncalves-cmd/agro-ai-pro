@@ -1,8 +1,10 @@
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import TestCase
+from django.utils import timezone
 from rest_framework.test import APITestCase
 
 from apps.cadpro.models import CADPro, CADProPropriedade
@@ -18,6 +20,7 @@ from apps.propriedades.models import Propriedade
 from apps.vendas.services import confirmar_venda, criar_rascunho, registrar_entrega_venda
 
 from .selectors import selecionar_relatorio_operacional
+from .selectors import _totais_producao_propriedade
 
 
 class RelatorioOperacionalBase:
@@ -46,19 +49,21 @@ class RelatorioOperacionalBase:
         self.armazem_c = ArmazemGraos.objects.create(
             propriedade=self.propriedade_c, nome="Silo C", capacidade_kg="100000"
         )
-        self.lote_a = self._lote(self.armazem_a, self.cad_a, "A", "Soja", "2026/2027", "PADRAO")
-        self.lote_b = self._lote(self.armazem_b, self.cad_a, "B", "Milho", "2026/2027", "SEMENTE")
-        self.lote_c = self._lote(self.armazem_c, self.cad_b, "C", "Soja", "2025/2026", "PADRAO")
+        self.lote_a = self._lote(self.armazem_a, self.propriedade_a, self.cad_a, "A", "Soja", "2026/2027", "PADRAO")
+        self.lote_b = self._lote(self.armazem_b, self.propriedade_b, self.cad_a, "B", "Milho", "2026/2027", "SEMENTE")
+        self.lote_c = self._lote(self.armazem_c, self.propriedade_c, self.cad_b, "C", "Soja", "2025/2026", "PADRAO")
         self._credito(self.lote_a, "1000", "credito:a", date(2026, 8, 1))
         self._credito(self.lote_b, "2000", "credito:b", date(2026, 8, 2))
         self._credito(self.lote_c, "3000", "credito:c", date(2026, 7, 1))
-        reservar_saldo(
-            usuario=self.usuario,
-            lote=self.lote_a,
-            quantidade_kg="250",
-            chave_idempotencia="reserva:a",
-            referencia_externa="RES-A",
-        )
+        momento_reservas = timezone.make_aware(datetime(2026, 8, 3, 12, 0))
+        with patch("django.utils.timezone.now", return_value=momento_reservas):
+            reservar_saldo(
+                usuario=self.usuario,
+                lote=self.lote_a,
+                quantidade_kg="250",
+                chave_idempotencia="reserva:a",
+                referencia_externa="RES-A",
+            )
         self.venda = criar_rascunho(
             usuario=self.usuario,
             chave_idempotencia="venda:a",
@@ -68,11 +73,12 @@ class RelatorioOperacionalBase:
             quantidade_kg="100",
             data_contrato=date(2026, 8, 3),
         )
-        confirmar_venda(
-            usuario=self.usuario,
-            venda=self.venda,
-            chave_idempotencia="venda:a:confirmar",
-        )
+        with patch("django.utils.timezone.now", return_value=momento_reservas):
+            confirmar_venda(
+                usuario=self.usuario,
+                venda=self.venda,
+                chave_idempotencia="venda:a:confirmar",
+            )
         registrar_entrega_venda(
             usuario=self.usuario,
             venda=self.venda,
@@ -81,9 +87,10 @@ class RelatorioOperacionalBase:
             data_entrega=date(2026, 8, 4),
         )
 
-    def _lote(self, armazem, cad, codigo, cultura, safra, classificacao):
+    def _lote(self, armazem, propriedade, cad, codigo, cultura, safra, classificacao):
         return LoteGraos.objects.create(
             armazem=armazem,
+            propriedade=propriedade,
             cad_pro=cad,
             codigo=codigo,
             cultura=cultura,
@@ -191,7 +198,7 @@ class RelatorioOperacionalSelectorTests(RelatorioOperacionalBase, TestCase):
         )
         self.assertEqual(vendas["dados"]["total"], 1)
 
-    def test_rastreabilidade_expoe_origem_snapshots_carga_grupo_e_placa(self):
+    def test_rastreabilidade_expoe_origem_snapshots_contexto_direto_e_placa(self):
         grupo = GrupoColheita.objects.create(
             propriedade=self.propriedade_a,
             cad_pro=self.cad_a,
@@ -234,8 +241,13 @@ class RelatorioOperacionalSelectorTests(RelatorioOperacionalBase, TestCase):
         self.assertEqual(item["origem"], carga.movimentacao.origem_id)
         self.assertEqual(item["origem_tipo"], "producao")
         self.assertEqual(item["carga_colhida"], carga.pk)
-        self.assertEqual(item["grupo_colheita"], grupo.pk)
-        self.assertEqual(item["grupo_colheita_nome"], "Grupo Norte")
+        self.assertEqual(item["propriedade"], self.propriedade_a.pk)
+        self.assertEqual(item["propriedade_nome"], self.propriedade_a.nome)
+        self.assertEqual(item["cad_pro"], str(self.cad_a.pk))
+        self.assertEqual(item["cad_pro_codigo"], self.cad_a.codigo)
+        self.assertEqual(item["cultura"], "Soja")
+        self.assertEqual(item["safra"], "2026/2027")
+        self.assertNotIn("grupo_colheita", item)
         self.assertEqual(item["placa_carga"], "ABC1D23")
         self.assertEqual(
             Decimal(item["snapshot_anterior"]["saldo_disponivel_kg"]),
@@ -257,6 +269,83 @@ class RelatorioOperacionalSelectorTests(RelatorioOperacionalBase, TestCase):
             oficial = posicoes[posicao.pk]
             self.assertEqual(Decimal(oficial["saldo_fisico_kg"]), posicao.saldo_fisico_kg)
             self.assertEqual(Decimal(oficial["saldo_comprometido_kg"]), posicao.saldo_comprometido_kg)
+
+    def test_rateio_por_propriedade_e_transporte_por_motorista(self):
+        grupo = GrupoColheita.objects.create(
+            propriedade=self.propriedade_a,
+            cad_pro=self.cad_a,
+            nome="Grupo Compartilhado",
+            cultura="Soja",
+            safra="2026/2027",
+            tolerancia_impureza_percentual="0",
+            desconto_impureza_por_ponto="0",
+            tolerancia_defeitos_percentual="0",
+            desconto_defeitos_por_ponto="0",
+            criado_por=self.usuario,
+        )
+        registrar_carga_colhida(
+            usuario=self.usuario,
+            grupo_colheita=grupo,
+            armazem=self.armazem_a,
+            data_colheita=date(2026, 8, 10),
+            motorista="João Transportes",
+            placa="ABC1D23",
+            peso_bruto_kg="1800",
+            umidade_percentual="14",
+            impureza_percentual="0",
+            defeitos_percentual="0",
+            destinado_semente=True,
+            propriedades_selecionadas=[self.propriedade_a.pk, self.propriedade_b.pk],
+        )
+
+        producao_b = self.relatorio(
+            secao="produtividade", propriedade=self.propriedade_b.pk
+        )
+        self.assertEqual(producao_b["dados"]["total"], 1)
+        self.assertEqual(producao_b["dados"]["resultados"][0]["quantidade_kg"], "800.000")
+        self.assertEqual(producao_b["dados"]["resultados"][0]["armazem_nome"], "Silo A")
+        self.assertEqual(producao_b["totais"]["semente_kg"], "800.000")
+
+        agrupado_b = self.relatorio(
+            secao="producao_propriedade", propriedade=self.propriedade_b.pk
+        )
+        self.assertEqual(agrupado_b["dados"]["total"], 1)
+        linha = agrupado_b["dados"]["resultados"][0]
+        self.assertEqual(linha["cad_pro_codigo"], "CAD-A")
+        self.assertEqual(linha["area_alqueires"], "33.058")
+        self.assertEqual(linha["quantidade_kg"], "800.000")
+        self.assertEqual(linha["outros_locais_kg"], "800.000")
+        self.assertEqual(linha["semente_kg"], "800.000")
+        self.assertEqual(
+            agrupado_b["totais_producao_propriedade"]["quantidade_kg"],
+            "800.000",
+        )
+
+        transporte = self.relatorio(secao="motoristas", motorista="João")
+        self.assertEqual(transporte["dados"]["total"], 1)
+        self.assertEqual(transporte["dados"]["resultados"][0]["quantidade_kg"], "1800.000")
+        self.assertEqual(transporte["dados"]["resultados"][0]["armazens"], ["Silo A"])
+
+    def test_totais_nao_duplicam_area_em_cadpros_da_mesma_propriedade(self):
+        base = {
+            "propriedade": self.propriedade_a.pk,
+            "cultura": "Soja",
+            "safra": "2026/2027",
+            "area_alqueires": "10.000",
+            "quantidade_kg": "6000.000",
+            "sacas_60kg": "100.000",
+            "semente_kg": "0.000",
+            "semente_sacas_60kg": "0.000",
+            "outros_locais_kg": "0.000",
+        }
+        totais = _totais_producao_propriedade([
+            {**base, "cad_pro": self.cad_a.pk},
+            {**base, "cad_pro": self.cad_b.pk},
+        ])
+        self.assertEqual(totais["area_alqueires"], "10.000")
+        self.assertEqual(totais["quantidade_kg"], "12000.000")
+        self.assertEqual(totais["sacas_60kg"], "200.000")
+        self.assertEqual(totais["media_sacas_alqueire"], "20.000")
 
 
 class RelatorioOperacionalApiTests(RelatorioOperacionalBase, APITestCase):

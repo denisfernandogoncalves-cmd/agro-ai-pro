@@ -72,6 +72,7 @@ class GraosSaldoBase:
         self.lote = LoteGraos.objects.create(
             armazem=self.armazem,
             cad_pro=self.cad_pro,
+            propriedade=self.propriedade,
             codigo="SOJA-001",
             cultura="Soja",
             safra="2026/2027",
@@ -98,17 +99,21 @@ class PosicaoSaldoGraosModelTests(GraosSaldoBase, TestCase):
         with self.assertRaises(IntegrityError):
             PosicaoSaldoGraos.objects.create(
                 cad_pro=self.cad_pro,
+                propriedade=self.propriedade,
                 cultura="Soja",
                 safra="2026/2027",
                 classificacao_codigo="PADRAO",
                 armazem=self.armazem,
             )
 
-    def test_lote_rejeita_cadpro_sem_vinculo_com_propriedade(self):
+    def test_lote_aceita_cadpro_independente_da_armazenagem_legada(self):
         outro = CADPro.objects.create(codigo="CAD-2", descricao="Outro")
+        CADProPropriedade.objects.create(
+            cad_pro=outro,
+            propriedade=self.propriedade,
+        )
         self.lote.cad_pro = outro
-        with self.assertRaisesMessage(Exception, "vínculo ativo"):
-            self.lote.full_clean()
+        self.lote.full_clean()
 
 
 class ServicosSaldoGraosTests(GraosSaldoBase, TestCase):
@@ -260,6 +265,7 @@ class ServicosSaldoGraosTests(GraosSaldoBase, TestCase):
         lote_destino = LoteGraos.objects.create(
             armazem=armazem_destino,
             cad_pro=self.cad_pro,
+            propriedade=self.propriedade,
             codigo="SOJA-REPLAY",
             cultura="Soja",
             safra="2026/2027",
@@ -447,6 +453,7 @@ class ServicosSaldoGraosTests(GraosSaldoBase, TestCase):
         lote_destino = LoteGraos.objects.create(
             armazem=armazem_destino,
             cad_pro=self.cad_pro,
+            propriedade=self.propriedade,
             codigo="SOJA-IDEM",
             cultura="Soja",
             safra="2026/2027",
@@ -642,6 +649,7 @@ class ServicosSaldoGraosTests(GraosSaldoBase, TestCase):
         destino = LoteGraos.objects.create(
             armazem=outro_armazem,
             cad_pro=self.cad_pro,
+            propriedade=self.propriedade,
             codigo="SOJA-DEST",
             cultura="Soja",
             safra="2026/2027",
@@ -683,6 +691,7 @@ class ServicosSaldoGraosTests(GraosSaldoBase, TestCase):
         destino = LoteGraos.objects.create(
             armazem=destino_armazem,
             cad_pro=self.cad_pro,
+            propriedade=self.propriedade,
             codigo="SOJA-ESTORNO",
             cultura="Soja",
             safra="2026/2027",
@@ -751,9 +760,10 @@ class ServicosSaldoGraosTests(GraosSaldoBase, TestCase):
                 chave_idempotencia="inativo:reconciliar",
             ),
         )
-        for chamada in chamadas:
-            with self.assertRaisesMessage(SaldoGraosError, "CAD/PRO"):
-                chamada()
+        for indice, chamada in enumerate(chamadas):
+            with self.subTest(mutador=indice):
+                with self.assertRaisesMessage(SaldoGraosError, "CAD/PRO"):
+                    chamada()
 
     def test_reconciliacao_corrige_snapshot_pelo_ledger(self):
         resultado = self.creditar("250")
@@ -846,14 +856,21 @@ class SaldoGraosApiTests(GraosSaldoBase, APITestCase):
             quantidade_kg="100",
             chave_idempotencia="painel:reserva:a1",
         )
+        propriedade_do_armazem = Propriedade.objects.create(
+            nome="Propriedade do armazém externo",
+            municipio="Campo Novo",
+            uf="MT",
+            area_hectares="50",
+        )
         armazem_2 = ArmazemGraos.objects.create(
-            propriedade=self.propriedade,
+            propriedade=propriedade_do_armazem,
             nome="Silo 2",
             capacidade_kg="2000",
         )
         lote_2 = LoteGraos.objects.create(
             armazem=armazem_2,
             cad_pro=self.cad_pro,
+            propriedade=self.propriedade,
             codigo="SOJA-002",
             cultura="Soja",
             safra="2026/2027",
@@ -876,6 +893,7 @@ class SaldoGraosApiTests(GraosSaldoBase, APITestCase):
         lote_3 = LoteGraos.objects.create(
             armazem=armazem_2,
             cad_pro=outro_cadpro,
+            propriedade=self.propriedade,
             codigo="SOJA-003",
             cultura="Soja",
             safra="2026/2027",
@@ -917,6 +935,15 @@ class SaldoGraosApiTests(GraosSaldoBase, APITestCase):
         self.assertCountEqual(
             [item["armazem"] for item in resposta.data["posicoes"]],
             [self.armazem.pk, armazem_2.pk, armazem_2.pk],
+        )
+        filtro_por_local_fisico = self.client.get(
+            "/api/graos/saldos/painel/",
+            {"propriedade": propriedade_do_armazem.pk},
+        )
+        self.assertEqual(filtro_por_local_fisico.status_code, 200)
+        self.assertEqual(
+            filtro_por_local_fisico.data["resumo"]["saldo_fisico_kg"],
+            "0.000",
         )
 
         filtrada = self.client.get(
@@ -1037,6 +1064,7 @@ class SaldoGraosApiTests(GraosSaldoBase, APITestCase):
         lote_destino = LoteGraos.objects.create(
             armazem=armazem_destino,
             cad_pro=self.cad_pro,
+            propriedade=self.propriedade,
             codigo="SOJA-ROTAS",
             cultura="Soja",
             safra="2026/2027",
@@ -1220,6 +1248,7 @@ class ConcorrenciaSaldoGraosPostgreSQLTests(GraosSaldoBase, TransactionTestCase)
         lote_alternativo = LoteGraos.objects.create(
             armazem=self.armazem,
             cad_pro=self.cad_pro,
+            propriedade=self.propriedade,
             codigo="SOJA-ALT",
             cultura="Soja",
             safra="2026/2027",
@@ -1378,6 +1407,7 @@ class ConcorrenciaSaldoGraosPostgreSQLTests(GraosSaldoBase, TransactionTestCase)
         lote_b = LoteGraos.objects.create(
             armazem=armazem_b,
             cad_pro=self.cad_pro,
+            propriedade=self.propriedade,
             codigo="SOJA-CONCORRENTE-B",
             cultura="Soja",
             safra="2026/2027",

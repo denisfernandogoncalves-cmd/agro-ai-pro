@@ -38,7 +38,8 @@ class LocalEstoqueSerializer(serializers.ModelSerializer):
 class LoteEstoqueSerializer(serializers.ModelSerializer):
     produto_nome = serializers.CharField(source="produto.nome", read_only=True)
     produto_unidade = serializers.CharField(source="produto.unidade", read_only=True)
-    local_nome = serializers.CharField(source="local.nome", read_only=True)
+    local_nome = serializers.CharField(source="local.nome", read_only=True, default="")
+    fornecedor_nome = serializers.CharField(source="fornecedor.nome", read_only=True, default="")
     saldo = serializers.SerializerMethodField()
     vencido = serializers.BooleanField(read_only=True)
 
@@ -50,12 +51,33 @@ class LoteEstoqueSerializer(serializers.ModelSerializer):
     def get_saldo(self, obj):
         return saldo_lote(obj)
 
+    def validate(self, attrs):
+        fornecedor = attrs.get("fornecedor", getattr(self.instance, "fornecedor", None))
+        local = attrs.get("local", getattr(self.instance, "local", None))
+        produto = attrs.get("produto", getattr(self.instance, "produto", None))
+        codigo = attrs.get("codigo", getattr(self.instance, "codigo", ""))
+        if not local and not fornecedor:
+            raise serializers.ValidationError({"fornecedor": "Selecione um fornecedor cadastrado."})
+        if fornecedor and (not self.instance or "fornecedor" in attrs):
+            if not fornecedor.ativo or fornecedor.tipo not in {"fornecedor", "ambos"}:
+                raise serializers.ValidationError({"fornecedor": "Selecione um fornecedor ativo."})
+        if produto and (not self.instance or "produto" in attrs) and not produto.ativo:
+            raise serializers.ValidationError({"produto": "Selecione um produto agrícola ativo."})
+        if not local and fornecedor:
+            duplicados = LoteEstoque.objects.filter(produto=produto, fornecedor=fornecedor, codigo=codigo, local__isnull=True)
+            if self.instance:
+                duplicados = duplicados.exclude(pk=self.instance.pk)
+            if duplicados.exists():
+                raise serializers.ValidationError({"codigo": "Já existe este lote para o produto e fornecedor."})
+        return attrs
+
 
 class MovimentacaoEstoqueSerializer(serializers.ModelSerializer):
     produto_nome = serializers.CharField(source="lote.produto.nome", read_only=True)
     unidade = serializers.CharField(source="lote.produto.unidade", read_only=True)
     lote_codigo = serializers.CharField(source="lote.codigo", read_only=True)
-    local_nome = serializers.CharField(source="lote.local.nome", read_only=True)
+    local_nome = serializers.CharField(source="lote.local.nome", read_only=True, default="")
+    fornecedor_nome = serializers.CharField(source="lote.fornecedor.nome", read_only=True, default="")
     propriedade_nome = serializers.CharField(
         source="propriedade.nome", read_only=True
     )

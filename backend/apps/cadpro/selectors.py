@@ -2,7 +2,7 @@ from .models import CADPro, CADProPropriedade
 
 
 def selecionar_cadpros():
-    return CADPro.objects.all()
+    return CADPro.objects.prefetch_related("vinculos_propriedades")
 
 
 def selecionar_vinculos(cad_pro_id, *, somente_ativos=True):

@@ -1,4 +1,5 @@
 import { api } from "./propriedades";
+import axios from "axios";
 
 
 export type ProdutoEstoque = {
@@ -25,8 +26,10 @@ export type LoteEstoque = {
   produto: number;
   produto_nome: string;
   produto_unidade: string;
-  local: number;
+  local: number | null;
   local_nome: string;
+  fornecedor: number | null;
+  fornecedor_nome: string;
   codigo: string;
   data_validade: string | null;
   observacoes: string;
@@ -41,7 +44,9 @@ export type PosicaoEstoque = {
   produto: string;
   categoria: string;
   unidade: string;
-  local_id: number;
+  local_id: number | null;
+  fornecedor_id: number | null;
+  fornecedor: string;
   local: string;
   codigo_lote: string;
   data_validade: string | null;
@@ -59,6 +64,7 @@ export type MovimentacaoEstoque = {
   unidade: string;
   lote_codigo: string;
   local_nome: string;
+  fornecedor_nome: string;
   quantidade: string;
   custo_unitario: string | null;
   data_movimento: string;
@@ -79,6 +85,70 @@ export type ResumoEstoque = {
   itens_abaixo_minimo: number;
 };
 
+export type CompraEstoqueInput = {
+  safra: string;
+  id: string;
+  data_compra: string;
+  produto: string;
+  cultura: string;
+  quantidade_embalagens: string;
+  embalagem: string;
+  conteudo_embalagem: string;
+  fornecedor: string;
+  custo_embalagem: string;
+  data_vencimento: string;
+};
+
+export type CompraEstoque = Omit<CompraEstoqueInput, "produto" | "fornecedor" | "data_vencimento"> & {
+  data_vencimento: string | null;
+  produto_nome: string;
+  fornecedor_nome: string;
+  unidade: string;
+  quantidade_total: string;
+  valor_por_unidade: string;
+  valor_total: string;
+};
+
+export async function listarComprasEstoque(search = "") {
+  return (await api.get<CompraEstoque[]>("/estoque/compras/", { params: { search } })).data;
+}
+
+export async function registrarCompraEstoque(dados: CompraEstoqueInput) {
+  return (await api.post<CompraEstoque>("/estoque/compras/", {
+    ...dados, data_vencimento: dados.data_vencimento || null,
+  })).data;
+}
+
+export type ProdutoEstoqueInput = {
+  nome: string;
+  categoria: ProdutoEstoque["categoria"];
+  unidade: ProdutoEstoque["unidade"];
+  fabricante: string;
+  estoque_minimo: string;
+};
+
+export type LocalEstoqueInput = {
+  nome: string;
+  propriedade: string;
+  descricao: string;
+};
+
+export async function listarProdutosEstoque() {
+  return (
+    await api.get<ProdutoEstoque[]>("/estoque/produtos/", {
+      params: { ordering: "nome" },
+    })
+  ).data;
+}
+
+export async function listarLocaisEstoque() {
+  return (
+    await api.get<LocalEstoque[]>("/estoque/locais/", {
+      params: { ordering: "nome" },
+    })
+  ).data;
+}
+
 export async function carregarEstoque(filtros?: {
   search?: string;
   tipo?: string;
@@ -90,16 +160,16 @@ export async function carregarEstoque(filtros?: {
   if (filtros?.produto) params.set("produto", filtros.produto);
   const sufixo = params.toString() ? `?${params}` : "";
   const [produtos, locais, lotes, posicoes, movimentos, resumo] = await Promise.all([
-    api.get<ProdutoEstoque[]>("/estoque/produtos/?ordering=nome"),
-    api.get<LocalEstoque[]>("/estoque/locais/?ordering=nome"),
+    listarProdutosEstoque(),
+    listarLocaisEstoque(),
     api.get<LoteEstoque[]>("/estoque/lotes/?ordering=data_validade"),
     api.get<PosicaoEstoque[]>("/estoque/lotes/posicao/"),
     api.get<MovimentacaoEstoque[]>(`/estoque/movimentacoes/${sufixo}`),
     api.get<ResumoEstoque>("/estoque/lotes/resumo/"),
   ]);
   return {
-    produtos: produtos.data,
-    locais: locais.data,
+    produtos,
+    locais,
     lotes: lotes.data,
     posicoes: posicoes.data,
     movimentos: movimentos.data,
@@ -107,21 +177,11 @@ export async function carregarEstoque(filtros?: {
   };
 }
 
-export async function criarProduto(dados: {
-  nome: string;
-  categoria: string;
-  unidade: string;
-  fabricante: string;
-  estoque_minimo: string;
-}) {
+export async function criarProduto(dados: ProdutoEstoqueInput) {
   return (await api.post<ProdutoEstoque>("/estoque/produtos/", dados)).data;
 }
 
-export async function criarLocal(dados: {
-  nome: string;
-  propriedade: string;
-  descricao: string;
-}) {
+export async function criarLocal(dados: LocalEstoqueInput) {
   return (
     await api.post<LocalEstoque>("/estoque/locais/", {
       ...dados,
@@ -130,9 +190,38 @@ export async function criarLocal(dados: {
   ).data;
 }
 
+export async function atualizarLocal(id: number, dados: LocalEstoqueInput) {
+  return (await api.patch<LocalEstoque>(`/estoque/locais/${id}/`, {
+    ...dados,
+    propriedade: dados.propriedade || null,
+  })).data;
+}
+
+export async function excluirLocal(id: number) {
+  try {
+    await api.delete(`/estoque/locais/${id}/`);
+  } catch (falha) {
+    if (!axios.isAxiosError(falha) || falha.response?.status !== 409) throw falha;
+    await api.patch(`/estoque/locais/${id}/`, { ativo: false });
+  }
+}
+
+export async function atualizarProduto(id: number, dados: ProdutoEstoqueInput) {
+  return (await api.patch<ProdutoEstoque>(`/estoque/produtos/${id}/`, dados)).data;
+}
+
+export async function excluirProduto(id: number) {
+  try {
+    await api.delete(`/estoque/produtos/${id}/`);
+  } catch (falha) {
+    if (!axios.isAxiosError(falha) || falha.response?.status !== 409) throw falha;
+    await api.patch(`/estoque/produtos/${id}/`, { ativo: false });
+  }
+}
+
 export async function criarLote(dados: {
   produto: string;
-  local: string;
+  fornecedor: string;
   codigo: string;
   data_validade: string;
 }) {
@@ -163,3 +252,15 @@ export async function registrarMovimento(dados: {
     })
   ).data;
 }
+
+export type DisponibilidadeEstoque = {
+  produto_id: number; produto: string; fornecedor_id: number | null; fornecedor: string;
+  unidade: string; data_compra: string | null; quantidade_comprada: string;
+  quantidade_saida: string; disponivel: string; valor_aquisicao: string | null;
+  preco_medio: string | null; lotes: { id: number; codigo: string; datas_entrada: string[] }[];
+};
+export async function listarDisponibilidadeEstoque(params: Record<string, string>) {
+  return (await api.get<{ itens: DisponibilidadeEstoque[]; resumo: ResumoDisponibilidade[] }>("/estoque/disponibilidade/", { params })).data;
+}
+
+export type ResumoDisponibilidade = Pick<DisponibilidadeEstoque, "produto_id" | "produto" | "fornecedor_id" | "fornecedor" | "unidade" | "disponivel" | "preco_medio">;

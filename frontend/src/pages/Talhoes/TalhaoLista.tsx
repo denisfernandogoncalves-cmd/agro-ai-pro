@@ -1,7 +1,8 @@
 import { FormEvent } from "react";
 
-import { Propriedade } from "../../api/propriedades";
+import { Propriedade, rotuloPropriedade } from "../../api/propriedades";
 import { FiltrosTalhao, Talhao } from "../../api/talhoes";
+import { areaEmAlqueires } from "../../utils/areas";
 
 
 type Props = {
@@ -56,7 +57,7 @@ export default function TalhaoLista({
           <option value="">Todas as propriedades</option>
           {propriedades.map((propriedade) => (
             <option key={propriedade.id} value={propriedade.id}>
-              {propriedade.nome}
+              {rotuloPropriedade(propriedade)}
             </option>
           ))}
         </select>
@@ -107,7 +108,7 @@ export default function TalhaoLista({
               <div>
                 <h3>{talhao.nome}</h3>
                 <p>
-                  {talhao.propriedade_nome} · {talhao.area_hectares} ha
+                  {talhao.propriedade_nome} · {areaEmAlqueires(talhao.area_hectares)} alq.
                   {talhao.cultura_atual ? ` · ${talhao.cultura_atual}` : ""}
                 </p>
               </div>

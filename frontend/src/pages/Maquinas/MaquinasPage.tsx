@@ -12,7 +12,7 @@ import {
   registrarUso,
 } from "../../api/maquinas";
 import { OperacaoAgricola } from "../../api/operacoes";
-import { Propriedade } from "../../api/propriedades";
+import { Propriedade, rotuloPropriedade } from "../../api/propriedades";
 
 
 const hoje = new Date().toISOString().slice(0, 10);
@@ -101,7 +101,7 @@ export default function MaquinasPage({ propriedades }: { propriedades: Proprieda
           <label>Tipo<select value={maquina.tipo} onChange={(e) => setMaquina({ ...maquina, tipo: e.target.value })}><option value="trator">Trator</option><option value="colheitadeira">Colheitadeira</option><option value="pulverizador">Pulverizador</option><option value="implemento">Implemento</option><option value="caminhao">Caminhão</option><option value="outro">Outro</option></select></label>
           <div className="linha"><label>Marca<input value={maquina.marca} onChange={(e) => setMaquina({ ...maquina, marca: e.target.value })} /></label><label>Modelo<input value={maquina.modelo} onChange={(e) => setMaquina({ ...maquina, modelo: e.target.value })} /></label></div>
           <div className="linha"><label>Ano<input min="1900" type="number" value={maquina.ano} onChange={(e) => setMaquina({ ...maquina, ano: e.target.value })} /></label><label>Horímetro<input min="0" step="0.1" type="number" value={maquina.horimetro_atual} onChange={(e) => setMaquina({ ...maquina, horimetro_atual: e.target.value })} /></label></div>
-          <label>Propriedade<select value={maquina.propriedade} onChange={(e) => setMaquina({ ...maquina, propriedade: e.target.value })}><option value="">Sem vínculo</option>{propriedades.map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select></label>
+          <label>Propriedade<select value={maquina.propriedade} onChange={(e) => setMaquina({ ...maquina, propriedade: e.target.value })}><option value="">Sem vínculo</option>{propriedades.map((item) => <option key={item.id} value={item.id}>{rotuloPropriedade(item)}</option>)}</select></label>
           <label>Observações<textarea value={maquina.observacoes} onChange={(e) => setMaquina({ ...maquina, observacoes: e.target.value })} /></label>
           <button type="submit">Cadastrar máquina</button>
         </form>

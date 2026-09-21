@@ -14,8 +14,9 @@ import MapaPropriedade from "./components/MapaPropriedade";
 import AplicativoStatus from "./components/AplicativoStatus";
 import ClimaPage from "./pages/Clima/ClimaPage";
 import CargasColhidasPage from "./pages/CargasColhidas/CargasColhidasPage";
-import GruposColheitaPage from "./pages/GruposColheita/GruposColheitaPage";
+import CadastrosAgricolasPage from "./pages/CadastrosAgricolas/CadastrosAgricolasPage";
 import ProducaoSaldosPage from "./pages/ProducaoSaldos/ProducaoSaldosPage";
+import TransferenciasSaldoPage from "./pages/TransferenciasSaldo/TransferenciasSaldoPage";
 import VendasPage from "./pages/Vendas/VendasPage";
 import EstoquePage from "./pages/Estoque/EstoquePage";
 import FinanceiroPage from "./pages/Financeiro/FinanceiroPage";
@@ -23,10 +24,17 @@ import MercadoPage from "./pages/Mercado/MercadoPage";
 import MaquinasPage from "./pages/Maquinas/MaquinasPage";
 import OperacoesPage from "./pages/Operacoes/OperacoesPage";
 import RelatoriosPage from "./pages/Relatorios/RelatoriosPage";
+import ImportacoesPage from "./pages/Importacoes/ImportacoesPage";
 import InsightsPage from "./pages/Insights/InsightsPage";
 import TalhoesPage from "./pages/Talhoes/TalhoesPage";
 
 import "./styles.css";
+import ImprimirA4 from "./components/ImprimirA4";
+
+const areaEmAlqueires = (valor: string | number | null | undefined) =>
+  (Number(valor || 0) / 2.42).toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+const valorAlqueiresParaFormulario = (valor: string | number | null | undefined) =>
+  valor === null || valor === undefined || valor === "" ? "" : String(Number((Number(valor) / 2.42).toFixed(4)));
 
 
 const formularioVazio: PropriedadeInput = {
@@ -38,6 +46,7 @@ const formularioVazio: PropriedadeInput = {
   latitude: "",
   longitude: "",
   observacoes: "",
+  cad_pro_numero: "",
   arquivo_kml: null,
 };
 
@@ -121,7 +130,7 @@ type PrivateAreaProps = {
 
 function PrivateArea({ sair }: PrivateAreaProps) {
   const [modulo, setModulo] = useState<
-    "propriedades" | "talhoes" | "grupos-colheita" | "cargas" | "producao-saldos" | "vendas" | "clima" | "mercado" | "financeiro" | "estoque" | "operacoes" | "maquinas" | "relatorios" | "insights"
+    "propriedades" | "talhoes" | "cadastros-agricolas" | "cargas" | "producao-saldos" | "transferencias" | "vendas" | "clima" | "mercado" | "financeiro" | "estoque" | "operacoes" | "maquinas" | "relatorios" | "importacoes" | "insights"
   >("propriedades");
   const [propriedades, setPropriedades] = useState<Propriedade[]>([]);
   const [selecionada, setSelecionada] = useState<Propriedade | null>(null);
@@ -177,10 +186,11 @@ function PrivateArea({ sair }: PrivateAreaProps) {
       proprietario: item.proprietario,
       municipio: item.municipio,
       uf: item.uf,
-      area_hectares: item.area_hectares,
+      area_hectares: valorAlqueiresParaFormulario(item.area_hectares),
       latitude: item.latitude ?? "",
       longitude: item.longitude ?? "",
       observacoes: item.observacoes,
+      cad_pro_numero: item.cad_pro_numeros[0] ?? "",
       arquivo_kml: null,
     });
   }
@@ -220,12 +230,14 @@ function PrivateArea({ sair }: PrivateAreaProps) {
               ? "Propriedades"
               : modulo === "talhoes"
                 ? "Talhões"
-                : modulo === "grupos-colheita"
-                  ? "Grupos de colheita"
                 : modulo === "cargas"
                   ? "Cargas colhidas"
+                : modulo === "cadastros-agricolas"
+                  ? "Cadastros agrícolas"
                 : modulo === "producao-saldos"
                   ? "Produção e saldos"
+                : modulo === "transferencias"
+                  ? "Transferência de saldo"
                 : modulo === "vendas"
                   ? "Vendas"
                 : modulo === "clima"
@@ -236,11 +248,12 @@ function PrivateArea({ sair }: PrivateAreaProps) {
                       ? "Financeiro"
                       : modulo === "estoque"
                         ? "Estoque"
-                        : modulo === "operacoes" ? "Operações" : modulo === "maquinas" ? "Máquinas" : modulo === "relatorios" ? "Relatórios" : "Assistente"}
+                        : modulo === "operacoes" ? "Operações" : modulo === "maquinas" ? "Máquinas" : modulo === "relatorios" ? "Relatórios" : modulo === "importacoes" ? "Importações" : "Assistente"}
           </h1>
         </div>
         <div className="cabecalho-acoes">
           <AplicativoStatus />
+          <ImprimirA4 />
           <button className="secundario" onClick={() => { void encerrarSessao(); }}>Sair</button>
         </div>
       </header>
@@ -259,10 +272,10 @@ function PrivateArea({ sair }: PrivateAreaProps) {
           Talhões
         </button>
         <button
-          className={modulo === "grupos-colheita" ? "" : "secundario"}
-          onClick={() => setModulo("grupos-colheita")}
+          className={modulo === "cadastros-agricolas" ? "" : "secundario"}
+          onClick={() => setModulo("cadastros-agricolas")}
         >
-          Grupos de colheita
+          Cadastros agrícolas
         </button>
         <button
           className={modulo === "cargas" ? "" : "secundario"}
@@ -276,6 +289,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
         >
           Produção e saldos
         </button>
+        <button className={modulo === "transferencias" ? "" : "secundario"} onClick={() => setModulo("transferencias")}>Transferência de saldo</button>
         <button
           className={modulo === "vendas" ? "" : "secundario"}
           onClick={() => setModulo("vendas")}
@@ -314,17 +328,20 @@ function PrivateArea({ sair }: PrivateAreaProps) {
         </button>
         <button className={modulo === "maquinas" ? "" : "secundario"} onClick={() => setModulo("maquinas")}>Máquinas</button>
         <button className={modulo === "relatorios" ? "" : "secundario"} onClick={() => setModulo("relatorios")}>Relatórios</button>
+        <button className={modulo === "importacoes" ? "" : "secundario"} onClick={() => setModulo("importacoes")}>Importações</button>
         <button className={modulo === "insights" ? "" : "secundario"} onClick={() => setModulo("insights")}>Assistente</button>
       </nav>
 
       {modulo === "talhoes" ? (
         <TalhoesPage />
-      ) : modulo === "grupos-colheita" ? (
-        <GruposColheitaPage propriedades={propriedades} />
+      ) : modulo === "cadastros-agricolas" ? (
+        <CadastrosAgricolasPage propriedades={propriedades} />
       ) : modulo === "cargas" ? (
         <CargasColhidasPage propriedades={propriedades} />
       ) : modulo === "producao-saldos" ? (
         <ProducaoSaldosPage propriedades={propriedades} />
+      ) : modulo === "transferencias" ? (
+        <TransferenciasSaldoPage />
       ) : modulo === "vendas" ? (
         <VendasPage />
       ) : modulo === "clima" ? (
@@ -339,6 +356,8 @@ function PrivateArea({ sair }: PrivateAreaProps) {
         <OperacoesPage />
       ) : modulo === "maquinas" ? (
         <MaquinasPage propriedades={propriedades} />
+      ) : modulo === "importacoes" ? (
+        <ImportacoesPage />
       ) : modulo === "relatorios" ? (
         <RelatoriosPage propriedades={propriedades} />
       ) : modulo === "insights" ? (
@@ -347,7 +366,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
         <>
           {erro && <p className="erro card">{erro}</p>}
 
-          <section className="grade">
+          <section className="grade modulo-propriedades">
         <form className="card formulario" onSubmit={salvar}>
           <h2>{edicaoId ? "Editar propriedade" : "Nova propriedade"}</h2>
           <label>Nome<input required value={formulario.nome} onChange={(e) => setFormulario({ ...formulario, nome: e.target.value })} /></label>
@@ -356,7 +375,8 @@ function PrivateArea({ sair }: PrivateAreaProps) {
             <label>Município<input required value={formulario.municipio} onChange={(e) => setFormulario({ ...formulario, municipio: e.target.value })} /></label>
             <label>UF<input maxLength={2} value={formulario.uf} onChange={(e) => setFormulario({ ...formulario, uf: e.target.value.toUpperCase() })} /></label>
           </div>
-          <label>Área (ha)<input required min="0.01" step="0.01" type="number" value={formulario.area_hectares} onChange={(e) => setFormulario({ ...formulario, area_hectares: e.target.value })} /></label>
+          <label>Área (alqueires paulistas)<input required min="0.01" step="0.01" type="number" value={formulario.area_hectares} onChange={(e) => setFormulario({ ...formulario, area_hectares: e.target.value })} /></label>
+          <label>Número CAD/PRO<input placeholder="Ex.: 123.456-7" value={formulario.cad_pro_numero} onChange={(e) => setFormulario({ ...formulario, cad_pro_numero: e.target.value })} /></label>
           <div className="linha">
             <label>Latitude<input step="any" type="number" value={formulario.latitude} onChange={(e) => setFormulario({ ...formulario, latitude: e.target.value })} /></label>
             <label>Longitude<input step="any" type="number" value={formulario.longitude} onChange={(e) => setFormulario({ ...formulario, longitude: e.target.value })} /></label>
@@ -380,15 +400,16 @@ function PrivateArea({ sair }: PrivateAreaProps) {
           ) : propriedades.length === 0 ? (
             <div className="card vazio">Nenhuma propriedade cadastrada.</div>
           ) : (
-            <div className="lista">
+            <div className="lista propriedades-lista">
               {propriedades.map((item) => (
                 <article className={`card item ${selecionada?.id === item.id ? "ativo" : ""}`} key={item.id} onClick={() => setSelecionada(item)}>
                   <div>
                     <h3>{item.nome}</h3>
-                    <p>{item.municipio}/{item.uf} · {item.area_hectares} ha declarados</p>
+                    <p>{item.municipio}/{item.uf} · {areaEmAlqueires(item.area_hectares)} alq. declarados</p>
+                    <p>CAD/PRO: {item.cad_pro_numeros.length ? item.cad_pro_numeros.join(", ") : "não informado"}</p>
                     {item.area_calculada_hectares && (
                       <p className="metadado-geografico">
-                        {item.area_calculada_hectares} ha calculados
+                        {areaEmAlqueires(item.area_calculada_hectares)} alq. calculados
                         {item.divergencia_area_percentual &&
                           ` · diferença ${item.divergencia_area_percentual}%`}
                       </p>

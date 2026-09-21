@@ -1,5 +1,14 @@
 # API de Estoque de Grãos
 
+## Seleção de lote para crédito de produção
+
+Em Produção e Saldos, o seletor de crédito respeita todos os filtros da consulta:
+propriedade produtora, CAD/PRO, cultura, safra, classificação e armazenagem.
+A cultura ignora maiúsculas/minúsculas; safra e classificação seguem a
+normalização da consulta de saldos. Lotes inativos ou sem CAD/PRO não são
+oferecidos. Um lote que deixe de atender aos filtros não pode ser submetido.
+Limpar os filtros permite consultar novamente os demais lotes elegíveis.
+
 O recebimento manual de produção e o crédito atômico no saldo por CAD/PRO são
 documentados em [Cargas Colhidas](CARGAS_COLHIDAS.md).
 
@@ -12,12 +21,28 @@ JWT e nenhuma operação altera dados fora de uma transação atômica.
 Esta versão depende de `cadpro.0001_initial`. O `LoteGraos` pode permanecer sem
 CAD/PRO apenas para preservar cadastros históricos ainda sem movimentação. Todo
 novo comando de saldo exige um lote com CAD/PRO ativo e vinculado à propriedade
-do armazém.
+produtora. A armazenagem é uma dimensão física independente e não determina a
+propriedade da produção.
+
+## Cargas diretas e legado de Grupo de Colheita
+
+O fluxo operacional cria a carga diretamente com `propriedade`, `cad_pro`,
+`cultura`, `safra` e `armazem`. O contrato público não expõe criação nem
+manutenção de Grupo de Colheita.
+
+O modelo e os registros históricos de Grupo de Colheita permanecem no banco
+apenas como legado. A referência `grupo_colheita` da carga é anulável e não é
+necessária para novas cargas. Não há rota pública de grupos no domínio de
+grãos.
+
+Criação, retificação, cancelamento e tabela de desconto por umidade estão
+detalhados em [Cargas Colhidas](CARGAS_COLHIDAS.md).
 
 ## Posição de saldo
 
 `PosicaoSaldoGraos` possui chave única composta por:
 
+- propriedade produtora;
 - CAD/PRO;
 - cultura;
 - safra;
@@ -25,9 +50,18 @@ do armazém.
 - armazém.
 
 Ela armazena `saldo_fisico_kg`, `saldo_comprometido_kg` e `versao`. O campo
-`saldo_disponivel_kg` é calculado como físico menos comprometido. Constraints de
-banco impedem saldos negativos e comprometimento superior ao físico. Todos os
+`saldo_disponivel_kg` é calculado como físico menos comprometido. A partir da
+migration 0013, vendas podem deixar físico/disponível negativos e reservar acima
+do físico. O comprometido permanece não negativo. Movimentos genéricos não
+podem agravar déficits; entradas e liberações podem compensá-los parcialmente. Todos os
 comandos bloqueiam a posição com `select_for_update()` antes de alterar saldos.
+
+A capacidade de armazenagem soma somente o físico positivo de cada posição:
+um déficit comercial não libera espaço ocupado por outra posição. Créditos e
+devoluções ocupam espaço somente no trecho que superar o déficit existente.
+Reconciliação recompõe os saldos assinados a partir do ledger. Reverter a
+migration 0013 exige primeiro resolver os déficits; não há correção automática
+de dados para reinstalar as constraints antigas.
 
 ## Ledger, origem e reserva
 
@@ -78,16 +112,23 @@ Os comandos retornam `ResultadoOperacaoSaldo`, contrato imutável com `codigo`,
 `origem`, `posicoes`, `movimentacoes`, `reserva`, `idempotente` e `detalhes`.
 Eventos internos são agendados com `transaction.on_commit()` e publicados pelo
 signal `apps.graos.events.saldo_graos_alterado` somente após confirmação.
-Todos os mutadores validam que o CAD/PRO, seu vínculo com a propriedade, o lote
-e o armazém aplicáveis continuam ativos. Repetições idempotentes já concluídas
+Todos os mutadores validam que o CAD/PRO, o lote e o armazém aplicáveis
+continuam ativos. O vínculo da produção com a propriedade é resolvido por
+`CADProPropriedade`, nunca pela propriedade legada da armazenagem. Repetições idempotentes já concluídas
 não executam nova mutação.
 
 Quando uma operação precisa de mais de um lock, a ordem global é:
 
-1. armazéns em ordem de ID;
-2. posições em ordem de ID;
-3. reservas em ordem de ID;
-4. movimentações auxiliares em ordem de ID.
+1. CAD/PROs em ordem de UUID;
+2. armazéns em ordem de ID;
+3. posições em ordem de ID;
+4. reservas em ordem de ID;
+5. movimentações auxiliares em ordem de ID.
+
+Cargas rateadas adquirem os bloqueios de todos os CAD/PROs e armazéns da
+operação antes da primeira parcela. As parcelas secundárias têm a mesma
+proteção contra estorno genérico que a movimentação principal; devem ser
+corrigidas ou canceladas pela API da própria carga.
 
 ## Endpoints de saldo
 
@@ -128,7 +169,13 @@ A consulta de saldos e o painel aceitam `propriedade`, `cad_pro`, `cultura`,
 `safra`, `classificacao_codigo` e `armazem`. O painel usa exclusivamente as
 posições oficiais do ledger e devolve totais físico, comprometido e disponível,
 consolidação por CAD/PRO e o detalhamento por cultura, safra, classificação e
-armazenagem. Reservas aceitam `posicao` e `status`;
+armazenagem. O filtro `propriedade` seleciona diretamente a propriedade produtora
+registrada na posição, inclusive quando o CAD/PRO é compartilhado entre propriedades.
+O local de armazenagem e os demais vínculos do CAD/PRO não ampliam esse filtro.
+O seletor de lotes para crédito usa a propriedade produtora do lote e impede a
+submissão de um lote fora da seleção atual. Registros históricos sem propriedade
+continuam visíveis na consulta geral, sem atribuição presumida a uma propriedade.
+Reservas aceitam `posicao` e `status`;
 origens aceitam `tipo` e busca por chave ou referência.
 
 A consulta de movimentações aceita filtros por operação, posição, CAD/PRO,
@@ -193,7 +240,8 @@ Conflitos operacionais retornam HTTP 409:
 Os CRUDs de armazéns e lotes e as consultas de movimentações permanecem em
 `/api/graos/armazens/`, `/api/graos/lotes/` e
 `/api/graos/movimentacoes/`. A criação legada de movimentação agora exige chave
-de idempotência e delega ao núcleo transacional.
+de idempotência e delega ao núcleo transacional. Grupo de Colheita não integra
+mais o contrato operacional público.
 
 ## Migrations
 
@@ -204,7 +252,11 @@ de idempotência e delega ao núcleo transacional.
   ledger, incluindo snapshots sequenciais; aborta se um movimento não puder ser
   associado sem ambiguidade;
 - `0004_saldos_constraints.py`: torna obrigatórios os vínculos do ledger e
-  adiciona constraints e índices finais.
+  adiciona constraints e índices finais;
+- `0009_cargacolhida_contexto_direto_e_cancelamento.py`: adiciona o contexto
+  direto e o ciclo de cancelamento/substituição da carga; valida e preenche os
+  dados históricos antes de tornar `grupo_colheita` opcional, sem apagar o
+  modelo nem seus registros.
 
 Na aplicação, as migrations são aditivas e não removem movimentos, lotes ou
 saldos. Na reversão para `0001`, o esquema antigo não possui conceito de reserva:
@@ -232,3 +284,58 @@ simultâneas com a mesma chave de idempotência, estorno concorrente com libera�
 estorno concorrente com entrega e transferências simultâneas em sentidos
 opostos. Cada corrida verifica invariantes finais e trata qualquer deadlock de
 banco não convertido em erro de domínio como falha. O banco deve ser descartável.
+
+## Interface de transferência e identificação da produção (30/08/2026)
+
+A aba **Transferência de saldo** fica imediatamente antes de **Vendas** e usa
+POST `/api/graos/saldos/transferir/`. Primeiro são selecionadas **Cultura** e
+**Ano/Safra**. A origem é selecionada por **Propriedade / CAD/PRO de origem /
+Proprietário**, diretamente sobre uma posição oficial dessa cultura e safra com
+saldo disponível. O proprietário vem do cadastro da propriedade; campo vazio
+aparece como não informado. Classificação e armazenagem são mostradas na opção
+para evitar ambiguidade, sem expor lotes ao usuário.
+
+O destino usa **Propriedade / CAD/PRO de destino / Proprietário** e lista as
+posições oficiais compatíveis, inclusive sem saldo. A API recebe
+`posicao_origem` e `posicao_destino`; o lote permanece somente como adaptador
+interno do ledger para compatibilidade histórica. Origem, destino, quantidade
+em kg, data, referência e observações compõem o lançamento. Quantidades na interface usam ponto de milhar e vírgula decimal;
+a API recebe decimal canônico. A confirmação informa o débito e o crédito.
+A mesma tentativa reutiliza sua chave de idempotência e o histórico agrupa
+as duas movimentações pela chave de origem.
+
+Conforme a decisão de 30/08/2026, concluída na retomada de 31/08, transferências
+aceitam CAD/PROs iguais ou diferentes, entre propriedades ou armazenagens
+distintas. Cultura, safra e classificação devem coincidir. A própria posição
+é recusada, inclusive quando dois lotes apontam para ela. Saldo
+comprometido não pode ser transferido. Débito e crédito são atômicos e conservam
+o total. Sem lote de destino compatível, a interface explica o bloqueio.
+Os dois lados adquirem locks de CAD/PRO e lotes em ordem canônica, antes dos
+armazéns e posições, inclusive em transferências concorrentes opostas.
+A nova aba não oferece estorno. O histórico agrupa débito e crédito e apresenta
+data, propriedades, CAD/PROs, armazenagens, produto, safra, classificação,
+quantidade, referência, observações, usuário e data/hora do registro.
+
+A impressão da aba de transferências usa uma planilha dedicada em A4 paisagem,
+no padrão de Vendas. Cada transferência aparece uma única vez, reunindo débito
+e crédito, com origem, destino, contexto produtivo, referência, observações e
+registro. O rodapé totaliza a quantidade transferida; o formulário operacional
+não é impresso.
+
+Em Produção e saldos, títulos derivam da propriedade das posições filtradas,
+não da descrição genérica do CAD/PRO compartilhado. Mudança de propriedade
+consulta imediatamente os dados; filtros em edição ocultam resultados anteriores
+até aplicar a consulta. Respostas atrasadas não substituem a consulta mais recente.
+
+A impressão A4 de Produção e saldos utiliza uma planilha dedicada no mesmo
+padrão visual de Vendas. Ela imprime somente as posições dos filtros aplicados,
+com contexto de propriedade, CAD/PRO, cultura e safra, além dos totais físico,
+comprometido e disponível. Formulários, cartões e rastreabilidade permanecem na
+tela e são omitidos do papel.
+
+O painel mantém `consolidado_cadpro` para compatibilidade e acrescenta
+`consolidado_propriedade`: uma entrada por propriedade, com lista de CAD/PROs,
+saldos e número de posições. `resumo.propriedades` conta propriedades distintas
+identificadas; histórico sem propriedade permanece separado com identificação
+explícita e não aumenta essa contagem. A interface mostra cartões por propriedade
+e contagens independentes de propriedades, CAD/PROs e posições.

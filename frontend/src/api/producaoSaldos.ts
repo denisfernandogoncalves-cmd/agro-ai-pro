@@ -8,7 +8,7 @@ export type LoteGraos = {
   cad_pro_codigo: string;
   armazem: number;
   armazem_nome: string;
-  propriedade_id: number;
+  propriedade_id: number | null;
   cultura: string;
   safra: string;
   classificacao_codigo: string;
@@ -33,7 +33,8 @@ export type PosicaoSaldo = {
   classificacao_codigo: string;
   armazem: number;
   armazem_nome: string;
-  propriedade_id: number;
+  propriedade_id: number | null;
+  propriedade_nome?: string | null;
   saldo_fisico_kg: string;
   saldo_comprometido_kg: string;
   saldo_disponivel_kg: string;
@@ -53,6 +54,7 @@ export type ConsolidadoCADPro = {
 
 export type PainelSaldos = {
   resumo: {
+    propriedades: number;
     cadpros: number;
     posicoes: number;
     saldo_fisico_kg: string;
@@ -60,6 +62,15 @@ export type PainelSaldos = {
     saldo_disponivel_kg: string;
   };
   consolidado_cadpro: ConsolidadoCADPro[];
+  consolidado_propriedade: {
+    propriedade: number | null;
+    propriedade_nome: string;
+    cadpros: { id: string; codigo: string }[];
+    saldo_fisico_kg: string;
+    saldo_comprometido_kg: string;
+    saldo_disponivel_kg: string;
+    posicoes: number;
+  }[];
   posicoes: PosicaoSaldo[];
 };
 
@@ -73,11 +84,13 @@ export type MovimentacaoSaldo = {
   safra: string;
   classificacao_codigo: string;
   armazem_nome: string;
+  propriedade_id: number | null;
   quantidade_kg: string;
   delta_fisico_kg: string;
   delta_comprometido_kg: string;
   data_movimento: string;
   referencia_externa: string;
+  observacoes: string;
   origem_chave_idempotencia: string;
   criado_por_nome: string;
   criado_em: string;
