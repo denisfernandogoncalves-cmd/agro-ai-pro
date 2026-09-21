@@ -3,6 +3,7 @@ __pycache__/
 .env
 node_modules/
 backend/media/
+backend/static/
 backend/test.sqlite3
 frontend/dist/
 *.tsbuildinfo

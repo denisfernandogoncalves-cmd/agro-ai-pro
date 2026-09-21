@@ -4,6 +4,8 @@ import os
 from dotenv import load_dotenv
 from corsheaders.defaults import default_headers
 
+from .environment import database_from_environment, env_list
+
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 for env_path in [BASE_DIR / ".env", BASE_DIR.parent / ".env"]:
     if env_path.exists():
@@ -15,7 +17,7 @@ SECRET_KEY = os.getenv(
     "development-only-change-me-at-least-32-characters",
 )
 DEBUG = os.getenv("DJANGO_DEBUG", "False") == "True"
-ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+ALLOWED_HOSTS = env_list("DJANGO_ALLOWED_HOSTS", ("localhost", "127.0.0.1"))
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -80,16 +82,7 @@ TEMPLATES = [
 WSGI_APPLICATION = "config.wsgi.application"
 ASGI_APPLICATION = "config.asgi.application"
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.getenv("POSTGRES_DB", "agro_ai_pro"),
-        "USER": os.getenv("POSTGRES_USER", "postgres"),
-        "PASSWORD": os.getenv("POSTGRES_PASSWORD", "postgres"),
-        "HOST": os.getenv("POSTGRES_HOST", "localhost"),
-        "PORT": os.getenv("POSTGRES_PORT", "5432"),
-    }
-}
+DATABASES = {"default": database_from_environment()}
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [

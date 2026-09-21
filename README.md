@@ -138,6 +138,7 @@ Compose.
 ## Documentação
 
 - [Prompt Mestre](docs/PROMPT-MESTRE-AGRO-AI-PRO.md)
+- [Homologação gratuita — Cloudflare Pages + Koyeb](docs/infra/HOMOLOGACAO_GRATUITA.md)
 - [Sprint 1](docs/sprints/SPRINT-01.md)
 - [Sprint 2](docs/sprints/SPRINT-02.md)
 - [Sprint 3](docs/sprints/SPRINT-03.md)

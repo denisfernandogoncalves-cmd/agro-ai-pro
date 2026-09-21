@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite --configLoader runner build",
+    "build:cloudflare": "node scripts/validate-cloudflare-env.mjs && npm run build",
     "preview": "vite preview",
     "test": "node scripts/test-components.mjs && node scripts/test-auth.mjs"
   },
