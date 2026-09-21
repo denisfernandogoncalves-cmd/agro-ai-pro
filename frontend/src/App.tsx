@@ -223,9 +223,11 @@ function PrivateArea({ sair }: PrivateAreaProps) {
   return (
     <main className="pagina">
       <header>
-        <div>
-          <span className="kicker">Gestão rural</span>
-          <h1>
+        <div className="cabecalho-identidade">
+          <span className="marca-aplicativo" aria-hidden="true">AG</span>
+          <div>
+            <span className="kicker">AGRO-AI-PRO · Gestão rural</span>
+            <h1>
             {modulo === "propriedades"
               ? "Propriedades"
               : modulo === "talhoes"
@@ -249,7 +251,8 @@ function PrivateArea({ sair }: PrivateAreaProps) {
                       : modulo === "estoque"
                         ? "Estoque"
                         : modulo === "operacoes" ? "Operações" : modulo === "maquinas" ? "Máquinas" : modulo === "relatorios" ? "Relatórios" : modulo === "importacoes" ? "Importações" : "Assistente"}
-          </h1>
+            </h1>
+          </div>
         </div>
         <div className="cabecalho-acoes">
           <AplicativoStatus />
@@ -259,6 +262,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
       </header>
 
       <nav className="navegacao-modulos" aria-label="Módulos agrícolas">
+        <span className="navegacao-titulo">Módulos</span>
         <button
           className={modulo === "propriedades" ? "" : "secundario"}
           onClick={() => setModulo("propriedades")}

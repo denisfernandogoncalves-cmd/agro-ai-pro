@@ -21,6 +21,7 @@
   .somente-impressao { display: block; }
   .impressao-contexto { font-size: 8pt; border-bottom: 1px solid #777; padding-bottom: 3mm; }
   .pagina > header { margin-bottom: 3mm; }
+  .marca-aplicativo { display: none; }
   h1 { font-size: 18pt; }
   h2 { font-size: 14pt; }
   h3 { font-size: 11pt; }
