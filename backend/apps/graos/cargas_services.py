@@ -115,22 +115,22 @@ def calcular_peso_liquido(
 
     cultura = " ".join(str(cultura or "").strip().split()).title()
     tolerancia_impureza_percentual = (
-        Decimal("100.00")
+        Decimal("0.00")
         if tolerancia_impureza_percentual is None
         else Decimal(str(tolerancia_impureza_percentual))
     )
     desconto_impureza_por_ponto = (
-        Decimal("0.000")
+        Decimal("1.000")
         if desconto_impureza_por_ponto is None
         else Decimal(str(desconto_impureza_por_ponto))
     )
     tolerancia_defeitos_percentual = (
-        Decimal("100.00")
+        Decimal("0.00")
         if tolerancia_defeitos_percentual is None
         else Decimal(str(tolerancia_defeitos_percentual))
     )
     desconto_defeitos_por_ponto = (
-        Decimal("0.000")
+        Decimal("1.000")
         if desconto_defeitos_por_ponto is None
         else Decimal(str(desconto_defeitos_por_ponto))
     )
@@ -158,7 +158,7 @@ def calcular_peso_liquido(
             "versao": VERSAO_TABELA_UMIDADE,
         }
     }
-    total_percentual = desconto_umidade
+    classificacao_percentual = Decimal("0")
     for nome, medicao, tolerancia, taxa in (
         (
             "impureza",
@@ -174,7 +174,7 @@ def calcular_peso_liquido(
         ),
     ):
         excesso, desconto = _parcela_desconto(medicao, tolerancia, taxa)
-        total_percentual += desconto
+        classificacao_percentual += desconto
         parcelas[nome] = {
             "medicao_percentual": str(Decimal(str(medicao))),
             "tolerancia_percentual": str(Decimal(str(tolerancia))),
@@ -195,7 +195,6 @@ def calcular_peso_liquido(
         ph_medido = Decimal(str(ph))
         deficit_ph = max(Decimal("0"), ph_minimo - ph_medido)
     desconto_ph = (deficit_ph * taxa_ph).quantize(MIL, rounding=ROUND_HALF_UP)
-    total_percentual += desconto_ph
     parcelas["ph"] = {
         "medicao": None if ph_medido is None else str(ph_medido),
         "minimo": str(ph_minimo),
@@ -204,19 +203,30 @@ def calcular_peso_liquido(
         "desconto_percentual": str(desconto_ph),
     }
 
-    total_percentual = total_percentual.quantize(MIL, rounding=ROUND_HALF_UP)
-    if total_percentual >= CEM:
+    # Impureza e avariados compartilham a base após a retirada da umidade.
+    umidade_kg = (bruto * desconto_umidade / CEM).quantize(MIL, rounding=ROUND_HALF_UP)
+    peso_apos_umidade = bruto - umidade_kg
+    classificacao_kg = (peso_apos_umidade * classificacao_percentual / CEM).quantize(
+        MIL, rounding=ROUND_HALF_UP,
+    )
+    # A regra opcional de PH conserva sua base anterior (peso bruto).
+    ph_kg = (bruto * desconto_ph / CEM).quantize(MIL, rounding=ROUND_HALF_UP)
+    desconto_kg = umidade_kg + classificacao_kg + ph_kg
+    if classificacao_percentual >= CEM or desconto_kg >= bruto:
         raise CargaColhidaError(
             "As regras de desconto resultam em desconto igual ou superior a 100%."
         )
-    desconto_kg = (bruto * total_percentual / CEM).quantize(
-        MIL,
-        rounding=ROUND_HALF_UP,
-    )
-    liquido = (bruto - desconto_kg).quantize(MIL, rounding=ROUND_HALF_UP)
+    liquido = bruto - desconto_kg
+    total_percentual = (desconto_kg * CEM / bruto).quantize(MIL, rounding=ROUND_HALF_UP)
+    parcelas["umidade"].update(base_kg=str(bruto), desconto_kg=str(umidade_kg))
+    for nome in ("impureza", "defeitos"):
+        parcelas[nome]["base_kg"] = str(peso_apos_umidade)
+    parcelas["ph"].update(base_kg=str(bruto), desconto_kg=str(ph_kg))
     sacas = (liquido / SESSENTA).quantize(MIL, rounding=ROUND_HALF_UP)
     regra = {
-        "metodo": "tabela_umidade_mais_descontos_classificacao",
+        "metodo": "umidade_depois_classificacao_acumulada_v2",
+        "peso_apos_umidade_kg": str(peso_apos_umidade),
+        "desconto_classificacao_kg": str(classificacao_kg),
         "versao_tabela_umidade": VERSAO_TABELA_UMIDADE,
         "cultura": cultura,
         "origem_regras_classificacao": (

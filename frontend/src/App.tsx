@@ -24,6 +24,7 @@ import MercadoPage from "./pages/Mercado/MercadoPage";
 import MaquinasPage from "./pages/Maquinas/MaquinasPage";
 import OperacoesPage from "./pages/Operacoes/OperacoesPage";
 import RelatoriosPage from "./pages/Relatorios/RelatoriosPage";
+import ImportacoesPage from "./pages/Importacoes/ImportacoesPage";
 import InsightsPage from "./pages/Insights/InsightsPage";
 import TalhoesPage from "./pages/Talhoes/TalhoesPage";
 
@@ -129,7 +130,7 @@ type PrivateAreaProps = {
 
 function PrivateArea({ sair }: PrivateAreaProps) {
   const [modulo, setModulo] = useState<
-    "propriedades" | "talhoes" | "cadastros-agricolas" | "cargas" | "producao-saldos" | "transferencias" | "vendas" | "clima" | "mercado" | "financeiro" | "estoque" | "operacoes" | "maquinas" | "relatorios" | "insights"
+    "propriedades" | "talhoes" | "cadastros-agricolas" | "cargas" | "producao-saldos" | "transferencias" | "vendas" | "clima" | "mercado" | "financeiro" | "estoque" | "operacoes" | "maquinas" | "relatorios" | "importacoes" | "insights"
   >("propriedades");
   const [propriedades, setPropriedades] = useState<Propriedade[]>([]);
   const [selecionada, setSelecionada] = useState<Propriedade | null>(null);
@@ -247,7 +248,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
                       ? "Financeiro"
                       : modulo === "estoque"
                         ? "Estoque"
-                        : modulo === "operacoes" ? "Operações" : modulo === "maquinas" ? "Máquinas" : modulo === "relatorios" ? "Relatórios" : "Assistente"}
+                        : modulo === "operacoes" ? "Operações" : modulo === "maquinas" ? "Máquinas" : modulo === "relatorios" ? "Relatórios" : modulo === "importacoes" ? "Importações" : "Assistente"}
           </h1>
         </div>
         <div className="cabecalho-acoes">
@@ -327,6 +328,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
         </button>
         <button className={modulo === "maquinas" ? "" : "secundario"} onClick={() => setModulo("maquinas")}>Máquinas</button>
         <button className={modulo === "relatorios" ? "" : "secundario"} onClick={() => setModulo("relatorios")}>Relatórios</button>
+        <button className={modulo === "importacoes" ? "" : "secundario"} onClick={() => setModulo("importacoes")}>Importações</button>
         <button className={modulo === "insights" ? "" : "secundario"} onClick={() => setModulo("insights")}>Assistente</button>
       </nav>
 
@@ -354,6 +356,8 @@ function PrivateArea({ sair }: PrivateAreaProps) {
         <OperacoesPage />
       ) : modulo === "maquinas" ? (
         <MaquinasPage propriedades={propriedades} />
+      ) : modulo === "importacoes" ? (
+        <ImportacoesPage />
       ) : modulo === "relatorios" ? (
         <RelatoriosPage propriedades={propriedades} />
       ) : modulo === "insights" ? (

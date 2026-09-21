@@ -59,9 +59,9 @@ class LocalEstoqueViewSet(CadastroEstoqueMixin, viewsets.ModelViewSet):
 
 
 class LoteEstoqueViewSet(CadastroEstoqueMixin, viewsets.ModelViewSet):
-    queryset = LoteEstoque.objects.select_related("produto", "local")
+    queryset = LoteEstoque.objects.select_related("produto", "local", "fornecedor")
     serializer_class = LoteEstoqueSerializer
-    search_fields = ("codigo", "produto__nome", "local__nome")
+    search_fields = ("codigo", "produto__nome", "local__nome", "fornecedor__nome")
     ordering_fields = ("codigo", "data_validade", "criado_em")
     ordering = ("data_validade", "codigo")
 
@@ -70,6 +70,7 @@ class LoteEstoqueViewSet(CadastroEstoqueMixin, viewsets.ModelViewSet):
         for parametro, campo in (
             ("produto", "produto_id"),
             ("local", "local_id"),
+            ("fornecedor", "fornecedor_id"),
         ):
             valor = self.request.query_params.get(parametro, "").strip()
             if valor:
@@ -94,6 +95,7 @@ class MovimentacaoEstoqueViewSet(
     queryset = MovimentacaoEstoque.objects.select_related(
         "lote__produto",
         "lote__local",
+        "lote__fornecedor",
         "propriedade",
         "criado_por",
     )

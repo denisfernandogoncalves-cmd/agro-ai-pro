@@ -218,7 +218,7 @@ class CargaColhidaSerializer(serializers.ModelSerializer):
     tolerancia_impureza_percentual = serializers.DecimalField(
         write_only=True,
         required=False,
-        default=Decimal("100.00"),
+        default=Decimal("0.00"),
         max_digits=5,
         decimal_places=2,
         min_value=Decimal("0"),
@@ -227,7 +227,7 @@ class CargaColhidaSerializer(serializers.ModelSerializer):
     desconto_impureza_por_ponto = serializers.DecimalField(
         write_only=True,
         required=False,
-        default=Decimal("0.000"),
+        default=Decimal("1.000"),
         max_digits=6,
         decimal_places=3,
         min_value=Decimal("0"),
@@ -236,7 +236,7 @@ class CargaColhidaSerializer(serializers.ModelSerializer):
     tolerancia_defeitos_percentual = serializers.DecimalField(
         write_only=True,
         required=False,
-        default=Decimal("100.00"),
+        default=Decimal("0.00"),
         max_digits=5,
         decimal_places=2,
         min_value=Decimal("0"),
@@ -245,7 +245,7 @@ class CargaColhidaSerializer(serializers.ModelSerializer):
     desconto_defeitos_por_ponto = serializers.DecimalField(
         write_only=True,
         required=False,
-        default=Decimal("0.000"),
+        default=Decimal("1.000"),
         max_digits=6,
         decimal_places=3,
         min_value=Decimal("0"),

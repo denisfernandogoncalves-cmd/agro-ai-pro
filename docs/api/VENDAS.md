@@ -1,5 +1,19 @@
 # Vendas de grãos e saldo negativo
 
+## Sobra técnica — autorização de 10/09/2026
+
+O Product Owner reafirmou que vendas podem exceder o saldo registrado porque
+o produto físico no silo pode ser maior que o apresentado nos relatórios,
+situação chamada de sobra técnica. A venda não deve ser bloqueada por saldo
+físico ou disponível insuficiente. Essa regra já está implementada no serviço
+de vendas e é explicada no formulário.
+
+O saldo negativo continua visível, sem crédito fictício nem ajuste automático
+para zero. Entradas posteriores na mesma posição compensam a diferença.
+O teste `test_sobra_tecnica_permite_venda_e_preserva_negativo_no_painel` cobre
+200 kg registrados, venda de 300 kg, saldo de -100 kg e repetição idempotente.
+Não é necessário criar migration: `graos.0013` já suporta a regra.
+
 O módulo Comercial registra contratos de grãos vinculados obrigatoriamente a
 uma `PosicaoSaldoGraos`. O contrato não é uma fonte paralela de estoque: todos
 os efeitos usam os serviços públicos transacionais do app `graos`.

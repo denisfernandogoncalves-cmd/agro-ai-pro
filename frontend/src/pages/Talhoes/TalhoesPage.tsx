@@ -21,6 +21,7 @@ import MapaTalhao from "../../components/MapaTalhao";
 import HistoricoAgronomicoPanel from "./HistoricoAgronomicoPanel";
 import TalhaoForm from "./TalhaoForm";
 import TalhaoLista from "./TalhaoLista";
+import GruposPropriedadesPanel from "./GruposPropriedadesPanel";
 import { areaEmAlqueires, valorAlqueiresParaFormulario } from "../../utils/areas";
 
 
@@ -286,6 +287,7 @@ export default function TalhoesPage() {
 
   return (
     <section className="modulo-talhoes">
+      <GruposPropriedadesPanel />
       {erro && <p className="erro card">{erro}</p>}
 
       <section className="grade talhoes-grade">

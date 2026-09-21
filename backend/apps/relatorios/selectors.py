@@ -624,8 +624,8 @@ def _financeiro(filtros):
         "id": item.pk,
         "tipo": item.get_tipo_display(),
         "descricao": item.descricao,
-        "categoria": item.categoria.nome,
-        "parceiro": item.parceiro.nome if item.parceiro_id else "",
+        "categoria": item.categoria.nome if item.categoria_id else "",
+        "parceiro": item.recebedor_nome or (item.parceiro.nome if item.parceiro_id else ""),
         "propriedade_nome": item.propriedade.nome if item.propriedade_id else "",
         "safra": item.safra,
         "data_emissao": item.data_emissao,
@@ -662,14 +662,14 @@ def _estoque_insumos(filtros):
             "categoria": lote.produto.get_categoria_display(),
             "unidade": lote.produto.unidade,
             "lote": lote.codigo,
-            "local": lote.local.nome,
-            "propriedade_nome": lote.local.propriedade.nome if lote.local.propriedade_id else "",
+            "local": lote.local.nome if lote.local else "",
+            "propriedade_nome": lote.local.propriedade.nome if lote.local and lote.local.propriedade_id else "",
             "data_validade": lote.data_validade,
             "vencido": lote.vencido,
             "saldo": _texto_decimal(saldo),
             "estoque_minimo": _texto_decimal(lote.produto.estoque_minimo),
             "abaixo_minimo": saldo < lote.produto.estoque_minimo,
-            "ativo": lote.ativo and lote.produto.ativo and lote.local.ativo,
+            "ativo": lote.ativo and lote.produto.ativo and (lote.local.ativo if lote.local else True),
         })
     return resultado
 

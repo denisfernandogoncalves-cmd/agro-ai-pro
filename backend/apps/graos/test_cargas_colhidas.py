@@ -104,6 +104,35 @@ class CalculoCargaColhidaTests(CargaColhidaBase, TestCase):
         self.assertEqual(regra["parcelas"]["umidade"]["desconto_percentual"], "0")
         self.assertEqual(regra["versao_tabela_umidade"], "2026-08-20")
 
+    def test_exemplo_planilha_desconta_impureza_e_avariados_integralmente(self):
+        total, desconto, liquido, sacas, regra = calcular_peso_liquido(
+            cultura="Soja", peso_bruto_kg="1000", umidade_percentual="13",
+            impureza_percentual="1", defeitos_percentual="1",
+        )
+        self.assertEqual((total, desconto, liquido, sacas), (
+            Decimal("2.000"), Decimal("20.000"), Decimal("980.000"), Decimal("16.333"),
+        ))
+        self.assertEqual(regra["peso_apos_umidade_kg"], "1000.000")
+
+    def test_classificacao_acumulada_sobre_peso_apos_umidade(self):
+        total, desconto, liquido, sacas, regra = calcular_peso_liquido(
+            cultura="Soja", peso_bruto_kg="10000", umidade_percentual="20.5",
+            impureza_percentual="2", defeitos_percentual="3",
+        )
+        self.assertEqual((total, desconto, liquido, sacas), (
+            Decimal("14.500"), Decimal("1450.000"), Decimal("8550.000"), Decimal("142.500"),
+        ))
+        self.assertEqual(regra["parcelas"]["impureza"]["base_kg"], "9000.000")
+        self.assertEqual(regra["parcelas"]["defeitos"]["base_kg"], "9000.000")
+        self.assertEqual(regra["desconto_classificacao_kg"], "450.000")
+
+    def test_rejeita_classificacao_acumulada_de_cem_porcento(self):
+        with self.assertRaises(CargaColhidaError):
+            calcular_peso_liquido(
+                cultura="Soja", peso_bruto_kg="1000", umidade_percentual="20.5",
+                impureza_percentual="50", defeitos_percentual="50",
+            )
+
     def test_tabela_umidade_por_cultura_e_limites(self):
         for cultura, umidade, esperado in (
             ("Soja", "11.5", "0"),
@@ -265,6 +294,17 @@ class CargaColhidaApiTests(CargaColhidaBase, APITestCase):
         dados["tolerancia_defeitos_percentual"] = "2.00"
         dados["desconto_defeitos_por_ponto"] = "2.000"
         return dados
+
+    def test_api_aplica_desconto_integral_padrao_e_credita_liquido(self):
+        dados = self.payload()
+        for chave in ("tolerancia_impureza_percentual", "tolerancia_defeitos_percentual",
+                      "desconto_impureza_por_ponto", "desconto_defeitos_por_ponto"):
+            dados.pop(chave)
+        dados.update(umidade_percentual="13", impureza_percentual="1", defeitos_percentual="1")
+        resposta = self.client.post(self.url, dados, format="json")
+        self.assertEqual(resposta.status_code, 201, resposta.data)
+        self.assertEqual(resposta.data["peso_liquido_kg"], "980.000")
+        self.assertEqual(PosicaoSaldoGraos.objects.get(cad_pro=self.cad_pro).saldo_fisico_kg, Decimal("980"))
 
     def test_cria_lista_e_filtra_carga_manual(self):
         resposta = self.client.post(self.url, self.payload(), format="json")

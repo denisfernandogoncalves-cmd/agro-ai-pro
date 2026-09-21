@@ -1,10 +1,9 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import axios from "axios";
 
 import {
   carregarEstoque,
   criarLote,
-  LocalEstoque,
   LoteEstoque,
   MovimentacaoEstoque,
   PosicaoEstoque,
@@ -12,7 +11,10 @@ import {
   registrarMovimento,
   ResumoEstoque,
 } from "../../api/estoque";
+import { listarFornecedores, ParceiroFinanceiro } from "../../api/financeiro";
 import { Propriedade, rotuloPropriedade } from "../../api/propriedades";
+import ComprasEstoque from "./ComprasEstoque";
+import ConsultaDisponibilidade from "./DisponibilidadeEstoque";
 
 
 const hoje = new Date().toISOString().slice(0, 10);
@@ -29,8 +31,9 @@ function mensagemErro(falha: unknown) {
 type Props = { propriedades: Propriedade[] };
 
 export default function EstoquePage({ propriedades }: Props) {
+  const [revisaoEstoque, setRevisaoEstoque] = useState(0);
   const [produtos, setProdutos] = useState<ProdutoEstoque[]>([]);
-  const [locais, setLocais] = useState<LocalEstoque[]>([]);
+  const [fornecedores, setFornecedores] = useState<ParceiroFinanceiro[]>([]);
   const [lotes, setLotes] = useState<LoteEstoque[]>([]);
   const [posicoes, setPosicoes] = useState<PosicaoEstoque[]>([]);
   const [movimentos, setMovimentos] = useState<MovimentacaoEstoque[]>([]);
@@ -49,25 +52,37 @@ export default function EstoquePage({ propriedades }: Props) {
   });
   const [auxiliar, setAuxiliar] = useState({
     loteProduto: "",
-    loteLocal: "",
+    loteFornecedor: "",
     loteCodigo: "",
     loteValidade: "",
   });
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
   const [carregando, setCarregando] = useState(false);
+  const [salvandoLote, setSalvandoLote] = useState(false);
+  const cadastroLotes = useRef<HTMLDetailsElement>(null);
+  const seletorLote = useRef<HTMLSelectElement>(null);
+
+  function abrirCadastroLote() {
+    if (!cadastroLotes.current) return;
+    void carregar();
+    cadastroLotes.current.open = true;
+    cadastroLotes.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    cadastroLotes.current.querySelector("select")?.focus({ preventScroll: true });
+  }
 
   async function carregar() {
     setCarregando(true);
     setErro("");
     try {
-      const dados = await carregarEstoque(filtros);
+      const [dados, fornecedoresAtuais] = await Promise.all([carregarEstoque(filtros), listarFornecedores()]);
       setProdutos(dados.produtos);
-      setLocais(dados.locais);
+      setFornecedores(fornecedoresAtuais);
       setLotes(dados.lotes);
       setPosicoes(dados.posicoes);
       setMovimentos(dados.movimentos);
       setResumo(dados.resumo);
+      setRevisaoEstoque((valor) => valor + 1);
     } catch (falha) {
       setErro(mensagemErro(falha));
     } finally {
@@ -103,25 +118,32 @@ export default function EstoquePage({ propriedades }: Props) {
   }
 
   async function cadastrarLote() {
+    if (salvandoLote) return;
+    setSalvandoLote(true);
     setErro("");
     setSucesso("");
     try {
-      await criarLote({
+      const novoLote = await criarLote({
         produto: auxiliar.loteProduto,
-        local: auxiliar.loteLocal,
+        fornecedor: auxiliar.loteFornecedor,
         codigo: auxiliar.loteCodigo,
         data_validade: auxiliar.loteValidade,
       });
       setAuxiliar({
         loteProduto: "",
-        loteLocal: "",
+        loteFornecedor: "",
         loteCodigo: "",
         loteValidade: "",
       });
-      setSucesso("Lote cadastrado.");
+      setLotes((atuais) => [...atuais, novoLote]);
+      setMovimento((atual) => ({ ...atual, lote: String(novoLote.id) }));
+      setSucesso("Lote cadastrado e selecionado. Complete os dados para registrar a movimentação.");
       await carregar();
+      seletorLote.current?.focus();
     } catch (falha) {
       setErro(mensagemErro(falha));
+    } finally {
+      setSalvandoLote(false);
     }
   }
 
@@ -140,6 +162,10 @@ export default function EstoquePage({ propriedades }: Props) {
         </section>
       )}
 
+      <ConsultaDisponibilidade produtos={produtos} fornecedores={fornecedores} revisao={revisaoEstoque} />
+      <ComprasEstoque produtos={produtos} fornecedores={fornecedores} atualizarEstoque={carregar} />
+      <details className="card estoque-movimentos">
+      <summary>Outras movimentações, saldos e rastreabilidade</summary>
       <section className="grade estoque-grade">
         <form className="card formulario" onSubmit={salvarMovimento}>
           <h2>Nova movimentação</h2>
@@ -150,11 +176,13 @@ export default function EstoquePage({ propriedades }: Props) {
             </select>
           </label>
           <label>Lote
-            <select required value={movimento.lote} onChange={(e) => setMovimento({ ...movimento, lote: e.target.value })}>
+            <select ref={seletorLote} required value={movimento.lote} onChange={(e) => setMovimento({ ...movimento, lote: e.target.value })}>
               <option value="">Selecione</option>
-              {lotes.filter((item) => item.ativo).map((item) => <option key={item.id} value={item.id}>{item.produto_nome} · {item.codigo} · {item.local_nome}</option>)}
+              {lotes.filter((item) => item.ativo).map((item) => <option key={item.id} value={item.id}>{item.produto_nome} · {item.codigo} · {item.fornecedor_nome || item.local_nome || "Fornecedor não informado"}</option>)}
             </select>
           </label>
+          <button type="button" onClick={abrirCadastroLote}>Novo lote</button>
+          {lotes.every((item) => !item.ativo) && <p>Nenhum lote ativo. Use Novo lote para cadastrar antes de movimentar.</p>}
           <div className="linha">
             <label>Quantidade<input required min="0.001" step="0.001" type="number" value={movimento.quantidade} onChange={(e) => setMovimento({ ...movimento, quantidade: e.target.value })} /></label>
             <label>Custo unitário<input required={movimento.tipo === "entrada"} min="0" step="0.0001" type="number" value={movimento.custo_unitario} onChange={(e) => setMovimento({ ...movimento, custo_unitario: e.target.value })} /></label>
@@ -185,7 +213,7 @@ export default function EstoquePage({ propriedades }: Props) {
             <div className="lista">
               {posicoes.length === 0 ? <p className="vazio">Nenhum lote cadastrado.</p> : posicoes.map((item) => (
                 <article className={`item posicao ${item.vencido || item.abaixo_minimo ? "alerta-estoque" : ""}`} key={item.lote_id}>
-                  <div><h3>{item.produto}</h3><p>Lote {item.codigo_lote} · {item.local}</p><small>{item.data_validade ? `Validade ${item.data_validade}` : "Sem validade informada"}</small></div>
+                  <div><h3>{item.produto}</h3><p>Lote {item.codigo_lote} · {item.fornecedor || item.local || "Fornecedor não informado"}</p><small>{item.data_validade ? `Validade ${item.data_validade}` : "Sem validade informada"}</small></div>
                   <strong>{item.saldo} {item.unidade}</strong>
                 </article>
               ))}
@@ -197,7 +225,7 @@ export default function EstoquePage({ propriedades }: Props) {
             <div className="lista">
               {movimentos.map((item) => (
                 <article className="item movimento-estoque" key={item.id}>
-                  <div><h3>{item.tipo === "entrada" ? "Entrada" : "Saída"} · {item.produto_nome}</h3><p>{item.data_movimento} · lote {item.lote_codigo} · {item.local_nome}</p><small>{item.documento_fiscal || "Sem documento fiscal"} · por {item.criado_por_nome}</small></div>
+                  <div><h3>{item.tipo === "entrada" ? "Entrada" : "Saída"} · {item.produto_nome}</h3><p>{item.data_movimento} · lote {item.lote_codigo} · {item.fornecedor_nome || item.local_nome || "Fornecedor não informado"}</p><small>{item.documento_fiscal || "Sem documento fiscal"} · por {item.criado_por_nome}</small></div>
                   <strong>{item.tipo === "entrada" ? "+" : "−"}{item.quantidade} {item.unidade}</strong>
                 </article>
               ))}
@@ -206,18 +234,21 @@ export default function EstoquePage({ propriedades }: Props) {
         </section>
       </section>
 
-      <details className="card cadastros-auxiliares">
+      <details ref={cadastroLotes} className="card cadastros-auxiliares">
         <summary>Cadastro de lotes</summary>
         <div className="auxiliares-grade">
           <section>
             <h3>Novo lote</h3>
-            <label>Produto<select value={auxiliar.loteProduto} onChange={(e) => setAuxiliar({ ...auxiliar, loteProduto: e.target.value })}><option value="">Selecione</option>{produtos.filter((item) => item.ativo).map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select></label>
-            <label>Depósito<select value={auxiliar.loteLocal} onChange={(e) => setAuxiliar({ ...auxiliar, loteLocal: e.target.value })}><option value="">Selecione</option>{locais.filter((item) => item.ativo).map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select></label>
+            <button type="button" disabled={carregando} onClick={() => void carregar()}>Atualizar cadastros</button>
+            <label>Produto agrícola<select value={auxiliar.loteProduto} onChange={(e) => setAuxiliar({ ...auxiliar, loteProduto: e.target.value })}><option value="">Selecione</option>{produtos.filter((item) => item.ativo).map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select></label>
+            <label>Fornecedor<select value={auxiliar.loteFornecedor} onChange={(e) => setAuxiliar({ ...auxiliar, loteFornecedor: e.target.value })}><option value="">Selecione</option>{fornecedores.filter((item) => item.ativo).map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select></label>
             <label>Código<input placeholder="Código do lote" value={auxiliar.loteCodigo} onChange={(e) => setAuxiliar({ ...auxiliar, loteCodigo: e.target.value })} /></label>
             <label>Validade<input type="date" value={auxiliar.loteValidade} onChange={(e) => setAuxiliar({ ...auxiliar, loteValidade: e.target.value })} /></label>
-            <button disabled={!auxiliar.loteProduto || !auxiliar.loteLocal || !auxiliar.loteCodigo} type="button" onClick={() => void cadastrarLote()}>Cadastrar lote</button>
+            <p>Escolha o produto agrícola e o fornecedor cadastrados na aba Cadastros agrícolas. Use Atualizar cadastros após incluir novos registros.</p>
+            <button disabled={salvandoLote || !auxiliar.loteProduto || !auxiliar.loteFornecedor || !auxiliar.loteCodigo.trim()} type="button" onClick={() => void cadastrarLote()}>{salvandoLote ? "Cadastrando…" : "Cadastrar lote"}</button>
           </section>
         </div>
+      </details>
       </details>
     </section>
   );

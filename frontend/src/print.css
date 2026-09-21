@@ -194,3 +194,38 @@
   .controle-planilha-transferencias .transferencias-planilha th:nth-child(7) { width: 11%; }
   .controle-planilha-transferencias .transferencias-planilha th:nth-child(8) { width: 8%; }
 }
+
+
+@media print {
+  .modulo-estoque { page: planilha; }
+  body:has(.modulo-estoque) .pagina > header,
+  body:has(.modulo-estoque) .pagina > .impressao-contexto,
+  .modulo-estoque > :not(.compras-estoque),
+  .modulo-estoque > .compras-estoque > :not(.compras-lista-impressao) {
+    display: none !important;
+  }
+  .modulo-estoque .compras-estoque,
+  .modulo-estoque .compras-lista-impressao {
+    display: block !important;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+  .modulo-estoque .compra-lista-cabecalho { display: block; }
+  .modulo-estoque .compra-lista-cabecalho h2 { margin: 0 0 4mm; }
+  .modulo-estoque .compra-tabela-scroll { overflow: visible; max-height: none; }
+  .modulo-estoque .compra-tabela {
+    min-width: 0;
+    width: 100%;
+    table-layout: fixed;
+    font-size: 7pt;
+  }
+  .modulo-estoque .compra-tabela th,
+  .modulo-estoque .compra-tabela td {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    padding: 2mm 1mm;
+    border-bottom: 1px solid #aaa;
+  }
+  .modulo-estoque .compra-tabela th { background: #e6eee7; color: #111; }
+}

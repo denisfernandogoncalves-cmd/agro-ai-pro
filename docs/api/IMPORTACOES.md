@@ -1,8 +1,9 @@
 # API de Importações
 
-O módulo `importacoes` recebe planilhas XLSX e persiste somente um preview de
-staging auditável. Ele não cria `MovimentacaoGraos`, não altera saldos e não
-modifica o arquivo enviado.
+O módulo `importacoes` recebe planilhas XLSX, persiste um preview de staging
+auditável e permite sua confirmação definitiva por ação explícita. Upload e
+preview nunca criam `MovimentacaoGraos`; somente o endpoint de confirmação pode
+fazê-lo.
 
 Todas as rotas exigem autenticação JWT.
 
@@ -47,6 +48,10 @@ A resposta `201 Created` contém o lote, até 100 linhas iniciais e o indicador
 `preview_limitado`. O conjunto integral fica disponível nos endpoints de
 consulta.
 
+Um preview sem erros bloqueantes recebe o estado `pronto_confirmacao`. O estado
+legado `concluido` continua elegível para preservar a compatibilidade dos lotes
+criados antes desta entrega. Lotes com erro permanecem em `com_erros`.
+
 Cada linha preserva:
 
 - aba e número da linha original;
@@ -62,7 +67,85 @@ líquido maior que o bruto e percentuais fora de 0 a 100. Advertências incluem
 safra atípica, contrato ausente, linha potencialmente duplicada e associação
 não encontrada ou ambígua.
 
-## Idempotência e auditoria
+## Confirmação definitiva
+
+```text
+POST /api/importacoes/lotes/{id}/confirmar/
+Content-Type: application/json
+```
+
+Corpo obrigatório:
+
+```json
+{
+  "confirmar": true,
+  "idempotency_key": "confirmacao-safra-2026-0001"
+}
+```
+
+`confirmar=true` impede confirmação implícita. A chave deve ter entre 8 e 100
+caracteres, começar por letra ou número e usar somente letras, números, ponto,
+dois-pontos, sublinhado ou hífen.
+
+Além de autenticação JWT, o usuário precisa da permissão Django
+`importacoes.confirmar_loteimportacao`. Usuários sem essa permissão recebem
+`403 Forbidden`.
+
+A resposta inicial usa `201 Created` e contém lote, estado, chave, usuário e
+horário da confirmação, totais, IDs das movimentações, linhas rejeitadas,
+indicador de replay e o saldo calculado dos lotes de grãos afetados.
+
+Repetir a mesma chave no mesmo lote confirmado devolve a resposta persistida
+com `200 OK` e `replay_idempotente=true`, sem novo lançamento. Uma chave
+diferente em lote confirmado ou uma chave já usada por outro lote recebe
+`409 Conflict`.
+
+## Validações bloqueantes
+
+Todas as linhas são validadas antes do primeiro lançamento:
+
+- lote e linha em estado elegível, sem erros bloqueantes;
+- propriedade e lote de grãos associados;
+- coerência de propriedade, cultura e safra com o lote de grãos;
+- tipo mapeável para entrada ou saída;
+- data válida, quantidade Decimal positiva e unidade em quilogramas;
+- origem para produção/terceiros e destino para saídas;
+- ausência de movimentação vinculada;
+- ausência de hash funcional duplicado no lote ou já confirmado.
+
+A confirmação exige CAD/PRO ativo e vínculo ativo com a propriedade produtora
+do lote de grãos. Se a planilha informa CAD/PRO, seu código deve coincidir com
+o cadastro. Classificação, cultura e safra também devem coincidir. A associação
+usa `LoteGraos.propriedade`, independente da propriedade da armazenagem;
+armazenagem externa é suportada. Lotes históricos sem propriedade produtora
+explícita exigem revisão cadastral antes de nova importação.
+
+## Atomicidade, saldos e rollback
+
+A operação inteira executa em `transaction.atomic()`, bloqueia o lote e suas
+linhas e adota política tudo ou nada. Cada linha chama exclusivamente
+`apps.graos.services.registrar_movimentacao`. O importador não cria
+`MovimentacaoGraos` diretamente e não atualiza saldos: o adaptador oficial
+encaminha entradas para crédito de produção e saídas para ajuste, atualizando
+as posições e o ledger na mesma transação. A restrição parcial
+`importacao_hash_confirmado_unico` impede duplicidade funcional também no banco.
+
+Se qualquer chamada intermediária falhar, o banco reverte todas as
+movimentações, vínculos e a transição `confirmando`. Depois do rollback, uma
+transação independente registra somente a tentativa de auditoria e marca o
+lote como `falhou`; nenhum efeito parcial permanece em `graos`.
+
+As transições controladas são:
+
+```text
+concluido (legado) ─┐
+pronto_confirmacao ─┼─> confirmando ─> confirmado
+falhou ─────────────┘          └─────> falhou
+```
+
+`com_erros` não pode entrar no fluxo.
+
+## Idempotência e auditoria do preview
 
 O SHA-256 do arquivo completo é único em `LoteImportacao`. Reenviar exatamente
 o mesmo conteúdo retorna `409 Conflict` com o lote existente. Linhas repetidas
@@ -74,10 +157,10 @@ usam `PROTECT`, preservando o histórico associado.
 
 ## Dados normalizados e estrutura
 
-O preview tambem normaliza `cadpro_numero`, cultura, safra e a classificacao
-provisoria `PADRAO`. Como o dominio atual de graos ainda nao possui entidades
-proprias de CAD/PRO e classificacao, esses valores permanecem no JSON de
-staging para confirmacao humana; nenhuma entidade definitiva e criada.
+O preview também normaliza `cadpro_numero`, cultura, safra e a classificação
+provisória `PADRAO`. Esses valores permanecem no JSON de staging para revisão,
+sem criar entidades definitivas. A confirmação compara os valores com o lote
+e o CAD/PRO existentes.
 Cabecalhos obrigatorios sao validados por aba, e formulas de peso liquido sao
 preservadas junto ao valor calculado usado no preview.
 
@@ -97,19 +180,19 @@ Lotes aceitam filtro `status`, busca por nome/hash e ordenação. Linhas aceitam
 filtros `lote`, `status`, `tipo`, `planilha`, `propriedade` e `lote_graos`,
 além de busca e ordenação.
 
-## Limite funcional
-
-Esta versão encerra o fluxo no preview. A associação com `graos` é apenas uma
-referência preliminar para revisão: nenhum serviço de movimentação é chamado,
-nenhuma entrada ou saída definitiva é gerada e nenhum saldo é recalculado ou
-alterado.
+Cada confirmação registra o lote, a chave, o usuário, o horário, o resultado e
+eventual falha em `ConfirmacaoImportacao`. A linha confirmada guarda um vínculo
+protegido e individual com `MovimentacaoGraos`. Nome, SHA-256, dados originais,
+dados normalizados, erros e advertências do preview não são alterados.
 
 ## Migration e validação
 
-A migration inicial é:
+A migration inicial e a migration de confirmação são:
 
 ```text
 backend/apps/importacoes/migrations/0001_initial.py
+backend/apps/importacoes/migrations/0002_alter_loteimportacao_options_and_more.py
+backend/apps/importacoes/migrations/0003_linhaimportacao_importacao_hash_confirmado_unico.py
 ```
 
 Comandos principais:
@@ -123,3 +206,19 @@ python manage.py check
 ```
 
 O contrato OpenAPI está disponível em `GET /api/schema.json`, Swagger e ReDoc.
+
+## Interface
+
+Em **Importações**, envie o XLSX, revise o lote e consulte os dados, associações,
+erros e advertências de cada linha. Para confirmar, marque a declaração de
+revisão e use **Confirmar importação**. A permissão é informada pelo campo
+`pode_confirmar`; o endpoint sempre revalida a autorização.
+
+A tela consulta lotes e linhas com `?page=1`, em páginas de 50 itens. Sem `page`,
+a API preserva a resposta legada em lista. Um lote pode exigir revisão cadastral
+mesmo sem erros de leitura; as validações definitivas continuam no endpoint.
+
+Uma tentativa mantém sua chave na sessão do navegador quando a resposta é
+incerta, permitindo recuperar o resultado sem duplicação. Uma rejeição `409`
+permite uma nova tentativa. A tela não confirma automaticamente após upload.
+Não foi acrescentada edição dos dados de staging.

@@ -93,22 +93,35 @@ usa sua própria coluna.
 | 29,5 | 23,5 | 25 |
 | 30,0 | 24,25 | 25,75 |
 
-Impureza e Quebrados usam o excesso sobre a tolerância enviada na carga. PH
-usa o déficit abaixo do mínimo informado. Os parâmetros são opcionais e, na
-ausência deles, não acrescentam desconto. A soma não pode atingir 100%.
+Desde 19/09/2026, a umidade é descontada primeiro pela tabela da cultura.
+Impureza e avariados (campo compatível `defeitos_percentual`) são somados e
+aplicados sobre o peso após a umidade, sem desconto sucessivo entre eles.
+Por padrão, tolerância zero e taxa 1 descontam integralmente os percentuais
+informados. Regras opcionais explícitas e regras de grupos legados continuam
+respeitando suas tolerâncias e taxas. O PH mantém sua base no peso bruto.
 
 ```text
-desconto kg = peso bruto × desconto total / 100
-peso líquido = peso bruto - desconto kg
+peso após umidade = peso bruto - desconto de umidade em kg
+desconto classificação = peso após umidade × (impureza + avariados) / 100
+peso líquido = peso após umidade - desconto classificação - desconto PH em kg
 sacas = peso líquido / 60
 ```
+
+As etapas em kg são arredondadas a três casas, HALF_UP. O percentual total
+é o desconto efetivo em kg dividido pelo bruto. Descontos que zerem ou tornem
+negativo o líquido são rejeitados.
+Exemplo: 1.000 kg de soja, umidade 13%, impureza 1%, avariados 1% resultam
+em 980 kg e 16,333 sacas (16,33 com duas casas). Com 10.000 kg, umidade
+20,5% (desconto tabelado de 10%), impureza 2% e avariados 3%, resultam
+8.550 kg. Não há recálculo automático de cargas ou saldos históricos.
 
 ## Snapshot da regra
 
 `regra_desconto_aplicada` é somente leitura e congela a regra efetivamente
 usada. O snapshot contém:
 
-- método e versão da tabela de umidade;
+- método `umidade_depois_classificacao_acumulada_v2` e versão da tabela de umidade;
+- peso após a umidade, base de cada parcela e desconto conjunto de classificação;
 - cultura e origem das regras de classificação;
 - medição, grupo cultural, fonte, versão e desconto da umidade;
 - medições, tolerâncias, excessos ou déficit, taxas e descontos de impureza,

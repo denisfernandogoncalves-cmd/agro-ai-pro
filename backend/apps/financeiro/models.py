@@ -1,4 +1,5 @@
 from decimal import Decimal
+import uuid
 
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
@@ -81,6 +82,12 @@ class CentroCusto(models.Model):
         return self.nome
 
 
+class ParcelamentoFinanceiro(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    assinatura = models.CharField(max_length=64)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+
 class LancamentoFinanceiro(models.Model):
     class Tipo(models.TextChoices):
         PAGAR = "pagar", "Conta a pagar"
@@ -102,6 +109,8 @@ class LancamentoFinanceiro(models.Model):
         CategoriaFinanceira,
         on_delete=models.PROTECT,
         related_name="lancamentos",
+        null=True,
+        blank=True,
     )
     parceiro = models.ForeignKey(
         ParceiroFinanceiro,
@@ -141,6 +150,11 @@ class LancamentoFinanceiro(models.Model):
         validators=[MinValueValidator(Decimal("0.01"))],
     )
     observacoes = models.TextField(blank=True)
+    codigo_barras = models.CharField(max_length=44, blank=True, default="")
+    recebedor_nome = models.CharField(max_length=160, blank=True, default="")
+    parcelamento = models.ForeignKey(ParcelamentoFinanceiro, on_delete=models.PROTECT, null=True, blank=True, related_name="parcelas")
+    parcela_numero = models.PositiveSmallIntegerField(null=True, blank=True)
+    total_boletos = models.PositiveSmallIntegerField(null=True, blank=True)
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
 
@@ -153,6 +167,7 @@ class LancamentoFinanceiro(models.Model):
             ),
         ]
         constraints = [
+            models.UniqueConstraint(fields=("parcelamento", "parcela_numero"), name="financeiro_parcela_unica"),
             models.CheckConstraint(
                 condition=models.Q(valor__gt=0),
                 name="financeiro_valor_positivo",
@@ -175,9 +190,11 @@ class LancamentoFinanceiro(models.Model):
 
     def clean(self):
         erros = {}
-        if self.tipo == self.Tipo.PAGAR and self.categoria.aplicacao == CategoriaFinanceira.Aplicacao.RECEITA:
+        if self.total_boletos is not None and (not self.parcela_numero or not 1 <= self.parcela_numero <= self.total_boletos):
+            erros["total_boletos"] = "O número deste boleto deve estar entre 1 e o total da compra."
+        if self.categoria_id and self.tipo == self.Tipo.PAGAR and self.categoria.aplicacao == CategoriaFinanceira.Aplicacao.RECEITA:
             erros["categoria"] = "Escolha uma categoria de despesa ou de ambos."
-        if self.tipo == self.Tipo.RECEBER and self.categoria.aplicacao == CategoriaFinanceira.Aplicacao.DESPESA:
+        if self.categoria_id and self.tipo == self.Tipo.RECEBER and self.categoria.aplicacao == CategoriaFinanceira.Aplicacao.DESPESA:
             erros["categoria"] = "Escolha uma categoria de receita ou de ambos."
         if self.status == self.Status.LIQUIDADO:
             if not self.data_liquidacao:

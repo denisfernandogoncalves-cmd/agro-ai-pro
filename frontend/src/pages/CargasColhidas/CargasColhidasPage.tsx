@@ -13,6 +13,7 @@ import {
 } from "../../api/cargasColhidas";
 import { Propriedade, rotuloPropriedade } from "../../api/propriedades";
 import { Talhao } from "../../api/talhoes";
+import { aplicarGrupoNaCarga, GrupoPropriedades, listarGruposPropriedades } from "../../api/gruposPropriedades";
 import { areaEmAlqueires } from "../../utils/areas";
 
 
@@ -51,10 +52,10 @@ function novaCarga(): CargaColhidaInput {
     talhoes_selecionados: [],
     propriedades_selecionadas: [],
     cadpros_por_propriedade: {},
-    tolerancia_impureza_percentual: "100.00",
-    desconto_impureza_por_ponto: "0.000",
-    tolerancia_defeitos_percentual: "100.00",
-    desconto_defeitos_por_ponto: "0.000",
+    tolerancia_impureza_percentual: "0.00",
+    desconto_impureza_por_ponto: "1.000",
+    tolerancia_defeitos_percentual: "0.00",
+    desconto_defeitos_por_ponto: "1.000",
     ph_minimo: "0.00",
     desconto_ph_por_ponto: "0.000",
     motivo_correcao: "",
@@ -229,7 +230,7 @@ export function CartaoCargaColhida({ item, carregando, onEditar, onExcluir }: {
         </li>)}</ul>
       </section>}
       <div className="carga-metricas"><span>Bruto total <strong>{formatar(numero(item.peso_bruto_kg))} kg</strong></span><span>Desconto <strong>{item.desconto_total_percentual}%</strong></span><span>Líquido total <strong>{formatar(numero(item.peso_liquido_kg))} kg</strong></span></div>
-      <small>Umidade {item.umidade_percentual}% · Impureza {item.impureza_percentual}% · Quebrados {item.defeitos_percentual}%{item.ph ? ` · PH ${item.ph}` : ""}{item.destinado_semente ? " · Semente" : ""} · movimento principal #{item.movimentacao}{item.substituida_por ? ` · substituída pela carga #${item.substituida_por}` : ""}</small>
+      <small>Umidade {item.umidade_percentual}% · Impureza {item.impureza_percentual}% · Avariados {item.defeitos_percentual}%{item.ph ? ` · PH ${item.ph}` : ""}{item.destinado_semente ? " · Semente" : ""} · movimento principal #{item.movimentacao}{item.substituida_por ? ` · substituída pela carga #${item.substituida_por}` : ""}</small>
       {item.status !== "ativa" && item.motivo_cancelamento && <small>Motivo: {item.motivo_cancelamento}</small>}
       {item.status === "ativa" && <div className="acoes carga-item-acoes"><button disabled={carregando} className="secundario" type="button" onClick={() => onEditar(item)}>Editar</button><button disabled={carregando} className="perigo" type="button" onClick={() => onExcluir(item)}>Excluir</button></div>}
     </article>
@@ -256,7 +257,7 @@ function regrasDaCarga(item: CargaColhida) {
   };
 }
 
-function resumoCalculado(carga: CargaColhidaInput) {
+export function resumoCalculado(carga: CargaColhidaInput) {
   const bruto = numero(carga.peso_bruto_kg);
   const umidade = numero(carga.umidade_percentual);
   const indiceUmidade = Number.isInteger((umidade - 11.5) * 2)
@@ -281,15 +282,26 @@ function resumoCalculado(carga: CargaColhidaInput) {
     0,
     numero(carga.ph_minimo) - phMedido,
   ) * numero(carga.desconto_ph_por_ponto);
-  const percentual = descontoUmidade + descontoImpureza + descontoDefeitos + descontoPh;
-  const descontoKg = bruto * percentual / 100;
-  const liquido = Math.max(0, bruto - descontoKg);
-  return { percentual, liquido, sacas: liquido / 60 };
+  const arredondar = (valor: number) => Math.round((valor + Number.EPSILON) * 1000) / 1000;
+  const umidadeKg = arredondar(bruto * descontoUmidade / 100);
+  const pesoAposUmidade = arredondar(bruto - umidadeKg);
+  const classificacaoKg = arredondar(pesoAposUmidade * (arredondar(descontoImpureza) + arredondar(descontoDefeitos)) / 100);
+  const descontoKg = arredondar(umidadeKg + classificacaoKg + arredondar(bruto * arredondar(descontoPh) / 100));
+  const percentual = bruto > 0 ? arredondar(descontoKg * 100 / bruto) : 0;
+  const liquido = Math.max(0, arredondar(bruto - descontoKg));
+  return { percentual, liquido, sacas: arredondar(liquido / 60) };
 }
 
 type Props = { propriedades: Propriedade[] };
 
 export default function CargasColhidasPage({ propriedades }: Props) {
+  const [grupos, setGrupos] = useState<GrupoPropriedades[]>([]);
+  const [erroGrupos, setErroGrupos] = useState("");
+  async function carregarGrupos() {
+    try { setGrupos(await listarGruposPropriedades()); setErroGrupos(""); }
+    catch { setErroGrupos("Não foi possível carregar os grupos. A seleção manual continua disponível."); }
+  }
+  useEffect(() => { void carregarGrupos(); }, []);
   const [armazens, setArmazens] = useState<ArmazemGraos[]>([]);
   const [cadpros, setCadpros] = useState<CADPro[]>([]);
   const [cargas, setCargas] = useState<CargaColhida[]>([]);
@@ -548,6 +560,23 @@ export default function CargasColhidasPage({ propriedades }: Props) {
         <form className="card formulario formulario-carga-horizontal" onSubmit={salvarCarga}>
           <h3>{edicaoId ? `Editar carga #${edicaoId}` : "Registrar carga manual"}</h3>
           {edicaoId && <p className="aviso-contexto">Ao salvar, a carga original será estornada e preservada; uma versão corrigida será criada.</p>}
+          <label>Usar grupo de colheita
+            <select value="" disabled={carregando} onChange={e => {
+              const grupo = grupos.find(g => String(g.id) === e.target.value);
+              if (!grupo) return;
+              try {
+                const preenchida = aplicarGrupoNaCarga(carga, grupo);
+                if (grupo.membros.some(m => !propriedades.some(p => p.id === m.propriedade))) throw new Error("Atualize as propriedades antes de usar este grupo.");
+                setCarga(preenchida); setErroGrupos("");
+              } catch (falha) { setErroGrupos(falha instanceof Error ? falha.message : "Não foi possível aplicar o grupo."); }
+            }}>
+              <option value="">Selecione para preencher as propriedades</option>
+              {grupos.filter(g => g.ativo).map(g => <option key={g.id} value={g.id}>{g.nome}</option>)}
+            </select>
+          </label>
+          <button type="button" onClick={() => void carregarGrupos()}>Atualizar grupos</button>
+          {erroGrupos && <p className="erro" role="alert">{erroGrupos}</p>}
+          <p>Cadastre grupos em Talhões. Após aplicar, confira as propriedades abaixo; você pode ajustar a seleção e os CAD/PROs antes de salvar.</p>
           <fieldset>
             <legend>Escolha as propriedades</legend>
             {propriedades.map((item) => {
@@ -580,18 +609,18 @@ export default function CargasColhidasPage({ propriedades }: Props) {
           <div className="linha">
             <label>Umidade (%)<input required min="11.5" max="30" step="0.5" type="number" value={carga.umidade_percentual} onChange={(e) => setCarga({ ...carga, umidade_percentual: e.target.value })} /></label>
             <label>Impureza (%)<input required min="0" max="100" step="0.01" type="number" value={carga.impureza_percentual} onChange={(e) => setCarga({ ...carga, impureza_percentual: e.target.value })} /></label>
-            <label>Quebrados (%)<input required min="0" max="100" step="0.01" type="number" value={carga.defeitos_percentual} onChange={(e) => setCarga({ ...carga, defeitos_percentual: e.target.value })} /></label>
+            <label>Avariados (%)<input required min="0" max="100" step="0.01" type="number" value={carga.defeitos_percentual} onChange={(e) => setCarga({ ...carga, defeitos_percentual: e.target.value })} /></label>
           </div>
           <div className="linha">
             <label>PH<input required={numero(carga.desconto_ph_por_ponto) > 0} min="0" max="100" step="0.01" type="number" value={carga.ph} onChange={(e) => setCarga({ ...carga, ph: e.target.value })} /></label>
             <label className="opcao-checkbox"><input type="checkbox" checked={carga.destinado_semente} onChange={(e) => setCarga({ ...carga, destinado_semente: e.target.checked })} /> Destinada a semente</label>
           </div>
           <details className="configuracao-descontos">
-            <summary>Regras opcionais de impureza, quebrados e PH</summary>
-            <p>A umidade segue automaticamente a tabela oficial da cultura.</p>
+            <summary>Regras opcionais de impureza, avariados e PH</summary>
+            <p>Primeiro descontamos a umidade pela tabela da cultura. Depois, impureza e avariados são somados e descontados sobre o peso restante. Por padrão, os percentuais informados são descontados integralmente.</p>
             <div className="regras-desconto">
               <fieldset><legend>Impureza</legend><label>Tolerância (%)<input min="0" max="100" step="0.01" type="number" value={carga.tolerancia_impureza_percentual ?? ""} onChange={(e) => setCarga({ ...carga, tolerancia_impureza_percentual: e.target.value })} /></label><label>Desconto/ponto (%)<input min="0" max="100" step="0.001" type="number" value={carga.desconto_impureza_por_ponto ?? ""} onChange={(e) => setCarga({ ...carga, desconto_impureza_por_ponto: e.target.value })} /></label></fieldset>
-              <fieldset><legend>Quebrados</legend><label>Tolerância (%)<input min="0" max="100" step="0.01" type="number" value={carga.tolerancia_defeitos_percentual ?? ""} onChange={(e) => setCarga({ ...carga, tolerancia_defeitos_percentual: e.target.value })} /></label><label>Desconto/ponto (%)<input min="0" max="100" step="0.001" type="number" value={carga.desconto_defeitos_por_ponto ?? ""} onChange={(e) => setCarga({ ...carga, desconto_defeitos_por_ponto: e.target.value })} /></label></fieldset>
+              <fieldset><legend>Avariados</legend><label>Tolerância (%)<input min="0" max="100" step="0.01" type="number" value={carga.tolerancia_defeitos_percentual ?? ""} onChange={(e) => setCarga({ ...carga, tolerancia_defeitos_percentual: e.target.value })} /></label><label>Desconto/ponto (%)<input min="0" max="100" step="0.001" type="number" value={carga.desconto_defeitos_por_ponto ?? ""} onChange={(e) => setCarga({ ...carga, desconto_defeitos_por_ponto: e.target.value })} /></label></fieldset>
               <fieldset><legend>PH</legend><label>PH mínimo<input min="0" max="100" step="0.01" type="number" value={carga.ph_minimo ?? ""} onChange={(e) => setCarga({ ...carga, ph_minimo: e.target.value })} /></label><label>Desconto/ponto abaixo (%)<input min="0" max="100" step="0.001" type="number" value={carga.desconto_ph_por_ponto ?? ""} onChange={(e) => setCarga({ ...carga, desconto_ph_por_ponto: e.target.value })} /></label></fieldset>
             </div>
           </details>

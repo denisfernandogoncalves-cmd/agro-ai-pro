@@ -14,6 +14,52 @@ const servidor = await createServer({
 });
 
 try {
+  const { TabelaDisponibilidade } = await servidor.ssrLoadModule("/src/pages/Estoque/DisponibilidadeEstoque.tsx");
+  const saldoFornecedorHtml = renderToStaticMarkup(React.createElement(TabelaDisponibilidade, { itens: [{
+    produto_id: 1, produto: "Produto teste", fornecedor_id: 2, fornecedor: "Fornecedor teste", unidade: "l",
+    data_compra: "2026-09-01", quantidade_comprada: "40.000", quantidade_saida: "4.000", disponivel: "36.000",
+    preco_medio: "17.5000", valor_aquisicao: "700.00", lotes: [{ id: 1, codigo: "Compra 1", datas_entrada: ["2026-09-01"] }],
+  }] }));
+  for (const esperado of ["Fornecedor teste", "01/09/2026", "36,000", "17,5000", "700,00", "Compra 1"]) assert.ok(saldoFornecedorHtml.includes(esperado), esperado);
+  assert.match(renderToStaticMarkup(React.createElement(TabelaDisponibilidade, { itens: [] })), /Nenhum estoque/);
+  const { resumoCalculado } = await servidor.ssrLoadModule("/src/pages/CargasColhidas/CargasColhidasPage.tsx");
+  const exemploCarga = {
+    cultura: "Soja", peso_bruto_kg: "1000", umidade_percentual: "13",
+    impureza_percentual: "1", defeitos_percentual: "1", ph: "",
+    tolerancia_impureza_percentual: "0", desconto_impureza_por_ponto: "1",
+    tolerancia_defeitos_percentual: "0", desconto_defeitos_por_ponto: "1",
+    ph_minimo: "0", desconto_ph_por_ponto: "0",
+  };
+  assert.deepEqual(resumoCalculado(exemploCarga), { percentual: 2, liquido: 980, sacas: 16.333 });
+  assert.deepEqual(resumoCalculado({ ...exemploCarga, peso_bruto_kg: "10000", umidade_percentual: "20.5", impureza_percentual: "2", defeitos_percentual: "3" }), { percentual: 14.5, liquido: 8550, sacas: 142.5 });
+  const { loteElegivel } = await servidor.ssrLoadModule("/src/api/importacoes.ts");
+  const lotePronto = { pode_confirmar: true, total_erros: 0, total_linhas: 2, status: "pronto_confirmacao" };
+  assert.equal(loteElegivel(lotePronto), true);
+  for (const alteracao of [{ pode_confirmar: false }, { total_erros: 1 }, { total_linhas: 0 }, { status: "confirmado" }, { status: "confirmando" }]) {
+    assert.equal(loteElegivel({ ...lotePronto, ...alteracao }), false);
+  }
+  const { default: ImportacoesPage } = await servidor.ssrLoadModule("/src/pages/Importacoes/ImportacoesPage.tsx");
+  const importacoesHtml = renderToStaticMarkup(React.createElement(ImportacoesPage));
+  assert.match(importacoesHtml, /Gerar prévia/);
+  assert.doesNotMatch(importacoesHtml, /Confirmar importação/);
+  const { aplicarGrupoNaCarga } = await servidor.ssrLoadModule("/src/api/gruposPropriedades.ts");
+  const grupoTeste = { ativo: true, membros: [
+    { propriedade: 1, cad_pro: "compartilhado", disponivel: true },
+    { propriedade: 2, cad_pro: "compartilhado", disponivel: true },
+  ] };
+  const cargaOriginal = { peso_bruto_kg: "600", safra: "2026", talhoes_selecionados: [99], propriedades_selecionadas: [99] };
+  const preenchida = aplicarGrupoNaCarga(cargaOriginal, grupoTeste);
+  assert.deepEqual(preenchida.propriedades_selecionadas, [1, 2]);
+  assert.deepEqual(preenchida.cadpros_por_propriedade, { 1: "compartilhado", 2: "compartilhado" });
+  assert.equal(preenchida.propriedade, "1");
+  assert.equal(preenchida.cad_pro, "compartilhado");
+  assert.equal(preenchida.peso_bruto_kg, "600");
+  assert.equal(preenchida.safra, "2026");
+  assert.deepEqual(preenchida.talhoes_selecionados, []);
+  assert.deepEqual(cargaOriginal.propriedades_selecionadas, [99]);
+  assert.throws(() => aplicarGrupoNaCarga(cargaOriginal, { ...grupoTeste, ativo: false }));
+  assert.throws(() => aplicarGrupoNaCarga(cargaOriginal, { ...grupoTeste, membros: [] }));
+  assert.throws(() => aplicarGrupoNaCarga(cargaOriginal, { ...grupoTeste, membros: [{ ...grupoTeste.membros[0], disponivel: false }] }));
   const { default: TalhaoForm } = await servidor.ssrLoadModule(
     "/src/pages/Talhoes/TalhaoForm.tsx",
   );
@@ -33,6 +79,40 @@ try {
   const { default: GraficoMercado } = await servidor.ssrLoadModule(
     "/src/pages/Mercado/GraficoMercado.tsx",
   );
+  const { default: LeitorCodigoFinanceiro, aplicarLeituraFinanceira, ResumoCodigoFinanceiro } = await servidor.ssrLoadModule(
+    "/src/pages/Financeiro/LeitorCodigoFinanceiro.tsx",
+  );
+  const codigoFinanceiro = "00197100000000123451234567890123456789012345";
+  const formularioFinanceiro = {
+    tipo: "pagar", descricao: "Insumos", parceiro: "7", categoria: "3",
+    propriedade: "2", safra: "2026/2027", valor: "900.00", data_vencimento: "2026-10-01",
+    observacoes: "Conferir nota", codigo_barras: "anterior",
+  };
+  const leituraFinanceira = { codigo_barras: codigoFinanceiro, valor: "123.45" };
+  const comDescricao = { ...leituraFinanceira, descricao_sugerida: "Boleto bancário · banco 001" };
+  assert.equal(aplicarLeituraFinanceira({ ...formularioFinanceiro, descricao: "" }, comDescricao, "").descricao, comDescricao.descricao_sugerida);
+  assert.equal(aplicarLeituraFinanceira({ ...formularioFinanceiro, descricao: "Compra de sementes" }, comDescricao, "").descricao, "Compra de sementes");
+  assert.deepEqual(aplicarLeituraFinanceira(formularioFinanceiro, leituraFinanceira, "2025-02-22"), {
+    ...formularioFinanceiro, codigo_barras: codigoFinanceiro, valor: "123.45", data_vencimento: "2025-02-22",
+  });
+  const semValorFinanceiro = aplicarLeituraFinanceira(formularioFinanceiro, { ...leituraFinanceira, valor: null }, "");
+  assert.equal(semValorFinanceiro.valor, "");
+  assert.equal(semValorFinanceiro.data_vencimento, "");
+  assert.equal(formularioFinanceiro.valor, "900.00");
+  let aplicacoesFinanceiras = 0;
+  const htmlLeitorFinanceiro = renderToStaticMarkup(React.createElement(LeitorCodigoFinanceiro, {
+    desabilitado: false, aplicar: () => { aplicacoesFinanceiras++; },
+  }));
+  assert.match(htmlLeitorFinanceiro, /leitor USB em modo teclado/);
+  assert.match(htmlLeitorFinanceiro, /Extrair dados/);
+  assert.match(htmlLeitorFinanceiro, /Posicionar leitor/);
+  assert.doesNotMatch(htmlLeitorFinanceiro, /Salvar lançamento/);
+  assert.equal(aplicacoesFinanceiras, 0);
+  const resumoLeitura = renderToStaticMarkup(React.createElement(ResumoCodigoFinanceiro, {
+    leitura: { ...leituraFinanceira, banco_codigo: "341", banco_nome: "ITAÚ UNIBANCO S.A.",
+      detalhes: [{ campo: "Agência do beneficiário", valor: "0057" }], linha_digitavel_formatada: "linha de teste" },
+  }));
+  for (const texto of ["ITAÚ UNIBANCO S.A.", "341", "Agência do beneficiário", "0057", "linha de teste", "não disponível no código"]) assert.ok(resumoLeitura.includes(texto), texto);
   const { default: FinanceiroPage } = await servidor.ssrLoadModule(
     "/src/pages/Financeiro/FinanceiroPage.tsx",
   );
@@ -277,7 +357,22 @@ try {
     React.createElement(FinanceiroPage, { propriedades: [propriedade] }),
   );
   assert.match(htmlFinanceiro, /Novo lançamento/);
-  assert.match(htmlFinanceiro, /Cadastros auxiliares/);
+  assert.match(htmlFinanceiro, /Quem vai receber/);
+  assert.match(htmlFinanceiro, /Número deste boleto/);
+  assert.match(htmlFinanceiro, /Total de boletos da compra/);
+  assert.match(htmlFinanceiro, /Valor deste boleto/);
+  assert.match(htmlFinanceiro, /Salvar boleto/);
+  assert.doesNotMatch(htmlFinanceiro, /Salvar parcelas|Vencimentos mensais|Valor total/);
+  const cssFinanceiro = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
+  assert.match(cssFinanceiro, /\.modulo-financeiro \.formulario\s*\{\s*position:\s*static/);
+  assert.doesNotMatch(htmlFinanceiro, /Cadastros auxiliares|<label>Categoria|<label>Parceiro|<label>Centro de custo|<label>Propriedade|<label>Safra/);
+  const { calcularPreviaParcelas } = await servidor.ssrLoadModule("/src/pages/Financeiro/ParcelasPreview.tsx");
+  const previaParcelas = calcularPreviaParcelas("100.00", 3, "2028-01-31");
+  assert.deepEqual(previaParcelas.map(p => p.centavos), [3334, 3333, 3333]);
+  assert.deepEqual(previaParcelas.map(p => p.vencimento), ["2028-01-31", "2028-02-29", "2028-03-31"]);
+  assert.equal(previaParcelas.reduce((s, p) => s + p.centavos, 0), 10000);
+  assert.deepEqual(calcularPreviaParcelas("100", 3, "2026-12-31").map(p => p.vencimento), ["2026-12-31", "2027-01-31", "2027-02-28"]);
+  for (const entrada of [["0.02", 3, "2028-01-31"], ["100", 0, "2028-01-31"], ["100", 1.5, "2028-01-31"], ["100", 121, "2028-01-31"], ["100", 3, "2026-02-30"]]) assert.deepEqual(calcularPreviaParcelas(...entrada), []);
 
   const htmlEstoque = renderToStaticMarkup(
     React.createElement(EstoquePage, { propriedades: [propriedade] }),
@@ -421,10 +516,40 @@ try {
     { id: 5, propriedade_id: 1, cad_pro: "cad-compartilhado", armazem: 10, ativo: false },
     { id: 6, propriedade_id: 1, cad_pro: null, armazem: 10, ativo: true },
   ];
-  assert.deepEqual(filtrarLotesProducao(lotesMesmoCadpro, "1").map((lote) => lote.id), [1, 4]);
-  assert.deepEqual(filtrarLotesProducao(lotesMesmoCadpro, "2").map((lote) => lote.id), [2]);
+  assert.deepEqual(filtrarLotesProducao(lotesMesmoCadpro, { propriedade: "1" }).map((lote) => lote.id), [1, 4]);
+  assert.deepEqual(filtrarLotesProducao(lotesMesmoCadpro, { propriedade: "2" }).map((lote) => lote.id), [2]);
   assert.deepEqual(filtrarLotesProducao(lotesMesmoCadpro).map((lote) => lote.id), [1, 2, 3, 4]);
-  assert.deepEqual(filtrarLotesProducao(lotesMesmoCadpro, "99"), []);
+  assert.deepEqual(filtrarLotesProducao(lotesMesmoCadpro, { propriedade: "99" }), []);
+  const loteCredito = {
+    id: 10, propriedade_id: 1, cad_pro: "cad-1", armazem: 10, ativo: true,
+    cultura: "Soja", safra: "2026/2027", classificacao_codigo: "PADRAO",
+  };
+  const filtrosCredito = {
+    propriedade: "1", cad_pro: "cad-1", armazem: "10",
+    cultura: " soja ", safra: " 2026/2027 ", classificacao_codigo: " padrao ",
+  };
+  const lotesOutrasDimensoes = [
+    loteCredito,
+    { ...loteCredito, id: 11, cad_pro: "cad-2" },
+    { ...loteCredito, id: 12, cultura: "Milho" },
+    { ...loteCredito, id: 13, safra: "2025/2026" },
+    { ...loteCredito, id: 14, classificacao_codigo: "AVARIADO" },
+    { ...loteCredito, id: 15, armazem: 20 },
+    { ...loteCredito, id: 16, propriedade_id: 2 },
+  ];
+  assert.deepEqual(filtrarLotesProducao(lotesOutrasDimensoes, filtrosCredito).map(l => l.id), [10]);
+  for (const [campo, esperado] of [
+    ["propriedade", [10, 11, 12, 13, 14, 15]],
+    ["cad_pro", [10, 12, 13, 14, 15, 16]],
+    ["cultura", [10, 11, 13, 14, 15, 16]],
+    ["safra", [10, 11, 12, 14, 15, 16]],
+    ["classificacao_codigo", [10, 11, 12, 13, 15, 16]],
+    ["armazem", [10, 11, 12, 13, 14, 16]],
+  ]) {
+    assert.deepEqual(filtrarLotesProducao(lotesOutrasDimensoes, { [campo]: filtrosCredito[campo] }).map(l => l.id), esperado);
+  }
+  assert.equal(filtrarLotesProducao(lotesOutrasDimensoes, { cad_pro: "cad-2" }).some(l => l.id === loteCredito.id), false);
+  assert.deepEqual(filtrarLotesProducao(lotesOutrasDimensoes).map(l => l.id), [10, 11, 12, 13, 14, 15, 16]);
   assert.equal(mesmosFiltrosSaldo({ propriedade: "3", cultura: "Trigo" }, { cultura: "Trigo", propriedade: "3" }), true);
   assert.equal(mesmosFiltrosSaldo({ propriedade: "3" }, { propriedade: "1" }), false);
   assert.equal(mesmosFiltrosSaldo({ propriedade: "3", cultura: "Trigo" }, { propriedade: "3", cultura: "Milho" }), false);
@@ -509,6 +634,7 @@ try {
   const htmlVendas = renderToStaticMarkup(React.createElement(VendasPage));
   assert.match(htmlVendas, /Vendas de grãos/);
   assert.match(htmlVendas, /Nova venda/);
+  assert.match(htmlVendas, /Venda com saldo negativo permitida por sobra técnica/);
   assert.ok(htmlVendas.includes("Propriedade / CAD/PRO / Proprietário"));
   assert.match(htmlVendas, /Contrato \/ empresa/);
   assert.match(htmlCadastrosAgricolas, /Nº do contrato/);
@@ -888,7 +1014,7 @@ try {
 
   assert.doesNotMatch(appFonte, /Grupos de colheita/);
 
-  console.log("40 testes de componentes, submissão, geometria e PWA aprovados.");
+  console.log("44 testes de componentes, submissão, geometria e PWA aprovados.");
 } finally {
   await servidor.close();
 }

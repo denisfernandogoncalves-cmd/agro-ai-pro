@@ -6,6 +6,22 @@ from django.db import models
 from apps.propriedades.models import Propriedade
 
 
+class GrupoPropriedadesColheita(models.Model):
+    """Seleção reutilizável; não modifica as cargas já registradas."""
+
+    nome = models.CharField(max_length=100, unique=True)
+    ativo = models.BooleanField(default=True)
+    vinculos = models.ManyToManyField("cadpro.CADProPropriedade", blank=False)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("nome", "id")
+
+    def __str__(self):
+        return self.nome
+
+
 class Talhao(models.Model):
 
     class Meta:
