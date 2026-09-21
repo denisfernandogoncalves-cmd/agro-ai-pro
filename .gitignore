@@ -6,3 +6,7 @@ backend/media/
 backend/test.sqlite3
 frontend/dist/
 *.tsbuildinfo
+
+# Ambiente local do desenvolvimento
+.worktrees/
+backups/
