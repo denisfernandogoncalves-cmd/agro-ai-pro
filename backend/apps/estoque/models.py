@@ -211,9 +211,15 @@ class CompraEstoque(models.Model):
     custo_embalagem = models.DecimalField(max_digits=14, decimal_places=4, validators=[MinValueValidator(Decimal("0"))])
     data_vencimento = models.DateField(null=True, blank=True)
     valor_total = models.DecimalField(max_digits=24, decimal_places=2)
+    data_pagamento = models.DateField(null=True, blank=True)
+    valor_pago = models.DecimalField(max_digits=24, decimal_places=2, null=True, blank=True, validators=[MinValueValidator(Decimal("0"))])
 
     class Meta:
         ordering = ("-movimento__data_movimento", "-movimento_id")
         constraints = [
             models.CheckConstraint(condition=models.Q(quantidade_embalagens__gt=0, conteudo_embalagem__gt=0, custo_embalagem__gte=0, valor_total__gte=0), name="estoque_compra_valores_validos"),
+            models.CheckConstraint(
+                condition=(models.Q(data_pagamento__isnull=True, valor_pago__isnull=True) | models.Q(data_pagamento__isnull=False, valor_pago__isnull=False, valor_pago__gte=0)),
+                name="estoque_compra_pagamento_valido",
+            ),
         ]

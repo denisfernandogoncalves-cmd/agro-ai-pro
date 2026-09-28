@@ -502,6 +502,7 @@ async function renderAppStates() {
   const React = await import(reactUrl);
   const { renderToString } = await import(reactDomServerUrl);
   globalThis.__APP_API__ = {
+    api: { get: async () => ({ data: { is_staff: false } }) },
     atualizarPropriedade: async () => ({}),
     criarPropriedade: async () => ({}),
     excluirPropriedade: async () => undefined,
@@ -518,8 +519,8 @@ async function renderAppStates() {
     .replace('from "react";', `from "${reactUrl}";`)
     .replace('from "axios";', `from "${axiosUrl}";`)
     .replace(
-      /import \{\s*atualizarPropriedade[\s\S]*?\} from "\.\/api\/propriedades";/,
-      "const { atualizarPropriedade, criarPropriedade, "
+      /import \{\s*api,\s*atualizarPropriedade[\s\S]*?\} from "\.\/api\/propriedades";/,
+      "const { api, atualizarPropriedade, criarPropriedade, "
         + "excluirPropriedade, listarPropriedades } = globalThis.__APP_API__;\n"
         + "type Propriedade = any;\ntype PropriedadeInput = any;",
     )

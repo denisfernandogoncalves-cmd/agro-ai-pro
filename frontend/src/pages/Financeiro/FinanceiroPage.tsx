@@ -3,6 +3,7 @@ import axios from "axios";
 
 import {
   cancelarLancamento,
+  excluirLancamento,
   carregarFinanceiro,
   registrarBoleto,
   LancamentoFinanceiro,
@@ -14,6 +15,8 @@ import {
 } from "../../api/financeiro";
 import { Propriedade } from "../../api/propriedades";
 import LeitorCodigoFinanceiro, { aplicarLeituraFinanceira, ResumoCodigoFinanceiro } from "./LeitorCodigoFinanceiro";
+import EditorLancamento from "./EditorLancamento";
+import FinanceiroImpressao from "./FinanceiroImpressao";
 
 
 const hoje = new Date().toISOString().slice(0, 10);
@@ -48,6 +51,8 @@ function moeda(valor: string | number) {
   });
 }
 
+const filtrosVazios = { tipo: "", status: "", search: "", parceiro: "", recebedor: "", dataReferencia: "vencimento", inicio: "", fim: "" };
+
 type Props = { propriedades: Propriedade[] };
 
 export default function FinanceiroPage(_props: Props) {
@@ -61,18 +66,50 @@ export default function FinanceiroPage(_props: Props) {
   const [recebedor, setRecebedor] = useState("");
   const [sucesso, setSucesso] = useState("");
   const chave = useRef<string | null>(null);
-  const [filtros, setFiltros] = useState({ tipo: "", status: "", search: "" });
+  const [filtros, setFiltros] = useState(filtrosVazios);
+  const [filtrosImpressao, setFiltrosImpressao] = useState("Todos os lançamentos");
   const [erro, setErro] = useState("");
   const [carregando, setCarregando] = useState(false);
+  const [editando, setEditando] = useState<LancamentoFinanceiro | null>(null);
+  const [excluindo, setExcluindo] = useState(false);
+  const travaExclusao = useRef(false);
 
-  async function carregar() {
+  async function excluir(item: LancamentoFinanceiro) {
+    if (travaExclusao.current) return;
+    if (!window.confirm(`Excluir definitivamente "${item.descricao}" (${moeda(item.valor)})? O lançamento será removido dos totais financeiros. Esta ação não pode ser desfeita.`)) return;
+    travaExclusao.current = true; setExcluindo(true); setErro(""); setSucesso("");
+    try {
+      await excluirLancamento(item.id);
+      setSucesso("Lançamento excluído.");
+      await carregar();
+    } catch (falha) { setErro(mensagemErro(falha)); }
+    finally { travaExclusao.current = false; setExcluindo(false); }
+  }
+
+  async function carregar(selecao = filtros) {
+    if (selecao.inicio && selecao.fim && selecao.inicio > selecao.fim) {
+      setErro("A data final deve ser igual ou posterior à inicial.");
+      return;
+    }
     setCarregando(true);
     setErro("");
     try {
-      const dados = await carregarFinanceiro(filtros);
+      const dados = await carregarFinanceiro({
+        tipo: selecao.tipo, status: selecao.status, search: selecao.search, parceiro: selecao.parceiro, recebedor: selecao.recebedor,
+        [`${selecao.dataReferencia}_inicio`]: selecao.inicio,
+        [`${selecao.dataReferencia}_fim`]: selecao.fim,
+      });
       setParceiros(dados.parceiros);
       setLancamentos(dados.lancamentos);
       setResumo(dados.resumo);
+      setFiltrosImpressao([
+        selecao.tipo && (selecao.tipo === "pagar" ? "Contas a pagar / pagas" : "Contas a receber / recebidas"),
+        selecao.status && `Situação: ${selecao.status}`,
+        selecao.search && `Busca: ${selecao.search}`,
+        selecao.recebedor && `Favorecido: ${selecao.recebedor}`,
+        selecao.parceiro && `Parceiro: ${dados.parceiros.find(p => String(p.id) === selecao.parceiro)?.nome || selecao.parceiro}`,
+        (selecao.inicio || selecao.fim) && `${selecao.dataReferencia === "vencimento" ? "Vencimento" : "Liquidação"}: ${selecao.inicio ? selecao.inicio.split("-").reverse().join("/") : "sem início"} a ${selecao.fim ? selecao.fim.split("-").reverse().join("/") : "sem fim"}`,
+      ].filter(Boolean).join(" · ") || "Todos os lançamentos");
     } catch (falha) {
       setErro(mensagemErro(falha));
     } finally {
@@ -138,11 +175,14 @@ export default function FinanceiroPage(_props: Props) {
 
   return (
     <section className="modulo-financeiro">
+      <FinanceiroImpressao lancamentos={lancamentos} resumo={resumo} filtros={filtrosImpressao} carregando={carregando} />
+      {editando && <EditorLancamento key={editando.id} item={editando} onFechar={() => setEditando(null)} onSalvo={() => { setEditando(null); setSucesso("Lançamento atualizado."); void carregar(); }} />}
       {erro && <p className="erro card">{erro}</p>}
       {sucesso && <p className="card" role="status">{sucesso}</p>}
       {resumo && (
-        <section className="resumos-financeiros">
+        <section className="resumos-financeiros" aria-label="Totais dos filtros aplicados">
           <article className="card"><span>A pagar</span><strong>{moeda(resumo.a_pagar)}</strong></article>
+          <article className="card"><span>Pagos</span><strong>{moeda(resumo.saidas_realizadas)}</strong></article>
           <article className="card"><span>A receber</span><strong>{moeda(resumo.a_receber)}</strong></article>
           <article className="card"><span>Saldo previsto</span><strong>{moeda(resumo.saldo_previsto)}</strong></article>
           <article className="card"><span>Saldo realizado</span><strong>{moeda(resumo.saldo_realizado)}</strong></article>
@@ -182,24 +222,43 @@ export default function FinanceiroPage(_props: Props) {
         </form>
 
         <section className="conteudo">
-          <form className="card painel-filtros" onSubmit={(e) => { e.preventDefault(); void carregar(); }}>
-            <input aria-label="Buscar lançamentos" placeholder="Buscar descrição ou recebedor" value={filtros.search} onChange={(e) => setFiltros({ ...filtros, search: e.target.value })} />
-            <select value={filtros.tipo} onChange={(e) => setFiltros({ ...filtros, tipo: e.target.value })}><option value="">Todos os tipos</option><option value="pagar">A pagar</option><option value="receber">A receber</option></select>
-            <select value={filtros.status} onChange={(e) => setFiltros({ ...filtros, status: e.target.value })}><option value="">Todos os status</option><option value="pendente">Pendente</option><option value="liquidado">Liquidado</option><option value="cancelado">Cancelado</option></select>
-            <button type="submit">Aplicar filtros</button>
+          <form className="card filtros-financeiro" onSubmit={(e) => { e.preventDefault(); void carregar(); }}>
+            <h2>Filtros financeiros</h2>
+            <p>Os totais e a lista consideram os filtros aplicados.</p>
+            <label>Buscar lançamentos<input placeholder="Descrição, parceiro ou safra" value={filtros.search} onChange={(e) => setFiltros({ ...filtros, search: e.target.value })} /></label>
+            <div className="linha">
+              <label>Tipo<select value={filtros.tipo} onChange={(e) => setFiltros({ ...filtros, tipo: e.target.value })}><option value="">Todos os tipos</option><option value="pagar">Contas a pagar / pagas</option><option value="receber">Contas a receber / recebidas</option></select></label>
+              <label>Situação<select value={filtros.status} onChange={(e) => setFiltros({ ...filtros, status: e.target.value })}><option value="">Todas as situações</option><option value="pendente">A pagar / a receber</option><option value="liquidado">Pagos / recebidos</option><option value="cancelado">Cancelados</option></select></label>
+            </div>
+            <label>Quem recebe<input placeholder="Nome completo ou parte do nome" value={filtros.recebedor} onChange={(e) => setFiltros({ ...filtros, recebedor: e.target.value })} /></label>
+            <label>Parceiro cadastrado<select value={filtros.parceiro} onChange={(e) => setFiltros({ ...filtros, parceiro: e.target.value })}><option value="">Todos os parceiros</option>{parceiros.map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select></label>
+            <label>Filtrar por data de<select value={filtros.dataReferencia} onChange={(e) => setFiltros({ ...filtros, dataReferencia: e.target.value })}><option value="vencimento">Vencimento</option><option value="liquidacao">Pagamento / recebimento</option></select></label>
+            <div className="linha">
+              <label>Data inicial<input type="date" value={filtros.inicio} onChange={(e) => setFiltros({ ...filtros, inicio: e.target.value })} /></label>
+              <label>Data final<input type="date" min={filtros.inicio || undefined} value={filtros.fim} onChange={(e) => setFiltros({ ...filtros, fim: e.target.value })} /></label>
+            </div>
+            <div className="acoes">
+              <button disabled={carregando} type="submit">Aplicar filtros</button>
+              <button disabled={carregando} type="button" className="secundario" onClick={() => { setFiltros(filtrosVazios); void carregar(filtrosVazios); }}>Limpar filtros</button>
+            </div>
           </form>
           <div className="lista">
             {lancamentos.map((item) => (
               <article className={`card item lancamento ${item.atrasado ? "atrasado" : ""}`} key={item.id}>
                 <div>
-                  <span className="kicker">{item.tipo === "pagar" ? "A pagar" : "A receber"} · {item.status}</span>
+                  <span className="kicker">{item.status === "liquidado" ? (item.tipo === "pagar" ? "Pago" : "Recebido") : (item.tipo === "pagar" ? "A pagar" : "A receber")} · {item.status}</span>
                   <h3>{item.descricao}</h3>
                   <p>{item.recebedor_nome || item.parceiro_nome || "Recebedor não informado"}{item.total_boletos ? ` · boleto ${item.parcela_numero} de ${item.total_boletos}` : item.parcela_numero ? ` · parcela ${item.parcela_numero}` : ""} · vence {item.data_vencimento}</p>
+                  {item.data_liquidacao && <p>{item.tipo === "pagar" ? "Pago" : "Recebido"} em {item.data_liquidacao}</p>}
                   {item.codigo_barras && <details><summary>Código de barras</summary><code style={{ overflowWrap: "anywhere" }}>{item.codigo_barras}</code></details>}
                 </div>
                 <div>
-                  <strong>{moeda(item.valor)}</strong>
-                  {item.status === "pendente" && <div className="acoes"><button onClick={() => void liquidar(item)}>Liquidar</button><button className="perigo" onClick={() => void cancelar(item)}>Cancelar</button></div>}
+                  <strong>{moeda(item.status === "liquidado" ? item.valor_liquidado ?? item.valor : item.valor)}</strong>
+                  <div className="acoes acoes-lancamento">
+                    <button type="button" className="secundario" disabled={carregando || excluindo} onClick={() => setEditando(item)}>Editar</button>
+                    <button type="button" className="perigo" disabled={carregando || excluindo} onClick={() => void excluir(item)}>Excluir</button>
+                    {item.status === "pendente" && <><button disabled={carregando || excluindo} onClick={() => void liquidar(item)}>Liquidar</button><button className="secundario" disabled={carregando || excluindo} onClick={() => void cancelar(item)}>Cancelar lançamento</button></>}
+                  </div>
                 </div>
               </article>
             ))}

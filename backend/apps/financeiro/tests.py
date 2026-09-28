@@ -247,3 +247,67 @@ class FinanceiroApiTests(APITestCase):
         )
 
         self.assertEqual(resposta.status_code, 409)
+
+
+    def test_filtros_periodo_parceiro_situacao_e_resumo(self):
+        self.client.force_authenticate(self.usuario)
+        self.lancamento.data_vencimento = date(2026, 9, 10)
+        self.lancamento.save()
+        pago = LancamentoFinanceiro.objects.create(
+            tipo="pagar", descricao="Frete pago", valor="200",
+            categoria=self.categoria, parceiro=self.parceiro,
+            data_vencimento=date(2026, 8, 1), status="liquidado",
+            data_liquidacao=date(2026, 9, 10), valor_liquidado="195",
+        )
+        LancamentoFinanceiro.objects.create(
+            tipo="pagar", descricao="Outro parceiro", valor="900",
+            categoria=self.categoria, data_vencimento=date(2026, 9, 10),
+            status="liquidado", data_liquidacao=date(2026, 9, 10), valor_liquidado="900",
+        )
+        for params, esperado, campo, total in (
+            ({"status": "pendente", "vencimento_inicio": "2026-09-10", "vencimento_fim": "2026-09-10"}, self.lancamento.pk, "a_pagar", "500"),
+            ({"status": "liquidado", "liquidacao_inicio": "2026-09-10", "liquidacao_fim": "2026-09-10"}, pago.pk, "saidas_realizadas", "195"),
+        ):
+            with self.subTest(params=params):
+                params.update(tipo="pagar", parceiro=self.parceiro.pk)
+                resposta = self.client.get(reverse("lancamentos-list"), params)
+                self.assertEqual(resposta.status_code, 200)
+                self.assertEqual([item["id"] for item in resposta.data], [esperado])
+                resumo = self.client.get(reverse("lancamentos-resumo"), params)
+                self.assertEqual(Decimal(resumo.data[campo]), Decimal(total))
+        for params in (
+            {"liquidacao_inicio": "2026-09-11"},
+            {"liquidacao_fim": "2026-09-09"},
+            {"search": "inexistente"},
+        ):
+            self.assertEqual(self.client.get(reverse("lancamentos-list"), params).data, [])
+            resumo = self.client.get(reverse("lancamentos-resumo"), params)
+            self.assertEqual(Decimal(resumo.data["a_pagar"]), 0)
+            self.assertEqual(Decimal(resumo.data["saidas_realizadas"]), 0)
+
+    def test_rejeita_periodos_invalidos_na_lista_e_resumo(self):
+        self.client.force_authenticate(self.usuario)
+        for endpoint in ("lancamentos-list", "lancamentos-resumo"):
+            for prefixo in ("vencimento", "liquidacao"):
+                for params in (
+                    {f"{prefixo}_inicio": "2026-02-30"},
+                    {f"{prefixo}_fim": "invalida"},
+                    {f"{prefixo}_inicio": "2026-09-20", f"{prefixo}_fim": "2026-09-01"},
+                ):
+                    with self.subTest(endpoint=endpoint, params=params):
+                        self.assertEqual(self.client.get(reverse(endpoint), params).status_code, 400)
+
+
+    def test_filtro_recebedor_nome_livre_ou_parceiro(self):
+        self.client.force_authenticate(self.usuario)
+        livre = LancamentoFinanceiro.objects.create(
+            tipo="pagar", descricao="Boleto", valor="123",
+            categoria=self.categoria, recebedor_nome="Cooperativa Horizonte",
+            data_vencimento=date(2026, 9, 10),
+        )
+        for nome, esperado, total in (("horizonte", livre.pk, "123"), ("Rural", self.lancamento.pk, "500")):
+            params = {"recebedor": nome, "tipo": "pagar"}
+            resposta = self.client.get(reverse("lancamentos-list"), params)
+            self.assertEqual([item["id"] for item in resposta.data], [esperado])
+            resumo = self.client.get(reverse("lancamentos-resumo"), params)
+            self.assertEqual(Decimal(resumo.data["a_pagar"]), Decimal(total))

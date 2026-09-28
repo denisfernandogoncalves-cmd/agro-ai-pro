@@ -132,6 +132,12 @@ export async function carregarFinanceiro(filtros?: {
   tipo?: string;
   status?: string;
   search?: string;
+  recebedor?: string;
+  parceiro?: string;
+  vencimento_inicio?: string;
+  vencimento_fim?: string;
+  liquidacao_inicio?: string;
+  liquidacao_fim?: string;
 }) {
   const [categorias, parceiros, centros, lancamentos, resumo] = await Promise.all([
     api.get<CategoriaFinanceira[]>("/financeiro/categorias/"),
@@ -140,7 +146,7 @@ export async function carregarFinanceiro(filtros?: {
     api.get<LancamentoFinanceiro[]>("/financeiro/lancamentos/", {
       params: { ...filtros, ordering: "data_vencimento" },
     }),
-    api.get<ResumoFinanceiro>("/financeiro/lancamentos/resumo/"),
+    api.get<ResumoFinanceiro>("/financeiro/lancamentos/resumo/", { params: filtros }),
   ]);
   return {
     categorias: categorias.data,
@@ -245,4 +251,16 @@ export async function liquidarLancamento(
 
 export async function cancelarLancamento(id: number) {
   await api.post(`/financeiro/lancamentos/${id}/cancelar/`, {});
+}
+
+export type EdicaoLancamento = Pick<LancamentoFinanceiro,
+  "descricao" | "recebedor_nome" | "valor" | "data_emissao" | "data_vencimento" | "observacoes" | "codigo_barras"
+>;
+
+export async function atualizarLancamento(id: number, dados: EdicaoLancamento) {
+  return (await api.patch<LancamentoFinanceiro>(`/financeiro/lancamentos/${id}/`, dados)).data;
+}
+
+export async function excluirLancamento(id: number) {
+  await api.delete(`/financeiro/lancamentos/${id}/`);
 }

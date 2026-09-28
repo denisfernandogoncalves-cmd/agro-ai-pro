@@ -1,7 +1,9 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import axios from "axios";
+import UsuariosPage from "./pages/Usuarios/UsuariosPage";
 
 import {
+  api,
   atualizarPropriedade,
   criarPropriedade,
   excluirPropriedade,
@@ -30,6 +32,7 @@ import TalhoesPage from "./pages/Talhoes/TalhoesPage";
 
 import "./styles.css";
 import ImprimirA4 from "./components/ImprimirA4";
+import PropriedadesImpressao from "./components/PropriedadesImpressao";
 
 const areaEmAlqueires = (valor: string | number | null | undefined) =>
   (Number(valor || 0) / 2.42).toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
@@ -129,7 +132,14 @@ type PrivateAreaProps = {
 };
 
 function PrivateArea({ sair }: PrivateAreaProps) {
+  const [administrador, setAdministrador] = useState(false);
+  useEffect(() => {
+    let ativo = true;
+    api.get<{ is_staff: boolean }>("/auth/me/").then(({ data }) => { if (ativo) setAdministrador(data.is_staff); }).catch(() => { if (ativo) setAdministrador(false); });
+    return () => { ativo = false; };
+  }, []);
   const [modulo, setModulo] = useState<
+    "usuarios" |
     "propriedades" | "talhoes" | "cadastros-agricolas" | "cargas" | "producao-saldos" | "transferencias" | "vendas" | "clima" | "mercado" | "financeiro" | "estoque" | "operacoes" | "maquinas" | "relatorios" | "importacoes" | "insights"
   >("propriedades");
   const [propriedades, setPropriedades] = useState<Propriedade[]>([]);
@@ -228,7 +238,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
           <div>
             <span className="kicker">AGRO-AI-PRO · Gestão rural</span>
             <h1>
-            {modulo === "propriedades"
+            {modulo === "usuarios" ? "Usuários" : modulo === "propriedades"
               ? "Propriedades"
               : modulo === "talhoes"
                 ? "Talhões"
@@ -334,9 +344,12 @@ function PrivateArea({ sair }: PrivateAreaProps) {
         <button className={modulo === "relatorios" ? "" : "secundario"} onClick={() => setModulo("relatorios")}>Relatórios</button>
         <button className={modulo === "importacoes" ? "" : "secundario"} onClick={() => setModulo("importacoes")}>Importações</button>
         <button className={modulo === "insights" ? "" : "secundario"} onClick={() => setModulo("insights")}>Assistente</button>
+        {administrador && <button className={modulo === "usuarios" ? "" : "secundario"} onClick={() => setModulo("usuarios")}>Usuários</button>}
       </nav>
 
-      {modulo === "talhoes" ? (
+      {modulo === "usuarios" ? (
+        <UsuariosPage />
+      ) : modulo === "talhoes" ? (
         <TalhoesPage />
       ) : modulo === "cadastros-agricolas" ? (
         <CadastrosAgricolasPage propriedades={propriedades} />
@@ -371,6 +384,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
           {erro && <p className="erro card">{erro}</p>}
 
           <section className="grade modulo-propriedades">
+        <PropriedadesImpressao propriedades={propriedades} carregando={carregando} />
         <form className="card formulario" onSubmit={salvar}>
           <h2>{edicaoId ? "Editar propriedade" : "Nova propriedade"}</h2>
           <label>Nome<input required value={formulario.nome} onChange={(e) => setFormulario({ ...formulario, nome: e.target.value })} /></label>

@@ -16,7 +16,7 @@ from .serializers import (
     MovimentacaoEstoqueSerializer,
     ProdutoEstoqueSerializer,
 )
-from .services import posicao_estoque, resumo_estoque
+from .services import EstoqueInsuficienteError, excluir_movimentacao, posicao_estoque, resumo_estoque
 
 
 class CadastroEstoqueMixin:
@@ -110,6 +110,17 @@ class MovimentacaoEstoqueViewSet(
     )
     ordering = ("-data_movimento", "-id")
     ordering_fields = ("data_movimento", "quantidade", "custo_unitario", "tipo")
+
+    def destroy(self, request, *args, **kwargs):
+        try:
+            excluir_movimentacao(self.get_object())
+        except EstoqueInsuficienteError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_409_CONFLICT)
+        except ProtectedError:
+            return Response({"detail": "Este lançamento está vinculado a uma operação agrícola e não pode ser excluído."}, status=status.HTTP_409_CONFLICT)
+        except MovimentacaoEstoque.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     def get_queryset(self):
         queryset = super().get_queryset()
