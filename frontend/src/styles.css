@@ -137,3 +137,7 @@ header { align-items: center; display: flex; justify-content: space-between; mar
   .mercado-controles { align-items: stretch; flex-direction: column; }
   .financeiro-grade, .estoque-grade, .operacoes-grade, .maquinas-grade, .relatorios-grade, .filtros-relatorio, .controles-insights, .painel-filtros, .auxiliares-grade, .linha-insumo { grid-template-columns: 1fr; }
 }
+
+.filtros-financeiro { display: grid; gap: 0.8rem; }
+.filtros-financeiro h2, .filtros-financeiro p { margin: 0; }
+@media (max-width: 700px) { .filtros-financeiro .linha { grid-template-columns: 1fr; } }

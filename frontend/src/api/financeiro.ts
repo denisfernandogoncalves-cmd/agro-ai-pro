@@ -79,6 +79,11 @@ export async function carregarFinanceiro(filtros?: {
   tipo?: string;
   status?: string;
   search?: string;
+  parceiro?: string;
+  vencimento_inicio?: string;
+  vencimento_fim?: string;
+  liquidacao_inicio?: string;
+  liquidacao_fim?: string;
 }) {
   const [categorias, parceiros, centros, lancamentos, resumo] = await Promise.all([
     api.get<CategoriaFinanceira[]>("/financeiro/categorias/"),
@@ -87,7 +92,7 @@ export async function carregarFinanceiro(filtros?: {
     api.get<LancamentoFinanceiro[]>("/financeiro/lancamentos/", {
       params: { ...filtros, ordering: "data_vencimento" },
     }),
-    api.get<ResumoFinanceiro>("/financeiro/lancamentos/resumo/"),
+    api.get<ResumoFinanceiro>("/financeiro/lancamentos/resumo/", { params: filtros }),
   ]);
   return {
     categorias: categorias.data,

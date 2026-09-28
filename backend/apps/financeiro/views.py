@@ -5,6 +5,7 @@ from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
 
 from .models import (
     CategoriaFinanceira,
@@ -88,12 +89,19 @@ class LancamentoFinanceiroViewSet(viewsets.ModelViewSet):
             valor = self.request.query_params.get(parametro, "").strip()
             if valor:
                 queryset = queryset.filter(**{campo: valor})
-        inicio = self.request.query_params.get("vencimento_inicio", "").strip()
-        fim = self.request.query_params.get("vencimento_fim", "").strip()
-        if inicio:
-            queryset = queryset.filter(data_vencimento__gte=inicio)
-        if fim:
-            queryset = queryset.filter(data_vencimento__lte=fim)
+        for prefixo, campo in (("vencimento", "data_vencimento"), ("liquidacao", "data_liquidacao")):
+            datas = {}
+            for limite, operador in (("inicio", "gte"), ("fim", "lte")):
+                parametro = f"{prefixo}_{limite}"
+                valor = self.request.query_params.get(parametro, "").strip()
+                if valor:
+                    try:
+                        datas[limite] = date.fromisoformat(valor)
+                    except ValueError:
+                        raise ValidationError({parametro: "Informe uma data válida (AAAA-MM-DD)."})
+                    queryset = queryset.filter(**{f"{campo}__{operador}": datas[limite]})
+            if "inicio" in datas and "fim" in datas and datas["inicio"] > datas["fim"]:
+                raise ValidationError({f"{prefixo}_fim": "A data final deve ser igual ou posterior à inicial."})
         return queryset
 
     @action(detail=True, methods=["post"])
@@ -128,4 +136,4 @@ class LancamentoFinanceiroViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"])
     def resumo(self, request):
-        return Response(resumo_financeiro(self.get_queryset()))
+        return Response(resumo_financeiro(self.filter_queryset(self.get_queryset())))

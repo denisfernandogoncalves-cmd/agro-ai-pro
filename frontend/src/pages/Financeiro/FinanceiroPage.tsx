@@ -50,6 +50,8 @@ function moeda(valor: string | number) {
   });
 }
 
+const filtrosVazios = { tipo: "", status: "", search: "", parceiro: "", dataReferencia: "vencimento", inicio: "", fim: "" };
+
 type Props = { propriedades: Propriedade[] };
 
 export default function FinanceiroPage({ propriedades }: Props) {
@@ -59,7 +61,7 @@ export default function FinanceiroPage({ propriedades }: Props) {
   const [lancamentos, setLancamentos] = useState<LancamentoFinanceiro[]>([]);
   const [resumo, setResumo] = useState<ResumoFinanceiro | null>(null);
   const [formulario, setFormulario] = useState<LancamentoInput>(vazio);
-  const [filtros, setFiltros] = useState({ tipo: "", status: "", search: "" });
+  const [filtros, setFiltros] = useState(filtrosVazios);
   const [auxiliar, setAuxiliar] = useState({
     categoria: "",
     aplicacao: "despesa",
@@ -72,11 +74,19 @@ export default function FinanceiroPage({ propriedades }: Props) {
   const [erro, setErro] = useState("");
   const [carregando, setCarregando] = useState(false);
 
-  async function carregar() {
+  async function carregar(selecao = filtros) {
+    if (selecao.inicio && selecao.fim && selecao.inicio > selecao.fim) {
+      setErro("A data final deve ser igual ou posterior à inicial.");
+      return;
+    }
     setCarregando(true);
     setErro("");
     try {
-      const dados = await carregarFinanceiro(filtros);
+      const dados = await carregarFinanceiro({
+        tipo: selecao.tipo, status: selecao.status, search: selecao.search, parceiro: selecao.parceiro,
+        [`${selecao.dataReferencia}_inicio`]: selecao.inicio,
+        [`${selecao.dataReferencia}_fim`]: selecao.fim,
+      });
       setCategorias(dados.categorias);
       setParceiros(dados.parceiros);
       setCentros(dados.centros);
@@ -153,8 +163,9 @@ export default function FinanceiroPage({ propriedades }: Props) {
     <section className="modulo-financeiro">
       {erro && <p className="erro card">{erro}</p>}
       {resumo && (
-        <section className="resumos-financeiros">
+        <section className="resumos-financeiros" aria-label="Totais dos filtros aplicados">
           <article className="card"><span>A pagar</span><strong>{moeda(resumo.a_pagar)}</strong></article>
+          <article className="card"><span>Pagos</span><strong>{moeda(resumo.saidas_realizadas)}</strong></article>
           <article className="card"><span>A receber</span><strong>{moeda(resumo.a_receber)}</strong></article>
           <article className="card"><span>Saldo previsto</span><strong>{moeda(resumo.saldo_previsto)}</strong></article>
           <article className="card"><span>Saldo realizado</span><strong>{moeda(resumo.saldo_realizado)}</strong></article>
@@ -186,22 +197,37 @@ export default function FinanceiroPage({ propriedades }: Props) {
         </form>
 
         <section className="conteudo">
-          <form className="card painel-filtros" onSubmit={(e) => { e.preventDefault(); void carregar(); }}>
-            <input aria-label="Buscar lançamentos" placeholder="Buscar descrição, parceiro ou safra" value={filtros.search} onChange={(e) => setFiltros({ ...filtros, search: e.target.value })} />
-            <select value={filtros.tipo} onChange={(e) => setFiltros({ ...filtros, tipo: e.target.value })}><option value="">Todos os tipos</option><option value="pagar">A pagar</option><option value="receber">A receber</option></select>
-            <select value={filtros.status} onChange={(e) => setFiltros({ ...filtros, status: e.target.value })}><option value="">Todos os status</option><option value="pendente">Pendente</option><option value="liquidado">Liquidado</option><option value="cancelado">Cancelado</option></select>
-            <button type="submit">Aplicar filtros</button>
+          <form className="card filtros-financeiro" onSubmit={(e) => { e.preventDefault(); void carregar(); }}>
+            <h2>Filtros financeiros</h2>
+            <p>Os totais e a lista consideram os filtros aplicados.</p>
+            <label>Buscar lançamentos<input placeholder="Descrição, parceiro ou safra" value={filtros.search} onChange={(e) => setFiltros({ ...filtros, search: e.target.value })} /></label>
+            <div className="linha">
+              <label>Tipo<select value={filtros.tipo} onChange={(e) => setFiltros({ ...filtros, tipo: e.target.value })}><option value="">Todos os tipos</option><option value="pagar">Contas a pagar / pagas</option><option value="receber">Contas a receber / recebidas</option></select></label>
+              <label>Situação<select value={filtros.status} onChange={(e) => setFiltros({ ...filtros, status: e.target.value })}><option value="">Todas as situações</option><option value="pendente">A pagar / a receber</option><option value="liquidado">Pagos / recebidos</option><option value="cancelado">Cancelados</option></select></label>
+            </div>
+            <label>Quem recebe / parceiro<select value={filtros.parceiro} onChange={(e) => setFiltros({ ...filtros, parceiro: e.target.value })}><option value="">Todos os parceiros</option>{parceiros.map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select></label>
+            <label>Filtrar por data de<select value={filtros.dataReferencia} onChange={(e) => setFiltros({ ...filtros, dataReferencia: e.target.value })}><option value="vencimento">Vencimento</option><option value="liquidacao">Pagamento / recebimento</option></select></label>
+            <div className="linha">
+              <label>Data inicial<input type="date" value={filtros.inicio} onChange={(e) => setFiltros({ ...filtros, inicio: e.target.value })} /></label>
+              <label>Data final<input type="date" min={filtros.inicio || undefined} value={filtros.fim} onChange={(e) => setFiltros({ ...filtros, fim: e.target.value })} /></label>
+            </div>
+            <div className="acoes">
+              <button disabled={carregando} type="submit">Aplicar filtros</button>
+              <button disabled={carregando} type="button" className="secundario" onClick={() => { setFiltros(filtrosVazios); void carregar(filtrosVazios); }}>Limpar filtros</button>
+            </div>
           </form>
           <div className="lista">
             {lancamentos.map((item) => (
               <article className={`card item lancamento ${item.atrasado ? "atrasado" : ""}`} key={item.id}>
                 <div>
-                  <span className="kicker">{item.tipo === "pagar" ? "A pagar" : "A receber"} · {item.status}</span>
+                  <span className="kicker">{item.status === "liquidado" ? (item.tipo === "pagar" ? "Pago" : "Recebido") : (item.tipo === "pagar" ? "A pagar" : "A receber")} · {item.status}</span>
                   <h3>{item.descricao}</h3>
                   <p>{item.categoria_nome} · vence {item.data_vencimento}</p>
+                  <p>{item.tipo === "pagar" ? "Quem recebe" : "Parceiro"}: {item.parceiro_nome || "Não informado"}</p>
+                  {item.data_liquidacao && <p>{item.tipo === "pagar" ? "Pago" : "Recebido"} em {item.data_liquidacao}</p>}
                 </div>
                 <div>
-                  <strong>{moeda(item.valor)}</strong>
+                  <strong>{moeda(item.status === "liquidado" ? item.valor_liquidado ?? item.valor : item.valor)}</strong>
                   {item.status === "pendente" && <div className="acoes"><button onClick={() => void liquidar(item)}>Liquidar</button><button className="perigo" onClick={() => void cancelar(item)}>Cancelar</button></div>}
                 </div>
               </article>
