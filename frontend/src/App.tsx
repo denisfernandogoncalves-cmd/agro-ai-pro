@@ -1,6 +1,10 @@
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { AcoesContext, autorizado, BotaoAcao, DestinoConsulta, useDestinoConsulta } from "./components/AcoesContext";
+import { nomeModulo } from "./components/gruposModulos";
+import { FormEvent, lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
-import UsuariosPage from "./pages/Usuarios/UsuariosPage";
+import type { Pagina, UsuarioAtual } from "./api/usuarios";
+import NavegacaoModulos from "./components/NavegacaoModulos";
+import PainelFormulario from "./components/PainelFormulario";
 
 import {
   api,
@@ -12,27 +16,32 @@ import {
   PropriedadeInput,
 } from "./api/propriedades";
 import { useAuth } from "./auth/AuthContext";
-import MapaPropriedade from "./components/MapaPropriedade";
 import AplicativoStatus from "./components/AplicativoStatus";
-import ClimaPage from "./pages/Clima/ClimaPage";
-import CargasColhidasPage from "./pages/CargasColhidas/CargasColhidasPage";
-import CadastrosAgricolasPage from "./pages/CadastrosAgricolas/CadastrosAgricolasPage";
-import ProducaoSaldosPage from "./pages/ProducaoSaldos/ProducaoSaldosPage";
-import TransferenciasSaldoPage from "./pages/TransferenciasSaldo/TransferenciasSaldoPage";
-import VendasPage from "./pages/Vendas/VendasPage";
-import EstoquePage from "./pages/Estoque/EstoquePage";
-import FinanceiroPage from "./pages/Financeiro/FinanceiroPage";
-import MercadoPage from "./pages/Mercado/MercadoPage";
-import MaquinasPage from "./pages/Maquinas/MaquinasPage";
-import OperacoesPage from "./pages/Operacoes/OperacoesPage";
-import RelatoriosPage from "./pages/Relatorios/RelatoriosPage";
-import ImportacoesPage from "./pages/Importacoes/ImportacoesPage";
-import InsightsPage from "./pages/Insights/InsightsPage";
-import TalhoesPage from "./pages/Talhoes/TalhoesPage";
 
 import "./styles.css";
 import ImprimirA4 from "./components/ImprimirA4";
 import PropriedadesImpressao from "./components/PropriedadesImpressao";
+
+const PainelPage = lazy(() => import("./pages/Painel/PainelPage"));
+const HistoricoPage = lazy(() => import("./pages/Historico/HistoricoPage"));
+const UsuariosPage = lazy(() => import("./pages/Usuarios/UsuariosPage"));
+const MapaPropriedade = lazy(() => import("./components/MapaPropriedade"));
+const ClimaPage = lazy(() => import("./pages/Clima/ClimaPage"));
+const CargasColhidasPage = lazy(() => import("./pages/CargasColhidas/CargasColhidasPage"));
+const CadastrosAgricolasPage = lazy(() => import("./pages/CadastrosAgricolas/CadastrosAgricolasPage"));
+const ProducaoSaldosPage = lazy(() => import("./pages/ProducaoSaldos/ProducaoSaldosPage"));
+const TransferenciasSaldoPage = lazy(() => import("./pages/TransferenciasSaldo/TransferenciasSaldoPage"));
+const VendasPage = lazy(() => import("./pages/Vendas/VendasPage"));
+const EstoquePage = lazy(() => import("./pages/Estoque/EstoquePage"));
+const FaturamentoInsumos = lazy(() => import("./pages/Estoque/FaturamentoInsumos"));
+const FinanceiroPage = lazy(() => import("./pages/Financeiro/FinanceiroPage"));
+const MercadoPage = lazy(() => import("./pages/Mercado/MercadoPage"));
+const MaquinasPage = lazy(() => import("./pages/Maquinas/MaquinasPage"));
+const OperacoesPage = lazy(() => import("./pages/Operacoes/OperacoesPage"));
+const RelatoriosPage = lazy(() => import("./pages/Relatorios/RelatoriosPage"));
+const ImportacoesPage = lazy(() => import("./pages/Importacoes/ImportacoesPage"));
+const InsightsPage = lazy(() => import("./pages/Insights/InsightsPage"));
+const TalhoesPage = lazy(() => import("./pages/Talhoes/TalhoesPage"));
 
 const areaEmAlqueires = (valor: string | number | null | undefined) =>
   (Number(valor || 0) / 2.42).toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
@@ -41,6 +50,7 @@ const valorAlqueiresParaFormulario = (valor: string | number | null | undefined)
 
 
 const formularioVazio: PropriedadeInput = {
+  bp_cvale: "",
   nome: "",
   proprietario: "",
   municipio: "",
@@ -76,16 +86,20 @@ function Login({ authenticate }: LoginProps) {
     password: "",
   });
   const [error, setError] = useState("");
+  const [entrando, setEntrando] = useState(false);
+  const travaLogin = useRef(false);
 
   async function submitLogin(event: FormEvent) {
     event.preventDefault();
+    if (travaLogin.current) return;
+    travaLogin.current = true; setEntrando(true);
     setError("");
     try {
       await authenticate(credentials.username, credentials.password);
       setCredentials({ username: "", password: "" });
     } catch {
       setError("Usuário ou senha inválidos.");
-    }
+    } finally { travaLogin.current = false; setEntrando(false); }
   }
 
   return (
@@ -120,8 +134,8 @@ function Login({ authenticate }: LoginProps) {
             required
           />
         </label>
-        {error && <p className="erro">{error}</p>}
-        <button type="submit">Entrar</button>
+        {error && <p className="erro" role="alert">{error}</p>}
+        <button disabled={entrando} type="submit">{entrando ? "Entrando..." : "Entrar"}</button>
       </form>
     </main>
   );
@@ -131,17 +145,31 @@ type PrivateAreaProps = {
   sair: () => Promise<boolean>;
 };
 
+function DestinoPropriedade({ destino, aplicar }: {destino?: DestinoConsulta; aplicar: (termo:string, id?:number) => void}) {
+  useDestinoConsulta("propriedades", (filtros, id) => aplicar(String(filtros.search || ""), id));
+  return destino ? <p className="card destino-aviso nao-imprimir">Consulta aberta a partir do painel{destino.registro ? ` · registro #${destino.registro}` : ""}. Confira o registro indicado abaixo.</p> : null;
+}
+
 function PrivateArea({ sair }: PrivateAreaProps) {
-  const [administrador, setAdministrador] = useState(false);
+  const [acesso, setAcesso] = useState<UsuarioAtual | null>(null);
+  const [erroAcesso, setErroAcesso] = useState(false);
+  const [modulo, setModulo] = useState<Pagina>("inicio");
+  const [destino, setDestino] = useState<DestinoConsulta>();
+  const atualizarAcesso = useCallback(async () => {
+    try {
+      const { data } = await api.get<UsuarioAtual>("/auth/me/");
+      setAcesso(data); setErroAcesso(false);
+      setModulo(atual => autorizado(data, atual, "consultar") ? atual : "inicio");
+    } catch { setAcesso(null); setErroAcesso(true); }
+  }, []);
   useEffect(() => {
     let ativo = true;
-    api.get<{ is_staff: boolean }>("/auth/me/").then(({ data }) => { if (ativo) setAdministrador(data.is_staff); }).catch(() => { if (ativo) setAdministrador(false); });
-    return () => { ativo = false; };
-  }, []);
-  const [modulo, setModulo] = useState<
-    "usuarios" |
-    "propriedades" | "talhoes" | "cadastros-agricolas" | "cargas" | "producao-saldos" | "transferencias" | "vendas" | "clima" | "mercado" | "financeiro" | "estoque" | "operacoes" | "maquinas" | "relatorios" | "importacoes" | "insights"
-  >("propriedades");
+    const atualizar = () => { if (ativo) void atualizarAcesso(); };
+    atualizar();
+    window.addEventListener("focus", atualizar);
+    const intervalo = window.setInterval(atualizar, 30000);
+    return () => { ativo = false; window.removeEventListener("focus", atualizar); window.clearInterval(intervalo); };
+  }, [atualizarAcesso]);
   const [propriedades, setPropriedades] = useState<Propriedade[]>([]);
   const [selecionada, setSelecionada] = useState<Propriedade | null>(null);
   const [edicaoId, setEdicaoId] = useState<number | null>(null);
@@ -149,6 +177,8 @@ function PrivateArea({ sair }: PrivateAreaProps) {
   const [busca, setBusca] = useState("");
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
+  const [salvando, setSalvando] = useState(false);
+  const travaPropriedade = useRef(false);
 
   const carregar = useCallback(async (termo = "") => {
     setCarregando(true);
@@ -167,11 +197,14 @@ function PrivateArea({ sair }: PrivateAreaProps) {
   }, []);
 
   useEffect(() => {
-    void carregar();
-  }, [carregar]);
+    if (acesso && acesso.modulos.some(item => item !== "mercado")) void carregar();
+    else { setPropriedades([]); setSelecionada(null); }
+  }, [carregar, acesso?.modulos.join(",")]);
 
   async function salvar(evento: FormEvent) {
     evento.preventDefault();
+    if (travaPropriedade.current) return;
+    travaPropriedade.current = true; setSalvando(true);
     setCarregando(true);
     setErro("");
     try {
@@ -186,12 +219,13 @@ function PrivateArea({ sair }: PrivateAreaProps) {
     } catch (falha) {
       setErro(mensagemDoErro(falha));
       setCarregando(false);
-    }
+    } finally { travaPropriedade.current = false; setSalvando(false); }
   }
 
   function editar(item: Propriedade) {
     setEdicaoId(item.id);
     setFormulario({
+      bp_cvale: item.bp_cvale ?? "",
       nome: item.nome,
       proprietario: item.proprietario,
       municipio: item.municipio,
@@ -206,21 +240,23 @@ function PrivateArea({ sair }: PrivateAreaProps) {
   }
 
   async function excluir(item: Propriedade) {
+    if (travaPropriedade.current) return;
     if (!window.confirm(`Excluir a propriedade "${item.nome}"?`)) {
       return;
     }
     setErro("");
+    travaPropriedade.current = true; setSalvando(true);
     try {
       await excluirPropriedade(item.id);
       await carregar(busca);
     } catch (falha) {
       setErro(mensagemDoErro(falha));
-    }
+    } finally { travaPropriedade.current = false; setSalvando(false); }
   }
 
   async function encerrarSessao() {
     setErro("");
-    setModulo("propriedades");
+    setModulo("inicio");
     setPropriedades([]);
     setSelecionada(null);
     setEdicaoId(null);
@@ -231,6 +267,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
   }
 
   return (
+    <AcoesContext.Provider value={{acesso, modulo, destino}}><Suspense fallback={<main className="pagina"><section className="card" role="status">Carregando tela...</section></main>}>
     <main className="pagina">
       <header>
         <div className="cabecalho-identidade">
@@ -238,29 +275,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
           <div>
             <span className="kicker">AGRO-AI-PRO · Gestão rural</span>
             <h1>
-            {modulo === "usuarios" ? "Usuários" : modulo === "propriedades"
-              ? "Propriedades"
-              : modulo === "talhoes"
-                ? "Talhões"
-                : modulo === "cargas"
-                  ? "Cargas colhidas"
-                : modulo === "cadastros-agricolas"
-                  ? "Cadastros agrícolas"
-                : modulo === "producao-saldos"
-                  ? "Produção e saldos"
-                : modulo === "transferencias"
-                  ? "Transferência de saldo"
-                : modulo === "vendas"
-                  ? "Vendas"
-                : modulo === "clima"
-                  ? "Clima"
-                  : modulo === "mercado"
-                    ? "Mercado"
-                    : modulo === "financeiro"
-                      ? "Financeiro"
-                      : modulo === "estoque"
-                        ? "Estoque"
-                        : modulo === "operacoes" ? "Operações" : modulo === "maquinas" ? "Máquinas" : modulo === "relatorios" ? "Relatórios" : modulo === "importacoes" ? "Importações" : "Assistente"}
+            {modulo === "inicio" ? "Painel inicial" : modulo === "historico" ? "Histórico de alterações" : modulo === "usuarios" ? "Usuários" : nomeModulo(modulo)}
             </h1>
           </div>
         </div>
@@ -271,84 +286,21 @@ function PrivateArea({ sair }: PrivateAreaProps) {
         </div>
       </header>
 
-      <nav className="navegacao-modulos" aria-label="Módulos agrícolas">
-        <span className="navegacao-titulo">Módulos</span>
-        <button
-          className={modulo === "propriedades" ? "" : "secundario"}
-          onClick={() => setModulo("propriedades")}
-        >
-          Propriedades
-        </button>
-        <button
-          className={modulo === "talhoes" ? "" : "secundario"}
-          onClick={() => setModulo("talhoes")}
-        >
-          Talhões
-        </button>
-        <button
-          className={modulo === "cadastros-agricolas" ? "" : "secundario"}
-          onClick={() => setModulo("cadastros-agricolas")}
-        >
-          Cadastros agrícolas
-        </button>
-        <button
-          className={modulo === "cargas" ? "" : "secundario"}
-          onClick={() => setModulo("cargas")}
-        >
-          Cargas colhidas
-        </button>
-        <button
-          className={modulo === "producao-saldos" ? "" : "secundario"}
-          onClick={() => setModulo("producao-saldos")}
-        >
-          Produção e saldos
-        </button>
-        <button className={modulo === "transferencias" ? "" : "secundario"} onClick={() => setModulo("transferencias")}>Transferência de saldo</button>
-        <button
-          className={modulo === "vendas" ? "" : "secundario"}
-          onClick={() => setModulo("vendas")}
-        >
-          Vendas
-        </button>
-        <button
-          className={modulo === "clima" ? "" : "secundario"}
-          onClick={() => setModulo("clima")}
-        >
-          Clima
-        </button>
-        <button
-          className={modulo === "mercado" ? "" : "secundario"}
-          onClick={() => setModulo("mercado")}
-        >
-          Mercado
-        </button>
-        <button
-          className={modulo === "financeiro" ? "" : "secundario"}
-          onClick={() => setModulo("financeiro")}
-        >
-          Financeiro
-        </button>
-        <button
-          className={modulo === "estoque" ? "" : "secundario"}
-          onClick={() => setModulo("estoque")}
-        >
-          Estoque
-        </button>
-        <button
-          className={modulo === "operacoes" ? "" : "secundario"}
-          onClick={() => setModulo("operacoes")}
-        >
-          Operações
-        </button>
-        <button className={modulo === "maquinas" ? "" : "secundario"} onClick={() => setModulo("maquinas")}>Máquinas</button>
-        <button className={modulo === "relatorios" ? "" : "secundario"} onClick={() => setModulo("relatorios")}>Relatórios</button>
-        <button className={modulo === "importacoes" ? "" : "secundario"} onClick={() => setModulo("importacoes")}>Importações</button>
-        <button className={modulo === "insights" ? "" : "secundario"} onClick={() => setModulo("insights")}>Assistente</button>
-        {administrador && <button className={modulo === "usuarios" ? "" : "secundario"} onClick={() => setModulo("usuarios")}>Usuários</button>}
-      </nav>
+      <DestinoPropriedade destino={destino} aplicar={(termo, id) => {setBusca(termo); void carregar(termo); if (id) setSelecionada(propriedades.find(item => item.id === id) ?? null);}} />
+      <NavegacaoModulos acesso={acesso} modulo={modulo} onSelecionar={id => {setDestino(undefined); setModulo(id);}} />
 
-      {modulo === "usuarios" ? (
-        <UsuariosPage />
+      {!acesso ? (
+        <section className="card"><p role={erroAcesso ? "alert" : "status"}>{erroAcesso ? "Não foi possível verificar seus acessos." : "Carregando acessos..."}</p>{erroAcesso && <button onClick={() => void atualizarAcesso()}>Tentar novamente</button>}</section>
+      ) : !autorizado(acesso, modulo, "consultar") ? (
+        <section className="card"><p>Nenhum item permitido. Solicite acesso ao administrador.</p></section>
+      ) : modulo === "inicio" ? (
+        <PainelPage propriedades={propriedades} abrir={alvo => {setDestino({...alvo, chave:Date.now()}); setModulo(alvo.modulo);}} />
+      ) : modulo === "historico" ? (
+        <HistoricoPage />
+      ) : modulo === "faturamento-insumos" ? (
+        <FaturamentoInsumos />
+      ) : modulo === "usuarios" ? (
+        <UsuariosPage usuarioAtualId={acesso.id} onAtualizado={() => void atualizarAcesso()} />
       ) : modulo === "talhoes" ? (
         <TalhoesPage />
       ) : modulo === "cadastros-agricolas" ? (
@@ -381,14 +333,17 @@ function PrivateArea({ sair }: PrivateAreaProps) {
         <InsightsPage propriedades={propriedades} />
       ) : (
         <>
-          {erro && <p className="erro card">{erro}</p>}
+          {erro && <p className="erro card" role="alert">{erro}</p>}
 
           <section className="grade modulo-propriedades">
         <PropriedadesImpressao propriedades={propriedades} carregando={carregando} />
+        <PainelFormulario titulo={edicaoId ? "Editar propriedade" : "Nova propriedade"} edicao={edicaoId}>
         <form className="card formulario" onSubmit={salvar}>
+          <fieldset className="campos-formulario" disabled={salvando}>
           <h2>{edicaoId ? "Editar propriedade" : "Nova propriedade"}</h2>
           <label>Nome<input required value={formulario.nome} onChange={(e) => setFormulario({ ...formulario, nome: e.target.value })} /></label>
           <label>Proprietário<input value={formulario.proprietario} onChange={(e) => setFormulario({ ...formulario, proprietario: e.target.value })} /></label>
+          <label>BP C.Vale<input inputMode="numeric" pattern="[0-9]*" maxLength={40} value={formulario.bp_cvale ?? ""} onChange={e => setFormulario({ ...formulario, bp_cvale: e.target.value })} /><small>Opcional. Usado como BEP somente no faturamento da C.Vale.</small></label>
           <div className="linha">
             <label>Município<input required value={formulario.municipio} onChange={(e) => setFormulario({ ...formulario, municipio: e.target.value })} /></label>
             <label>UF<input maxLength={2} value={formulario.uf} onChange={(e) => setFormulario({ ...formulario, uf: e.target.value.toUpperCase() })} /></label>
@@ -402,10 +357,12 @@ function PrivateArea({ sair }: PrivateAreaProps) {
           <label>KML (até 5 MB)<input accept=".kml" type="file" onChange={(e) => setFormulario({ ...formulario, arquivo_kml: e.target.files?.[0] ?? null })} /></label>
           <label>Observações<textarea value={formulario.observacoes} onChange={(e) => setFormulario({ ...formulario, observacoes: e.target.value })} /></label>
           <div className="acoes">
-            <button disabled={carregando} type="submit">Salvar</button>
+            <button disabled={carregando || salvando} type="submit">{salvando ? "Salvando..." : "Salvar"}</button>
             {edicaoId && <button className="secundario" type="button" onClick={() => { setEdicaoId(null); setFormulario(formularioVazio); }}>Cancelar</button>}
           </div>
+          </fieldset>
         </form>
+        </PainelFormulario>
 
         <section className="conteudo">
           <form className="busca" onSubmit={(e) => { e.preventDefault(); void carregar(busca); }}>
@@ -414,7 +371,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
           </form>
 
           {carregando && propriedades.length === 0 ? (
-            <p>Carregando propriedades...</p>
+            <p role="status">Carregando propriedades...</p>
           ) : propriedades.length === 0 ? (
             <div className="card vazio">Nenhuma propriedade cadastrada.</div>
           ) : (
@@ -434,8 +391,8 @@ function PrivateArea({ sair }: PrivateAreaProps) {
                     )}
                   </div>
                   <div className="acoes">
-                    <button className="secundario" onClick={(e) => { e.stopPropagation(); editar(item); }}>Editar</button>
-                    <button className="perigo" onClick={(e) => { e.stopPropagation(); void excluir(item); }}>Excluir</button>
+                    <BotaoAcao acao="editar" disabled={salvando} className="secundario" onClick={(e) => { e.stopPropagation(); editar(item); }}>Editar</BotaoAcao>
+                    <BotaoAcao acao="excluir" disabled={salvando} className="perigo" onClick={(e) => { e.stopPropagation(); void excluir(item); }}>Excluir</BotaoAcao>
                   </div>
                 </article>
               ))}
@@ -455,6 +412,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
         </>
       )}
     </main>
+    </Suspense></AcoesContext.Provider>
   );
 }
 

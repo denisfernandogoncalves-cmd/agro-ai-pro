@@ -237,8 +237,10 @@ dialog.editor-lancamento { width: min(640px, 94vw); max-height: 90vh; overflow-y
 .insight.atencao { border-left: 5px solid #d7a633; }
 .insight.informativo { border-left: 5px solid #237447; }
 .modulo-cargas { display: grid; gap: 1.4rem; }
-.modulo-producao-saldos { display: grid; gap: 1.4rem; }
-.modulo-vendas { display: grid; gap: 1.4rem; }
+.modulo-producao-saldos { display: grid; gap: 1.4rem; grid-template-columns: minmax(0, 1fr); }
+.modulo-vendas { display: grid; gap: 1.4rem; grid-template-columns: minmax(0, 1fr); }
+.modulo-producao-saldos > *, .modulo-vendas > *, .producao-saldos-grade > * { min-width: 0; }
+.modulo-producao-saldos .movimento-saldo, .modulo-producao-saldos .movimento-saldo > div { min-width: 0; overflow-wrap: anywhere; }
 .filtros-vendas { display: grid; gap: 0.6rem; grid-template-columns: 2fr repeat(4, minmax(120px, 1fr)) auto; }
 .vendas-grade { grid-template-columns: 1fr; }
 .formulario-venda-horizontal {
@@ -276,7 +278,8 @@ dialog.editor-lancamento { width: min(640px, 94vw); max-height: 90vh; overflow-y
 .venda-item { cursor: pointer; gap: 1rem; }
 .metricas-venda { display: grid; gap: 0.3rem; min-width: 220px; }
 .metricas-venda span { display: flex; gap: 0.8rem; justify-content: space-between; }
-.detalhe-venda { display: grid; gap: 1rem; }
+.detalhe-venda { display: grid; gap: 1rem; grid-template-columns: minmax(0, 1fr); }
+.detalhe-venda > * { min-width: 0; }
 .detalhe-venda-topo { align-items: flex-start; display: flex; gap: 1rem; justify-content: space-between; }
 .resumo-venda { display: grid; gap: 0.8rem; grid-template-columns: repeat(4, 1fr); }
 .resumo-venda span { background: #f4f8f4; border-radius: 8px; display: grid; gap: 0.3rem; padding: 0.8rem; }
@@ -422,6 +425,7 @@ dialog.editor-lancamento { width: min(640px, 94vw); max-height: 90vh; overflow-y
   .mercado-controles { align-items: stretch; flex-direction: column; }
   .financeiro-grade, .estoque-grade, .operacoes-grade, .cargas-grade, .producao-saldos-grade, .vendas-grade, .filtros-vendas, .filtros-saldos, .resumo-saldos, .resumo-venda, .maquinas-grade, .relatorios-grade, .filtros-relatorio, .controles-insights, .painel-filtros, .auxiliares-grade, .linha-insumo, .regras-desconto, .formulario-saida { grid-template-columns: 1fr; }
   .formulario-venda-horizontal { grid-template-columns: 1fr; max-height: none; overflow-y: visible; position: static; }
+  .formulario-venda-horizontal > * { grid-column: 1 / -1; min-width: 0; }
   .formulario-venda-horizontal > h3, .formulario-venda-horizontal > p,
   .formulario-venda-horizontal > fieldset, .formulario-venda-horizontal > label:has(textarea) { grid-column: 1; }
   .formulario-carga-horizontal,
@@ -619,5 +623,261 @@ dialog.editor-venda::backdrop { background: #102f2480; }
 }
 
 .filtros-financeiro { display: grid; gap: 0.8rem; }
+.modulo-faturamento { display: grid; gap: 1rem; }
+.modulo-faturamento fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 1rem; }
+.faturamento-campos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
+.faturamento-tabela { overflow-x: auto; }
+.faturamento-tabela table { width: 100%; border-collapse: collapse; }
+.faturamento-tabela th, .faturamento-tabela td { text-align: left; padding: .7rem; border-bottom: 1px solid #d9e2da; }
+.faturamento-tabela th { background: #edf3ee; }
+.faturamento-tabela input[type=number] { min-width: 100px; }
+.faturamento-checkbox { display: flex; align-items: center; gap: .5rem; }
+.faturamento-checkbox input { width: auto; }
+.modulo-faturamento .acoes { flex-wrap: wrap; }
+@media (max-width: 800px) { .faturamento-campos { grid-template-columns: 1fr; } }
 .filtros-financeiro h2, .filtros-financeiro p { margin: 0; }
 @media (max-width: 700px) { .filtros-financeiro .linha { grid-template-columns: 1fr; } }
+
+/* Listas compactas: as informações quebram conforme a largura disponível. */
+.vendas-lista-compacta > .lista { min-width: 0; padding-bottom: .25rem; }
+.modulo-vendas .vendas-lista-compacta .venda-item {
+  flex-direction: row;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+  padding: .65rem .8rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.vendas-lista-compacta .venda-item > div:first-child,
+.vendas-lista-compacta .metricas-venda {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .9rem;
+  min-width: 0;
+}
+.vendas-lista-compacta .venda-item h3,
+.vendas-lista-compacta .venda-item p { margin: 0; font-size: .85rem; }
+.vendas-lista-compacta .metricas-venda span { gap: .35rem; font-size: .85rem; }
+.vendas-lista-compacta .metricas-venda .acoes-lancamento { margin: 0; flex-wrap: wrap; }
+.vendas-lista-compacta .acoes-lancamento button { padding: .45rem .65rem; font-size: .85rem; }
+
+/* Propriedades: identificação, áreas, CAD/PRO e ações em linhas adaptáveis. */
+.propriedades-lista { min-width: 0; padding-bottom: .25rem; }
+.propriedades-lista .item {
+  flex-direction: row;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: .65rem .8rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.propriedades-lista .item > div:first-child { display: flex; flex-wrap: wrap; min-width: 0; align-items: center; gap: .5rem 1rem; }
+.propriedades-lista .item h3,
+.propriedades-lista .item p { margin: 0; font-size: .9rem; }
+.propriedades-lista .item .acoes { flex-wrap: wrap; margin: 0; }
+.propriedades-lista .item .acoes button { padding: .45rem .65rem; font-size: .85rem; }
+
+/* Cargas colhidas: hierarquia visual e quebra conforme a largura disponível. */
+.cargas-lista { min-width: 0; }
+.cargas-lista .carga-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: .75rem 1rem;
+  min-width: 0;
+  max-width: 100%;
+  padding: .85rem 1rem;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.cargas-lista .carga-item-topo {
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .6rem 1.5rem;
+  min-width: 0;
+}
+.cargas-lista .carga-item-topo > div:first-child {
+  display: flex;
+  flex: 1 1 28rem;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: .3rem .75rem;
+  min-width: 0;
+}
+.cargas-lista .carga-item-topo .kicker { color: #475569; font-size: .7rem; letter-spacing: .06em; }
+.cargas-lista .carga-item-topo h3 { margin: 0; color: #14543f; font-size: .95rem; }
+.cargas-lista .carga-item-topo p { margin: 0; font-size: .8rem; color: #475569; }
+.cargas-lista .carga-item-total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .35rem .65rem;
+  text-align: left;
+}
+.cargas-lista .carga-item-total .kicker { padding: .2rem .45rem; border-radius: 1rem; background: #edf5ef; color: #166348; }
+.cargas-lista .carga-item-total strong { color: #14543f; font-size: 1rem; }
+.cargas-lista .carga-metricas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem 1.5rem;
+  grid-column: 1;
+  padding: .6rem .75rem;
+  min-width: 0;
+}
+.cargas-lista .carga-metricas span { display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem; color: #475569; font-size: .8rem; }
+.cargas-lista .carga-metricas strong { color: #14543f; font-size: .95rem; }
+.cargas-lista .carga-analises {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem 1rem;
+  grid-column: 1 / -1;
+  grid-row: 3;
+  color: #475569;
+  font-size: .75rem;
+  border-top: 1px solid #e6ede8;
+  padding-top: .55rem;
+}
+.cargas-lista .carga-analises strong { color: #1e293b; font-weight: 600; }
+.cargas-lista .carga-item-acoes { grid-column: 2; grid-row: 2; flex-wrap: wrap; margin: 0; gap: .5rem; }
+.cargas-lista .carga-item-acoes button { padding: .45rem .65rem; font-size: .8rem; }
+.cargas-lista .carga-rateios {
+  grid-column: 1 / -1;
+  grid-row: 4;
+  display: grid;
+  gap: .4rem;
+  padding: .6rem .75rem;
+  min-width: 0;
+}
+.cargas-lista .carga-rateios h4 { margin: 0; color: #475569; font-size: .75rem; font-weight: 500; }
+.cargas-lista .carga-rateios ul { display: flex; flex-wrap: wrap; gap: .5rem 1.5rem; min-width: 0; }
+.cargas-lista .carga-rateios li { display: flex; flex: 1 1 22rem; flex-wrap: wrap; justify-content: space-between; gap: .3rem 1rem; padding: 0; min-width: 0; font-size: .8rem; }
+.cargas-lista .carga-rateios li + li { border: 0; }
+.cargas-lista .carga-rateios li > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: .4rem; min-width: 0; }
+.cargas-lista .carga-rateios li strong { color: #14543f; }
+.cargas-lista .carga-rateios li span { color: #475569; }
+.cargas-lista .carga-item > small { grid-column: 1 / -1; }
+@media (max-width: 640px) {
+  .cargas-lista .carga-item { grid-template-columns: minmax(0, 1fr); padding: .75rem; }
+  .cargas-lista .carga-item-acoes { grid-column: 1; grid-row: 5; justify-content: flex-end; }
+  .cargas-lista .carga-metricas { gap: .5rem 1rem; }
+}
+
+/* Administração de usuários e seleção de módulos. */
+.usuarios-grade { grid-template-columns: minmax(18rem, 1fr) minmax(0, 1.5fr); align-items: start; }
+.usuario-permissoes { border: 1px solid #d9e5dd; border-radius: .65rem; padding: .75rem; min-width: 0; }
+.usuario-permissoes p { font-size: .8rem; color: #475569; }
+.usuario-permissoes-lista { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: .6rem; margin-top: .75rem; }
+.usuario-checkbox { display: flex !important; align-items: center; gap: .5rem; font-size: .85rem; }
+.usuario-checkbox input { width: auto; min-height: auto; margin: 0; }
+.usuario-item { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .75rem; padding: .8rem 0; border-bottom: 1px solid #d9e5dd; }
+.usuario-item > div:first-child { flex: 1 1 15rem; min-width: 0; overflow-wrap: anywhere; }
+.usuario-item span, .usuario-item small { display: block; color: #475569; }
+.usuario-item p { margin: .4rem 0 0; font-size: .75rem; color: #475569; }
+.usuario-item .acoes { margin: 0; }
+@media (max-width: 800px) { .usuarios-grade { grid-template-columns: minmax(0, 1fr); } }
+
+@media screen {
+  .navegacao-por-area { display: grid; grid-template-columns: minmax(0, 1fr); gap: .75rem; overflow: visible; }
+  .navegacao-areas, .navegacao-itens { display: flex; flex-wrap: wrap; gap: .45rem; min-width: 0; }
+  .navegacao-areas { border-bottom: 1px solid var(--cor-borda); padding-bottom: .75rem; }
+  .navegacao-por-area button { white-space: normal; flex: 0 1 auto; }
+  .navegacao-itens button.secundario { background: #f1f5f1; border-color: var(--cor-borda); }
+  .navegacao-areas button { font-size: .9rem; }
+  .grade:has(> .painel-formulario) { grid-template-columns: minmax(0, 1fr); }
+  .painel-formulario { border: 1px solid var(--cor-borda); border-radius: 14px; background: #fff; min-width: 0; grid-column: 1 / -1; }
+  .painel-formulario > summary { cursor: pointer; padding: 1rem; font-weight: 750; overflow-wrap: anywhere; }
+  .painel-formulario > summary > span { color: var(--cor-suave); display: inline-block; margin-left: 1rem; font-size: .875rem; font-weight: 400; }
+  .painel-formulario[open] > summary { border-bottom: 1px solid var(--cor-borda); }
+  .painel-formulario > .formulario { border: 0; box-shadow: none; position: static; max-height: none; }
+  .campos-formulario { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 1rem; }
+  .filtros-avancados { grid-column: 1 / -1; padding: .75rem; border: 1px solid var(--cor-borda); border-radius: 10px; min-width: 0; }
+  .filtros-avancados > summary { cursor: pointer; font-weight: 700; }
+  .filtros-avancados > label, .filtros-avancados > .linha { margin-top: .75rem; }
+  .filtros-avancados-campos { display: grid; gap: .8rem; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); margin-top: 1rem; }
+  .filtros-avancados-campos > label { min-width: 0; }
+  .resumo-consulta { display: grid; gap: .3rem; padding: 1rem; color: #365344; border-left: 3px solid var(--cor-principal); background: #edf3ed; border-radius: 8px; overflow-wrap: anywhere; }
+  .usuario-permissoes-areas { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 1rem; }
+  .usuario-permissoes-area { border: 1px solid var(--cor-borda); border-radius: 10px; padding: 1rem; min-width: 0; }
+  .usuario-permissoes-area h3 { margin-bottom: .5rem; }
+  .usuario-permissoes-area .acoes { flex-wrap: wrap; }
+  .usuario-permissoes-area .usuario-permissoes-lista { grid-template-columns: minmax(0, 1fr); }
+  .usuario-permissoes-area button { font-size: .875rem; }
+  .kicker, small, .hash-relatorio, .usuario-item small, .usuario-item p { font-size: .875rem; }
+  .kicker { letter-spacing: .06em; }
+  .cargas-lista .carga-item-topo .kicker, .cargas-lista .carga-item-topo p, .cargas-lista .carga-analises,
+  .cargas-lista .carga-metricas span, .cargas-lista .carga-rateios h4,
+  .cargas-lista .carga-rateios li, .cargas-lista .carga-item-acoes button,
+  .vendas-lista-compacta .venda-item .kicker { font-size: .875rem; }
+  .painel-formulario > .card:not(.formulario) { margin: 1rem; }
+}
+@media screen and (max-width: 860px) {
+  button, summary, .navegacao-modulos button { min-height: 44px; }
+  .navegacao-areas button { flex: 1 1 8rem; }
+  .navegacao-itens button { flex: 1 1 9rem; }
+  .painel-formulario > summary > span { display: block; margin: .25rem 0 0; }
+}
+@media print { .painel-formulario, .resumo-consulta { display: none !important; } }
+
+@media screen {
+  .modulo-operacoes .formulario > fieldset, .historico-form > fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 1rem; }
+}
+
+@media screen {
+  .modulo-financeiro .painel-formulario .formulario { grid-template-columns: minmax(0, 1fr); }
+  .modulo-financeiro .painel-formulario .linha { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .modulo-financeiro .painel-formulario label { min-width: 0; }
+}
+@media screen and (max-width: 540px) {
+  .modulo-financeiro .painel-formulario .linha { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media screen {
+  .modulo-relatorios-operacionais { min-width: 0; grid-template-columns: minmax(0, 1fr); }
+  .modulo-relatorios-operacionais > *, .catalogo-relatorios > section { min-width: 0; }
+  .modulo-relatorios-operacionais .tabela-responsiva { min-width: 0; }
+  .cabecalho-relatorio { flex-wrap: wrap; gap: 1rem; }
+  .cabecalho-relatorio > div { flex: 1 1 auto; min-width: 0; }
+}
+@media screen and (max-width: 540px) {
+  .modulo-relatorios-operacionais .paginacao { flex-wrap: wrap; }
+  .abas-relatorios button { max-width: 100%; white-space: normal; }
+}
+
+/* Painel e consultas administrativas */
+.modulo-painel,.modulo-historico { min-width:0; }
+.painel-apresentacao h2,.painel-alertas h2 {margin:0 0 8px;}
+.painel-filtros,.favoritos-campos {display:flex; flex-wrap:wrap; gap:12px; align-items:end; margin:16px 0;}
+.painel-filtros label,.favoritos-campos label {flex:1 1 200px; min-width:0;}
+.painel-filtros button,.favoritos-campos button {width:auto;}
+.painel-indicadores {display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:14px;margin:18px 0;}
+.painel-indicadores article {display:flex;flex-direction:column;gap:8px;}
+.painel-indicadores strong {font-size:24px;color:#14543f;overflow-wrap:anywhere;}
+.valor-negativo,.painel-indicadores strong.valor-negativo {color:#a1342b;font-weight:700;}
+.painel-titulo {display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap;}
+.painel-titulo label {min-width:180px;}
+.painel-lista-alertas {list-style:none;padding:0;}
+.painel-lista-alertas li {display:flex;gap:16px;justify-content:space-between;align-items:center;padding:14px 0;border-top:1px solid #dce5df;}
+.painel-lista-alertas li>div {min-width:0;}
+.painel-lista-alertas p {margin:6px 0;overflow-wrap:anywhere;}
+.painel-lista-alertas button {width:auto;flex-shrink:0;}
+.aviso-urgente .kicker {color:#a1342b;}
+.painel-alertas {margin-bottom:18px;}
+.tabela-responsiva {width:100%;overflow-x:auto;}
+.historico-lista details {margin:12px 0;border:1px solid #dce5df;border-radius:10px;padding:12px;}
+.historico-lista summary {display:flex;gap:12px;flex-wrap:wrap;cursor:pointer;}
+.historico-lista td {max-width:400px;overflow-wrap:anywhere;white-space:normal;}
+.filtros-favoritos {margin-bottom:16px;}
+.filtros-favoritos summary,.permissoes-acoes summary {cursor:pointer;font-weight:700;}
+.permissoes-modulo {margin:12px 0;}
+.permissoes-modulo>div {display:flex;gap:14px;flex-wrap:wrap;}
+.destino-aviso {background:#eef6f0;color:#14543f;}
+@media(max-width:600px) {.painel-lista-alertas li {align-items:start;flex-direction:column;}.painel-indicadores {gap:10px;}.painel-titulo label {width:100%;}}

@@ -45,7 +45,7 @@ class VendaGraosCriacaoSerializer(serializers.Serializer):
     def validate(self, attrs):
         if attrs.get("posicao") and attrs.get("nova_posicao"):
             raise serializers.ValidationError("Informe a posição existente ou os dados de uma nova posição, nunca ambos.")
-        if not self.partial and not attrs.get("posicao") and not attrs.get("nova_posicao"):
+        if not self.partial and not attrs.get("posicao") and not attrs.get("nova_posicao") and not attrs.get("contexto_particular"):
             raise serializers.ValidationError("Selecione a posição ou informe cultura, safra e armazenagem para iniciar o saldo.")
         if self.partial and attrs.get("nova_posicao"):
             raise serializers.ValidationError("Para editar, selecione uma posição existente.")
@@ -98,8 +98,37 @@ class EntregaMovimentoVendaSerializer(MovimentoVendaSerializer):
     nota_empresa = serializers.CharField(max_length=80, required=False, allow_blank=True)
 
 
+class ContextoParticularSerializer(serializers.Serializer):
+    cultura = serializers.ChoiceField(choices=("Soja", "Milho", "Trigo"))
+    safra = serializers.CharField(max_length=20, allow_blank=False)
+    classificacao_codigo = serializers.CharField(max_length=50, default="PADRAO")
+    armazem = serializers.PrimaryKeyRelatedField(queryset=ArmazemGraos.objects.filter(ativo=True))
+
+    def validate_classificacao_codigo(self, valor):
+        return valor.strip().upper()
+
+
+class PreviaParticularSerializer(serializers.Serializer):
+    contexto_particular = ContextoParticularSerializer()
+    quantidade_kg = serializers.DecimalField(max_digits=16, decimal_places=3, min_value=Decimal("0.001"))
+
+
 class SaidaVendaSerializer(VendaGraosCriacaoSerializer, EntregaMovimentoVendaSerializer):
     """Um lançamento reúne o contexto comercial e os dados da saída."""
+    contexto_particular = ContextoParticularSerializer(required=False)
+    hash_previa = serializers.CharField(max_length=64, min_length=64, required=False)
+
+    def validate(self, attrs):
+        particular = attrs.get("destino", "").strip().upper() == "PARTICULAR"
+        if particular:
+            if not attrs.get("contexto_particular") or not attrs.get("hash_previa"):
+                raise serializers.ValidationError("Para venda PARTICULAR, informe produto, safra, armazenagem e confira o rateio por área.")
+            if attrs.get("posicao") or attrs.get("nova_posicao"):
+                raise serializers.ValidationError("Venda PARTICULAR usa todas as propriedades; não selecione uma posição individual.")
+            attrs["destino"] = "PARTICULAR"
+        elif attrs.get("contexto_particular") or attrs.get("hash_previa"):
+            raise serializers.ValidationError("O rateio por área é exclusivo do destino PARTICULAR.")
+        return super().validate(attrs)
 
 
 class EntregaVendaSerializer(serializers.ModelSerializer):
@@ -126,6 +155,8 @@ class DevolucaoVendaSerializer(serializers.ModelSerializer):
 
 
 class VendaGraosSerializer(serializers.ModelSerializer):
+    rateio_particular_id = serializers.IntegerField(read_only=True, allow_null=True)
+    rateio_particular_snapshot = serializers.JSONField(source="rateio_particular.snapshot", read_only=True)
     cad_pro = serializers.UUIDField(source="posicao.cad_pro_id", read_only=True)
     cad_pro_codigo = serializers.CharField(
         source="posicao.cad_pro.codigo", read_only=True
@@ -172,6 +203,7 @@ class VendaGraosSerializer(serializers.ModelSerializer):
     class Meta:
         model = VendaGraos
         fields = (
+            "rateio_particular_id", "rateio_particular_snapshot",
             "id", "numero_contrato", "cliente_nome", "status", "posicao", "contrato", "versao", "excluida_em", "alteracoes",
             "lote_operacional", "lote_operacional_codigo",
             "origem_fisica_alocada", "cad_pro", "cad_pro_codigo", "cultura",

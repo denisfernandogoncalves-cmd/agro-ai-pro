@@ -1,3 +1,4 @@
+import { BotaoAcao } from "../../components/AcoesContext";
 import { FormEvent } from "react";
 
 import {
@@ -8,6 +9,7 @@ import {
 
 type Props = {
   edicao: boolean;
+  ocupado?: boolean;
   formulario: HistoricoAgronomicoInput;
   historicos: HistoricoAgronomico[];
   onCancelar: () => void;
@@ -19,6 +21,7 @@ type Props = {
 
 export default function HistoricoAgronomicoPanel({
   edicao,
+  ocupado = false,
   formulario,
   historicos,
   onCancelar,
@@ -31,6 +34,7 @@ export default function HistoricoAgronomicoPanel({
     <section className="card historico">
       <h2>Histórico agronômico</h2>
       <form className="historico-form" onSubmit={onSubmit}>
+        <fieldset disabled={ocupado}>
         <div className="linha">
           <label>
             Data
@@ -104,7 +108,7 @@ export default function HistoricoAgronomicoPanel({
           />
         </label>
         <div className="acoes">
-          <button type="submit">
+          <button disabled={ocupado} type="submit">
             {edicao ? "Atualizar histórico" : "Registrar histórico"}
           </button>
           {edicao && (
@@ -113,6 +117,7 @@ export default function HistoricoAgronomicoPanel({
             </button>
           )}
         </div>
+        </fieldset>
       </form>
 
       <div className="historico-lista">
@@ -138,15 +143,16 @@ export default function HistoricoAgronomicoPanel({
                 </small>
               </div>
               <div className="acoes">
-                <button
+                <BotaoAcao acao="editar"
+                  disabled={ocupado}
                   className="secundario"
                   onClick={() => onEditar(historico)}
                 >
                   Editar
-                </button>
-                <button className="perigo" onClick={() => onRemover(historico)}>
+                </BotaoAcao>
+                <BotaoAcao acao="excluir" disabled={ocupado} className="perigo" onClick={() => onRemover(historico)}>
                   Excluir
-                </button>
+                </BotaoAcao>
               </div>
             </article>
           ))

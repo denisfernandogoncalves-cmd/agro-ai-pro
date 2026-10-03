@@ -25,7 +25,10 @@ router.register("saldos", SaldoGraosViewSet, basename="saldos-graos")
 router.register("origens-saldo", OrigemSaldoGraosViewSet, basename="origens-saldo-graos")
 router.register("reservas", ReservaSaldoGraosViewSet, basename="reservas-saldo-graos")
 
+from .transferencias_correcoes import CorrecaoTransferenciaView
+
 urlpatterns = [
+    path("transferencias/<int:pk>/", CorrecaoTransferenciaView.as_view(), name="correcao-transferencia-saldo"),
     path(
         "producoes/creditar/",
         SaldoGraosViewSet.as_view({"post": "creditar_producao"}),

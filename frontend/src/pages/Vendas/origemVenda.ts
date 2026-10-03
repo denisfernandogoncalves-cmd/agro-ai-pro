@@ -30,6 +30,6 @@ export function opcoesOrigemVenda(
   return [...opcoes.values()].sort((a, b) => a.rotulo.localeCompare(b.rotulo, "pt-BR"));
 }
 
-export function posicoesDaOrigemVenda(posicoes: PosicaoSaldo[], chave: string) {
-  return posicoes.filter(p => chaveOrigemVenda(p) === chave);
+export function posicoesDaOrigemVenda(posicoes: PosicaoSaldo[], chave: string, cultura?: string) {
+  return posicoes.filter(p => chaveOrigemVenda(p) === chave && (cultura === undefined || p.cultura === cultura));
 }

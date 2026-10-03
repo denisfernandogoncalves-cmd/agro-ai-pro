@@ -200,7 +200,7 @@ class EstoqueApiTests(APITestCase):
         posicao = self.client.get("/api/estoque/lotes/posicao/")
         self.assertEqual(posicao.data[0]["saldo"], Decimal("75"))
 
-    def test_movimentos_sao_imutaveis(self):
+    def test_edicao_de_movimentos_bloqueada_e_exclusao_recalcula_saldo(self):
         entrada = self.client.post(
             "/api/estoque/movimentacoes/",
             {
@@ -213,7 +213,9 @@ class EstoqueApiTests(APITestCase):
         )
         url = f"/api/estoque/movimentacoes/{entrada.data['id']}/"
         self.assertEqual(self.client.patch(url, {"quantidade": "999"}).status_code, 405)
-        self.assertEqual(self.client.delete(url).status_code, 405)
+        self.assertEqual(self.client.delete(url).status_code, 204)
+        self.assertFalse(MovimentacaoEstoque.objects.filter(pk=entrada.data["id"]).exists())
+        self.assertEqual(saldo_lote(self.lote), Decimal("0"))
 
     def test_saida_maior_que_saldo_retorna_400(self):
         resposta = self.client.post(

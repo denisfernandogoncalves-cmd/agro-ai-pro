@@ -12,6 +12,7 @@ def selecionar_vendas():
         "lote",
         "reserva",
         "criado_por",
+        "rateio_particular",
     ).prefetch_related(
         Prefetch("alteracoes", queryset=AlteracaoVendaGraos.objects.select_related("criado_por")),
         Prefetch(

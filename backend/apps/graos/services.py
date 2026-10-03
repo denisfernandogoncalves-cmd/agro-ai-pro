@@ -947,7 +947,7 @@ def registrar_ajuste(
 def estornar_movimentacao(
     *, usuario, movimentacao, chave_idempotencia, data_movimento=None,
     referencia_externa="", observacoes="", metadados=None,
-    permitir_carga_colhida=False, permitir_venda=False,
+    permitir_carga_colhida=False, permitir_venda=False, permitir_saldo_negativo_transitorio=False,
 ):
     movimento_id = movimentacao.pk
     payload = {"movimentacao": movimento_id, "data": data_movimento,
@@ -1093,7 +1093,7 @@ def estornar_movimentacao(
             posicao,
             fisico=delta_fisico,
             comprometido=delta_comprometido,
-            permitir_saldo_negativo=permitir_venda,
+            permitir_saldo_negativo=permitir_venda or permitir_saldo_negativo_transitorio,
         )
         estornos.append(
             _criar_movimento(
@@ -1129,15 +1129,21 @@ def estornar_movimentacao(
 
 @transaction.atomic
 def transferir_saldo_fisico(
-    *, usuario, lote_origem, lote_destino, quantidade_kg, chave_idempotencia,
+    *, usuario, lote_origem, lote_destino=None, quantidade_kg, chave_idempotencia,
+    propriedade_destino=None, cad_pro_destino=None,
     data_movimento=None, referencia_externa="", observacoes="", metadados=None,
 ):
-    if lote_origem.pk == lote_destino.pk:
+    por_cadastro = propriedade_destino is not None and cad_pro_destino is not None
+    if (por_cadastro and lote_destino is not None) or (not por_cadastro and lote_destino is None):
+        raise SaldoGraosError("Informe um destino completo para a transferência.")
+    if lote_destino is not None and lote_origem.pk == lote_destino.pk:
         raise SaldoGraosError("Os lotes de origem e destino devem ser diferentes.")
     quantidade = _quantidade_positiva(quantidade_kg)
     payload = {"lote_origem": lote_origem, "lote_destino": lote_destino,
                "quantidade_kg": quantidade, "data": data_movimento,
                "referencia": referencia_externa, "observacoes": observacoes}
+    if por_cadastro:
+        payload.update(propriedade_destino=propriedade_destino, cad_pro_destino=cad_pro_destino)
     origem, criada = _obter_ou_criar_origem(
         usuario=usuario, tipo=OrigemSaldoGraos.Tipo.TRANSFERENCIA,
         chave=chave_idempotencia, payload=payload, referencia=referencia_externa,
@@ -1145,6 +1151,27 @@ def transferir_saldo_fisico(
     )
     if not criada:
         return _resultado_existente(origem, "saldo_transferido")
+    if por_cadastro:
+        from apps.cadpro.models import CADProPropriedade
+
+        referencia = LoteGraos.objects.get(pk=lote_origem.pk)
+        if not referencia.cad_pro_id:
+            raise SaldoGraosError("O lote deve estar normalizado com um CAD/PRO.")
+        cadpros = _bloquear_cadpros_para_saldo((referencia.cad_pro_id, cad_pro_destino.pk))
+        if not cadpros[cad_pro_destino.pk].ativo:
+            raise SaldoGraosError("O CAD/PRO precisa estar ativo para receber saldo.")
+        if not CADProPropriedade.objects.select_for_update().filter(
+            cad_pro=cad_pro_destino, propriedade=propriedade_destino, ativo=True,
+        ).exists():
+            raise SaldoGraosError("O CAD/PRO de destino deve possuir vínculo ativo com a propriedade.")
+        if (referencia.propriedade_id, referencia.cad_pro_id) == (propriedade_destino.pk, cad_pro_destino.pk):
+            raise SaldoGraosError("A origem e o destino devem ser posições de estoque diferentes.")
+        dimensoes = dict(propriedade=propriedade_destino, cad_pro=cad_pro_destino,
+                         cultura=referencia.cultura, safra=referencia.safra,
+                         classificacao_codigo=referencia.classificacao_codigo, armazem_id=referencia.armazem_id)
+        lote_destino = LoteGraos.objects.filter(ativo=True, **dimensoes).order_by("pk").first()
+        if lote_destino is None:
+            lote_destino = LoteGraos.objects.create(codigo=f"TRANSFERENCIA-{uuid.uuid4()}", **dimensoes)
     referencias = {lote.pk: lote for lote in LoteGraos.objects.filter(
         pk__in=(lote_origem.pk, lote_destino.pk)
     )}

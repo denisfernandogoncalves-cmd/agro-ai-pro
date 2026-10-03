@@ -26,6 +26,14 @@ class ContratoComercial(models.Model):
         return f"{self.numero} · {self.empresa}"
 
 
+class RateioVendaParticular(models.Model):
+    chave_idempotencia = models.CharField(max_length=120, unique=True)
+    hash_requisicao = models.CharField(max_length=64)
+    snapshot = models.JSONField(default=dict)
+    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+
 class VendaGraos(models.Model):
     class Status(models.TextChoices):
         RASCUNHO = "rascunho", "Rascunho"
@@ -39,6 +47,10 @@ class VendaGraos(models.Model):
     versao = models.PositiveIntegerField(default=1)
     excluida_em = models.DateTimeField(null=True, blank=True)
     cliente_nome = models.CharField(max_length=160)
+    rateio_particular = models.ForeignKey(
+        RateioVendaParticular, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="parcelas",
+    )
     posicao = models.ForeignKey(
         "graos.PosicaoSaldoGraos",
         on_delete=models.PROTECT,

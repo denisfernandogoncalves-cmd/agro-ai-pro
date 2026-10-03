@@ -1,3 +1,4 @@
+import { BotaoAcao } from "../../components/AcoesContext";
 import { useEffect, useRef, useState } from "react";
 import axios from "axios";
 import {
@@ -77,8 +78,8 @@ export default function ImportacoesPage() {
     <h2>Importações de planilhas</h2>
     <p>Envie uma planilha XLSX de até 10 MB. A prévia permite revisar os dados; a confirmação registra as movimentações de grãos.</p>
     <label>Planilha<input type="file" accept=".xlsx" disabled={ocupado} onChange={e => setArquivo(e.target.files?.[0] || null)} /></label>
-    <button disabled={ocupado || !arquivo || arquivo.size > 10 * 1024 * 1024} onClick={() => void enviar(false)}>Gerar prévia</button>
-    {arquivo && arquivo.size > 10 * 1024 * 1024 && <p className="erro">O arquivo excede 10 MB.</p>}
+    <BotaoAcao acao="cadastrar" disabled={ocupado || !arquivo || arquivo.size > 10 * 1024 * 1024} onClick={() => void enviar(false)}>Gerar prévia</BotaoAcao>
+    {arquivo && arquivo.size > 10 * 1024 * 1024 && <p className="erro" role="alert">O arquivo excede 10 MB.</p>}
     {ocupado && <p role="status">Processando…</p>}
     {erro && <p className="erro" role="alert" style={{ whiteSpace: "pre-wrap" }}>{erro}</p>}
     {sucesso && <p role="status">{sucesso}</p>}
@@ -102,7 +103,7 @@ export default function ImportacoesPage() {
       </>}
       {loteElegivel(lote) ? <>
         <label><input type="checkbox" checked={aceite} disabled={ocupado || !linhas} onChange={e => setAceite(e.target.checked)} /> Revisei o lote e autorizo registrar suas movimentações nos saldos.</label>
-        <button disabled={ocupado || !aceite || !linhas} onClick={() => void enviar(true)}>Confirmar importação</button>
+        <BotaoAcao acao="cadastrar" disabled={ocupado || !aceite || !linhas} onClick={() => void enviar(true)}>Confirmar importação</BotaoAcao>
       </> : <p>{lote.status === "confirmado" ? "Este lote já foi confirmado." : !lote.pode_confirmar ? "A confirmação exige permissão específica do usuário." : "Este lote possui pendências que impedem a confirmação."}</p>}
     </>}
   </section>;

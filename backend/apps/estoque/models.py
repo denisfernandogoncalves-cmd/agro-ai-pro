@@ -1,4 +1,5 @@
 from decimal import Decimal
+import uuid
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
@@ -223,3 +224,28 @@ class CompraEstoque(models.Model):
                 name="estoque_compra_pagamento_valido",
             ),
         ]
+
+
+class FaturamentoInsumo(models.Model):
+    """Snapshot confirmado, preservado para auditoria mesmo após exclusão."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    assinatura = models.CharField(max_length=64)
+    fornecedor = models.ForeignKey("financeiro.ParceiroFinanceiro", on_delete=models.PROTECT)
+    produto = models.ForeignKey(ProdutoEstoque, on_delete=models.PROTECT)
+    data_envio = models.DateField()
+    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    resumo = models.JSONField()
+    excluido_em = models.DateTimeField(null=True, blank=True, editable=False)
+    excluido_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="faturamentos_insumos_excluidos", editable=False,
+    )
+
+    class Meta:
+        ordering = ("-criado_em",)
+
+
+class BaixaFaturamentoInsumo(models.Model):
+    faturamento = models.ForeignKey(FaturamentoInsumo, on_delete=models.PROTECT, related_name="baixas")
+    movimento = models.OneToOneField(MovimentacaoEstoque, on_delete=models.PROTECT, related_name="baixa_faturamento")

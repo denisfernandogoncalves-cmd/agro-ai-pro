@@ -1,3 +1,4 @@
+import { BotaoAcao } from "../../components/AcoesContext";
 import { FormEvent } from "react";
 
 import { Propriedade, rotuloPropriedade } from "../../api/propriedades";
@@ -113,7 +114,8 @@ export default function TalhaoLista({
                 </p>
               </div>
               <div className="acoes">
-                <button
+                <BotaoAcao acao="editar"
+                  disabled={carregando}
                   className="secundario"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -121,8 +123,9 @@ export default function TalhaoLista({
                   }}
                 >
                   Editar
-                </button>
-                <button
+                </BotaoAcao>
+                <BotaoAcao acao="excluir"
+                  disabled={carregando}
                   className="perigo"
                   onClick={(e) => {
                     e.stopPropagation();
@@ -130,7 +133,7 @@ export default function TalhaoLista({
                   }}
                 >
                   Excluir
-                </button>
+                </BotaoAcao>
               </div>
             </article>
           ))}

@@ -1,5 +1,6 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import axios from "axios";
+import PainelFormulario from "../../components/PainelFormulario";
 import { CompraEstoque, CompraEstoqueInput, ProdutoEstoque, listarComprasEstoque, registrarCompraEstoque } from "../../api/estoque";
 import { ParceiroFinanceiro } from "../../api/financeiro";
 
@@ -66,6 +67,7 @@ export default function ComprasEstoque({ produtos, fornecedores, atualizarEstoqu
   return <section className="compras-estoque">
     {erro && <p className="erro card" role="alert">{erro}</p>}
     {sucesso && <p className="sucesso card" role="status">{sucesso}</p>}
+    <PainelFormulario titulo="Nova compra de estoque">
     <form className="card" onSubmit={salvar}>
       <h2>Nova compra</h2>
       <fieldset disabled={salvando} className="compra-campos">
@@ -87,6 +89,7 @@ export default function ComprasEstoque({ produtos, fornecedores, atualizarEstoqu
       </fieldset>
       <div className="compra-rodape"><p>Selecione produtos em litros ou kg. Produtos e fornecedores são cadastrados em Cadastros agrícolas.</p><button type="submit" disabled={salvando}>{salvando ? "Salvando…" : "Registrar compra"}</button></div>
     </form>
+    </PainelFormulario>
     <section className="card compras-lista-impressao">
       <div className="compra-lista-cabecalho"><h2>Compras de estoque</h2><form className="busca" onSubmit={e => { e.preventDefault(); setErro(""); void carregar(busca); }}><input aria-label="Buscar compras" placeholder="Produto, cultura ou fornecedor" value={busca} onChange={e => setBusca(e.target.value)} /><button disabled={carregando}>Buscar</button></form></div>
       <div className="compra-tabela-scroll" tabIndex={0} role="region" aria-label="Tabela de compras de estoque">

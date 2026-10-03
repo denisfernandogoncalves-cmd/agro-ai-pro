@@ -1,4 +1,7 @@
-import { FormEvent, useEffect, useState } from "react";
+import { BotaoAcao } from "../../components/AcoesContext";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import { formatarData } from "../../utils/datas";
+import PainelFormulario from "../../components/PainelFormulario";
 import axios from "axios";
 
 import { LoteEstoque } from "../../api/estoque";
@@ -47,7 +50,9 @@ export default function OperacoesPage() {
   const [encerramento, setEncerramento] = useState({ data: hoje, custo: "" });
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
-  const [carregando, setCarregando] = useState(false);
+  const [carregando, setCarregando] = useState(true);
+  const [salvando, setSalvando] = useState(false);
+  const trava = useRef(false);
 
   async function carregar() {
     setCarregando(true);
@@ -73,7 +78,9 @@ export default function OperacoesPage() {
 
   async function salvar(evento: FormEvent) {
     evento.preventDefault();
-    setErro("");
+    if (trava.current) return;
+    trava.current = true; setSalvando(true);
+    setErro(""); setSucesso("");
     try {
       await criarOperacao(formulario);
       setFormulario(vazio);
@@ -81,12 +88,13 @@ export default function OperacoesPage() {
       await carregar();
     } catch (falha) {
       setErro(mensagemErro(falha));
-    }
+    } finally { trava.current = false; setSalvando(false); }
   }
 
   async function incluirInsumo() {
-    if (!selecionada) return;
-    setErro("");
+    if (!selecionada || trava.current) return;
+    trava.current = true; setSalvando(true);
+    setErro(""); setSucesso("");
     try {
       await adicionarInsumo({
         operacao: selecionada.id,
@@ -99,12 +107,13 @@ export default function OperacoesPage() {
       await carregar();
     } catch (falha) {
       setErro(mensagemErro(falha));
-    }
+    } finally { trava.current = false; setSalvando(false); }
   }
 
   async function transicionar(acao: "iniciar" | "concluir" | "cancelar") {
-    if (!selecionada) return;
-    setErro("");
+    if (!selecionada || trava.current) return;
+    trava.current = true; setSalvando(true);
+    setErro(""); setSucesso("");
     try {
       if (acao === "iniciar") {
         await iniciarOperacao(selecionada.id, encerramento.data);
@@ -117,17 +126,19 @@ export default function OperacoesPage() {
       await carregar();
     } catch (falha) {
       setErro(mensagemErro(falha));
-    }
+    } finally { trava.current = false; setSalvando(false); }
   }
 
   const talhaoSelecionado = talhoes.find((item) => String(item.id) === formulario.talhao);
 
   return (
     <section className="modulo-operacoes">
-      {erro && <p className="erro card">{erro}</p>}
-      {sucesso && <p className="sucesso card">{sucesso}</p>}
+      {erro && <p className="erro card" role="alert">{erro}</p>}
+      {sucesso && <p className="sucesso card" role="status">{sucesso}</p>}
       <section className="grade operacoes-grade">
+        <PainelFormulario titulo="Planejar operação">
         <form className="card formulario" onSubmit={salvar}>
+          <fieldset disabled={salvando || carregando}>
           <h2>Planejar operação</h2>
           <label>Talhão<select required value={formulario.talhao} onChange={(e) => {
             const talhao = talhoes.find((item) => String(item.id) === e.target.value);
@@ -142,20 +153,23 @@ export default function OperacoesPage() {
           <label>Responsável<input value={formulario.responsavel} onChange={(e) => setFormulario({ ...formulario, responsavel: e.target.value })} /></label>
           <label>Custo estimado<input min="0" step="0.01" type="number" value={formulario.custo_estimado} onChange={(e) => setFormulario({ ...formulario, custo_estimado: e.target.value })} /></label>
           <label>Observações<textarea value={formulario.observacoes} onChange={(e) => setFormulario({ ...formulario, observacoes: e.target.value })} /></label>
-          <button disabled={carregando} type="submit">Salvar planejamento</button>
+          <button disabled={salvando || carregando} type="submit">{salvando ? "Salvando..." : "Salvar planejamento"}</button>
+          </fieldset>
         </form>
+        </PainelFormulario>
 
         <section className="conteudo">
           <form className="painel-filtros" onSubmit={(e) => { e.preventDefault(); void carregar(); }}>
             <input aria-label="Buscar operações" placeholder="Descrição, responsável ou talhão" value={filtros.search} onChange={(e) => setFiltros({ ...filtros, search: e.target.value })} />
             <select aria-label="Filtrar status" value={filtros.status} onChange={(e) => setFiltros({ ...filtros, status: e.target.value })}><option value="">Todos os estados</option><option value="planejada">Planejadas</option><option value="em_execucao">Em execução</option><option value="concluida">Concluídas</option><option value="cancelada">Canceladas</option></select>
             <select aria-label="Filtrar tipo" value={filtros.tipo} onChange={(e) => setFiltros({ ...filtros, tipo: e.target.value })}><option value="">Todos os tipos</option><option value="plantio">Plantio</option><option value="pulverizacao">Pulverização</option><option value="colheita">Colheita</option></select>
-            <button type="submit">Filtrar</button>
+            <button disabled={salvando || carregando} type="submit">{carregando ? "Atualizando..." : "Filtrar"}</button>
           </form>
+          <p role="status">{salvando ? "Salvando operação..." : carregando ? "Carregando operações..." : `${operacoes.length} operação(ões) encontrada(s).`}</p>
           <div className="lista">
-            {operacoes.length === 0 ? <div className="card vazio">Nenhuma operação planejada.</div> : operacoes.map((item) => (
+            {!carregando && operacoes.length === 0 ? <div className="card vazio">Nenhuma operação planejada.</div> : operacoes.map((item) => (
               <article className={`card item ${selecionada?.id === item.id ? "ativo" : ""}`} key={item.id} onClick={() => setSelecionada(item)}>
-                <div><h3>{item.descricao}</h3><p>{item.talhao_nome} · {item.data_planejada} · {item.status.replace("_", " ")}</p><small>{areaEmAlqueires(item.area_hectares)} alq. · {item.responsavel || "Sem responsável"}</small></div>
+                <div><h3>{item.descricao}</h3><p>{item.talhao_nome} · {formatarData(item.data_planejada)} · {item.status.replace("_", " ")}</p><small>{areaEmAlqueires(item.area_hectares)} alq. · {item.responsavel || "Sem responsável"}</small></div>
                 <strong>{Number(item.custo_estimado).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong>
               </article>
             ))}
@@ -174,16 +188,16 @@ export default function OperacoesPage() {
                 <select value={insumo.lote} onChange={(e) => setInsumo({ ...insumo, lote: e.target.value })}><option value="">Selecione o lote</option>{lotes.filter((item) => item.ativo).map((item) => <option key={item.id} value={item.id}>{item.produto_nome} · {item.codigo} · saldo {item.saldo}</option>)}</select>
                 <input min="0.001" placeholder="Quantidade planejada" step="0.001" type="number" value={insumo.planejada} onChange={(e) => setInsumo({ ...insumo, planejada: e.target.value })} />
                 <input min="0.001" placeholder="Quantidade utilizada" step="0.001" type="number" value={insumo.utilizada} onChange={(e) => setInsumo({ ...insumo, utilizada: e.target.value })} />
-                <button disabled={!insumo.lote || !insumo.planejada} type="button" onClick={() => void incluirInsumo()}>Adicionar</button>
+                <button disabled={salvando || carregando || !insumo.lote || !insumo.planejada} type="button" onClick={() => void incluirInsumo()}>Adicionar</button>
               </div>
             )}
           </section>
           <div className="linha-transicao">
             <label>Data<input type="date" value={encerramento.data} onChange={(e) => setEncerramento({ ...encerramento, data: e.target.value })} /></label>
             <label>Custo realizado<input min="0" step="0.01" type="number" value={encerramento.custo} onChange={(e) => setEncerramento({ ...encerramento, custo: e.target.value })} /></label>
-            {selecionada.status === "planejada" && <button type="button" onClick={() => void transicionar("iniciar")}>Iniciar</button>}
-            {selecionada.status === "em_execucao" && <button type="button" onClick={() => void transicionar("concluir")}>Concluir e baixar insumos</button>}
-            {["planejada", "em_execucao"].includes(selecionada.status) && <button className="perigo" type="button" onClick={() => void transicionar("cancelar")}>Cancelar operação</button>}
+            {selecionada.status === "planejada" && <BotaoAcao acao="editar" disabled={salvando || carregando} type="button" onClick={() => void transicionar("iniciar")}>Iniciar</BotaoAcao>}
+            {selecionada.status === "em_execucao" && <button disabled={salvando || carregando} type="button" onClick={() => void transicionar("concluir")}>Concluir e baixar insumos</button>}
+            {["planejada", "em_execucao"].includes(selecionada.status) && <button disabled={salvando || carregando} className="perigo" type="button" onClick={() => void transicionar("cancelar")}>Cancelar operação</button>}
           </div>
         </section>
       )}

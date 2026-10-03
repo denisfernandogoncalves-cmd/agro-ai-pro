@@ -21,6 +21,13 @@
 }
 
 @media print {
+  body:has(.modulo-faturamento) .pagina { page: planilha; }
+  body:has(.modulo-faturamento) .pagina > header,
+  body:has(.modulo-faturamento) .pagina > .impressao-contexto { display: none !important; }
+  .modulo-faturamento > :not(.relatorio-faturamento) { display: none !important; }
+  .modulo-faturamento .relatorio-faturamento { display: block !important; border: 0; box-shadow: none; padding: 0; }
+  .modulo-faturamento .faturamento-tabela { overflow: visible; }
+  .modulo-faturamento table { font-size: 9pt; }
   :root, body { background: white !important; color: #111 !important; min-width: 0; font-size: 10pt; }
   .pagina { width: auto; max-width: none; margin: 0; padding: 0; }
   .pagina * { box-shadow: none !important; text-shadow: none !important; }
@@ -261,6 +268,7 @@
   .controle-planilha-producao .producao-saldos-planilha th:nth-child(3) { width: 9%; }
   .controle-planilha-producao .producao-saldos-planilha th:nth-child(4) { width: 15%; }
   .controle-planilha-producao .producao-saldos-planilha th:nth-child(n+5) { width: 13%; }
+  .controle-planilha-cargas .controle-planilha-titulo > div:first-child { display: none !important; }
   .controle-planilha-cargas .cargas-planilha { font-size: 7.5pt; }
   .controle-planilha-cargas .cargas-planilha th:nth-child(1) { width: 8%; }
   .controle-planilha-cargas .cargas-planilha th:nth-child(2) { width: 11%; }
@@ -316,3 +324,5 @@
   }
   .modulo-estoque .compra-tabela th { background: #e6eee7; color: #111; }
 }
+
+@media print {body.impressao-bloqueada #root {display:none !important;} body.impressao-bloqueada::after {content:"Impressão indisponível para seu usuário nesta tela.";} .filtros-favoritos {display:none !important;}}

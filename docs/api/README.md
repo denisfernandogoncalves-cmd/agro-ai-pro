@@ -175,3 +175,12 @@ O dashboard consolida indicadores gerenciais de todos os módulos. Consulte
 ## Assistente
 
 Insights gerenciais explicáveis estão documentados em [IA](IA.md).
+
+
+## Painel inicial, ações, histórico e favoritos
+
+Consulte [Painel e acessos](PAINEL_ACOES_HISTORICO_FAVORITOS.md) para os endpoints, permissões e limites do incremento de 02/10/2026.
+
+- [Conferência, simulação, rascunhos e relatórios salvos](CONFERENCIA_SIMULACAO_RASCUNHOS.md)
+
+- [Edição/exclusão de transferências e prévia da carga](TRANSFERENCIAS_CORRECOES.md).

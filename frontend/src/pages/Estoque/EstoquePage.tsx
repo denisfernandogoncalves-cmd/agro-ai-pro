@@ -1,3 +1,6 @@
+import { useEntradaPainel } from "../../components/AcoesContext";
+import { BotaoAcao, useDestinoConsulta } from "../../components/AcoesContext";
+import { formatarData } from "../../utils/datas";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import axios from "axios";
 
@@ -31,6 +34,7 @@ function mensagemErro(falha: unknown) {
 type Props = { propriedades: Propriedade[] };
 
 export default function EstoquePage({ propriedades }: Props) {
+  const entradaPainel = useEntradaPainel("estoque");
   const [revisaoEstoque, setRevisaoEstoque] = useState(0);
   const [produtos, setProdutos] = useState<ProdutoEstoque[]>([]);
   const [fornecedores, setFornecedores] = useState<ParceiroFinanceiro[]>([]);
@@ -63,6 +67,8 @@ export default function EstoquePage({ propriedades }: Props) {
   const cadastroLotes = useRef<HTMLDetailsElement>(null);
   const seletorLote = useRef<HTMLSelectElement>(null);
 
+  useDestinoConsulta("estoque", valores => {const proximos = {search:String(valores.search || ""), tipo:"", produto:""}; setFiltros(proximos); void carregar(proximos);});
+
   function abrirCadastroLote() {
     if (!cadastroLotes.current) return;
     void carregar();
@@ -71,11 +77,11 @@ export default function EstoquePage({ propriedades }: Props) {
     cadastroLotes.current.querySelector("select")?.focus({ preventScroll: true });
   }
 
-  async function carregar() {
+  async function carregar(selecao = filtros) {
     setCarregando(true);
     setErro("");
     try {
-      const [dados, fornecedoresAtuais] = await Promise.all([carregarEstoque(filtros), listarFornecedores()]);
+      const [dados, fornecedoresAtuais] = await Promise.all([carregarEstoque(selecao), listarFornecedores()]);
       setProdutos(dados.produtos);
       setFornecedores(fornecedoresAtuais);
       setLotes(dados.lotes);
@@ -91,7 +97,7 @@ export default function EstoquePage({ propriedades }: Props) {
   }
 
   useEffect(() => {
-    void carregar();
+    if (!entradaPainel) void carregar();
   }, []);
 
   async function salvarMovimento(evento: FormEvent) {
@@ -149,8 +155,8 @@ export default function EstoquePage({ propriedades }: Props) {
 
   return (
     <section className="modulo-estoque">
-      {erro && <p className="erro card">{erro}</p>}
-      {sucesso && <p className="sucesso card">{sucesso}</p>}
+      {erro && <p className="erro card" role="alert">{erro}</p>}
+      {sucesso && <p className="sucesso card" role="status">{sucesso}</p>}
 
       {resumo && (
         <section className="resumos-estoque" aria-label="Resumo do estoque">
@@ -181,7 +187,7 @@ export default function EstoquePage({ propriedades }: Props) {
               {lotes.filter((item) => item.ativo).map((item) => <option key={item.id} value={item.id}>{item.produto_nome} · {item.codigo} · {item.fornecedor_nome || item.local_nome || "Fornecedor não informado"}</option>)}
             </select>
           </label>
-          <button type="button" onClick={abrirCadastroLote}>Novo lote</button>
+          <BotaoAcao acao="cadastrar" type="button" onClick={abrirCadastroLote}>Novo lote</BotaoAcao>
           {lotes.every((item) => !item.ativo) && <p>Nenhum lote ativo. Use Novo lote para cadastrar antes de movimentar.</p>}
           <div className="linha">
             <label>Quantidade<input required min="0.001" step="0.001" type="number" value={movimento.quantidade} onChange={(e) => setMovimento({ ...movimento, quantidade: e.target.value })} /></label>
@@ -197,7 +203,7 @@ export default function EstoquePage({ propriedades }: Props) {
           </label>
           <label>Safra<input placeholder="2026/2027" value={movimento.safra} onChange={(e) => setMovimento({ ...movimento, safra: e.target.value })} /></label>
           <label>Observações<textarea value={movimento.observacoes} onChange={(e) => setMovimento({ ...movimento, observacoes: e.target.value })} /></label>
-          <button disabled={carregando} type="submit">Registrar sem permitir alteração</button>
+          <BotaoAcao acao="cadastrar" disabled={carregando} type="submit">Registrar sem permitir alteração</BotaoAcao>
         </form>
 
         <section className="conteudo">
@@ -225,7 +231,7 @@ export default function EstoquePage({ propriedades }: Props) {
             <div className="lista">
               {movimentos.map((item) => (
                 <article className="item movimento-estoque" key={item.id}>
-                  <div><h3>{item.tipo === "entrada" ? "Entrada" : "Saída"} · {item.produto_nome}</h3><p>{item.data_movimento} · lote {item.lote_codigo} · {item.fornecedor_nome || item.local_nome || "Fornecedor não informado"}</p><small>{item.documento_fiscal || "Sem documento fiscal"} · por {item.criado_por_nome}</small></div>
+                  <div><h3>{item.tipo === "entrada" ? "Entrada" : "Saída"} · {item.produto_nome}</h3><p>{formatarData(item.data_movimento)} · lote {item.lote_codigo} · {item.fornecedor_nome || item.local_nome || "Fornecedor não informado"}</p><small>{item.documento_fiscal || "Sem documento fiscal"} · por {item.criado_por_nome}</small></div>
                   <strong>{item.tipo === "entrada" ? "+" : "−"}{item.quantidade} {item.unidade}</strong>
                 </article>
               ))}
@@ -245,7 +251,7 @@ export default function EstoquePage({ propriedades }: Props) {
             <label>Código<input placeholder="Código do lote" value={auxiliar.loteCodigo} onChange={(e) => setAuxiliar({ ...auxiliar, loteCodigo: e.target.value })} /></label>
             <label>Validade<input type="date" value={auxiliar.loteValidade} onChange={(e) => setAuxiliar({ ...auxiliar, loteValidade: e.target.value })} /></label>
             <p>Escolha o produto agrícola e o fornecedor cadastrados na aba Cadastros agrícolas. Use Atualizar cadastros após incluir novos registros.</p>
-            <button disabled={salvandoLote || !auxiliar.loteProduto || !auxiliar.loteFornecedor || !auxiliar.loteCodigo.trim()} type="button" onClick={() => void cadastrarLote()}>{salvandoLote ? "Cadastrando…" : "Cadastrar lote"}</button>
+            <BotaoAcao acao="cadastrar" disabled={salvandoLote || !auxiliar.loteProduto || !auxiliar.loteFornecedor || !auxiliar.loteCodigo.trim()} type="button" onClick={() => void cadastrarLote()}>{salvandoLote ? "Cadastrando…" : "Cadastrar lote"}</BotaoAcao>
           </section>
         </div>
       </details>

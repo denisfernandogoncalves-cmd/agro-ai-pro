@@ -16,6 +16,7 @@ import { GeometriaGeoJSON } from "../utils/geometria";
 
 
 export type Propriedade = {
+  bp_cvale?: string;
   id: number;
   nome: string;
   proprietario: string;
@@ -35,6 +36,7 @@ export type Propriedade = {
 };
 
 export type PropriedadeInput = {
+  bp_cvale?: string;
   nome: string;
   proprietario: string;
   municipio: string;
@@ -143,7 +145,7 @@ api.interceptors.response.use(
   },
   async (erro: AxiosError) => {
     const requisicao = erro.config as RequisicaoComRetry | undefined;
-    const endpointAutenticacao = requisicao?.url?.includes("/auth/");
+    const endpointAutenticacao = ["/auth/token/", "/auth/token/refresh/", "/auth/logout/"].includes(requisicao?.url?.split("?")[0] ?? "");
     if (
       erro.response?.status !== 401
       || !requisicao
@@ -247,10 +249,10 @@ export async function listarPropriedades(search = "") {
   return response.data;
 }
 
-function montarFormulario(dados: PropriedadeInput) {
+export function montarFormulario(dados: PropriedadeInput) {
   const formulario = new FormData();
   Object.entries(dados).forEach(([campo, valor]) => {
-    if (valor !== null && valor !== "") {
+    if (valor !== null && (valor !== "" || campo === "bp_cvale")) {
       formulario.append(campo, campo === "area_hectares" ? hectaresDeAlqueires(String(valor)) : valor);
     }
   });

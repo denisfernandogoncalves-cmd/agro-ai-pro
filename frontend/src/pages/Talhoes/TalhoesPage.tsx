@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
 
 import { listarPropriedades, Propriedade } from "../../api/propriedades";
@@ -20,6 +20,7 @@ import {
 import MapaTalhao from "../../components/MapaTalhao";
 import HistoricoAgronomicoPanel from "./HistoricoAgronomicoPanel";
 import TalhaoForm from "./TalhaoForm";
+import PainelFormulario from "../../components/PainelFormulario";
 import TalhaoLista from "./TalhaoLista";
 import GruposPropriedadesPanel from "./GruposPropriedadesPanel";
 import { areaEmAlqueires, valorAlqueiresParaFormulario } from "../../utils/areas";
@@ -96,6 +97,8 @@ export default function TalhoesPage() {
     useState<HistoricoAgronomicoInput>(historicoVazio());
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
+  const trava = useRef(false);
+  const [salvando, setSalvando] = useState(false);
 
   const carregarTalhoes = useCallback(async () => {
     setCarregando(true);
@@ -171,6 +174,8 @@ export default function TalhoesPage() {
 
   async function salvar(evento: FormEvent) {
     evento.preventDefault();
+    if (trava.current) return;
+    trava.current = true; setSalvando(true);
     setCarregando(true);
     setErro("");
     try {
@@ -184,7 +189,7 @@ export default function TalhoesPage() {
     } catch (falha) {
       setErro(mensagemDoErro(falha));
       setCarregando(false);
-    }
+    } finally { trava.current = false; setSalvando(false); }
   }
 
   function editar(talhao: Talhao) {
@@ -206,9 +211,11 @@ export default function TalhoesPage() {
   }
 
   async function remover(talhao: Talhao) {
+    if (trava.current) return;
     if (!window.confirm(`Excluir o talhão "${talhao.nome}"?`)) {
       return;
     }
+    trava.current = true; setSalvando(true);
     setErro("");
     try {
       await excluirTalhao(talhao.id);
@@ -223,7 +230,7 @@ export default function TalhoesPage() {
       }
     } catch (falha) {
       setErro(mensagemDoErro(falha));
-    }
+    } finally { trava.current = false; setSalvando(false); }
   }
 
   async function recarregarHistoricos(talhaoId: number) {
@@ -232,9 +239,10 @@ export default function TalhoesPage() {
 
   async function salvarHistorico(evento: FormEvent) {
     evento.preventDefault();
-    if (!selecionado) {
+    if (!selecionado || trava.current) {
       return;
     }
+    trava.current = true; setSalvando(true);
     setErro("");
     try {
       const dados = { ...formularioHistorico, talhao: selecionado.id };
@@ -247,7 +255,7 @@ export default function TalhoesPage() {
       cancelarEdicaoHistorico();
     } catch (falha) {
       setErro(mensagemDoErro(falha));
-    }
+    } finally { trava.current = false; setSalvando(false); }
   }
 
   function editarHistorico(historico: HistoricoAgronomico) {
@@ -269,9 +277,11 @@ export default function TalhoesPage() {
   }
 
   async function removerHistorico(historico: HistoricoAgronomico) {
+    if (trava.current) return;
     if (!window.confirm("Excluir este registro do histórico agronômico?")) {
       return;
     }
+    trava.current = true; setSalvando(true); setErro("");
     try {
       await excluirHistorico(historico.id);
       if (historicoEdicaoId === historico.id) {
@@ -282,17 +292,19 @@ export default function TalhoesPage() {
       }
     } catch (falha) {
       setErro(mensagemDoErro(falha));
-    }
+    } finally { trava.current = false; setSalvando(false); }
   }
 
   return (
     <section className="modulo-talhoes">
       <GruposPropriedadesPanel />
-      {erro && <p className="erro card">{erro}</p>}
+      {erro && <p className="erro card" role="alert">{erro}</p>}
+      {salvando && <p role="status">Salvando alterações...</p>}
 
       <section className="grade talhoes-grade">
+        <PainelFormulario titulo={edicaoId ? "Editar talhão" : "Novo talhão"} edicao={edicaoId}>
         <TalhaoForm
-          carregando={carregando}
+          carregando={carregando || salvando}
           edicao={Boolean(edicaoId)}
           formulario={formulario}
           propriedades={propriedades}
@@ -304,9 +316,10 @@ export default function TalhoesPage() {
           onSubmit={salvar}
         />
 
+        </PainelFormulario>
         <section className="conteudo">
           <TalhaoLista
-            carregando={carregando}
+            carregando={carregando || salvando}
             filtros={filtros}
             pagina={pagina}
             propriedades={propriedades}
@@ -347,6 +360,7 @@ export default function TalhoesPage() {
                 )}
 
               <HistoricoAgronomicoPanel
+                ocupado={salvando}
                 edicao={Boolean(historicoEdicaoId)}
                 formulario={formularioHistorico}
                 historicos={historicos}

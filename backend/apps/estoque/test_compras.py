@@ -95,7 +95,7 @@ class CompraEstoqueTests(APITestCase):
         self.assertFalse(LoteEstoque.objects.exists())
         self.assertFalse(MovimentacaoEstoque.objects.exists())
 
-    def test_lista_busca_e_imutabilidade(self):
+    def test_lista_busca_edicao_bloqueada_e_exclusao_controlada(self):
         self.client.post(self.url, self.dados, format="json")
         resposta = self.client.get(self.url, {"search": "Soja"})
         self.assertEqual(resposta.status_code, 200)
@@ -104,7 +104,10 @@ class CompraEstoqueTests(APITestCase):
         self.assertEqual(len(self.client.get(self.url, {"search": "ausente"}).data), 0)
         detalhe = f"{self.url}{self.dados['id']}/"
         self.assertEqual(self.client.patch(detalhe, {"custo_embalagem": "1"}).status_code, 405)
-        self.assertEqual(self.client.delete(detalhe).status_code, 405)
+        self.assertEqual(self.client.delete(detalhe).status_code, 204)
+        self.assertFalse(CompraEstoque.objects.filter(pk=self.dados["id"]).exists())
+        self.assertFalse(MovimentacaoEstoque.objects.exists())
+        self.assertEqual(saldo_lote(LoteEstoque.objects.get()), Decimal("0"))
         self.client.force_authenticate(None)
         self.assertEqual(self.client.get(self.url).status_code, 401)
         self.assertEqual(self.client.post(self.url, self.dados, format="json").status_code, 401)

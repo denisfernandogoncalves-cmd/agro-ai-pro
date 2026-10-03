@@ -15,7 +15,7 @@ class CargaColhidaMigration0009Tests(TransactionTestCase):
         executor = MigrationExecutor(connection)
         try:
             executor.migrate([self.migrate_from])
-            apps = executor.loader.project_state([self.migrate_from]).apps
+            apps = executor.loader.project_state([self.migrate_from, ("propriedades", "0004_bp_cvale")]).apps
             Usuario = apps.get_model(*settings.AUTH_USER_MODEL.split("."))
             Propriedade = apps.get_model("propriedades", "Propriedade")
             CADPro = apps.get_model("cadpro", "CADPro")

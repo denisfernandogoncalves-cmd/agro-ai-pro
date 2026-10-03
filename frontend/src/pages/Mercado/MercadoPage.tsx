@@ -1,3 +1,4 @@
+import { formatarData } from "../../utils/datas";
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 
@@ -106,14 +107,14 @@ export default function MercadoPage() {
         </div>
       </section>
 
-      {erro && <p className="erro card">{erro}</p>}
+      {erro && <p className="erro card" role="alert">{erro}</p>}
 
       <section className="resumos-mercado" aria-label="Resumo das cotações">
         {resumos.map((resumo) => (
           <article className="card" key={resumo.produto}>
             <span className="kicker">{resumo.produto_nome}</span>
             <h3>{Number(resumo.valor).toFixed(2)}</h3>
-            <p>{resumo.unidade} · {resumo.data}</p>
+            <p>{resumo.unidade} · {formatarData(resumo.data)}</p>
             <p className={
               Number(resumo.variacao_percentual ?? 0) >= 0
                 ? "variacao-positiva"

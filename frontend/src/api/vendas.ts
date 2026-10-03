@@ -32,6 +32,8 @@ export type DadosEntrega = {
 };
 
 export type VendaGraos = {
+  rateio_particular_id?: number | null;
+  rateio_particular_snapshot?: PreviaParticular;
   id: number;
   contrato: number | null;
   versao: number;
@@ -89,7 +91,18 @@ export type NovaVenda = {
 };
 
 export type DadosNovaPosicao = { propriedade: number; cad_pro: string; cultura: string; safra: string; classificacao_codigo: string; armazem: number };
-export type RegistroVenda = Omit<NovaVenda, "posicao"> & { posicao?: number; nova_posicao?: DadosNovaPosicao };
+export type ContextoParticular = Omit<DadosNovaPosicao, "propriedade" | "cad_pro">;
+export type PreviaParticular = {
+  hash_previa: string;
+  quantidade_total_kg: string;
+  area_total_hectares: string;
+  parcelas: { propriedade: number; propriedade_nome: string; cad_pro_codigo: string; area_hectares: string; quantidade_kg: string; saldo_anterior_kg?:string; saldo_posterior_kg?:string; venda_id?: number }[];
+};
+export type RegistroVenda = Omit<NovaVenda, "posicao"> & { posicao?: number; nova_posicao?: DadosNovaPosicao; contexto_particular?: ContextoParticular; hash_previa?: string };
+
+export async function carregarPreviaParticular(contexto_particular: ContextoParticular, quantidade_kg: string) {
+  return (await api.post<PreviaParticular>("/comercial/vendas/previa-particular/", { contexto_particular, quantidade_kg })).data;
+}
 
 const cabecalho = (chave: string) => ({ headers: { "Idempotency-Key": chave } });
 

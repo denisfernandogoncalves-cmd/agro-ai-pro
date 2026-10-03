@@ -11,7 +11,7 @@ export function TabelaDisponibilidade({ itens }: { itens: DisponibilidadeEstoque
     <thead><tr><th>Produto</th><th>Fornecedor</th><th>Data da compra / entrada</th><th>Comprado</th><th>Saídas</th><th>Disponível</th><th>Preço médio por unidade</th><th>Valor de aquisição</th></tr></thead>
     <tbody>{itens.map((item) => <tr key={`${item.produto_id}-${item.fornecedor_id}-${item.data_compra}`}>
       <td>{item.produto}<details><summary>Lotes</summary>{item.lotes.map((lote) => <p key={lote.id}>{lote.codigo}: {lote.datas_entrada.map(data).join(", ")}</p>)}</details></td>
-      <td>{item.fornecedor}</td><td>{item.data_compra ? data(item.data_compra) : "Datas múltiplas — saldo conjunto do lote"}</td>
+      <td>{item.fornecedor}</td><td>{item.data_compra ? data(item.data_compra) : (item.lotes.every(l => !l.datas_entrada.length) ? "Sem entrada — faturamento" : "Datas múltiplas — saldo conjunto do lote")}</td>
       <td>{numero(item.quantidade_comprada)} {item.unidade}</td><td>{numero(item.quantidade_saida)} {item.unidade}</td>
       <td><strong>{numero(item.disponivel)} {item.unidade}</strong></td>
       <td>{item.preco_medio === null ? "Custo incompleto" : `R$ ${numero(item.preco_medio, 4)} / ${item.unidade}`}</td>
@@ -37,7 +37,7 @@ export function ResumoPorFornecedor({ itens }: { itens: ResumoDisponibilidade[] 
 }
 
 export default function ConsultaDisponibilidade({ produtos, fornecedores, revisao }: Props) {
-  const [filtros, setFiltros] = useState({ produto: "", fornecedor: "", data_inicio: "", data_fim: "", somente_disponivel: "true" });
+  const [filtros, setFiltros] = useState({ produto: "", fornecedor: "", data_inicio: "", data_fim: "", somente_disponivel: "false" });
   const [aplicados, setAplicados] = useState(filtros);
   const [resumo, setResumo] = useState<ResumoDisponibilidade[]>([]);
   const [itens, setItens] = useState<DisponibilidadeEstoque[]>([]);
@@ -69,7 +69,7 @@ export default function ConsultaDisponibilidade({ produtos, fornecedores, revisa
       <label>Fornecedor<select value={filtros.fornecedor} onChange={(e) => setFiltros({ ...filtros, fornecedor: e.target.value })}><option value="">Todos os fornecedores</option>{fornecedores.map((f) => <option key={f.id} value={f.id}>{f.nome}</option>)}</select></label>
       <label>Compra desde<input type="date" value={filtros.data_inicio} max={filtros.data_fim || undefined} onChange={(e) => setFiltros({ ...filtros, data_inicio: e.target.value })} /></label>
       <label>Compra até<input type="date" value={filtros.data_fim} min={filtros.data_inicio || undefined} onChange={(e) => setFiltros({ ...filtros, data_fim: e.target.value })} /></label>
-      <label className="disponibilidade-checkbox"><input type="checkbox" checked={filtros.somente_disponivel === "true"} onChange={(e) => setFiltros({ ...filtros, somente_disponivel: String(e.target.checked) })} />Somente com saldo</label>
+      <label className="disponibilidade-checkbox"><input type="checkbox" checked={filtros.somente_disponivel === "true"} onChange={(e) => setFiltros({ ...filtros, somente_disponivel: String(e.target.checked) })} />Somente com saldo positivo</label>
       <button type="submit" disabled={carregando}>Consultar</button>
     </form>
     {!carregando && !erro && resumo.length > 0 && <ResumoPorFornecedor itens={resumo} />}

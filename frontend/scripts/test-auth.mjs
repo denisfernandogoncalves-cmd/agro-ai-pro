@@ -239,7 +239,7 @@ const server = createServer((request, response) => {
       return;
     }
 
-    if (request.method === "GET" && url.pathname === "/api/propriedades/") {
+    if (request.method === "GET" && ["/api/propriedades/", "/api/auth/me/", "/api/auth/users/"].includes(url.pathname)) {
       serverState.privateCount += 1;
       const authorization = request.headers.authorization;
       if (authorization !== `Bearer ${serverState.validAccess}`) {
@@ -280,6 +280,17 @@ async function freshScenario() {
 }
 
 try {
+  await test("consultas de acessos e usuários renovam token expirado", async () => {
+    for (const caminho of ["/auth/me/", "/auth/users/"]) {
+      const { coordinator, api } = await freshScenario();
+      coordinator.registrarLoginExplicito(coordinator.obterGeracaoSessao(), "access-expired", "refresh-valid");
+      const response = await api.api.get(caminho);
+      assert.equal(response.status, 200);
+      assert.equal(serverState.refreshCount, 1);
+      assert.equal(serverState.privateCount, 2);
+      assert.equal(coordinator.estaAutenticado(), true);
+    }
+  });
   await test("access expirado permite refresh legítimo", async () => {
     const { coordinator, api } = await freshScenario();
     assert.equal(
@@ -515,7 +526,11 @@ async function renderAppStates() {
       }),
   });
 
+  globalThis.__APP_ACTIONS__ = { AcoesContext: React.createContext(null), autorizado: () => true, BotaoAcao: globalThis.__PRIVATE_COMPONENTS__.BotaoAcao, useDestinoConsulta: () => {} };
   let source = appSource
+    .replace(/import \{[^}]+\} from "\.\/components\/AcoesContext";/, "const { AcoesContext, autorizado, BotaoAcao, useDestinoConsulta } = globalThis.__APP_ACTIONS__;")
+    .replace(/import \{ nomeModulo \} from "\.\/components\/gruposModulos";/, "const nomeModulo = id => id;")
+    .replace(/const (\w+) = lazy\(\(\) => import\("[^"]+"\)\);/g, "const $1 = globalThis.__PRIVATE_COMPONENTS__.$1;")
     .replace('from "react";', `from "${reactUrl}";`)
     .replace('from "axios";', `from "${axiosUrl}";`)
     .replace(
