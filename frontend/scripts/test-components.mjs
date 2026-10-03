@@ -14,6 +14,120 @@ const servidor = await createServer({
 });
 
 try {
+  const { default: UsuariosPage, filtrarUsuarios } = await servidor.ssrLoadModule("/src/pages/Usuarios/UsuariosPage.tsx");
+  const usuariosBusca = [{ username: "operador", first_name: "José", last_name: "Silva", email: "campo@example.test" }, { username: "gestor", first_name: "Ana", last_name: "Souza", email: "gestao@example.test" }];
+  assert.deepEqual(filtrarUsuarios(usuariosBusca, "  JOSE ").map(item => item.username), ["operador"]);
+  assert.deepEqual(filtrarUsuarios(usuariosBusca, "GESTAO@").map(item => item.username), ["gestor"]);
+  assert.equal(filtrarUsuarios(usuariosBusca, "ausente").length, 0);
+  assert.equal(filtrarUsuarios(usuariosBusca, "").length, 2);
+  const htmlUsuarios = renderToStaticMarkup(React.createElement(UsuariosPage));
+  for (const texto of ["Novo usuário", "Itens permitidos", "Marcar todos", "Desmarcar todos", "Usuário ativo"]) assert.ok(htmlUsuarios.includes(texto), texto);
+  assert.equal((htmlUsuarios.match(/type="checkbox"/g) || []).length, 103);
+  const { default: NavegacaoModulos } = await servidor.ssrLoadModule("/src/components/NavegacaoModulos.tsx");
+  const { MODULOS } = await servidor.ssrLoadModule("/src/api/usuarios.ts");
+  const nav = (acesso, modulo = "cargas") => renderToStaticMarkup(React.createElement(NavegacaoModulos, { acesso, modulo, onSelecionar() {} }));
+  const usuarioRestrito = { id: 1, username: "operador", is_staff: false, modulos: ["cargas", "vendas"] };
+  const menuRestrito = nav(usuarioRestrito);
+  assert.match(menuRestrito, />Cargas colhidas</);
+  assert.match(menuRestrito, />Produção</);
+  assert.match(menuRestrito, />Comercial</);
+  assert.match(nav(usuarioRestrito, "vendas"), />Vendas</);
+  assert.doesNotMatch(nav(usuarioRestrito, "vendas"), />Mercado<|>Faturamento de insumos</);
+  assert.doesNotMatch(menuRestrito, />Financeiro<|>Usuários<|>Estoque</);
+  assert.doesNotMatch(nav(null), /<button/);
+  assert.match(nav({ ...usuarioRestrito, modulos: [] }), />Início</);
+  const admin = { ...usuarioRestrito, is_staff: true, modulos: MODULOS.map(([id]) => id) };
+  const menuAdmin = nav(admin);
+  for (const [id, nome] of MODULOS) assert.ok(nav(admin, id).includes(`>${nome}<`), nome);
+  assert.match(nav(admin, "usuarios"), />Usuários</);
+  const { AREAS_MODULOS } = await servidor.ssrLoadModule("/src/components/gruposModulos.ts");
+  const idsAgrupados = AREAS_MODULOS.flatMap(area => area.modulos);
+  assert.equal(new Set(idsAgrupados).size, MODULOS.length);
+  assert.deepEqual([...idsAgrupados].sort(), MODULOS.map(([id]) => id).sort());
+  const { formatarData } = await servidor.ssrLoadModule("/src/utils/datas.ts");
+  assert.equal(formatarData("2026-10-01"), "01/10/2026");
+  assert.equal(formatarData("2026-10-01T00:00:00Z"), "01/10/2026");
+  assert.equal(formatarData(null), "—");
+  const { AcoesContext, BotaoAcao, autorizado } = await servidor.ssrLoadModule("/src/components/AcoesContext.tsx");
+  const acessoConsulta = {id:9, username:"consulta", is_staff:false, modulos:["financeiro"], permissoes:{financeiro:["consultar"]}};
+  assert.equal(autorizado(acessoConsulta,"financeiro","consultar"),true);
+  for (const acao of ["cadastrar","editar","excluir","imprimir"]) assert.equal(autorizado(acessoConsulta,"financeiro",acao),false);
+  assert.equal(autorizado(acessoConsulta,"estoque","consultar"),false);
+  assert.equal(autorizado({...acessoConsulta,is_staff:true},"estoque","excluir"),true);
+  const protegido = renderToStaticMarkup(React.createElement(AcoesContext.Provider,{value:{acesso:acessoConsulta,modulo:"financeiro"}},React.createElement(BotaoAcao,{acao:"excluir"},"Excluir")));
+  assert.equal(protegido, "");
+  const { default: PainelFormulario } = await servidor.ssrLoadModule("/src/components/PainelFormulario.tsx");
+  assert.equal(renderToStaticMarkup(React.createElement(AcoesContext.Provider,{value:{acesso:acessoConsulta,modulo:"financeiro"}},React.createElement(PainelFormulario,{titulo:"Novo lançamento"},"Cadastro"))), "");
+  const painelNovo = renderToStaticMarkup(React.createElement(PainelFormulario, { titulo: "Novo cadastro" }, React.createElement("form")));
+  assert.doesNotMatch(painelNovo, /open=""/);
+  assert.match(renderToStaticMarkup(React.createElement(PainelFormulario, { titulo: "Editar cadastro", edicao: 1 }, React.createElement("form"))), /open=""/);
+
+  const { sugerirEmbalagens, quantidadeParaEnviar } = await servidor.ssrLoadModule("/src/pages/Estoque/embalagensFaturamento.ts");
+  const { montarFormulario } = await servidor.ssrLoadModule("/src/api/propriedades.ts");
+  assert.equal(montarFormulario({ bp_cvale: "000123" }).get("bp_cvale"), "000123");
+  assert.equal(montarFormulario({ bp_cvale: "" }).get("bp_cvale"), "");
+  for (const [area, dose, conteudo, esperado] of [
+    ["72", "0.2", "5", "3"], ["72,000000", "0,2", "5", "3"], ["10", "2.5", "20", "2"], ["10", "4", "20", "2"],
+    ["3", "0.1", "0.3", "1"], ["27.880165", "0.2", "1", "6"],
+    ["1", "0.001", "20", "1"], ["10", "0", "20", "0"], ["10", "2", "0", ""],
+  ]) assert.equal(sugerirEmbalagens(area, dose, conteudo), esperado);
+  assert.equal(sugerirEmbalagens("72", "0.4", "5"), "6");
+  assert.equal(sugerirEmbalagens("72", "0.2", "10"), "2");
+  const itemEmbalagens = { area_alqueires: "10", quantidade_embalagens: "7" };
+  assert.equal(quantidadeParaEnviar(itemEmbalagens, "2.5", "20", false), "2");
+  assert.equal(quantidadeParaEnviar(itemEmbalagens, "2.5", "20", true), "7");
+  assert.equal(quantidadeParaEnviar(itemEmbalagens, "100", "1", true), "7");
+  assert.equal(quantidadeParaEnviar({ ...itemEmbalagens, quantidade_embalagens: "" }, "2.5", "20", true), "");
+  const { default: FaturamentoInsumos, RelatorioFaturamento, HistoricoFaturamento } = await servidor.ssrLoadModule("/src/pages/Estoque/FaturamentoInsumos.tsx");
+  const { empresaUsaBep } = await servidor.ssrLoadModule("/src/api/faturamentoInsumos.ts");
+  for (const nome of ["C.Vale", "CVALE", " c vale ", "C-VALE Cooperativa"]) assert.equal(empresaUsaBep(nome), true);
+  for (const nome of ["Empresa teste", "C Valerio", "Fornecedor C.Vale"]) assert.equal(empresaUsaBep(nome), false);
+  const faturamentoFixture = {
+    fornecedor_nome: "Empresa teste", produto_nome: "Insumo teste", unidade: "l", data_envio: "2026-09-28",
+    embalagem: "Balde", conteudo_embalagem: "20", dosagem_alqueire: "2.5", observacoes: "<script>teste</script>",
+    total_embalagens: "4", quantidade_total: "80", saldo_anterior: "60", saldo_posterior: "-20",
+    itens: [{ propriedade: 1, propriedade_nome: "Fazenda teste", produtor: "Produtor teste", cad_pro: "123",
+      area_alqueires: "10", quantidade_embalagens: "4", quantidade: "80", quantidade_sugerida: "25" }],
+  };
+  const previaFaturamentoHtml = renderToStaticMarkup(React.createElement(RelatorioFaturamento, { resumo: faturamentoFixture, confirmado: false }));
+  for (const texto of ["Prévia de faturamento", "sem baixa", "Empresa teste", "Fazenda teste", "Produtor teste", "123", "80", "-20", "Saldo negativo permitido"]) assert.ok(previaFaturamentoHtml.includes(texto), texto);
+  assert.doesNotMatch(previaFaturamentoHtml, /<script>/);
+  const confirmadoFaturamentoHtml = renderToStaticMarkup(React.createElement(RelatorioFaturamento, { resumo: faturamentoFixture, confirmado: true }));
+  assert.match(confirmadoFaturamentoHtml, /Faturamento de insumos confirmado/);
+  assert.doesNotMatch(confirmadoFaturamentoHtml, /<th>BEP<\/th>/);
+  const cvaleResumo = { ...faturamentoFixture, usa_bep: true, fornecedor_nome: "C.Vale", itens: [{ ...faturamentoFixture.itens[0], bep: "00100371854" }] };
+  const cvaleHtml = renderToStaticMarkup(React.createElement(RelatorioFaturamento, { resumo: cvaleResumo, confirmado: true }));
+  assert.match(cvaleHtml, /<th>BEP<\/th>/);
+  assert.match(cvaleHtml, /00100371854/);
+  const historicoHtml = renderToStaticMarkup(React.createElement(HistoricoFaturamento, {
+    historico: [{ id: "teste", data_envio: "2026-09-29", resumo: cvaleResumo }], ocupado: true,
+    onVer() {}, onPdf() {}, onExcluir() {},
+  }));
+  for (const acao of ["Ver relatório", "Exportar PDF", "Excluir lançamento"]) assert.ok(historicoHtml.includes(acao));
+  assert.equal((historicoHtml.match(/disabled=""/g) || []).length, 3);
+  const telaFaturamentoHtml = renderToStaticMarkup(React.createElement(FaturamentoInsumos));
+  assert.match(telaFaturamentoHtml, /Simular e conferir/);
+  assert.doesNotMatch(telaFaturamentoHtml, /Confirmar envio e baixar estoque/);
+  const { ResumoPorFornecedor } = await servidor.ssrLoadModule("/src/pages/Estoque/DisponibilidadeEstoque.tsx");
+  const estoqueAgrupado = renderToStaticMarkup(React.createElement(ResumoPorFornecedor, { itens: [
+    { produto_id: 1, produto: "Produto A", fornecedor_id: 1, fornecedor: "Empresa A", unidade: "kg", disponivel: "10", preco_medio: "5" },
+    { produto_id: 2, produto: "Produto B", fornecedor_id: 1, fornecedor: "Empresa A", unidade: "l", disponivel: "20", preco_medio: null },
+    { produto_id: 1, produto: "Produto A", fornecedor_id: 2, fornecedor: "Empresa B", unidade: "kg", disponivel: "30", preco_medio: "6" },
+  ] }));
+  assert.equal((estoqueAgrupado.match(/<h3>Empresa A<\/h3>/g) || []).length, 1);
+  assert.equal((estoqueAgrupado.match(/<table>/g) || []).length, 2);
+  for (const esperado of ["2 produto(s)", "10,000 kg", "20,000 l", "30,000 kg", "Custo incompleto"]) assert.ok(estoqueAgrupado.includes(esperado), esperado);
+
+  const { default: FinanceiroImpressao } = await servidor.ssrLoadModule("/src/pages/Financeiro/FinanceiroImpressao.tsx");
+  const itemImpressao = { id: 1, descricao: "Compra teste", tipo: "pagar", status: "liquidado", recebedor_nome: "Empresa A", parcela_numero: 1, total_boletos: 2, data_vencimento: "2026-10-14", data_liquidacao: "2026-09-21", valor: "2500.00", valor_liquidado: "2479.31", codigo_barras: "", atrasado: false };
+  const financeiroImpresso = renderToStaticMarkup(React.createElement(FinanceiroImpressao, { lancamentos: [itemImpressao], resumo: null, filtros: "Situação: liquidado", carregando: false }));
+  for (const esperado of ["Situação: liquidado", "14/10/2026", "21/09/2026", "2.500,00", "2.479,31", "1/2", "Pago", "Empresa A"]) assert.ok(financeiroImpresso.includes(esperado), esperado);
+  assert.doesNotMatch(financeiroImpresso, /<button|<input|<form/);
+  const financeiroCarregando = renderToStaticMarkup(React.createElement(FinanceiroImpressao, { lancamentos: [itemImpressao], resumo: null, filtros: "Todos", carregando: true }));
+  assert.match(financeiroCarregando, /Aguarde o carregamento/);
+  assert.doesNotMatch(financeiroCarregando, /Compra teste/);
+  const financeiroVazio = renderToStaticMarkup(React.createElement(FinanceiroImpressao, { lancamentos: [], resumo: null, filtros: "Todos", carregando: false }));
+  assert.match(financeiroVazio, /Nenhum lançamento encontrado/);
   const { TabelaDisponibilidade } = await servidor.ssrLoadModule("/src/pages/Estoque/DisponibilidadeEstoque.tsx");
   const saldoFornecedorHtml = renderToStaticMarkup(React.createElement(TabelaDisponibilidade, { itens: [{
     produto_id: 1, produto: "Produto teste", fornecedor_id: 2, fornecedor: "Fornecedor teste", unidade: "l",
@@ -365,7 +479,10 @@ try {
   assert.doesNotMatch(htmlFinanceiro, /Salvar parcelas|Vencimentos mensais|Valor total/);
   const cssFinanceiro = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
   assert.match(cssFinanceiro, /\.modulo-financeiro \.formulario\s*\{\s*position:\s*static/);
-  assert.doesNotMatch(htmlFinanceiro, /Cadastros auxiliares|<label>Categoria|<label>Parceiro|<label>Centro de custo|<label>Propriedade|<label>Safra/);
+  assert.doesNotMatch(htmlFinanceiro.split("Filtros financeiros")[0], /Cadastros auxiliares|<label>Categoria|<label>Parceiro|<label>Centro de custo|<label>Propriedade|<label>Safra/);
+  assert.match(htmlFinanceiro, /Quem recebe/);
+  assert.match(htmlFinanceiro, /Data inicial/);
+  assert.match(htmlFinanceiro, /Pagamento \/ recebimento/);
   const { calcularPreviaParcelas } = await servidor.ssrLoadModule("/src/pages/Financeiro/ParcelasPreview.tsx");
   const previaParcelas = calcularPreviaParcelas("100.00", 3, "2028-01-31");
   assert.deepEqual(previaParcelas.map(p => p.centavos), [3334, 3333, 3333]);
@@ -386,7 +503,8 @@ try {
     React.createElement(OperacoesPage),
   );
   assert.match(htmlOperacoes, /Planejar operaÃ§Ã£o|Planejar operação/);
-  assert.match(htmlOperacoes, /Nenhuma operaÃ§Ã£o planejada|Nenhuma operação planejada/);
+  assert.match(htmlOperacoes, /Carregando operações/);
+  assert.doesNotMatch(htmlOperacoes, /Nenhuma operação planejada/);
 
   const htmlCargas = renderToStaticMarkup(
     React.createElement(CargasColhidasPage, { propriedades: [propriedade] }),
@@ -952,7 +1070,8 @@ try {
     React.createElement(InsightsPage, { propriedades: [propriedade] }),
   );
   assert.match(htmlInsights, /Assistente gerencial/);
-  assert.match(htmlInsights, /Analisar dados atuais/);
+  assert.match(htmlInsights, /Analisando os dados\. Aguarde/);
+  assert.match(htmlInsights, /<button disabled=""/);
 
   const htmlAplicativo = renderToStaticMarkup(React.createElement(AplicativoStatus));
   assert.match(htmlAplicativo, /Online|Offline/);
@@ -970,13 +1089,55 @@ try {
     new URL("../src/App.tsx", import.meta.url),
     "utf8",
   );
-  assert.match(appFonte, /Cadastros agrícolas/);
+  assert.ok(MODULOS.some(([, nome]) => nome === "Cadastros agrícolas"));
   assert.match(appFonte, /className="grade modulo-propriedades"/);
   assert.match(appFonte, /className="lista propriedades-lista"/);
-  assert.match(estilosImpressao, /\.modulo-propriedades\s+\.propriedades-lista\s*\{[\s\S]*?grid-template-columns:\s*repeat\(2,/);
+  assert.match(appFonte, /<PropriedadesImpressao propriedades=\{propriedades\} carregando=\{carregando\}/);
+  assert.match(estilosImpressao, /\.modulo-propriedades\s*\{\s*page:\s*planilha/);
+  assert.match(estilosImpressao, /\.modulo-propriedades\s*>\s*:not\(\.controle-planilha-propriedades\)[\s\S]*?display:\s*none\s*!important/);
+  assert.match(estilosImpressao, /\.tabela-impressao-propriedades\s+thead\s+th[\s\S]*?background:\s*#e6eee7/);
+  assert.match(estilosImpressao, /\.controle-planilha-propriedades\s+\.tabela-impressao-propriedades\s+th,[\s\S]*?border-bottom:\s*1px solid #aaa/);
+  const { default: PropriedadesImpressao, filtrarPropriedadesImpressao } = await servidor.ssrLoadModule("/src/components/PropriedadesImpressao.tsx");
+  const propriedadesFiltro = [
+    { id: 1, nome: "Fazenda A", proprietario: "Maria", municipio: "Ivaiporã", uf: "PR", cad_pro_numeros: ["123", "456"] },
+    { id: 2, nome: "Fazenda B", proprietario: "Maria", municipio: "Arapuã", uf: "PR", cad_pro_numeros: ["123"] },
+    { id: 3, nome: "Fazenda C", proprietario: "João", municipio: "Ivaiporã", uf: "PR", cad_pro_numeros: ["789"] },
+  ];
+  const semFiltro = { proprietario: "", nome: "", cadpro: "", municipio: "" };
+  assert.equal(filtrarPropriedadesImpressao(propriedadesFiltro, semFiltro).length, 3);
+  assert.deepEqual(filtrarPropriedadesImpressao(propriedadesFiltro, { ...semFiltro, proprietario: "Maria", cadpro: "123", municipio: "Ivaiporã/PR" }).map(p => p.id), [1]);
+  assert.deepEqual(filtrarPropriedadesImpressao(propriedadesFiltro, { ...semFiltro, nome: "2" }).map(p => p.id), [2]);
+  assert.deepEqual(filtrarPropriedadesImpressao(propriedadesFiltro, { ...semFiltro, cadpro: "456" }).map(p => p.id), [1]);
+  assert.equal(filtrarPropriedadesImpressao(propriedadesFiltro, { ...semFiltro, nome: "2", proprietario: "João" }).length, 0);
+  const htmlPropriedades = renderToStaticMarkup(React.createElement(PropriedadesImpressao, {
+    carregando: false,
+    propriedades: [
+      { id: 1, nome: "Fazenda Modelo", cad_pro_numeros: ["123"], proprietario: "Produtor", municipio: "Londrina", uf: "PR", area_hectares: "24.20", area_calculada_hectares: "12.10" },
+      { id: 2, nome: "Sítio Exemplo", cad_pro_numeros: [], proprietario: "", municipio: "Cambé", uf: "PR", area_hectares: "12.10", area_calculada_hectares: null },
+    ],
+  }));
+  for (const rotulo of ["Fazenda Modelo", "Sítio Exemplo", "Área declarada (alq.)", "10,000", "5,000", "15,000", "Total calculado indisponível"]) assert.ok(htmlPropriedades.includes(rotulo), rotulo);
+  assert.match(htmlPropriedades, /<tfoot>[\s\S]*?TOTAL/);
+  assert.doesNotMatch(htmlPropriedades, /contexto-impressao-propriedades|legenda-impressao-propriedades/);
+  assert.doesNotMatch(htmlPropriedades, /Editar|Excluir/);
+  assert.equal((htmlPropriedades.match(/Área total selecionada \(declarada\): <strong>15,000 alq\. paulistas<\/strong>/g) || []).length, 2);
+  const propriedadesAreas = propriedadesFiltro.map((item, i) => ({ ...item, area_hectares: ["24.20", "12.10", "48.40"][i], area_calculada_hectares: null }));
+  for (const [filtros, esperado] of [
+    [{ ...semFiltro, proprietario: "Maria" }, "15,000"],
+    [{ ...semFiltro, nome: "2" }, "5,000"],
+    [{ ...semFiltro, proprietario: "João", nome: "2" }, "0,000"],
+    [semFiltro, "35,000"],
+  ]) {
+    const html = renderToStaticMarkup(React.createElement(PropriedadesImpressao, {
+      carregando: false, propriedades: filtrarPropriedadesImpressao(propriedadesAreas, filtros),
+    }));
+    assert.equal(html.split(`Área total selecionada (declarada): <strong>${esperado} alq. paulistas</strong>`).length - 1, 2);
+  }
+  const htmlCarregandoAreas = renderToStaticMarkup(React.createElement(PropriedadesImpressao, { carregando: true, propriedades: propriedadesAreas }));
+  assert.doesNotMatch(htmlCarregandoAreas.split('controle-planilha-propriedades')[0], /Área total selecionada/);
   assert.match(estilosImpressao, /\.modulo-cadastros-agricolas\s*\{\s*page:\s*planilha/);
   assert.match(estilosImpressao, /\.modulo-cadastros-agricolas\s*>\s*\.auxiliares-grade\s*>\s*\.card\s*>\s*\.lista\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3,/);
-  const { default: TransferenciasSaldoPage, TabelaImpressaoTransferencias, agruparHistoricoTransferencias, culturasTransferencia, nomePropriedadeTransferencia, numeroPlanilhaTransferencia, opcoesPosicaoTransferencia, posicaoDestinoCompativel, rotuloPosicaoTransferencia, safrasTransferencia } = await servidor.ssrLoadModule("/src/pages/TransferenciasSaldo/TransferenciasSaldoPage.tsx");
+  const { default: TransferenciasSaldoPage, TabelaImpressaoTransferencias, agruparHistoricoTransferencias, culturasTransferencia, statusTransferencia, saldosAntesTransferencia, nomePropriedadeTransferencia, numeroPlanilhaTransferencia, opcoesPosicaoTransferencia, posicaoDestinoCompativel, rotuloPosicaoTransferencia, safrasTransferencia, destinosTransferencia } = await servidor.ssrLoadModule("/src/pages/TransferenciasSaldo/TransferenciasSaldoPage.tsx");
   const htmlTransferencia = renderToStaticMarkup(React.createElement(TransferenciasSaldoPage));
   for (const rotulo of ["Cultura", "Ano / safra", "Propriedade / CAD/PRO de origem / Proprietário", "Propriedade / CAD/PRO de destino / Proprietário", "Quantidade (kg)", "Transferir saldo", "Referência / documento", "Observações", "Registro"]) assert.ok(htmlTransferencia.includes(rotulo));
   assert.doesNotMatch(htmlTransferencia, /Lote de origem|Lote de destino/);
@@ -995,6 +1156,22 @@ try {
   const posicoesSafras = [posicaoCerta, { ...posicaoCerta, id: 2, cultura: "Milho", safra: "2025" }, { ...posicaoCerta, id: 3, safra: "2024" }, { ...posicaoCerta, id: 4, cultura: "Trigo", saldo_disponivel_kg: "0" }];
   assert.deepEqual(culturasTransferencia(posicoesSafras), ["Milho", "Soja"]);
   assert.deepEqual(safrasTransferencia(posicoesSafras, "Soja"), ["2026", "2024"]);
+  const cadastrosDestino = [
+    { id: "novo", codigo: "NOVO", ativo: true, propriedades: [99] },
+    { id: "inativo", codigo: "INATIVO", ativo: false, propriedades: [99] },
+  ];
+  const propriedadesDestino = [{ id: 99, nome: "Sem colheita", proprietario: "Maria" }];
+  const novosDestinos = destinosTransferencia(posicaoCerta, [posicaoCerta], propriedadesDestino, cadastrosDestino);
+  assert.equal(novosDestinos.length, 1);
+  assert.equal(novosDestinos[0].posicao.id, 0);
+  assert.equal(novosDestinos[0].posicao.propriedade_id, 99);
+  assert.equal(novosDestinos[0].posicao.saldo_fisico_kg, "0");
+  assert.equal(novosDestinos[0].posicao.cultura, posicaoCerta.cultura);
+  const saldoRecebido = { ...novosDestinos[0].posicao, id: 999, saldo_fisico_kg: "300" };
+  const destinosAposReceber = destinosTransferencia(posicaoCerta, [posicaoCerta, saldoRecebido], propriedadesDestino, cadastrosDestino);
+  assert.equal(destinosAposReceber.length, 1);
+  assert.equal(destinosAposReceber[0].posicao.id, 999);
+  assert.equal(destinosTransferencia(saldoRecebido, [saldoRecebido], propriedadesDestino, cadastrosDestino).length, 0);
   const movimentosTransferencia = [
     { id: 1, origem_chave_idempotencia: "t-1", operacao: "transferencia_saida", propriedade_id: 1, cad_pro_codigo: "123", armazem_nome: "Silo A", cultura: "Soja", safra: "2026", classificacao_codigo: "PADRAO", quantidade_kg: "1000.500", data_movimento: "2026-09-01", referencia_externa: "TRANSF-1", observacoes: "Ajuste interno", criado_por_nome: "Denis", criado_em: "2026-09-01T10:00:00Z" },
     { id: 2, origem_chave_idempotencia: "t-1", operacao: "transferencia_entrada", propriedade_id: 2, cad_pro_codigo: "456", armazem_nome: "Silo B", cultura: "Soja", safra: "2026", classificacao_codigo: "PADRAO", quantidade_kg: "1000.500", data_movimento: "2026-09-01", referencia_externa: "TRANSF-1", observacoes: "Ajuste interno", criado_por_nome: "Denis", criado_em: "2026-09-01T10:00:00Z" },
@@ -1003,6 +1180,19 @@ try {
   assert.equal(historicoTransferencia.length, 1);
   assert.equal(historicoTransferencia[0].saida.id, 1);
   assert.equal(historicoTransferencia[0].entrada.id, 2);
+  const transferenciaEncerrada = { ...historicoTransferencia[0], saida: { ...historicoTransferencia[0].saida, posicao: 1, estornado: true, correcao_transferencia: { acao: "editar", motivo: "Retificação" } }, entrada: { ...historicoTransferencia[0].entrada, posicao: 2 } };
+  assert.equal(statusTransferencia(transferenciaEncerrada), "Editada");
+  assert.equal(statusTransferencia(historicoTransferencia[0]), "Ativa");
+  const saldosEdicao = saldosAntesTransferencia([{ ...posicaoCerta, id: 1, saldo_fisico_kg: "0", saldo_disponivel_kg: "0" }, { ...posicaoCerta, id: 2, saldo_fisico_kg: "1000.5", saldo_disponivel_kg: "800.5" }], transferenciaEncerrada);
+  assert.equal(saldosEdicao[0].saldo_disponivel_kg, "1000.5");
+  assert.equal(saldosEdicao[1].saldo_fisico_kg, "0");
+  assert.equal(saldosEdicao[1].saldo_disponivel_kg, "-200");
+  const impressaoComHistorico = renderToStaticMarkup(React.createElement(TabelaImpressaoTransferencias, { historico: [historicoTransferencia[0], transferenciaEncerrada], propriedades: [] }));
+  assert.match(impressaoComHistorico, /Editada/);
+  assert.equal((impressaoComHistorico.match(/1\.000,500/g) || []).length, 3);
+  assert.deepEqual(posicoesDaOrigemVenda(posicoesVenda, origensVenda[0].chave, "Trigo").map(p => p.id), [3]);
+  assert.deepEqual(posicoesDaOrigemVenda(posicoesVenda, origensVenda[0].chave, "Milho"), []);
+
   assert.equal(numeroPlanilhaTransferencia("1000.500"), "1.000,500");
   assert.equal(nomePropriedadeTransferencia(movimentosTransferencia[0], [{ id: 1, nome: "Sítio A", proprietario: "Maria" }]), "Sítio A");
   const htmlTabelaTransferencias = renderToStaticMarkup(React.createElement(TabelaImpressaoTransferencias, {
@@ -1010,11 +1200,24 @@ try {
     propriedades: [{ id: 1, nome: "Sítio A", proprietario: "Maria" }, { id: 2, nome: "Sítio B", proprietario: "João" }],
   }));
   for (const valor of ["Transferências registradas", "Sítio A", "CAD/PRO 123", "Sítio B", "CAD/PRO 456", "1.000,500", "Total das linhas impressas"]) assert.ok(htmlTabelaTransferencias.includes(valor), valor);
-  assert.ok(appFonte.indexOf('onClick={() => setModulo("transferencias")}') < appFonte.indexOf('onClick={() => setModulo("vendas")}'));
+  assert.ok(menuAdmin.indexOf('>Produção<') < menuAdmin.indexOf('>Comercial<'));
 
   assert.doesNotMatch(appFonte, /Grupos de colheita/);
 
-  console.log("44 testes de componentes, submissão, geometria e PWA aprovados.");
+  const {default:RelatoriosConfigurados} = await servidor.ssrLoadModule("/src/pages/Relatorios/RelatoriosPage.tsx");
+  const htmlConfiguracao = renderToStaticMarkup(React.createElement(RelatoriosConfigurados,{propriedades:[]}));
+  assert.match(htmlConfiguracao,/@page relatorio \{size: A4 portrait/);
+  assert.match(htmlConfiguracao,/Orientação da impressão/);assert.match(htmlConfiguracao,/Espaçamento/);
+  const {numeroExtrato} = await servidor.ssrLoadModule("/src/components/ConferenciaSaldo.tsx");
+  assert.equal(numeroExtrato("52.682,927"),52682.927);
+  assert.equal(numeroExtrato("-1.500,250"),-1500.25);
+  assert.equal(numeroExtrato("0"),0);
+  assert.ok(Number.isNaN(numeroExtrato("1.50")));
+  assert.ok(Number.isNaN(numeroExtrato("")));
+  const {PreviaRateioParticular} = await servidor.ssrLoadModule("/src/pages/Vendas/VendasPage.tsx");
+  const htmlPreviaSaldo = renderToStaticMarkup(React.createElement(PreviaRateioParticular,{previa:{quantidade_total_kg:"50",parcelas:[{propriedade:1,propriedade_nome:"Electra",cad_pro_codigo:"1",area_hectares:"174.24",quantidade_kg:"50",saldo_anterior_kg:"100",saldo_posterior_kg:"50"}]}}));
+  assert.match(htmlPreviaSaldo,/Saldo antes/);assert.match(htmlPreviaSaldo,/Saldo depois/);assert.match(htmlPreviaSaldo,/100,000/);
+  console.log("Testes de componentes, submissão, geometria, PWA, impressão financeira e agrupamento por fornecedor aprovados.");
 } finally {
   await servidor.close();
 }

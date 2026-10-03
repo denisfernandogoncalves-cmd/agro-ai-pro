@@ -51,10 +51,11 @@ def disponibilidade_estoque(filtros):
     grupos = {}
     for item in lotes.values():
         datas = sorted(item["datas"])
-        if not datas:
-            continue
+        sem_entrada = not datas
         # Filtro seleciona compras; saídas posteriores sempre compõem o saldo atual.
-        if not any((not filtros.get("data_inicio") or d >= filtros["data_inicio"])
+        if sem_entrada and (filtros.get("data_inicio") or filtros.get("data_fim")):
+            continue
+        if datas and not any((not filtros.get("data_inicio") or d >= filtros["data_inicio"])
                    and (not filtros.get("data_fim") or d <= filtros["data_fim"]) for d in datas):
             continue
         lote = item["lote"]
@@ -73,13 +74,11 @@ def disponibilidade_estoque(filtros):
         grupo["quantidade_saida"] += item["saidas"]
         grupo["disponivel"] += item["entradas"] - item["saidas"]
         grupo["valor_aquisicao"] += item["valor"]
-        grupo["custo_completo"] &= item["custo_completo"]
+        grupo["custo_completo"] &= item["custo_completo"] and not sem_entrada
         grupo["lotes"].append({"id": lote.pk, "codigo": lote.codigo, "datas_entrada": datas})
     resultado = []
     totais = {}
     for grupo in grupos.values():
-        if filtros.get("somente_disponivel", True) and grupo["disponivel"] <= 0:
-            continue
         chave_resumo = (grupo["produto_id"], grupo["fornecedor_id"])
         resumo = totais.setdefault(chave_resumo, {
             "produto_id": grupo["produto_id"], "produto": grupo["produto"],
@@ -92,17 +91,19 @@ def disponibilidade_estoque(filtros):
         resumo["valor"] += grupo["valor_aquisicao"]
         resumo["completo"] &= grupo["custo_completo"]
         completo = grupo.pop("custo_completo")
-        grupo["preco_medio"] = str((grupo["valor_aquisicao"] / grupo["quantidade_comprada"]).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)) if completo else None
+        grupo["preco_medio"] = str((grupo["valor_aquisicao"] / grupo["quantidade_comprada"]).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)) if completo and grupo["quantidade_comprada"] else None
         grupo["valor_aquisicao"] = str(grupo["valor_aquisicao"].quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)) if completo else None
         for campo in ("quantidade_comprada", "quantidade_saida", "disponivel"):
             grupo[campo] = str(grupo[campo].quantize(Decimal("0.001")))
-        resultado.append(grupo)
+        if not filtros.get("somente_disponivel", True) or Decimal(grupo["disponivel"]) > 0:
+            resultado.append(grupo)
     resumo_final = []
     for resumo in totais.values():
         comprado, valor, completo = resumo.pop("comprado"), resumo.pop("valor"), resumo.pop("completo")
         resumo["disponivel"] = str(resumo["disponivel"].quantize(Decimal("0.001")))
-        resumo["preco_medio"] = str((valor / comprado).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)) if completo else None
-        resumo_final.append(resumo)
+        resumo["preco_medio"] = str((valor / comprado).quantize(Decimal("0.0001"), rounding=ROUND_HALF_UP)) if completo and comprado else None
+        if not filtros.get("somente_disponivel", True) or Decimal(resumo["disponivel"]) > 0:
+            resumo_final.append(resumo)
     return {
         "itens": sorted(resultado, key=lambda g: (g["produto"], g["fornecedor"], str(g["data_compra"] or ""))),
         "resumo": sorted(resumo_final, key=lambda g: (g["produto"], g["fornecedor"])),

@@ -955,3 +955,33 @@ class MovimentacaoGraos(models.Model):
 
     def __str__(self):
         return f"{self.get_operacao_display()} - {self.lote} - {self.quantidade_kg} kg"
+
+
+class CorrecoesTransferenciaQuerySet(models.QuerySet):
+    def update(self,**kwargs):
+        raise ValidationError("A correção de transferência é imutável.")
+    def delete(self):
+        raise ValidationError("A correção de transferência é imutável.")
+
+
+class CorrecaoTransferenciaSaldo(models.Model):
+    objects = CorrecoesTransferenciaQuerySet.as_manager()
+    origem_original = models.OneToOneField(OrigemSaldoGraos, on_delete=models.PROTECT, related_name="correcao_transferencia")
+    origem_nova = models.OneToOneField(OrigemSaldoGraos, on_delete=models.PROTECT, related_name="correcao_anterior", null=True, blank=True)
+    acao = models.CharField(max_length=8, choices=(("editar","Editar"),("excluir","Excluir")))
+    motivo = models.CharField(max_length=500)
+    chave_idempotencia = models.CharField(max_length=160, unique=True)
+    hash_requisicao = models.CharField(max_length=64)
+    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-criado_em", "-id")
+        verbose_name = "correção de transferência de saldo"
+
+    def save(self,*args,**kwargs):
+        if self.pk: raise ValidationError("A correção de transferência é imutável.")
+        return super().save(*args,**kwargs)
+
+    def delete(self,*args,**kwargs):
+        raise ValidationError("A correção de transferência é imutável.")

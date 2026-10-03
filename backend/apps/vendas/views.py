@@ -20,6 +20,7 @@ from .serializers import (
     EdicaoVendaSerializer,
     ContratoComercialSerializer,
     SaidaVendaSerializer,
+    PreviaParticularSerializer,
 )
 from .services import (
     VendaGraosConflitoError,
@@ -157,11 +158,26 @@ class VendaGraosViewSet(viewsets.ReadOnlyModelViewSet):
         entrada = SaidaVendaSerializer(data=request.data)
         entrada.is_valid(raise_exception=True)
         try:
-            venda = registrar_venda_com_saida(usuario=request.user,
+            from .particular_services import registrar_particular
+            servico = registrar_particular if entrada.validated_data.get("contexto_particular") else registrar_venda_com_saida
+            venda = servico(usuario=request.user,
                 chave_idempotencia=self._chave(request), dados=entrada.validated_data)
             return Response(VendaGraosSerializer(selecionar_vendas().get(pk=venda.pk)).data,
                 status=status.HTTP_201_CREATED)
         except (VendaGraosError, SaldoGraosError, ValidationError, IntegrityError) as exc:
+            return self._erro(exc)
+
+    @action(detail=False, methods=["post"], url_path="previa-particular")
+    def previa_particular(self, request):
+        from .particular_services import previa_particular
+        entrada = PreviaParticularSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        try:
+            return Response(previa_particular(
+                contexto=entrada.validated_data["contexto_particular"],
+                quantidade_kg=entrada.validated_data["quantidade_kg"],
+            ))
+        except VendaGraosError as exc:
             return self._erro(exc)
 
     @action(detail=True, methods=["post"])

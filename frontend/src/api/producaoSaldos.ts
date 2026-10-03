@@ -75,6 +75,10 @@ export type PainelSaldos = {
 };
 
 export type MovimentacaoSaldo = {
+  posicao?: number;
+  origem?: number;
+  estornado?: boolean;
+  correcao_transferencia?: { acao: "editar" | "excluir"; motivo: string; origem_nova: number | null; criado_em: string; criado_por_nome: string } | null;
   id: number;
   operacao: string;
   lote_codigo: string;

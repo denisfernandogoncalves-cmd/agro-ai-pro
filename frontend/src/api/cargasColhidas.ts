@@ -146,3 +146,12 @@ export async function atualizarCargaColhida(
 export async function excluirCargaColhida(id: number, motivo: string) {
   await api.delete(`/graos/cargas-colhidas/${id}/`, { data: { motivo } });
 }
+
+export type PreviaExclusaoCarga = {
+  carga: number; pode_excluir: boolean; impedimentos: string[]; mais_transferencias: boolean;
+  efeitos: { posicao: number; propriedade: string; cad_pro: string; cultura: string; saldo_anterior_kg: string; saldo_posterior_kg: string; comprometido_kg: string; disponivel_posterior_kg: string; bloqueada: boolean }[];
+  transferencias: { movimento_saida: number; quantidade_kg: string; destino: string }[];
+};
+export async function carregarPreviaExclusaoCarga(id: number) {
+  return (await api.get<PreviaExclusaoCarga>(`/graos/cargas-colhidas/${id}/previa-exclusao/`)).data;
+}

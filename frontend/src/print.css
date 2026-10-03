@@ -1,5 +1,15 @@
 .somente-impressao { display: none; }
 
+@page financeiro {
+  size: A4 portrait;
+  margin: 12mm;
+}
+
+@page relatorio {
+  size: A4 portrait;
+  margin: 12mm;
+}
+
 @page {
   size: A4 portrait;
   margin: 3cm 2cm 2cm 3cm;
@@ -11,6 +21,13 @@
 }
 
 @media print {
+  body:has(.modulo-faturamento) .pagina { page: planilha; }
+  body:has(.modulo-faturamento) .pagina > header,
+  body:has(.modulo-faturamento) .pagina > .impressao-contexto { display: none !important; }
+  .modulo-faturamento > :not(.relatorio-faturamento) { display: none !important; }
+  .modulo-faturamento .relatorio-faturamento { display: block !important; border: 0; box-shadow: none; padding: 0; }
+  .modulo-faturamento .faturamento-tabela { overflow: visible; }
+  .modulo-faturamento table { font-size: 9pt; }
   :root, body { background: white !important; color: #111 !important; min-width: 0; font-size: 10pt; }
   .pagina { width: auto; max-width: none; margin: 0; padding: 0; }
   .pagina * { box-shadow: none !important; text-shadow: none !important; }
@@ -21,6 +38,7 @@
   .somente-impressao { display: block; }
   .impressao-contexto { font-size: 8pt; border-bottom: 1px solid #777; padding-bottom: 3mm; }
   .pagina > header { margin-bottom: 3mm; }
+  .marca-aplicativo { display: none; }
   h1 { font-size: 18pt; }
   h2 { font-size: 14pt; }
   h3 { font-size: 11pt; }
@@ -33,16 +51,63 @@
   .pagina article, .pagina tr, .pagina figure { break-inside: avoid; }
   .pagina .item { display: block; }
   .pagina .item + .item { margin-top: 3mm; }
-  .modulo-propriedades .propriedades-lista {
-    display: grid;
-    gap: 3mm;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+  .modulo-propriedades { page: planilha; }
+  body:has(.modulo-propriedades) .pagina > header,
+  body:has(.modulo-propriedades) .pagina > .impressao-contexto,
+  .modulo-propriedades > :not(.controle-planilha-propriedades) {
+    display: none !important;
   }
-  .modulo-propriedades .propriedades-lista .item {
-    height: 100%;
+  .modulo-propriedades > .controle-planilha-propriedades {
+    display: block !important;
+    color: #111;
+    font-family: Arial, Helvetica, sans-serif;
     margin: 0;
+    padding: 0;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
   }
-  .modulo-propriedades .propriedades-lista .item + .item { margin-top: 0; }
+  .controle-planilha-propriedades .titulo-impressao-propriedades {
+    background: transparent !important;
+    border: 0;
+    font-size: 11pt;
+    font-weight: 700;
+    margin: 0 0 4mm;
+    padding: 0;
+    text-align: left;
+  }
+  .controle-planilha-propriedades .tabela-impressao-propriedades {
+    border-collapse: collapse;
+    font-size: 7pt;
+    table-layout: fixed;
+    width: 100%;
+  }
+  .controle-planilha-propriedades .tabela-impressao-propriedades th,
+  .controle-planilha-propriedades .tabela-impressao-propriedades td {
+    border: 0;
+    border-bottom: 1px solid #aaa;
+    color: #111;
+    padding: 2mm 1mm;
+    text-align: left;
+    vertical-align: middle;
+  }
+  .controle-planilha-propriedades .tabela-impressao-propriedades thead th {
+    background: #e6eee7 !important;
+    font-weight: 700;
+    text-transform: uppercase;
+  }
+  .tabela-impressao-propriedades thead th:nth-child(1) { width: 25%; }
+  .tabela-impressao-propriedades thead th:nth-child(2) { width: 16%; }
+  .tabela-impressao-propriedades thead th:nth-child(3) { width: 20%; }
+  .tabela-impressao-propriedades thead th:nth-child(4) { width: 15%; }
+  .tabela-impressao-propriedades thead th:nth-child(5),
+  .tabela-impressao-propriedades thead th:nth-child(6) { width: 12%; }
+  .tabela-impressao-propriedades tfoot { font-weight: 700; }
+  .controle-planilha-propriedades .tabela-impressao-propriedades tfoot th,
+  .controle-planilha-propriedades .tabela-impressao-propriedades tfoot td {
+    border-top: 1px solid #777;
+  }
+  .tabela-impressao-propriedades tfoot small { display: block; font-size: 6pt; font-weight: 400; }
+  .controle-planilha-propriedades .nota-impressao-propriedades { font-size: 7pt; margin: 1mm 0; }
   .modulo-cadastros-agricolas { page: planilha; }
   .modulo-cadastros-agricolas > .auxiliares-grade {
     display: block;
@@ -91,6 +156,35 @@
   .pagina a { color: inherit; text-decoration: none; }
   .pagina .paginacao { margin: 3mm 0; font-size: 8pt; }
   .pagina [hidden] { display: none !important; }
+
+  body:has(.modulo-relatorios-operacionais) .pagina { page: relatorio; font-family: Arial, Helvetica, sans-serif; }
+  body:has(.modulo-relatorios-operacionais) .pagina > header,
+  body:has(.modulo-relatorios-operacionais) .pagina > .impressao-contexto,
+  .modulo-relatorios-operacionais > .cabecalho-relatorio,
+  .modulo-relatorios-operacionais > .resumos-operacionais { display: none !important; }
+  .modulo-relatorios-operacionais > h2.somente-impressao { margin: 0 0 3mm; font-size: 13pt; }
+  .modulo-relatorios-operacionais > .kicker { font-size: 7pt; margin-top: 3mm; }
+
+  body:has(.modulo-financeiro) .pagina { page: financeiro; font-family: Arial, Helvetica, sans-serif; font-size: 9pt; line-height: 1.3; }
+  body:has(.modulo-financeiro) .pagina > header { margin: 0 0 2mm; }
+  body:has(.modulo-financeiro) .pagina > header h1 { font-size: 15pt; margin: 1mm 0; }
+  body:has(.modulo-financeiro) .pagina > header .kicker { font-size: 7pt; letter-spacing: .06em; }
+  body:has(.modulo-financeiro) .impressao-contexto { font-size: 7pt; padding-bottom: 2mm; margin: 0 0 2mm; }
+  .modulo-financeiro > :not(.financeiro-impressao) { display: none !important; }
+  .modulo-financeiro > .financeiro-impressao { display: block !important; }
+  .financeiro-impressao-filtros { font-size: 8pt; margin: 0 0 3mm; }
+  .financeiro-impressao-resumo { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0; border: 1px solid #aab7ae; margin: 0 0 4mm; break-inside: avoid; }
+  .financeiro-impressao-resumo > div { padding: 2mm; border-right: 1px solid #d9e2da; }
+  .financeiro-impressao-resumo > div:last-child { border: 0; }
+  .financeiro-impressao-resumo dt { font-size: 7pt; color: #384b40; margin-bottom: 1mm; }
+  .financeiro-impressao-resumo dd { font-size: 9pt; font-weight: 700; margin: 0; font-variant-numeric: tabular-nums; }
+  .pagina .financeiro-impressao-tabela { font-size: 8pt; line-height: 1.35; }
+  .financeiro-impressao-tabela th { background: #edf2ee; text-align: left; }
+  .pagina .financeiro-impressao-tabela th, .pagina .financeiro-impressao-tabela td { padding: 2mm 1mm; vertical-align: top; border-bottom: 1px solid #c4cec7; }
+  .financeiro-impressao-tabela td strong, .financeiro-impressao-tabela td span, .financeiro-impressao-tabela td small { display: block; }
+  .financeiro-impressao-tabela td span { margin-top: .6mm; }
+  .financeiro-impressao-tabela .codigo-impressao { font-size: 6.5pt; overflow-wrap: anywhere; margin-top: 1mm; color: #444; }
+  .pagina .financeiro-impressao-tabela .numero { text-align: right; font-variant-numeric: tabular-nums; }
 
   .modulo-vendas, .modulo-producao-saldos, .modulo-cargas,
   .modulo-transferencias-saldo { page: planilha; }
@@ -174,6 +268,7 @@
   .controle-planilha-producao .producao-saldos-planilha th:nth-child(3) { width: 9%; }
   .controle-planilha-producao .producao-saldos-planilha th:nth-child(4) { width: 15%; }
   .controle-planilha-producao .producao-saldos-planilha th:nth-child(n+5) { width: 13%; }
+  .controle-planilha-cargas .controle-planilha-titulo > div:first-child { display: none !important; }
   .controle-planilha-cargas .cargas-planilha { font-size: 7.5pt; }
   .controle-planilha-cargas .cargas-planilha th:nth-child(1) { width: 8%; }
   .controle-planilha-cargas .cargas-planilha th:nth-child(2) { width: 11%; }
@@ -229,3 +324,5 @@
   }
   .modulo-estoque .compra-tabela th { background: #e6eee7; color: #111; }
 }
+
+@media print {body.impressao-bloqueada #root {display:none !important;} body.impressao-bloqueada::after {content:"Impressão indisponível para seu usuário nesta tela.";} .filtros-favoritos {display:none !important;}}

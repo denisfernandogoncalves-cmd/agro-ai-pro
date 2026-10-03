@@ -11,6 +11,11 @@ from .services import EstoqueInsuficienteError, registrar_movimentacao, saldo_lo
 
 
 class ProdutoEstoqueSerializer(serializers.ModelSerializer):
+    def validate_unidade(self, value):
+        if self.instance and value != self.instance.unidade and self.instance.faturamentoinsumo_set.exists():
+            raise serializers.ValidationError("A unidade de produto com faturamento confirmado não pode ser alterada.")
+        return value
+
     class Meta:
         model = ProdutoEstoque
         fields = "__all__"
@@ -52,6 +57,10 @@ class LoteEstoqueSerializer(serializers.ModelSerializer):
         return saldo_lote(obj)
 
     def validate(self, attrs):
+        if self.instance and self.instance.movimentacoes.filter(baixa_faturamento__isnull=False).exists():
+            for campo in ("produto", "fornecedor", "local"):
+                if campo in attrs and attrs[campo] != getattr(self.instance, campo):
+                    raise serializers.ValidationError({campo: "Este lote possui faturamento confirmado e não pode mudar de produto, empresa ou local."})
         fornecedor = attrs.get("fornecedor", getattr(self.instance, "fornecedor", None))
         local = attrs.get("local", getattr(self.instance, "local", None))
         produto = attrs.get("produto", getattr(self.instance, "produto", None))

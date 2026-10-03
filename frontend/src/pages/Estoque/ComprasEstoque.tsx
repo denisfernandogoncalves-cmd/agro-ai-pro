@@ -1,5 +1,7 @@
+import AnexosLancamento from "../../components/AnexosLancamento";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import axios from "axios";
+import PainelFormulario from "../../components/PainelFormulario";
 import { CompraEstoque, CompraEstoqueInput, ProdutoEstoque, listarComprasEstoque, registrarCompraEstoque } from "../../api/estoque";
 import { ParceiroFinanceiro } from "../../api/financeiro";
 
@@ -66,6 +68,7 @@ export default function ComprasEstoque({ produtos, fornecedores, atualizarEstoqu
   return <section className="compras-estoque">
     {erro && <p className="erro card" role="alert">{erro}</p>}
     {sucesso && <p className="sucesso card" role="status">{sucesso}</p>}
+    <PainelFormulario titulo="Nova compra de estoque">
     <form className="card" onSubmit={salvar}>
       <h2>Nova compra</h2>
       <fieldset disabled={salvando} className="compra-campos">
@@ -87,11 +90,12 @@ export default function ComprasEstoque({ produtos, fornecedores, atualizarEstoqu
       </fieldset>
       <div className="compra-rodape"><p>Selecione produtos em litros ou kg. Produtos e fornecedores são cadastrados em Cadastros agrícolas.</p><button type="submit" disabled={salvando}>{salvando ? "Salvando…" : "Registrar compra"}</button></div>
     </form>
+    </PainelFormulario>
     <section className="card compras-lista-impressao">
       <div className="compra-lista-cabecalho"><h2>Compras de estoque</h2><form className="busca" onSubmit={e => { e.preventDefault(); setErro(""); void carregar(busca); }}><input aria-label="Buscar compras" placeholder="Produto, cultura ou fornecedor" value={busca} onChange={e => setBusca(e.target.value)} /><button disabled={carregando}>Buscar</button></form></div>
       <div className="compra-tabela-scroll" tabIndex={0} role="region" aria-label="Tabela de compras de estoque">
         <table className="compra-tabela"><thead><tr>{colunas.map(c => <th scope="col" key={c}>{c}</th>)}</tr></thead>
-          <tbody>{compras.map(c => <tr key={c.id}><td>{data(c.data_compra)}</td><td>{c.produto_nome}</td><td>{c.cultura || "—"}</td><td>{c.safra || "—"}</td><td>{numero(c.quantidade_embalagens)}</td><td>{c.embalagem}</td><td>{numero(c.conteudo_embalagem)} {c.unidade.toUpperCase()}</td><td>{c.fornecedor_nome}</td><td>{moeda(c.custo_embalagem)}</td><td>{data(c.data_vencimento)}</td><td>{numero(c.quantidade_total)} {c.unidade.toUpperCase()}</td><td title={`${numero(c.valor_por_unidade, 4)} por ${c.unidade}`}>{moeda(c.valor_por_unidade)}</td><td>{moeda(c.valor_total)}</td></tr>)}</tbody>
+          <tbody>{compras.map(c => <tr key={c.id}><td>{data(c.data_compra)}</td><td>{c.produto_nome}</td><td>{c.cultura || "—"}</td><td>{c.safra || "—"}</td><td>{numero(c.quantidade_embalagens)}</td><td>{c.embalagem}</td><td>{numero(c.conteudo_embalagem)} {c.unidade.toUpperCase()}</td><td>{c.fornecedor_nome}</td><td>{moeda(c.custo_embalagem)}</td><td>{data(c.data_vencimento)}</td><td>{numero(c.quantidade_total)} {c.unidade.toUpperCase()}</td><td title={`${numero(c.valor_por_unidade, 4)} por ${c.unidade}`}>{moeda(c.valor_por_unidade)}</td><td>{moeda(c.valor_total)}<AnexosLancamento entidade="compra" registro={c.id}/></td></tr>)}</tbody>
         </table>
       </div>
       {carregando ? <p role="status">Carregando compras…</p> : !compras.length && <p className="vazio">Nenhuma compra encontrada. Movimentações anteriores continuam disponíveis abaixo.</p>}
