@@ -45,6 +45,12 @@ header { align-items: center; display: flex; justify-content: space-between; mar
 @media (max-width: 1000px) { .filtros-impressao-campos { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 540px) { .filtros-impressao-campos { grid-template-columns: minmax(0, 1fr); } }
 .formulario { display: grid; gap: 1rem; position: sticky; top: 1rem; }
+.formulario.confirmacao-exclusao-carga { position: static; width: 100%; max-width: 760px; justify-self: start; min-width: 0; gap: .65rem; padding: 1rem; }
+.confirmacao-exclusao-carga h3, .confirmacao-exclusao-carga p, .confirmacao-exclusao-carga ul { margin: 0; }
+.confirmacao-exclusao-carga ul { padding-left: 1.25rem; overflow-wrap: anywhere; }
+.confirmacao-exclusao-carga textarea { min-height: 60px; height: 60px; }
+.confirmacao-exclusao-carga .acoes { flex-wrap: wrap; }
+.confirmacao-exclusao-carga .acoes button { padding: .5rem .75rem; font-size: .875rem; }
 
 /* Grupos ficam no fluxo da página, sem cobrir os registros ao rolar. */
 .grupos-colheita { display: grid; gap: 1rem; min-width: 0; }

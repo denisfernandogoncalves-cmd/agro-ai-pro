@@ -679,7 +679,7 @@ export default function CargasColhidasPage({ propriedades }: Props) {
           <div className="lista cargas-lista">
             {carregando && cargas.length === 0 ? <div className="card vazio">Carregando cargas colhidas...</div> : cargasFiltradas.length === 0 ? <div className="card vazio">Nenhuma carga colhida {mostrarHistorico ? "encontrada" : "ativa"}.</div> : cargasFiltradas.map((item) => (
               <Fragment key={item.id}><CartaoCargaColhida item={item} carregando={carregando || salvando} onEditar={editar} onExcluir={(selecionada) => void prepararExclusao(selecionada)} />
-              {exclusao?.item.id === item.id && <form className="card formulario" onSubmit={e => { e.preventDefault(); void excluir(item); }}><h3>Excluir carga #{item.id}</h3>
+              {exclusao?.item.id === item.id && <form className="card formulario confirmacao-exclusao-carga" onSubmit={e => { e.preventDefault(); void excluir(item); }}><h3>Excluir carga #{item.id}</h3>
                 {exclusao.carregando && <p role="status">Conferindo os saldos antes da exclusão...</p>}
                 {exclusao.erro && <p className="erro" role="alert">{exclusao.erro}</p>}
                 {exclusao.previa && <><p>A exclusão estorna a entrada e mantém o registro no histórico.</p>
