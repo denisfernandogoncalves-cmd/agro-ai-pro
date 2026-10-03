@@ -56,3 +56,21 @@ class RascunhoFormulario(models.Model):
 
     class Meta:
         constraints = [models.UniqueConstraint(fields=("usuario", "contexto"), name="core_rascunho_usuario_contexto")]
+
+
+class AnexoLancamento(models.Model):
+    entidade = models.CharField(max_length=30)
+    registro_id = models.CharField(max_length=36)
+    nome = models.CharField(max_length=160)
+    tipo = models.CharField(max_length=40)
+    tamanho = models.PositiveIntegerField()
+    sha256 = models.CharField(max_length=64)
+    conteudo = models.BinaryField(editable=False)
+    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    excluido_em = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ("-criado_em", "-id")
+        indexes = [models.Index(fields=("entidade", "registro_id"), name="core_anexo_registro")]
+        constraints = [models.UniqueConstraint(fields=("entidade", "registro_id", "sha256"), condition=models.Q(excluido_em__isnull=True), name="core_anexo_ativo_hash")]

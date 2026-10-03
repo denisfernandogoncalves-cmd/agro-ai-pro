@@ -1,3 +1,4 @@
+import AnexosLancamento from "../../components/AnexosLancamento";
 import { BotaoAcao, useAcoes } from "../../components/AcoesContext";
 import { useAlteracoesNaoSalvas } from "../../components/AlteracoesNaoSalvas";
 import { useConfirmacaoCompacta } from "../../components/ConfirmacaoCompacta";
@@ -38,7 +39,7 @@ export function HistoricoFaturamento({ historico, ocupado, onVer, onPdf, onExclu
   onVer: (f: Faturamento) => void; onPdf: (f: Faturamento) => void; onExcluir: (f: Faturamento) => void;
 }) {
   return <section className="card nao-imprimir"><h2>Histórico de envios confirmados</h2>{!historico.length && <p>Nenhum faturamento registrado.</p>}
-    {historico.map(h => <article className="item" key={h.id}>
+    {historico.map(h => <article className="item" key={h.id}><AnexosLancamento entidade="faturamento" registro={h.id} />
       <div><strong>{h.resumo.fornecedor_nome} · {h.resumo.produto_nome}</strong><p>{h.data_envio.split("-").reverse().join("/")} · {numero(h.resumo.total_embalagens)} {h.resumo.embalagem} · {numero(h.resumo.quantidade_total)} {h.resumo.unidade}</p></div>
       <div className="acoes">
         <button type="button" className="secundario" disabled={ocupado} onClick={() => onVer(h)}>Ver relatório</button>

@@ -25,16 +25,24 @@ class ConferenciaView(NoStoreResponseMixin, APIView):
         except (TypeError, ValueError):
             raise serializers.ValidationError({"pagina": "Página inválida."})
         qs = MovimentacaoGraos.objects.filter(posicao=posicao)
+        operacao = request.query_params.get("operacao", "")
+        if operacao and operacao not in MovimentacaoGraos.Operacao.values:
+            raise serializers.ValidationError({"operacao": "Operação inválida."})
+        filtrados = qs.filter(operacao=operacao) if operacao else qs
         totais = qs.aggregate(fisico=Sum("delta_fisico_kg"), comprometido=Sum("delta_comprometido_kg"), entradas=Sum("delta_fisico_kg", filter=Q(delta_fisico_kg__gt=0)), saidas=Sum("delta_fisico_kg", filter=Q(delta_fisico_kg__lt=0)), ajustes=Sum("delta_fisico_kg", filter=Q(operacao="ajuste")))
         totais = {k: v or ZERO for k,v in totais.items()}
         inicio = (pagina - 1) * 25
-        movimentos = list(qs.select_related("movimento_estorno", "carga_colhida", "rateio_carga_colhida", "entrega_venda", "devolucao_venda", "origem", "reserva__origem").order_by("data_movimento", "id")[inicio:inicio + 25])
+        movimentos = list(filtrados.select_related("movimento_estorno", "carga_colhida", "rateio_carga_colhida", "entrega_venda", "devolucao_venda", "origem", "reserva__origem").order_by("data_movimento", "id")[inicio:inicio + 25])
         # Baseline da página inclui todos os movimentos anteriores na mesma ordenação.
         anteriores = qs.filter(Q(data_movimento__lt=movimentos[0].data_movimento) | Q(data_movimento=movimentos[0].data_movimento, id__lt=movimentos[0].id)) if movimentos else qs.none()
         baseline = anteriores.aggregate(f=Sum("delta_fisico_kg"), c=Sum("delta_comprometido_kg"))
         fisico, comprometido = baseline["f"] or ZERO, baseline["c"] or ZERO
         itens=[]
         for m in movimentos:
+            if operacao:
+                # O filtro visual nunca remove movimentos do saldo acumulado.
+                anterior = qs.filter(Q(data_movimento__lt=m.data_movimento) | Q(data_movimento=m.data_movimento, id__lt=m.id)).aggregate(f=Sum("delta_fisico_kg"), c=Sum("delta_comprometido_kg"))
+                fisico, comprometido = anterior["f"] or ZERO, anterior["c"] or ZERO
             fisico += m.delta_fisico_kg; comprometido += m.delta_comprometido_kg
             correcao = ""
             if hasattr(m,"carga_colhida") or hasattr(m,"rateio_carga_colhida"):
@@ -44,7 +52,7 @@ class ConferenciaView(NoStoreResponseMixin, APIView):
             elif m.operacao in ("transferencia_saida", "transferencia_entrada"):
                 correcao = "A transferência exige estorno das duas posições pelo fluxo de transferências."
             itens.append({"orientacao_correcao":correcao,"id":m.id,"data":m.data_movimento,"operacao":m.operacao,"quantidade_kg":str(m.quantidade_kg),"delta_fisico_kg":str(m.delta_fisico_kg),"delta_comprometido_kg":str(m.delta_comprometido_kg),"saldo_acumulado_kg":str(fisico),"comprometido_acumulado_kg":str(comprometido),"referencia":m.referencia_externa,"motivo":m.observacoes,"estorno_de":m.estorno_de_id,"estornado":hasattr(m,"movimento_estorno")})
-        return Response({"posicao":pk,"propriedade":posicao.propriedade.nome if posicao.propriedade_id else "Histórico sem propriedade","cad_pro":posicao.cad_pro.codigo,"armazem":posicao.armazem.nome,"versao":posicao.versao,"saldo_registrado_kg":str(posicao.saldo_fisico_kg),"comprometido_registrado_kg":str(posicao.saldo_comprometido_kg),"totais":{k:str(v) for k,v in totais.items()},"diferenca_fisico_kg":str(posicao.saldo_fisico_kg-totais["fisico"]),"diferenca_comprometido_kg":str(posicao.saldo_comprometido_kg-totais["comprometido"]),"pagina":pagina,"total_movimentos":qs.count(),"itens":itens})
+        return Response({"posicao":pk,"propriedade":posicao.propriedade.nome if posicao.propriedade_id else "Histórico sem propriedade","cad_pro":posicao.cad_pro.codigo,"cultura":posicao.cultura,"safra":posicao.safra,"armazem":posicao.armazem.nome,"versao":posicao.versao,"saldo_registrado_kg":str(posicao.saldo_fisico_kg),"comprometido_registrado_kg":str(posicao.saldo_comprometido_kg),"totais":{k:str(v) for k,v in totais.items()},"diferenca_fisico_kg":str(posicao.saldo_fisico_kg-totais["fisico"]),"diferenca_comprometido_kg":str(posicao.saldo_comprometido_kg-totais["comprometido"]),"pagina":pagina,"total_movimentos":filtrados.count(),"total_historico":qs.count(),"operacao":operacao,"itens":itens})
 
 
 class EstornoConferidoView(NoStoreResponseMixin, APIView):

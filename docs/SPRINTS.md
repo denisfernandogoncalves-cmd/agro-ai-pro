@@ -184,3 +184,9 @@ Conferência de saldos, simulação, estorno com motivo, conciliação manual, r
 **Status:** implementação e testes aprovados em 03/10/2026; conferência visual final do aviso de saída e telas menores pendente por bloqueio do navegador integrado.
 
 Seis melhorias autorizadas implementadas: busca numérica, filtros rápidos, comparação de edição, proteção contra perda de alterações, motivos de bloqueio e confirmações compactas. Frontend/TypeScript/build aprovados; serviço local atualizado. Escopo e limitações: `docs/decisoes/2026-10-03-busca-filtros-confirmacoes.md`.
+
+## Incremento — Documentos, exportação e backup Excel
+
+**Status:** `[x]` — aplicado localmente em 03/10/2026 nos limites documentados.
+
+Backup Excel administrativo, relatórios Excel filtrados, documentos privados auditados, avisos de duplicidades, histórico filtrável, percentuais brasileiros e renovação antecipada implementados. Migration core0003 aditiva; dados existentes preservados. Backend completo: 552 casos (512 aprovados, 40 skips), 21 PostgreSQL; frontend, TypeScript e build aprovados. Conferência visual de backup e renovação; responsividade 360/768/1366 px. Aviso compacto de saída validado em 360 px, encerrando a pendência visual anterior desse aviso. Referência: `docs/decisoes/2026-10-03-documentos-excel.md` e `docs/api/DOCUMENTOS_EXCEL.md`. Excel é consulta, não restauração; download em disco do navegador integrado não confirmado. Merge/produção não autorizados.

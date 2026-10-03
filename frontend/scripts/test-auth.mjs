@@ -503,6 +503,30 @@ try {
     assert.equal(serverState.refreshCount, 1);
     assert.equal(serverState.privateCount, 4);
   });
+  await test("renovação antecipada compartilha refresh com consultas e não muda geração", async () => {
+    const {coordinator,api}=await freshScenario();
+    coordinator.registrarLoginExplicito(coordinator.obterGeracaoSessao(), "access-expired", "refresh-valid");
+    const generation=coordinator.obterGeracaoSessao();
+    serverState.refreshStarted=deferred();serverState.refreshGate=deferred();
+    const manual=api.renovarSessaoAgora();
+    await serverState.refreshStarted.promise;
+    const outra=api.renovarSessaoAgora();const consulta=api.listarPropriedades();
+    serverState.refreshGate.resolve();
+    await Promise.all([manual,outra,consulta]);
+    assert.equal(serverState.refreshCount,1);
+    assert.equal(coordinator.obterGeracaoSessao(),generation);
+    assert.equal(coordinator.estaAutenticado(),true);
+  });
+  await test("renovação antecipada não revive sessão encerrada", async () => {
+    const {coordinator,api}=await freshScenario();
+    coordinator.registrarLoginExplicito(coordinator.obterGeracaoSessao(), "access-expired", "refresh-valid");
+    serverState.refreshStarted=deferred();serverState.refreshGate=deferred();
+    const manual=api.renovarSessaoAgora();
+    await serverState.refreshStarted.promise;await api.sair();serverState.refreshGate.resolve();
+    await assert.rejects(manual);await assert.rejects(api.renovarSessaoAgora());
+    assert.equal(coordinator.estaAutenticado(),false);
+    assert.equal(serverState.refreshCount,1);
+  });
 } finally {
   await new Promise((resolve, reject) => {
     server.close((error) => (error ? reject(error) : resolve()));

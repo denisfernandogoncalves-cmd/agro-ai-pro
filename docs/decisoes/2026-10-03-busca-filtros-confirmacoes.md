@@ -22,3 +22,5 @@ Favoritos de cargas continuam guardando busca e histórico; os três novos filtr
 Backups privados completos e verificados, incluindo código não commitado, banco, uploads e prova de restauração isolada: `backups/agro-ai-pro-2026-10-03-075828-992250`, `backups/agro-ai-pro-2026-10-03-081538-909208` e `backups/agro-ai-pro-2026-10-03-082449-640079`. Evidências visuais no segundo backup: `filtros-cargas.png` e `confirmacao-transferencia.png`. Backups e imagens não devem ser publicados no Git.
 
 GitHub autorizado nesta conversa; merge e publicação em produção não autorizados.
+
+Atualização de validação: em 03/10, no incremento de documentos/Excel, o aviso interno de saída foi conferido em 360 px sem overflow; Cancelar preservou o preenchimento. Carga e documentos também conferidos em 360 px. O bloqueio anterior do navegador foi superado. Evidências adicionais: `2026-10-03-documentos-excel.md`.

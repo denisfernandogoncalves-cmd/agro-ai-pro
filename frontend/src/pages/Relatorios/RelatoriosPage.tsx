@@ -1,3 +1,5 @@
+import { baixarArquivo, erroArquivo } from "../../api/arquivos";
+import { BotaoAcao } from "../../components/AcoesContext";
 import { useEntradaPainel } from "../../components/AcoesContext";
 import FiltrosFavoritos from "../../components/FiltrosFavoritos";
 import { FormEvent, useEffect, useRef, useState } from "react";
@@ -152,6 +154,9 @@ export default function RelatoriosPage({ propriedades }: { propriedades: Proprie
   const [erro, setErro] = useState("");
   const [aplicados, setAplicados] = useState<FiltrosRelatorio>(vazio);
   const ultimaConsulta = useRef(0);
+  const [exportando,setExportando]=useState(false);
+  const travaExcel=useRef(false);
+  async function exportarExcel(){if(travaExcel.current||!dados)return;travaExcel.current=true;setExportando(true);setErro("");try{await baixarArquivo("/relatorios/operacionais/exportar/",`relatorio-${dados.secao}.xlsx`,{...aplicados});}catch(falha){setErro(await erroArquivo(falha,"Não foi possível exportar o relatório."));}finally{travaExcel.current=false;setExportando(false);}}
   const { selecionadas: colunasProducao, setSelecionadas: setColunasProducao } = useColunasImpressao(
     CHAVE_COLUNAS_PRODUCAO,
     COLUNAS_PRODUCAO,
@@ -175,7 +180,7 @@ export default function RelatoriosPage({ propriedades }: { propriedades: Proprie
       <style>{`@media print { @page relatorio {size: A4 ${orientacao==="retrato"?"portrait":"landscape"};} ${densidade==="compacta"?".tabela-relatorio td, .tabela-relatorio th {padding: 3px !important; font-size: 9px !important;}":""} }`}</style>
       <div className="card favoritos-campos nao-imprimir"><label>Orientação da impressão<select value={orientacao} onChange={e=>setOrientacao(e.target.value as "retrato"|"paisagem")}><option value="paisagem">Paisagem</option><option value="retrato">Retrato</option></select></label><label>Espaçamento<select value={densidade} onChange={e=>setDensidade(e.target.value as "normal"|"compacta")}><option value="normal">Normal</option><option value="compacta">Compacto</option></select></label><small>Salve um favorito para reutilizar filtros, colunas de produção e impressão.</small></div>
       <FiltrosFavoritos contexto="relatorios" configuracao={{colunas:colunasProducao,orientacao,densidade}} aplicarConfiguracao={config=>{setColunasProducao(config.colunas?.filter((c):c is ColunaProducao=>COLUNAS_PADRAO.includes(c as ColunaProducao))||COLUNAS_PADRAO);setOrientacao(config.orientacao==="paisagem"?"paisagem":"retrato");setDensidade(config.densidade==="compacta"?"compacta":"normal");}} filtros={filtros} aplicar={valores => {const proximos = {...vazio, ...valores}; setFiltros(proximos); void carregar(proximos);}} />
-    <div className="card cabecalho-relatorio"><div><span className="kicker">Central oficial somente leitura</span><h2>Todos os relatórios</h2><p>Gestão rural, produção, comercial, financeiro, estoque, operações, máquinas, clima, mercado e auditoria em uma única aba.</p></div><span className="selo-leitura">Somente leitura</span></div>
+    <div className="card cabecalho-relatorio"><div><span className="kicker">Central oficial somente leitura</span><h2>Todos os relatórios</h2><p>Gestão rural, produção, comercial, financeiro, estoque, operações, máquinas, clima, mercado e auditoria em uma única aba.</p></div><div><span className="selo-leitura">Somente leitura</span><BotaoAcao acao="imprimir" type="button" disabled={carregando||exportando||!dados} onClick={()=>void exportarExcel()}>{exportando?"Gerando Excel…":"Exportar resultados em Excel"}</BotaoAcao><small>Todos os resultados dos filtros aplicados, incluindo outras páginas.</small></div></div>
     <form className="card filtros-operacionais" onSubmit={(e: FormEvent) => { e.preventDefault(); void carregar({ ...filtros, pagina: 1 }); }}>
       <label>Proprietário<select value={filtros.proprietario ?? ""} onChange={(e) => alterar("proprietario", e.target.value)}><option value="">Todos</option>{opcoes?.proprietarios.map((item) => <option key={item}>{item}</option>)}</select></label>
       <label>CAD/PRO<select value={filtros.cad_pro ?? ""} onChange={(e) => alterar("cad_pro", e.target.value)}><option value="">Todos</option>{opcoes?.cadpros.map((item) => <option key={item.id} value={item.id}>{item.codigo} — {item.descricao}</option>)}</select></label>

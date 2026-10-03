@@ -1,3 +1,5 @@
+import AnexosLancamento from "../../components/AnexosLancamento";
+import { useConferirDuplicidades } from "../../components/ConferirDuplicidades";
 import { useEntradaPainel } from "../../components/AcoesContext";
 import FiltrosFavoritos from "../../components/FiltrosFavoritos";
 import { BotaoAcao } from "../../components/AcoesContext";
@@ -129,6 +131,7 @@ export default function FinanceiroPage(_props: Props) {
     if (!entradaPainel) void carregar();
   }, []);
 
+  const conferirDuplicidades=useConferirDuplicidades();
   async function salvar(evento: FormEvent) {
     evento.preventDefault();
     if (carregando || travaMutacao.current) return;
@@ -140,6 +143,7 @@ export default function FinanceiroPage(_props: Props) {
     setCarregando(true);
     setErro(""); setSucesso("");
     try {
+      if (!(await conferirDuplicidades("financeiro",{data:formulario.data_vencimento,quantidade:Number(formulario.valor.replace(",",".")),descricao:formulario.descricao,recebedor:recebedor.trim()}))) {setCarregando(false);return;}
       chave.current ??= crypto.randomUUID();
       const resultado = await registrarBoleto({
         idempotency_key: chave.current, tipo: formulario.tipo, descricao: formulario.descricao,
@@ -269,6 +273,7 @@ export default function FinanceiroPage(_props: Props) {
                   <h3>{item.descricao}</h3>
                   <p>{item.recebedor_nome || item.parceiro_nome || "Recebedor não informado"}{item.total_boletos ? ` · boleto ${item.parcela_numero} de ${item.total_boletos}` : item.parcela_numero ? ` · parcela ${item.parcela_numero}` : ""} · vence {formatarData(item.data_vencimento)}</p>
                   {item.data_liquidacao && <p>{item.tipo === "pagar" ? "Pago" : "Recebido"} em {formatarData(item.data_liquidacao)}</p>}
+                  <AnexosLancamento entidade="financeiro" registro={item.id} />
                   {item.codigo_barras && <details><summary>Código de barras</summary><code style={{ overflowWrap: "anywhere" }}>{item.codigo_barras}</code></details>}
                 </div>
                 <div>

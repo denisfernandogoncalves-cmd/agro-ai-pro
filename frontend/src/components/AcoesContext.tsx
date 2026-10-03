@@ -4,7 +4,7 @@ export type DestinoConsulta = { modulo: Modulo; filtros: Record<string, string |
 export function autorizado(acesso: UsuarioAtual | null, modulo: Pagina, acao: Acao): boolean {
   if (!acesso) return false;
   if (acesso.is_staff) return true;
-  if (modulo === "usuarios" || modulo === "historico") return false;
+  if (modulo === "usuarios" || modulo === "historico" || modulo === "backup") return false;
   if (modulo === "inicio") return acao === "consultar" || (acao === "imprimir" && acesso.modulos.every(id => autorizado(acesso, id, "imprimir")));
   return acesso.modulos.includes(modulo) && (!acesso.permissoes || (acesso.permissoes[modulo] ?? []).includes(acao));
 }

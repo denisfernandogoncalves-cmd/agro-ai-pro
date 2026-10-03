@@ -7,6 +7,7 @@ import NavegacaoModulos from "./components/NavegacaoModulos";
 import PainelFormulario from "./components/PainelFormulario";
 import { ProtecaoAlteracoes, useAlteracoesNaoSalvas, useConfirmarSaida } from "./components/AlteracoesNaoSalvas";
 import { ConfirmacoesCompactas } from "./components/ConfirmacaoCompacta";
+import AvisoSessao from "./components/AvisoSessao";
 
 import {
   api,
@@ -26,6 +27,7 @@ import PropriedadesImpressao from "./components/PropriedadesImpressao";
 
 const PainelPage = lazy(() => import("./pages/Painel/PainelPage"));
 const HistoricoPage = lazy(() => import("./pages/Historico/HistoricoPage"));
+const BackupPage = lazy(() => import("./pages/Backup/BackupPage"));
 const UsuariosPage = lazy(() => import("./pages/Usuarios/UsuariosPage"));
 const MapaPropriedade = lazy(() => import("./components/MapaPropriedade"));
 const ClimaPage = lazy(() => import("./pages/Clima/ClimaPage"));
@@ -281,7 +283,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
           <div>
             <span className="kicker">AGRO-AI-PRO · Gestão rural</span>
             <h1>
-            {modulo === "inicio" ? "Painel inicial" : modulo === "historico" ? "Histórico de alterações" : modulo === "usuarios" ? "Usuários" : nomeModulo(modulo)}
+            {modulo === "inicio" ? "Painel inicial" : modulo === "backup" ? "Backup em Excel" : modulo === "historico" ? "Histórico de alterações" : modulo === "usuarios" ? "Usuários" : nomeModulo(modulo)}
             </h1>
           </div>
         </div>
@@ -294,6 +296,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
 
       <DestinoPropriedade destino={destino} aplicar={(termo, id) => {setBusca(termo); void carregar(termo); if (id) setSelecionada(propriedades.find(item => item.id === id) ?? null);}} />
       <NavegacaoModulos acesso={acesso} modulo={modulo} onSelecionar={async id => {if (id !== modulo && !(await confirmarSaida())) return; if (id !== modulo && modulo === "propriedades") {setFormulario(formularioVazio); setEdicaoId(null);} setDestino(undefined); setModulo(id);}} />
+      <AvisoSessao />
 
       {!acesso ? (
         <section className="card"><p role={erroAcesso ? "alert" : "status"}>{erroAcesso ? "Não foi possível verificar seus acessos." : "Carregando acessos..."}</p>{erroAcesso && <button onClick={() => void atualizarAcesso()}>Tentar novamente</button>}</section>
@@ -303,6 +306,8 @@ function PrivateArea({ sair }: PrivateAreaProps) {
         <PainelPage propriedades={propriedades} abrir={async alvo => {if (!(await confirmarSaida())) return; setDestino({...alvo, chave:Date.now()}); setModulo(alvo.modulo);}} />
       ) : modulo === "historico" ? (
         <HistoricoPage />
+      ) : modulo === "backup" ? (
+        <BackupPage />
       ) : modulo === "faturamento-insumos" ? (
         <FaturamentoInsumos />
       ) : modulo === "usuarios" ? (

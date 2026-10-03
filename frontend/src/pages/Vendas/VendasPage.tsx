@@ -1,3 +1,5 @@
+import AnexosLancamento from "../../components/AnexosLancamento";
+import { useConferirDuplicidades } from "../../components/ConferirDuplicidades";
 import { useEntradaPainel } from "../../components/AcoesContext";
 import { useRascunhoAutomatico } from "../../components/RascunhoAutomatico";
 import FiltrosFavoritos from "../../components/FiltrosFavoritos";
@@ -258,8 +260,11 @@ export default function VendasPage() {
     }
   }
 
+  const conferirDuplicidades=useConferirDuplicidades();
+  const travaConferencia = useRef(false);
   async function criar(evento: FormEvent) {
     evento.preventDefault();
+    if (travaConferencia.current) return;
     if (particular && !previaParticular) {
       setErro(erroPrevia || "Informe produto, safra, armazenagem e peso para conferir o rateio por área.");
       return;
@@ -269,6 +274,12 @@ export default function VendasPage() {
       return;
     }
     if (!particular && !simulacao) {setErro(erroSimulacao||"Aguarde a simulação do saldo antes de confirmar.");return;}
+    if (tipoLancamento === "saida") {
+      travaConferencia.current=true;
+      try {if (!(await conferirDuplicidades("venda", {data:formulario.data_contrato,quantidade:quantidadeContrato(formulario.quantidade_kg),placa:novaSaida.placa,nota_produtor:novaSaida.nota_produtor,nota_empresa:novaSaida.nota_empresa,destino:novaSaida.destino,cultura:novaPosicao.cultura}))) return;}
+      catch {setErro("Não foi possível conferir possíveis duplicidades. Tente novamente antes de confirmar.");return;}
+      finally {travaConferencia.current=false;}
+    }
     if (!(await confirmarPedido({titulo:"Confirmar venda", mensagem:particular ? "Confirmar a venda com o rateio e os saldos apresentados?" : tipoLancamento === "rascunho" ? "Criar o rascunho comercial sem alterar o saldo?" : `Confirmar a saída? Saldo físico: ${kg(simulacao!.saldo_anterior_kg)} → ${kg(simulacao!.saldo_posterior_kg)}.`}))) return;
     const criada = await executar(JSON.stringify(["criar", tipoLancamento, formulario, novaSaida, origemSelecionada, novaPosicao, previaParticular?.hash_previa]), (chave) => {
       const dados: RegistroVenda = { ...formulario, cliente_nome: formulario.contrato || tipoLancamento === "rascunho" ? formulario.cliente_nome : novaSaida.destino.trim(), data_limite_entrega: tipoLancamento === "saida" ? null : formulario.data_limite_entrega, quantidade_kg: quantidadeContrato(formulario.quantidade_kg) };
@@ -365,6 +376,7 @@ export default function VendasPage() {
 
       {selecionada && <section className="card detalhe-venda"><div className="detalhe-venda-topo"><div><span className="kicker">Detalhe e rastreabilidade</span><h3>{selecionada.numero_contrato || "Sem contrato"}</h3><p>{selecionada.propriedade_nome} · posição oficial #{selecionada.posicao}</p></div><div className="acoes">{!selecionada.excluida_em && selecionada.status === "rascunho" && <BotaoAcao acao="editar" disabled={processando} onClick={() => { void executar(`confirmar:${selecionada.id}`, (chave) => confirmarVenda(selecionada.id, chave), "Venda confirmada e saldo reservado."); }}>Confirmar e reservar</BotaoAcao>}{!selecionada.excluida_em && selecionada.status !== "entregue" && selecionada.status !== "cancelada" && <BotaoAcao acao="excluir" className="perigo" disabled={processando} onClick={() => { void executar(`cancelar:${selecionada.id}`, (chave) => cancelarVenda(selecionada.id, "Cancelamento pelo painel", chave), "Venda cancelada; somente a reserva aberta foi liberada."); }}>Cancelar</BotaoAcao>}</div></div>
         <div className="resumo-venda"><span>Físico da posição <strong>{kg(saldoSelecionado?.saldo_fisico_kg ?? "0")}</strong></span><span>Comprometido da posição <strong>{kg(saldoSelecionado?.saldo_comprometido_kg ?? "0")}</strong></span><span>Disponível da posição <strong>{kg(saldoSelecionado?.saldo_disponivel_kg ?? "0")}</strong></span><span>Reservado nesta venda <strong>{kg(selecionada.quantidade_reservada_kg)}</strong></span><span>Entregue <strong>{kg(selecionada.quantidade_entregue_kg)}</strong></span><span>Devolvido <strong>{kg(selecionada.quantidade_devolvida_kg)}</strong></span><span>Cancelado <strong>{kg(selecionada.quantidade_cancelada_kg)}</strong></span></div>
+        <AnexosLancamento entidade="venda" registro={selecionada.id} />
         {aberto && <form className="movimentos-venda formulario-saida" onSubmit={e => { e.preventDefault(); const assinatura = JSON.stringify(["entregar", selecionada.id, dadosEntrega]); void executar(assinatura, (chave) => entregarVenda(selecionada.id, { ...dadosEntrega, quantidade_kg: quantidadeContrato(dadosEntrega.quantidade_kg) }, chave), "Entrega registrada; físico e comprometido foram reduzidos uma única vez.").then(ok => { if (ok) {setDadosEntrega(entregaVazia);protecaoMovimento.marcarSalvo({dadosEntrega:entregaVazia,quantidadeMovimento});} }); }}>
           <label>Data<input required type="date" value={dadosEntrega.data_movimento} onChange={e => setDadosEntrega({ ...dadosEntrega, data_movimento: e.target.value })} /></label>
           <CamposTransporteVenda dados={dadosEntrega} alterar={setDadosEntrega} destinoPadrao={selecionada.cliente_nome} />

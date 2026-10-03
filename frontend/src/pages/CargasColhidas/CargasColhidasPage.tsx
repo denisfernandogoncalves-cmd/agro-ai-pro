@@ -1,3 +1,6 @@
+import AnexosLancamento from "../../components/AnexosLancamento";
+import { useConferirDuplicidades } from "../../components/ConferirDuplicidades";
+import { formatarPercentual } from "../../utils/numeros";
 import FiltrosFavoritos from "../../components/FiltrosFavoritos";
 import FiltrosRapidos, { correspondeFiltrosRapidos, filtrosRapidosVazios } from "../../components/FiltrosRapidos";
 import { useAlteracoesNaoSalvas } from "../../components/AlteracoesNaoSalvas";
@@ -240,16 +243,17 @@ export function CartaoCargaColhida({ item, carregando, onEditar, onExcluir }: {
           <div><strong>{formatar(produtor.peso)} kg</strong><span>{formatar(produtor.sacas)} sc</span></div>
         </li>)}</ul>
       </section>}
-      <div className="carga-metricas"><span>Bruto total <strong>{formatar(numero(item.peso_bruto_kg))} kg</strong></span><span>Desconto <strong>{item.desconto_total_percentual}%</strong></span><span>Líquido total <strong>{formatar(numero(item.peso_liquido_kg))} kg</strong></span></div>
+      <div className="carga-metricas"><span>Bruto total <strong>{formatar(numero(item.peso_bruto_kg))} kg</strong></span><span>Desconto <strong>{formatarPercentual(item.desconto_total_percentual)}</strong></span><span>Líquido total <strong>{formatar(numero(item.peso_liquido_kg))} kg</strong></span></div>
       <div className="carga-analises" aria-label="Análise e rastreabilidade da carga">
-        <span>Umidade <strong>{item.umidade_percentual}%</strong></span>
-        <span>Impureza <strong>{item.impureza_percentual}%</strong></span>
-        <span>Avariados <strong>{item.defeitos_percentual}%</strong></span>
-        {item.ph && <span>PH <strong>{item.ph}</strong></span>}
+        <span>Umidade <strong>{formatarPercentual(item.umidade_percentual)}</strong></span>
+        <span>Impureza <strong>{formatarPercentual(item.impureza_percentual)}</strong></span>
+        <span>Avariados <strong>{formatarPercentual(item.defeitos_percentual)}</strong></span>
+        {item.ph && <span>PH <strong>{formatarPercentual(item.ph).slice(0,-1)}</strong></span>}
         {item.destinado_semente && <span>Semente</span>}
         <span>Movimento principal #{item.movimentacao}</span>
         {item.substituida_por && <span>Substituída pela carga #{item.substituida_por}</span>}
       </div>
+      <AnexosLancamento entidade="carga" registro={item.id} />
       {item.status !== "ativa" && item.motivo_cancelamento && <small>Motivo: {item.motivo_cancelamento}</small>}
       {item.status === "ativa" && <div className="acoes carga-item-acoes"><BotaoAcao acao="editar" disabled={carregando} className="secundario" type="button" onClick={() => onEditar(item)}>Editar</BotaoAcao><BotaoAcao acao="excluir" disabled={carregando} className="perigo" type="button" onClick={() => onExcluir(item)}>Excluir</BotaoAcao></div>}
     </article>
@@ -499,6 +503,7 @@ export default function CargasColhidasPage({ propriedades }: Props) {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
+  const conferirDuplicidades = useConferirDuplicidades();
   async function salvarCarga(evento: FormEvent) {
     evento.preventDefault();
     if (travaCarga.current) return;
@@ -527,6 +532,7 @@ export default function CargasColhidasPage({ propriedades }: Props) {
     travaCarga.current = true; setSalvando(true);
     setCarregando(true);
     try {
+      if (!(await conferirDuplicidades("carga", {data:carga.data_colheita,quantidade:Number(carga.peso_bruto_kg.replace(",",".")),propriedade:Number(carga.propriedade),cultura:carga.cultura,safra:carga.safra,placa:carga.placa,...(edicaoId?{excluir_id:edicaoId}:{})}))) {setCarregando(false);return;}
       const salva = edicaoId
         ? await atualizarCargaColhida(edicaoId, carga)
         : await criarCargaColhida(carga);

@@ -908,3 +908,12 @@ dialog.editor-venda::backdrop { background: #102f2480; }
 .permissoes-modulo>div {display:flex;gap:14px;flex-wrap:wrap;}
 .destino-aviso {background:#eef6f0;color:#14543f;}
 @media(max-width:600px) {.painel-lista-alertas li {align-items:start;flex-direction:column;}.painel-indicadores {gap:10px;}.painel-titulo label {width:100%;}}
+.anexos-lancamento { margin-top: .75rem; max-width: 100%; overflow-wrap: anywhere; }
+.anexos-lancamento summary { cursor: pointer; color: #176348; font-weight: 600; }
+.anexo-linha, .anexo-envio { display: flex; flex-wrap: wrap; gap: .6rem; align-items: center; margin-top: .75rem; }
+.anexo-linha span { flex: 1 1 12rem; }
+.anexo-linha small { display: block; color: #526875; }
+.anexo-envio label { flex: 1 1 16rem; min-width: 0; }
+.anexo-envio input { max-width: 100%; }
+.aviso-sessao { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; border-left: 4px solid #c88d25; }
+.aviso-sessao > div { flex: 1 1 20rem; }
