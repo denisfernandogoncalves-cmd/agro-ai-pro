@@ -10,8 +10,10 @@ export function autorizado(acesso: UsuarioAtual | null, modulo: Pagina, acao: Ac
 }
 export const AcoesContext = createContext<{ acesso: UsuarioAtual | null; modulo: Pagina; destino?: DestinoConsulta } | null>(null);
 export function useAcoes() { const atual = useContext(AcoesContext); return (acao: Acao) => atual === null || autorizado(atual.acesso, atual.modulo, acao); }
-export function BotaoAcao({ acao, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { acao: Acao; children: ReactNode }) {
-  const pode = useAcoes(); return pode(acao) ? <button {...props}>{children}</button> : null;
+export function BotaoAcao({ acao, children, motivoBloqueio, ...props }: ButtonHTMLAttributes<HTMLButtonElement> & { acao: Acao; children: ReactNode; motivoBloqueio?: string }) {
+  const pode = useAcoes();
+  if (!pode(acao)) return null;
+  return props.disabled && motivoBloqueio ? <span className="acao-com-aviso"><button {...props} title={motivoBloqueio}>{children}</button><small role="status">{motivoBloqueio}</small></span> : <button {...props}>{children}</button>;
 }
 export function useDestinoConsulta(modulo: Modulo, aplicar: (filtros: Record<string, string | number | boolean>, registro?: number) => void) {
   const contexto = useContext(AcoesContext); const aplicado = useRef<number | undefined>(undefined); const callback = useRef(aplicar); callback.current = aplicar;

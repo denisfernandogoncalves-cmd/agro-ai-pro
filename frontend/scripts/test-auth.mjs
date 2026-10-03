@@ -510,6 +510,14 @@ try {
 }
 
 async function renderAppStates() {
+  async function componenteUrl(nome, dependencias = {}) {
+    const arquivo = await readFile(new URL(`../src/components/${nome}.tsx`, import.meta.url), "utf8");
+    let fonte = arquivo.replace('from "react";', `from "${reactUrl}";`);
+    for (const [caminho,url] of Object.entries(dependencias)) fonte = fonte.replace(`from "${caminho}";`, `from "${url}";`);
+    return moduleDataUrl((await transpile(fonte, true)).replaceAll('"react/jsx-runtime"', `"${reactJsxRuntimeUrl}"`), nome);
+  }
+  const confirmacaoUrl = await componenteUrl("ConfirmacaoCompacta");
+  const protecaoUrl = await componenteUrl("AlteracoesNaoSalvas", {"./ConfirmacaoCompacta":confirmacaoUrl});
   const React = await import(reactUrl);
   const { renderToString } = await import(reactDomServerUrl);
   globalThis.__APP_API__ = {
@@ -528,6 +536,8 @@ async function renderAppStates() {
 
   globalThis.__APP_ACTIONS__ = { AcoesContext: React.createContext(null), autorizado: () => true, BotaoAcao: globalThis.__PRIVATE_COMPONENTS__.BotaoAcao, useDestinoConsulta: () => {} };
   let source = appSource
+    .replace('from "./components/AlteracoesNaoSalvas";', `from "${protecaoUrl}";`)
+    .replace('from "./components/ConfirmacaoCompacta";', `from "${confirmacaoUrl}";`)
     .replace(/import \{[^}]+\} from "\.\/components\/AcoesContext";/, "const { AcoesContext, autorizado, BotaoAcao, useDestinoConsulta } = globalThis.__APP_ACTIONS__;")
     .replace(/import \{ nomeModulo \} from "\.\/components\/gruposModulos";/, "const nomeModulo = id => id;")
     .replace(/const (\w+) = lazy\(\(\) => import\("[^"]+"\)\);/g, "const $1 = globalThis.__PRIVATE_COMPONENTS__.$1;")

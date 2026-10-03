@@ -1,4 +1,6 @@
 import { BotaoAcao, useAcoes } from "../../components/AcoesContext";
+import { useAlteracoesNaoSalvas } from "../../components/AlteracoesNaoSalvas";
+import { useConfirmacaoCompacta } from "../../components/ConfirmacaoCompacta";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import axios from "axios";
 import { api, Propriedade } from "../../api/propriedades";
@@ -48,6 +50,7 @@ export function HistoricoFaturamento({ historico, ocupado, onVer, onPdf, onExclu
 }
 
 export default function FaturamentoInsumos() {
+  const confirmarPedido = useConfirmacaoCompacta();
   const pode = useAcoes();
   const [produtos, setProdutos] = useState<ProdutoEstoque[]>([]);
   const [empresas, setEmpresas] = useState<ParceiroFinanceiro[]>([]);
@@ -64,6 +67,7 @@ export default function FaturamentoInsumos() {
   const [confirmado, setConfirmado] = useState<Faturamento | null>(null);
   const [pendente, setPendente] = useState<EntradaFaturamento | null>(null);
   const [incerto, setIncerto] = useState(false);
+  const protecao = useAlteracoesNaoSalvas({form,itens}, "Faturamento de insumos", null, !confirmado);
   const trava = useRef(false);
   const versao = useRef(0);
   const embalagensEditadas = useRef(new Set<number>());
@@ -106,7 +110,7 @@ export default function FaturamentoInsumos() {
   }
   async function confirmar() {
     if (!pendente || trava.current) return;
-    if (!window.confirm("Confirmar este envio e baixar as quantidades do estoque da empresa? O saldo poderá ficar negativo.")) return;
+    if (!(await confirmarPedido({titulo:"Confirmar faturamento", mensagem:"Confirmar este envio e baixar as quantidades do estoque da empresa? O saldo poderá ficar negativo."}))) return;
     trava.current = true; setOcupado(true); setErro("");
     // Mantém a mesma chave e os mesmos dados em falhas de rede e recargas.
     try {
@@ -114,6 +118,7 @@ export default function FaturamentoInsumos() {
       setIncerto(true);
       const salvo = await confirmarFaturamento(pendente);
       setConfirmado(salvo); setPrevia(salvo.resumo); setPendente(null); setIncerto(false);
+      protecao.marcarSalvo({form,itens});
       sessionStorage.removeItem(chavePendente());
       setHistorico(atuais => [salvo, ...atuais.filter(i => i.id !== salvo.id)]);
     } catch (e) {
@@ -140,7 +145,7 @@ export default function FaturamentoInsumos() {
   }
   async function excluir(faturamento: Faturamento) {
     if (trava.current) return;
-    if (!window.confirm(`Excluir o lançamento de ${faturamento.resumo.produto_nome} para ${faturamento.resumo.fornecedor_nome}, de ${faturamento.data_envio.split("-").reverse().join("/")}? As ${numero(faturamento.resumo.quantidade_total)} ${faturamento.resumo.unidade} serão devolvidas ao estoque da empresa.`)) return;
+    if (!(await confirmarPedido({titulo:"Excluir faturamento", perigo:true, confirmar:"Excluir lançamento", mensagem:`Excluir ${faturamento.resumo.produto_nome} para ${faturamento.resumo.fornecedor_nome}, de ${faturamento.data_envio.split("-").reverse().join("/")}? As ${numero(faturamento.resumo.quantidade_total)} ${faturamento.resumo.unidade} serão devolvidas ao estoque da empresa.`}))) return;
     trava.current = true; setOcupado(true); setErro("");
     try {
       await excluirFaturamento(faturamento.id);
@@ -195,12 +200,12 @@ export default function FaturamentoInsumos() {
     </form>}
     {previa && <RelatorioFaturamento resumo={previa} confirmado={Boolean(confirmado)} />}
     <div className="acoes nao-imprimir">
-      {previa && !confirmado && <BotaoAcao acao="cadastrar" type="button" disabled={ocupado || incerto} onClick={() => void confirmar()}>Confirmar envio e baixar estoque</BotaoAcao>}
+      {previa && !confirmado && <BotaoAcao acao="cadastrar" type="button" disabled={ocupado || incerto} motivoBloqueio={incerto ? "Existe confirmação pendente. Use Verificar / repetir confirmação para evitar baixa duplicada." : "Aguarde o processamento."} onClick={() => void confirmar()}>Confirmar envio e baixar estoque</BotaoAcao>}
       {previa && <BotaoAcao acao="imprimir" type="button" className="secundario" disabled={ocupado} onClick={() => window.print()}>Imprimir / salvar PDF</BotaoAcao>}
       {confirmado && <BotaoAcao acao="imprimir" type="button" className="secundario" disabled={ocupado} onClick={() => void exportarPdf(confirmado)}>Exportar PDF deste lançamento</BotaoAcao>}
-      {confirmado && <button type="button" onClick={() => { invalidar(); setItens({}); embalagensEditadas.current.clear(); }}>Novo faturamento</button>}
+      {confirmado && <button type="button" onClick={() => { invalidar(); setItens({}); protecao.marcarSalvo({form,itens:{}}); embalagensEditadas.current.clear(); }}>Novo faturamento</button>}
     </div>
     {confirmado && <p className="sucesso card nao-imprimir" role="status">Baixa registrada. Protocolo {confirmado.id} · {confirmado.responsavel}.</p>}
-    <HistoricoFaturamento historico={historico} ocupado={ocupado || incerto} onVer={h => { setConfirmado(h); setPrevia(h.resumo); setPendente(null); }} onPdf={h => void exportarPdf(h)} onExcluir={h => void excluir(h)} />
+    <HistoricoFaturamento historico={historico} ocupado={ocupado || incerto} onVer={async h => { if (!(await protecao.confirmarDescarte())) return; setConfirmado(h); setPrevia(h.resumo); setPendente(null); }} onPdf={h => void exportarPdf(h)} onExcluir={h => void excluir(h)} />
   </section>;
 }

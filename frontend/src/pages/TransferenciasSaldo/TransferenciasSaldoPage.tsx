@@ -1,4 +1,7 @@
 import axios from "axios";
+import FiltrosRapidos, { correspondeFiltrosRapidos, filtrosRapidosVazios } from "../../components/FiltrosRapidos";
+import { useAlteracoesNaoSalvas } from "../../components/AlteracoesNaoSalvas";
+import { useConfirmacaoCompacta } from "../../components/ConfirmacaoCompacta";
 import { BotaoAcao, useAcoes } from "../../components/AcoesContext";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { carregarTransferenciasSaldo, transferirSaldo, alterarTransferenciaSaldo, excluirTransferenciaSaldo } from "../../api/transferenciasSaldo";
@@ -79,6 +82,26 @@ export function agruparHistoricoTransferencias(movimentos: MovimentacaoSaldo[]) 
 }
 
 type HistoricoTransferencia = ReturnType<typeof agruparHistoricoTransferencias>[number];
+export function transferenciaCorrespondeBusca(item: HistoricoTransferencia, busca: string, propriedades: PropriedadeResumo[]) {
+  const termo = busca.trim().toLocaleLowerCase("pt-BR");
+  const numero = termo.match(/^(?:transfer[eê]ncia\s*)?#?(\d+)$/);
+  if (numero && [item.saida?.id, item.entrada?.id].includes(Number(numero[1]))) return true;
+  if (numero && /^(?:transfer|#)/.test(termo)) return false;
+  return !termo || [item.saida, item.entrada].some(m => m && [nomePropriedadeTransferencia(m, propriedades), m.cad_pro_codigo, m.cultura, m.safra, m.referencia_externa, m.observacoes].join(" ").toLocaleLowerCase("pt-BR").includes(termo));
+}
+export function previaSaldoTransferencia(posicoes: PosicaoSaldo[], original: HistoricoTransferencia | null, origem: PosicaoSaldo, destino: PosicaoSaldo, quantidade: number) {
+  const afetadas = new Map<string, { posicao: PosicaoSaldo; delta: number }>();
+  const somar = (p: PosicaoSaldo | undefined, delta: number) => {
+    if (!p) return;
+    const chave = p.id ? String(p.id) : `nova:${p.propriedade_id}:${p.cad_pro}:${p.armazem}:${p.cultura}:${p.safra}:${p.classificacao_codigo}`;
+    const item = afetadas.get(chave) || {posicao:p,delta:0}; item.delta += delta; afetadas.set(chave,item);
+  };
+  somar(posicoes.find(p => p.id === original?.saida?.posicao), Number(original?.saida?.quantidade_kg || 0));
+  somar(posicoes.find(p => p.id === original?.entrada?.posicao), -Number(original?.entrada?.quantidade_kg || 0));
+  somar(posicoes.find(p => p.id === origem.id) || origem, -quantidade);
+  somar(posicoes.find(p => p.id === destino.id) || destino, quantidade);
+  return [...afetadas.values()].map(({posicao,delta}) => ({posicao, anterior:Number(posicao.saldo_fisico_kg), posterior:Math.round((Number(posicao.saldo_fisico_kg)+delta)*1000)/1000, disponivel:Math.round((Number(posicao.saldo_disponivel_kg)+delta)*1000)/1000}));
+}
 
 export function statusTransferencia(item: HistoricoTransferencia) {
   if (item.saida?.correcao_transferencia?.acao === "editar") return "Editada";
@@ -142,6 +165,7 @@ function mensagem(falha: unknown) {
 }
 
 export default function TransferenciasSaldoPage() {
+  const confirmar = useConfirmacaoCompacta();
   const pode = useAcoes();
   const editorRef = useRef<HTMLFormElement>(null);
   const exclusaoRef = useRef<HTMLFormElement>(null);
@@ -151,6 +175,9 @@ export default function TransferenciasSaldoPage() {
   const [mostrarHistorico, setMostrarHistorico] = useState(false);
   const [dados, setDados] = useState<Dados>();
   const [form, setForm] = useState(vazio);
+  const protecao = useAlteracoesNaoSalvas({form,motivo}, "Transferência", editando?.saida?.id || (excluindo ? `excluir:${excluindo.saida?.id}` : null));
+  const [busca, setBusca] = useState("");
+  const [filtrosRapidos, setFiltrosRapidos] = useState(filtrosRapidosVazios);
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
   const [ocupado, setOcupado] = useState(false);
@@ -178,6 +205,10 @@ export default function TransferenciasSaldoPage() {
   const origem = posicoes.find(item => item.id === form.posicao_origem);
   const destinos = origem ? destinosTransferencia(origem, posicoesDaSafra, propriedades, dados?.cadpros || []) : [];
   const destino = destinos.find(item => item.chave === form.posicao_destino)?.posicao;
+  let quantidadePrevia = 0;
+  try { quantidadePrevia = Number(quantidadeContrato(form.quantidade_kg)); } catch { /* Campo ainda incompleto. */ }
+  const previaSaldos = origem && destino && quantidadePrevia > 0 ? previaSaldoTransferencia(dados?.posicoes || [], editando, origem, destino, quantidadePrevia) : [];
+  const bloqueio = ocupado ? "Aguarde a operação em andamento." : carregando ? "Aguarde o carregamento dos saldos." : !form.cultura ? "Selecione a cultura." : !form.safra ? "Selecione a safra." : !origem ? "Selecione uma origem com saldo disponível." : !destino ? "Selecione o destino." : !quantidadePrevia ? "Informe uma quantidade maior que zero." : previaSaldos.some(p => p.posterior < 0 || p.disponivel < 0) ? "A operação deixaria uma posição sem saldo físico ou disponível. Reveja a quantidade e os lançamentos posteriores." : editando && !motivo.trim() ? "Informe o motivo da edição." : "";
 
   async function enviar(evento: FormEvent) {
     evento.preventDefault();
@@ -189,20 +220,21 @@ export default function TransferenciasSaldoPage() {
       if (!origem || !destino || !posicaoDestinoCompativel(origem, destino)) throw new Error("Selecione posições diferentes com cultura, safra e classificação iguais.");
       const quantidade = quantidadeContrato(form.quantidade_kg);
       if (Number(quantidade) > Number(origem.saldo_disponivel_kg)) throw new Error("Quantidade superior ao saldo disponível na origem.");
-      if (!window.confirm(`Transferir ${kg(quantidade)} de ${form.cultura}, safra ${form.safra}, de ${rotuloPosicaoTransferencia(origem, propriedades)} para ${rotuloPosicaoTransferencia(destino, propriedades)}? O débito e o crédito serão registrados juntos.`)) return;
+      if (!(await confirmar({titulo:editando ? "Salvar correção da transferência" : "Confirmar transferência", mensagem:`Transferir ${kg(quantidade)} de ${form.cultura}, safra ${form.safra}, de ${rotuloPosicaoTransferencia(origem, propriedades)} para ${rotuloPosicaoTransferencia(destino, propriedades)}? O débito e o crédito serão registrados juntos.`}))) return;
       trava.current = true; setOcupado(true);
       const payload = { posicao_origem: origem.id, ...(destino.id ? { posicao_destino: destino.id } : { propriedade_destino: destino.propriedade_id!, cad_pro_destino: destino.cad_pro }), quantidade_kg: quantidade, data_movimento: form.data_movimento, referencia_externa: form.referencia_externa, observacoes: form.observacoes };
       const assinatura = JSON.stringify([editando?.saida?.id, motivo, payload]);
       if (tentativa.current?.assinatura !== assinatura) tentativa.current = { assinatura, chave: `transferencia-ui:${crypto.randomUUID()}` };
       if (editando?.saida) await alterarTransferenciaSaldo(editando.saida.id, { ...payload, motivo: motivo.trim(), chave_idempotencia: tentativa.current.chave });
       else await transferirSaldo({ ...payload, chave_idempotencia: tentativa.current.chave });
-      tentativa.current = null; setForm(vazio); setEditando(null); setMotivo(""); setSucesso(editando ? "Transferência corrigida nas duas posições. O original foi preservado no histórico." : "Transferência registrada nas duas posições oficiais. O saldo total foi preservado.");
+      tentativa.current = null; setForm(vazio); setEditando(null); setMotivo(""); protecao.marcarSalvo({form:vazio,motivo:""}); setSucesso(editando ? "Transferência corrigida nas duas posições. O original foi preservado no histórico." : "Transferência registrada nas duas posições oficiais. O saldo total foi preservado.");
       await carregar();
     } catch (falha) { setErro(mensagem(falha)); }
     finally { trava.current = false; setOcupado(false); }
   }
 
-  function iniciarEdicao(item: HistoricoTransferencia) {
+  async function iniciarEdicao(item: HistoricoTransferencia) {
+    if (!(await protecao.confirmarDescarte())) return;
     const origem = dados?.posicoes.find(p => p.id === item.saida?.posicao);
     if (!origem || !item.saida || !item.entrada) { setErro("Atualize a lista para localizar as posições da transferência."); return; }
     setEditando(item); setExcluindo(null); setMotivo(""); setErro(""); setSucesso(""); tentativa.current = null;
@@ -210,11 +242,11 @@ export default function TransferenciasSaldoPage() {
       posicao_destino: `posicao:${item.entrada.posicao}`, quantidade_kg: numeroPlanilhaTransferencia(item.saida.quantidade_kg),
       data_movimento: item.saida.data_movimento, referencia_externa: item.saida.referencia_externa || "", observacoes: item.saida.observacoes || "" });
   }
-  function cancelarCorrecao() { setEditando(null); setExcluindo(null); setMotivo(""); setForm(vazio); tentativa.current = null; }
+  function cancelarCorrecao() { setEditando(null); setExcluindo(null); setMotivo(""); setForm(vazio); protecao.marcarSalvo({form:vazio,motivo:""}); tentativa.current = null; }
   async function confirmarExclusao(evento: FormEvent) {
     evento.preventDefault();
     if (!excluindo?.saida || trava.current || !motivo.trim()) return;
-    if (!window.confirm(`Excluir a transferência de ${kg(excluindo.saida.quantidade_kg)}? O saldo retornará à origem e será retirado do destino.`)) return;
+    if (!(await confirmar({titulo:"Excluir transferência", perigo:true, confirmar:"Excluir", mensagem:`Excluir a transferência de ${kg(excluindo.saida.quantidade_kg)}? O saldo retornará à origem e será retirado do destino.`}))) return;
     trava.current = true; setOcupado(true); setErro(""); setSucesso("");
     const assinatura = JSON.stringify(["excluir", excluindo.saida.id, motivo.trim()]);
     if (tentativa.current?.assinatura !== assinatura) tentativa.current = { assinatura, chave: `transferencia-ui:${crypto.randomUUID()}` };
@@ -223,7 +255,8 @@ export default function TransferenciasSaldoPage() {
     finally { trava.current = false; setOcupado(false); }
   }
 
-  const historico = agruparHistoricoTransferencias(dados?.movimentos || []).filter(item => mostrarHistorico || statusTransferencia(item) === "Ativa");
+  const historicoCompleto = agruparHistoricoTransferencias(dados?.movimentos || []);
+  const historico = historicoCompleto.filter(item => (mostrarHistorico || statusTransferencia(item) === "Ativa") && transferenciaCorrespondeBusca(item,busca,propriedades) && correspondeFiltrosRapidos(filtrosRapidos,(item.saida || item.entrada)?.cultura || "",(item.saida || item.entrada)?.safra || "",[item.saida?.propriedade_id || 0,item.entrada?.propriedade_id || 0]));
   const movimentosHistorico = historico.map(item => item.saida || item.entrada).filter(Boolean) as MovimentacaoSaldo[];
   const propriedadesImpressao = [...new Set(historico.flatMap(item => [
     nomePropriedadeTransferencia(item.saida, propriedades),
@@ -256,17 +289,21 @@ export default function TransferenciasSaldoPage() {
       {origem && !destinos.length && <p role="status">Não há outra propriedade com CAD/PRO ativo vinculado para receber o saldo.</p>}
       <div className="linha"><p>Disponível na origem: <strong>{kg(origem?.saldo_disponivel_kg || "0")}</strong></p><p>Físico no destino: <strong>{kg(destino?.saldo_fisico_kg || "0")}</strong></p></div>
       <div className="linha"><label>Quantidade (kg)<input required inputMode="decimal" placeholder="Ex.: 1.000,500" value={form.quantidade_kg} onChange={e => setForm({ ...form, quantidade_kg: e.target.value })} /></label><label>Data<input required type="date" value={form.data_movimento} onChange={e => setForm({ ...form, data_movimento: e.target.value })} /></label></div>
+      {editando && <div className="comparacao-edicao"><span>Quantidade atual <strong>{kg(editando.saida?.quantidade_kg || 0)}</strong></span><span>Nova quantidade <strong>{kg(quantidadePrevia)}</strong></span></div>}
+      {!!previaSaldos.length && <div className="previa-edicao"><h4>Saldos antes e depois · prévia sem lançamento</h4>{previaSaldos.map((p,i) => <div className="comparacao-edicao" key={i}><span>{p.posicao.propriedade_nome || "Posição histórica"} · CAD/PRO {p.posicao.cad_pro_codigo}<strong>Atual: {kg(p.anterior)}</strong></span><span>Após confirmar<strong>{kg(p.posterior)}</strong><small>Disponível: {kg(p.disponivel)}</small></span></div>)}<small>O servidor confere novamente os saldos, reservas e compatibilidade ao confirmar.</small></div>}
       <label>Referência / documento<input maxLength={160} value={form.referencia_externa} onChange={e => setForm({ ...form, referencia_externa: e.target.value })} /></label><label>Observações<textarea value={form.observacoes} onChange={e => setForm({ ...form, observacoes: e.target.value })} /></label>
-      <div className="acoes"><BotaoAcao acao={editando ? "editar" : "cadastrar"} type="submit" disabled={!origem || !destino}>{editando ? "Salvar alterações" : "Transferir saldo"}</BotaoAcao>{editando && <button className="secundario" type="button" onClick={cancelarCorrecao}>Cancelar edição</button>}</div>
+      <div className="acoes"><BotaoAcao acao={editando ? "editar" : "cadastrar"} type="submit" disabled={!!bloqueio} motivoBloqueio={bloqueio}>{editando ? "Salvar alterações" : "Transferir saldo"}</BotaoAcao>{editando && <button className="secundario" type="button" onClick={async () => {if (await protecao.confirmarDescarte()) cancelarCorrecao();}}>Cancelar edição</button>}</div>
     </fieldset></form>}
-    {excluindo && <form ref={exclusaoRef} className="card formulario" onSubmit={confirmarExclusao}><h3>Excluir transferência</h3>{erro && <p role="alert" className="erro">{erro}</p>}<p>{nomePropriedadeTransferencia(excluindo.saida, propriedades)} → {nomePropriedadeTransferencia(excluindo.entrada, propriedades)} · {kg(excluindo.saida?.quantidade_kg || 0)}.</p><p>A exclusão pode ser bloqueada se o saldo recebido já tiver sido vendido, transferido ou reservado. Nesse caso, reveja os lançamentos posteriores.</p><label>Motivo da exclusão<textarea required maxLength={500} disabled={ocupado} value={motivo} onChange={e => setMotivo(e.target.value)} /></label><div className="acoes"><BotaoAcao acao="excluir" type="submit" className="perigo" disabled={ocupado || !motivo.trim()}>Confirmar exclusão</BotaoAcao><button type="button" className="secundario" disabled={ocupado} onClick={cancelarCorrecao}>Cancelar exclusão</button></div></form>}
+    {excluindo && <form ref={exclusaoRef} className="card formulario confirmacao-compacta" onSubmit={confirmarExclusao}><h3>Excluir transferência</h3>{erro && <p role="alert" className="erro">{erro}</p>}<p>{nomePropriedadeTransferencia(excluindo.saida, propriedades)} → {nomePropriedadeTransferencia(excluindo.entrada, propriedades)} · {kg(excluindo.saida?.quantidade_kg || 0)}.</p><p>A exclusão pode ser bloqueada se o saldo recebido já tiver sido vendido, transferido ou reservado. Nesse caso, reveja os lançamentos posteriores.</p><label>Motivo da exclusão<textarea required maxLength={500} disabled={ocupado} value={motivo} onChange={e => setMotivo(e.target.value)} /></label><div className="acoes"><BotaoAcao acao="excluir" type="submit" className="perigo" disabled={ocupado || !motivo.trim()} motivoBloqueio={ocupado ? "Aguarde o processamento." : "Informe o motivo da exclusão."}>Confirmar exclusão</BotaoAcao><button type="button" className="secundario" disabled={ocupado} onClick={async () => {if (await protecao.confirmarDescarte()) cancelarCorrecao();}}>Cancelar exclusão</button></div></form>}
     <section className="card"><div className="acoes"><h3>Histórico de transferências</h3><button type="button" className="secundario" disabled={ocupado || carregando} onClick={() => void carregar()}>Atualizar</button></div>
+      <label>Buscar transferências<input type="search" placeholder="Número de um dos movimentos, propriedade, CAD/PRO ou documento" value={busca} onChange={e => setBusca(e.target.value)} /></label>
+      <FiltrosRapidos valor={filtrosRapidos} alterar={setFiltrosRapidos} culturas={[...new Set((dados?.movimentos || []).map(m => m.cultura))].sort()} safras={[...new Set((dados?.movimentos || []).map(m => m.safra))].sort()} propriedades={propriedades} busca={busca} limparBusca={() => setBusca("")} quantidade={historico.length} />
       <label className="opcao-checkbox"><input type="checkbox" checked={mostrarHistorico} onChange={e => setMostrarHistorico(e.target.checked)} /> Mostrar editadas, excluídas e estornadas</label>
       <p>Editar e excluir corrigem o débito e o crédito juntos. Os registros anteriores permanecem no histórico.</p>
       <div className="tabela-responsiva"><table className="tabela-relatorio tabela-transferencias"><thead><tr><th>Data</th><th>Origem</th><th>Destino</th><th>Produto / safra</th><th>Quantidade</th><th>Referência / documento</th><th>Observações</th><th>Registro</th><th>Situação / ações</th></tr></thead><tbody>{historico.map(item => {
         const movimento = item.saida || item.entrada;
         const ativa = statusTransferencia(item) === "Ativa" && item.saida && item.entrada;
-        return <tr key={item.chave}><td>{dataBR(movimento?.data_movimento)}</td><td><strong>{nomePropriedadeTransferencia(item.saida, propriedades)}</strong><small>CAD/PRO {item.saida?.cad_pro_codigo || "—"} · {item.saida?.armazem_nome || "—"}</small></td><td><strong>{nomePropriedadeTransferencia(item.entrada, propriedades)}</strong><small>CAD/PRO {item.entrada?.cad_pro_codigo || "—"} · {item.entrada?.armazem_nome || "—"}</small></td><td>{movimento?.cultura || "—"} · {movimento?.safra || "—"}<small>{movimento?.classificacao_codigo || "—"}</small></td><td>{kg(movimento?.quantidade_kg || "0")}</td><td>{movimento?.referencia_externa || "—"}</td><td>{movimento?.observacoes || "—"}{item.saida?.correcao_transferencia && <small>Motivo: {item.saida.correcao_transferencia.motivo} · {item.saida.correcao_transferencia.criado_por_nome}</small>}</td><td>{movimento?.criado_por_nome || "—"}<small>{movimento?.criado_em ? new Date(movimento.criado_em).toLocaleString("pt-BR") : "—"}</small><small>Movimentos #{item.saida?.id} / #{item.entrada?.id}</small></td><td><strong>{statusTransferencia(item)}</strong>{ativa && <div className="acoes"><BotaoAcao acao="editar" type="button" className="secundario" disabled={ocupado || carregando} onClick={() => iniciarEdicao(item)}>Editar</BotaoAcao><BotaoAcao acao="excluir" type="button" className="perigo" disabled={ocupado || carregando} onClick={() => { cancelarCorrecao(); setExcluindo(item); setErro(""); setSucesso(""); }}>Excluir</BotaoAcao></div>}</td></tr>;
+        return <tr key={item.chave}><td><strong>#{item.saida?.id || item.entrada?.id}</strong><small>{dataBR(movimento?.data_movimento)}</small></td><td><strong>{nomePropriedadeTransferencia(item.saida, propriedades)}</strong><small>CAD/PRO {item.saida?.cad_pro_codigo || "—"} · {item.saida?.armazem_nome || "—"}</small></td><td><strong>{nomePropriedadeTransferencia(item.entrada, propriedades)}</strong><small>CAD/PRO {item.entrada?.cad_pro_codigo || "—"} · {item.entrada?.armazem_nome || "—"}</small></td><td>{movimento?.cultura || "—"} · {movimento?.safra || "—"}<small>{movimento?.classificacao_codigo || "—"}</small></td><td>{kg(movimento?.quantidade_kg || "0")}</td><td>{movimento?.referencia_externa || "—"}</td><td>{movimento?.observacoes || "—"}{item.saida?.correcao_transferencia && <small>Motivo: {item.saida.correcao_transferencia.motivo} · {item.saida.correcao_transferencia.criado_por_nome}</small>}</td><td>{movimento?.criado_por_nome || "—"}<small>{movimento?.criado_em ? new Date(movimento.criado_em).toLocaleString("pt-BR") : "—"}</small><small>Movimentos #{item.saida?.id} / #{item.entrada?.id}</small></td><td><strong>{statusTransferencia(item)}</strong>{ativa && <div className="acoes"><BotaoAcao acao="editar" type="button" className="secundario" disabled={ocupado || carregando} onClick={() => iniciarEdicao(item)}>Editar</BotaoAcao><BotaoAcao acao="excluir" type="button" className="perigo" disabled={ocupado || carregando} onClick={async () => { if (!(await protecao.confirmarDescarte())) return; cancelarCorrecao(); setExcluindo(item); setErro(""); setSucesso(""); }}>Excluir</BotaoAcao></div>}</td></tr>;
       })}{!historico.length && <tr><td colSpan={9}>{carregando ? "Carregando..." : "Nenhuma transferência encontrada."}</td></tr>}</tbody></table></div></section>
   </section>;
 }

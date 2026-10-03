@@ -51,6 +51,27 @@ header { align-items: center; display: flex; justify-content: space-between; mar
 .confirmacao-exclusao-carga textarea { min-height: 60px; height: 60px; }
 .confirmacao-exclusao-carga .acoes { flex-wrap: wrap; }
 .confirmacao-exclusao-carga .acoes button { padding: .5rem .75rem; font-size: .875rem; }
+.formulario.confirmacao-compacta { position: static; width: 100%; max-width: 760px; justify-self: start; gap: .65rem; padding: 1rem; }
+dialog.confirmacao-compacta, dialog.editor-venda.confirmacao-compacta { width: min(560px, 94vw); max-height: 85vh; overflow-y: auto; margin: auto; padding: 1rem; border: 1px solid var(--cor-borda); }
+.confirmacao-compacta::backdrop { background: rgb(16 47 36 / 50%); }
+.confirmacao-compacta h3, .confirmacao-compacta p, .confirmacao-compacta ul { margin: 0; }
+.confirmacao-compacta h3 + p, .confirmacao-compacta > .acoes { margin-top: .65rem; }
+.confirmacao-compacta textarea { min-height: 60px; height: 60px; }
+.confirmacao-compacta .formulario, .confirmacao-compacta fieldset { position: static; gap: .65rem; }
+.confirmacao-compacta .acoes { flex-wrap: wrap; }
+.confirmacao-compacta .acoes button { padding: .5rem .75rem; font-size: .875rem; }
+.acao-com-aviso { display: inline-flex; flex-direction: column; align-items: flex-start; gap: .35rem; max-width: 100%; }
+.acao-com-aviso small { max-width: 32rem; color: var(--cor-suave); font-weight: 400; }
+.filtros-rapidos { display: grid; gap: .6rem; min-width: 0; }
+.filtros-rapidos-campos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .65rem; }
+.filtros-rapidos button { justify-self: start; }
+.filtros-rapidos p { margin: 0; overflow-wrap: anywhere; }
+.comparacao-edicao { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem; padding: .65rem; border-radius: 8px; background: #f4f8f5; }
+.comparacao-edicao span { min-width: 0; overflow-wrap: anywhere; }
+.comparacao-edicao strong, .comparacao-edicao small { display: block; }
+.previa-edicao { display: grid; gap: .5rem; }
+.previa-edicao h4 { margin: 0; }
+@media (max-width: 540px) { .filtros-rapidos-campos { grid-template-columns: minmax(0, 1fr); } }
 
 /* Grupos ficam no fluxo da página, sem cobrir os registros ao rolar. */
 .grupos-colheita { display: grid; gap: 1rem; min-width: 0; }

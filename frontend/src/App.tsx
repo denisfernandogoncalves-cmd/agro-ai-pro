@@ -5,6 +5,8 @@ import axios from "axios";
 import type { Pagina, UsuarioAtual } from "./api/usuarios";
 import NavegacaoModulos from "./components/NavegacaoModulos";
 import PainelFormulario from "./components/PainelFormulario";
+import { ProtecaoAlteracoes, useAlteracoesNaoSalvas, useConfirmarSaida } from "./components/AlteracoesNaoSalvas";
+import { ConfirmacoesCompactas } from "./components/ConfirmacaoCompacta";
 
 import {
   api,
@@ -151,6 +153,7 @@ function DestinoPropriedade({ destino, aplicar }: {destino?: DestinoConsulta; ap
 }
 
 function PrivateArea({ sair }: PrivateAreaProps) {
+  const confirmarSaida = useConfirmarSaida();
   const [acesso, setAcesso] = useState<UsuarioAtual | null>(null);
   const [erroAcesso, setErroAcesso] = useState(false);
   const [modulo, setModulo] = useState<Pagina>("inicio");
@@ -179,6 +182,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
   const [erro, setErro] = useState("");
   const [salvando, setSalvando] = useState(false);
   const travaPropriedade = useRef(false);
+  const protecaoPropriedade = useAlteracoesNaoSalvas(formulario, "Propriedade", edicaoId, modulo === "propriedades");
 
   const carregar = useCallback(async (termo = "") => {
     setCarregando(true);
@@ -222,7 +226,8 @@ function PrivateArea({ sair }: PrivateAreaProps) {
     } finally { travaPropriedade.current = false; setSalvando(false); }
   }
 
-  function editar(item: Propriedade) {
+  async function editar(item: Propriedade) {
+    if (!(await protecaoPropriedade.confirmarDescarte())) return;
     setEdicaoId(item.id);
     setFormulario({
       bp_cvale: item.bp_cvale ?? "",
@@ -255,6 +260,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
   }
 
   async function encerrarSessao() {
+    if (!(await confirmarSaida())) return;
     setErro("");
     setModulo("inicio");
     setPropriedades([]);
@@ -287,14 +293,14 @@ function PrivateArea({ sair }: PrivateAreaProps) {
       </header>
 
       <DestinoPropriedade destino={destino} aplicar={(termo, id) => {setBusca(termo); void carregar(termo); if (id) setSelecionada(propriedades.find(item => item.id === id) ?? null);}} />
-      <NavegacaoModulos acesso={acesso} modulo={modulo} onSelecionar={id => {setDestino(undefined); setModulo(id);}} />
+      <NavegacaoModulos acesso={acesso} modulo={modulo} onSelecionar={async id => {if (id !== modulo && !(await confirmarSaida())) return; if (id !== modulo && modulo === "propriedades") {setFormulario(formularioVazio); setEdicaoId(null);} setDestino(undefined); setModulo(id);}} />
 
       {!acesso ? (
         <section className="card"><p role={erroAcesso ? "alert" : "status"}>{erroAcesso ? "Não foi possível verificar seus acessos." : "Carregando acessos..."}</p>{erroAcesso && <button onClick={() => void atualizarAcesso()}>Tentar novamente</button>}</section>
       ) : !autorizado(acesso, modulo, "consultar") ? (
         <section className="card"><p>Nenhum item permitido. Solicite acesso ao administrador.</p></section>
       ) : modulo === "inicio" ? (
-        <PainelPage propriedades={propriedades} abrir={alvo => {setDestino({...alvo, chave:Date.now()}); setModulo(alvo.modulo);}} />
+        <PainelPage propriedades={propriedades} abrir={async alvo => {if (!(await confirmarSaida())) return; setDestino({...alvo, chave:Date.now()}); setModulo(alvo.modulo);}} />
       ) : modulo === "historico" ? (
         <HistoricoPage />
       ) : modulo === "faturamento-insumos" ? (
@@ -428,5 +434,5 @@ export default function App() {
     return <Login key={`login-${geracao}`} authenticate={autenticar} />;
   }
 
-  return <PrivateArea key={`private-${geracao}`} sair={sair} />;
+  return <ConfirmacoesCompactas key={`confirmacoes-${geracao}`}><ProtecaoAlteracoes><PrivateArea key={`private-${geracao}`} sair={sair} /></ProtecaoAlteracoes></ConfirmacoesCompactas>;
 }

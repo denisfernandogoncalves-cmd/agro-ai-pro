@@ -1,4 +1,5 @@
 import { useRascunhoAutomatico } from "../../components/RascunhoAutomatico";
+import { useAlteracoesNaoSalvas } from "../../components/AlteracoesNaoSalvas";
 import ConferenciaSaldo from "../../components/ConferenciaSaldo";
 import { useEntradaPainel } from "../../components/AcoesContext";
 import FiltrosFavoritos from "../../components/FiltrosFavoritos";
@@ -114,8 +115,8 @@ export function filtrarLotesProducao(lotes: LoteGraos[], filtros: FiltrosSaldo =
   );
 }
 
-export function BotaoCreditarProducao({ desabilitado }: { desabilitado: boolean }) {
-  return <BotaoAcao acao="cadastrar" disabled={desabilitado} type="submit">Creditar produção</BotaoAcao>;
+export function BotaoCreditarProducao({ desabilitado, motivoBloqueio }: { desabilitado: boolean; motivoBloqueio?: string }) {
+  return <BotaoAcao acao="cadastrar" disabled={desabilitado} motivoBloqueio={motivoBloqueio} type="submit">Creditar produção</BotaoAcao>;
 }
 
 export function mesmosFiltrosSaldo(a: FiltrosSaldo, b: FiltrosSaldo) {
@@ -134,6 +135,7 @@ export default function ProducaoSaldosPage({ propriedades }: Props) {
   const [filtrosAplicados, setFiltrosAplicados] = useState<FiltrosSaldo>(filtrosVazios);
   const ultimaConsulta = useRef(0);
   const [credito, setCredito] = useState(creditoVazio);
+  const protecao = useAlteracoesNaoSalvas(credito, "Crédito de produção");
   const [carregando, setCarregando] = useState(false);
   const [creditando, setCreditando] = useState(false);
   const [erro, setErro] = useState("");
@@ -214,6 +216,7 @@ export default function ProducaoSaldosPage({ propriedades }: Props) {
       );
       rascunho.limpar({credito:creditoVazio});
       setCredito(creditoVazio);
+      protecao.marcarSalvo(creditoVazio);
       await carregar();
     } catch (falha) {
       setErro(mensagemErro(falha));
@@ -270,7 +273,7 @@ export default function ProducaoSaldosPage({ propriedades }: Props) {
           <label>Data do movimento<input required type="date" value={credito.data_movimento} onChange={(e) => setCredito({ ...credito, data_movimento: e.target.value })} /></label>
           <label>Referência externa<input maxLength={160} placeholder="Romaneio, ticket ou documento" value={credito.referencia_externa} onChange={(e) => setCredito({ ...credito, referencia_externa: e.target.value })} /></label>
           <label>Observações<textarea value={credito.observacoes} onChange={(e) => setCredito({ ...credito, observacoes: e.target.value })} /></label>
-          <BotaoCreditarProducao desabilitado={carregando || creditando || !loteCreditoValido} />
+          <BotaoCreditarProducao desabilitado={carregando || creditando || !loteCreditoValido} motivoBloqueio={carregando ? "Aguarde o carregamento." : creditando ? "Aguarde o processamento." : "Selecione um lote compatível com os filtros."} />
         </form>
 
         </PainelFormulario>

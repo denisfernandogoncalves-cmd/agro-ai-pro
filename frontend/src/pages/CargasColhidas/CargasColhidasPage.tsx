@@ -1,4 +1,6 @@
 import FiltrosFavoritos from "../../components/FiltrosFavoritos";
+import FiltrosRapidos, { correspondeFiltrosRapidos, filtrosRapidosVazios } from "../../components/FiltrosRapidos";
+import { useAlteracoesNaoSalvas } from "../../components/AlteracoesNaoSalvas";
 import { BotaoAcao } from "../../components/AcoesContext";
 import axios from "axios";
 import { Fragment, FormEvent, useEffect, useMemo, useRef, useState } from "react";
@@ -198,6 +200,9 @@ export function TabelaImpressaoCargas({
 
 export function cargaCorrespondeBusca(item: CargaColhida, busca: string) {
   const termo = busca.trim().toLocaleLowerCase("pt-BR");
+  const numeroBusca = termo.match(/^(?:carga\s*)?#?(\d+)$/);
+  if (numeroBusca && item.id === Number(numeroBusca[1])) return true;
+  if (numeroBusca && /^(?:carga|#)/.test(termo)) return false;
   return !termo || [
     item.placa, item.motorista, item.propriedade_nome, item.cad_pro_codigo,
     item.cultura, item.safra, item.armazem_nome, item.local_colheita,
@@ -324,6 +329,8 @@ export default function CargasColhidasPage({ propriedades }: Props) {
   const [talhoes, setTalhoes] = useState<Talhao[]>([]);
   const [carga, setCarga] = useState<CargaColhidaInput>(() => novaCarga());
   const [edicaoId, setEdicaoId] = useState<number | null>(null);
+  const protecao = useAlteracoesNaoSalvas({...carga, chave_registro: undefined}, "Carga colhida", edicaoId);
+  const [filtrosRapidos, setFiltrosRapidos] = useState(filtrosRapidosVazios);
   const [busca, setBusca] = useState("");
   const [mostrarHistorico, setMostrarHistorico] = useState(false);
   const [erro, setErro] = useState("");
@@ -370,7 +377,7 @@ export default function CargasColhidasPage({ propriedades }: Props) {
 
   const cargasFiltradas = cargas.filter((item) => {
     if (!mostrarHistorico && item.status !== "ativa") return false;
-    return cargaCorrespondeBusca(item, busca);
+    return cargaCorrespondeBusca(item, busca) && correspondeFiltrosRapidos(filtrosRapidos, item.cultura, item.safra, propriedadesDoContexto(item));
   });
   const propriedadesImpressao = [...new Set(cargasFiltradas.flatMap(
     item => produtoresDaCarga(item).map(produtor => produtor.nome),
@@ -455,10 +462,11 @@ export default function CargasColhidasPage({ propriedades }: Props) {
 
   function cancelarEdicao() {
     setEdicaoId(null);
-    setCarga(novaCarga());
+    const nova = novaCarga(); setCarga(nova); protecao.marcarSalvo({...nova,chave_registro:undefined});
   }
 
-  function editar(item: CargaColhida) {
+  async function editar(item: CargaColhida) {
+    if (!(await protecao.confirmarDescarte())) return;
     const contexto = objeto(item.contexto_colheita);
     const propriedadesDaCarga = propriedadesDoContexto(item);
     setErro("");
@@ -592,7 +600,7 @@ export default function CargasColhidasPage({ propriedades }: Props) {
         <PainelFormulario titulo={edicaoId ? `Editar carga #${edicaoId}` : "Registrar carga manual"} edicao={edicaoId}>
         <form className="card formulario formulario-carga-horizontal" onSubmit={salvarCarga}>
           <h3>{edicaoId ? `Editar carga #${edicaoId}` : "Registrar carga manual"}</h3>
-          {edicaoId && <p className="aviso-contexto">Ao salvar, a carga original será estornada e preservada; uma versão corrigida será criada.</p>}
+          {edicaoId && <><p className="aviso-contexto">Ao salvar, a carga original será estornada e preservada; uma versão corrigida será criada.</p><div className="comparacao-edicao"><span>Líquido atual da carga <strong>{numero(cargas.find(c => c.id === edicaoId)?.peso_liquido_kg || 0).toLocaleString("pt-BR")} kg</strong></span><span>Novo crédito líquido <strong>{calculo.liquido.toLocaleString("pt-BR")} kg</strong></span></div><small>Prévia do crédito da carga. Saldos finais de cada posição e bloqueios são validados ao salvar.</small></>}
           <label>Usar grupo de colheita
             <select value="" disabled={carregando} onChange={e => {
               const grupo = grupos.find(g => String(g.id) === e.target.value);
@@ -666,16 +674,17 @@ export default function CargasColhidasPage({ propriedades }: Props) {
           </div>
           {previaRateio.length > 0 && <div className="resumo-peso" aria-label="Prévia do rateio proporcional">{previaRateio.map((item) => <span key={`previa-${item.id}`}>{item.nome}<strong>{item.peso.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} kg · {(item.proporcao * 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% · CAD/PRO {item.cadpro?.codigo || "revisar cadastro"}</strong></span>)}</div>}
           <small>O cálculo definitivo e o snapshot auditável são gravados pelo servidor.</small>
-          <div className="acoes"><button disabled={salvando || carregando || calculo.percentual >= 100} type="submit">{salvando ? "Salvando carga..." : edicaoId ? "Salvar alterações" : "Registrar e creditar saldo"}</button>{edicaoId && <button className="secundario" type="button" onClick={cancelarEdicao}>Cancelar</button>}</div>
+          <div className="acoes"><button disabled={salvando || carregando || calculo.percentual >= 100} type="submit">{salvando ? "Salvando carga..." : edicaoId ? "Salvar alterações" : "Registrar e creditar saldo"}</button>{edicaoId && <button className="secundario" type="button" onClick={async () => {if (await protecao.confirmarDescarte()) cancelarEdicao();}}>Cancelar</button>}</div>
         </form>
 
         </PainelFormulario>
         <section className="conteudo">
           <div className="painel-filtros">
-            <input aria-label="Buscar cargas" placeholder="Buscar placa, propriedade, CAD/PRO, cultura, safra ou local" value={busca} onChange={(e) => setBusca(e.target.value)} />
+            <input aria-label="Buscar cargas" placeholder="Número da carga, placa, propriedade ou CAD/PRO" value={busca} onChange={(e) => setBusca(e.target.value)} />
             <label className="opcao-checkbox"><input type="checkbox" checked={mostrarHistorico} onChange={(e) => setMostrarHistorico(e.target.checked)} /> Mostrar histórico</label>
             <button disabled={carregando} type="button" onClick={() => void carregar()}>Atualizar</button>
           </div>
+          <FiltrosRapidos valor={filtrosRapidos} alterar={setFiltrosRapidos} culturas={[...new Set(cargas.map(c => c.cultura))].sort()} safras={[...new Set(cargas.map(c => c.safra))].sort()} propriedades={propriedades} busca={busca} limparBusca={() => setBusca("")} quantidade={cargasFiltradas.length} />
           <div className="lista cargas-lista">
             {carregando && cargas.length === 0 ? <div className="card vazio">Carregando cargas colhidas...</div> : cargasFiltradas.length === 0 ? <div className="card vazio">Nenhuma carga colhida {mostrarHistorico ? "encontrada" : "ativa"}.</div> : cargasFiltradas.map((item) => (
               <Fragment key={item.id}><CartaoCargaColhida item={item} carregando={carregando || salvando} onEditar={editar} onExcluir={(selecionada) => void prepararExclusao(selecionada)} />
@@ -688,7 +697,7 @@ export default function CargasColhidasPage({ propriedades }: Props) {
                   {exclusao.previa.transferencias.length > 0 && <><p>Transferências posteriores ainda ativas. Confira ou exclua a transferência na tela “Transferência de saldo entre CAD/PROs” antes de tentar novamente.</p><ul>{exclusao.previa.transferencias.map(t => <li key={t.movimento_saida}>Transferência #{t.movimento_saida}: {Number(t.quantidade_kg).toLocaleString("pt-BR")} kg para {t.destino}.</li>)}</ul>{exclusao.previa.mais_transferencias && <p>Há outras transferências. Consulte o histórico completo.</p>}</>}
                   {exclusao.previa.pode_excluir && <label>Motivo da exclusão<textarea required maxLength={500} disabled={salvando} value={exclusao.motivo} onChange={e => setExclusao({ ...exclusao, motivo: e.target.value })} /></label>}
                 </>}
-                <div className="acoes"><BotaoAcao acao="excluir" type="submit" className="perigo" disabled={salvando || !exclusao.previa?.pode_excluir || !exclusao.motivo.trim()}>Confirmar exclusão</BotaoAcao><button type="button" className="secundario" disabled={salvando} onClick={() => void prepararExclusao(item)}>Conferir novamente</button><button type="button" className="secundario" disabled={salvando} onClick={() => setExclusao(null)}>Cancelar exclusão</button></div>
+                <div className="acoes"><BotaoAcao acao="excluir" type="submit" className="perigo" disabled={salvando || !exclusao.previa?.pode_excluir || !exclusao.motivo.trim()} motivoBloqueio={salvando ? "Aguarde o processamento." : exclusao.carregando ? "Conferindo os saldos." : !exclusao.previa?.pode_excluir ? exclusao.previa?.impedimentos[0] || "Confira os saldos para liberar a exclusão." : "Informe o motivo da exclusão."}>Confirmar exclusão</BotaoAcao><button type="button" className="secundario" disabled={salvando} onClick={() => void prepararExclusao(item)}>Conferir novamente</button><button type="button" className="secundario" disabled={salvando} onClick={() => setExclusao(null)}>Cancelar exclusão</button></div>
               </form>}
               </Fragment>
             ))}

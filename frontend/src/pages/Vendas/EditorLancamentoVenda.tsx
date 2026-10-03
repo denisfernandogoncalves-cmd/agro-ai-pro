@@ -3,6 +3,8 @@ import { ContratoComercial } from "../../api/contratosComerciais";
 import { PosicaoSaldo } from "../../api/producaoSaldos";
 import { alterarLancamentoVenda, AlvoEdicaoVenda } from "../../api/vendas";
 import { quantidadeContrato } from "../CadastrosAgricolas/ContratosComerciais";
+import { useAlteracoesNaoSalvas } from "../../components/AlteracoesNaoSalvas";
+import { previaEdicaoVenda } from "./previaEdicaoVenda";
 
 type Props = {
   alvo: AlvoEdicaoVenda; contratos: ContratoComercial[]; posicoes: PosicaoSaldo[];
@@ -26,6 +28,11 @@ export default function EditorLancamentoVenda({ alvo, contratos, posicoes, proce
     nota_produtor: movimento?.nota_produtor || "", nota_empresa: movimento?.nota_empresa || "",
     referencia_externa: movimento?.referencia_externa || "",
   });
+  const protecao = useAlteracoesNaoSalvas({form,motivo}, "Correção de venda");
+  async function cancelar() { if (!processando && await protecao.confirmarDescarte()) fechar(); }
+  let quantidadeNova = 0; try { quantidadeNova = Number(quantidadeContrato(form.quantidade_kg)); } catch { /* Campo incompleto. */ }
+  const previa = previaEdicaoVenda(alvo,posicoes,quantidadeNova,Number(form.posicao));
+  const bloqueio = processando ? "Aguarde o processamento." : !motivo.trim() ? "Informe o motivo para manter o histórico." : previa.bloqueio;
   useEffect(() => { dialogo.current?.showModal(); }, []);
   function campo(nome: keyof typeof form, valor: string) { setForm({ ...form, [nome]: valor }); }
   async function salvar(evento: FormEvent) {
@@ -38,13 +45,15 @@ export default function EditorLancamentoVenda({ alvo, contratos, posicoes, proce
         else dados = { ...dados, data_movimento: form.data_movimento, referencia_externa: form.referencia_externa, ...(alvo.natureza === "entrega" ? { destino: form.destino, placa: form.placa, motorista: form.motorista, nota_produtor: form.nota_produtor, nota_empresa: form.nota_empresa } : {}) };
       }
       const ok = await executar(JSON.stringify([alvo.venda.id, alvo.venda.versao, alvo.natureza, alvo.movimento?.id, alvo.excluir, dados]), chave => alterarLancamentoVenda(alvo, dados, chave), alvo.excluir ? "Lançamento excluído; histórico preservado e saldos ajustados." : "Lançamento corrigido e saldos atualizados.");
-      if (ok) fechar();
+      if (ok) { protecao.marcarSalvo(); fechar(); }
     } catch (falha) { setErro(falha instanceof Error ? falha.message : "Revise os dados."); }
   }
-  return <dialog ref={dialogo} className="editor-venda card" aria-labelledby="titulo-editor-venda" onCancel={e => { e.preventDefault(); if (!processando) fechar(); }}>
+  return <dialog ref={dialogo} className={`editor-venda card ${alvo.excluir ? "confirmacao-compacta" : ""}`} aria-labelledby="titulo-editor-venda" onCancel={e => { e.preventDefault(); cancelar(); }}>
     <h3 id="titulo-editor-venda">{alvo.excluir ? "Excluir" : "Editar"} {alvo.natureza} · {venda.numero_contrato || "Sem contrato"} / {venda.cliente_nome}</h3>
     {(erro || erroOperacao) && <p className="erro" role="alert">{erro || erroOperacao}</p>}
     <p>{alvo.excluir ? "A exclusão preserva o histórico e desfaz os efeitos deste lançamento no estoque. Uma venda excluída também terá suas entregas e devoluções estornadas." : "A correção preserva a versão anterior e ajusta os saldos. Alterações incompatíveis com movimentos posteriores serão bloqueadas."}</p>
+    {!alvo.excluir && <div className="comparacao-edicao"><span>Quantidade atual<strong>{Number(movimento?.quantidade_kg ?? venda.quantidade_kg).toLocaleString("pt-BR")} kg</strong></span><span>Nova quantidade<strong>{quantidadeNova.toLocaleString("pt-BR")} kg</strong></span></div>}
+    {!!previa.linhas.length && <div className="previa-edicao"><h4>Saldos antes e depois · prévia sem lançamento</h4>{previa.linhas.map(l => <div className="comparacao-edicao" key={l.posicao.id}><span>{l.posicao.propriedade_nome || "Posição histórica"}<strong>Atual: {l.anterior.toLocaleString("pt-BR")} kg</strong></span><span>Após confirmar<strong>{l.posterior.toLocaleString("pt-BR")} kg</strong><small>Disponível: {l.disponivel.toLocaleString("pt-BR")} kg</small></span></div>)}<small>O servidor valida novamente os lançamentos dependentes. Sobra técnica pode permitir saldo negativo.</small></div>}
     <form className="formulario" onSubmit={salvar}><fieldset disabled={processando}>
       {!alvo.excluir && <>
         {alvo.natureza === "venda" ? <>
@@ -61,7 +70,7 @@ export default function EditorLancamentoVenda({ alvo, contratos, posicoes, proce
         <label>Observações<textarea value={form.observacoes} onChange={e => campo("observacoes", e.target.value)} /></label>
       </>}
       <label>Motivo da {alvo.excluir ? "exclusão" : "correção"}<textarea required maxLength={500} value={motivo} onChange={e => setMotivo(e.target.value)} /></label>
-      <div className="acoes"><button type="submit" className={alvo.excluir ? "perigo" : ""}>{alvo.excluir ? "Confirmar exclusão" : "Salvar correção"}</button><button type="button" className="secundario" onClick={fechar}>Cancelar</button></div>
+      <div className="acoes"><span className="acao-com-aviso"><button type="submit" disabled={!!bloqueio} title={bloqueio} className={alvo.excluir ? "perigo" : ""}>{alvo.excluir ? "Confirmar exclusão" : "Salvar correção"}</button>{bloqueio && <small role="status">{bloqueio}</small>}</span><button type="button" className="secundario" onClick={cancelar}>Cancelar</button></div>
     </fieldset></form>
   </dialog>;
 }

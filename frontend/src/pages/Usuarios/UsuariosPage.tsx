@@ -3,6 +3,8 @@ import axios from "axios";
 import { Acao, ACOES, DadosUsuario, Modulo, MODULOS, Usuario, excluirUsuario, listarUsuarios, salvarUsuario } from "../../api/usuarios";
 import { AREAS_MODULOS, nomeModulo } from "../../components/gruposModulos";
 import PainelFormulario from "../../components/PainelFormulario";
+import { useAlteracoesNaoSalvas } from "../../components/AlteracoesNaoSalvas";
+import { useConfirmacaoCompacta } from "../../components/ConfirmacaoCompacta";
 
 export function filtrarUsuarios(usuarios: Usuario[], busca: string) {
   const normalizar = (texto: string) => texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR");
@@ -17,9 +19,11 @@ function mensagemErro(falha: unknown) {
 }
 
 export default function UsuariosPage({ usuarioAtualId, onAtualizado }: { usuarioAtualId?: number; onAtualizado?: () => void } = {}) {
+  const confirmar = useConfirmacaoCompacta();
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [form, setForm] = useState(vazio);
   const [edicao, setEdicao] = useState<Usuario | null>(null);
+  const protecao = useAlteracoesNaoSalvas(form, "Usuário", edicao?.id || null);
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
   const [carregando, setCarregando] = useState(true);
@@ -36,8 +40,9 @@ export default function UsuariosPage({ usuarioAtualId, onAtualizado }: { usuario
     return () => { ativo = false; };
   }, []);
 
-  function cancelar() { setEdicao(null); setForm(vazio()); }
-  function editar(usuario: Usuario) {
+  function cancelar() { const novo = vazio(); setEdicao(null); setForm(novo); protecao.marcarSalvo(novo); }
+  async function editar(usuario: Usuario) {
+    if (!(await protecao.confirmarDescarte())) return;
     setEdicao(usuario);
     setForm({ username: usuario.username, first_name: usuario.first_name, last_name: usuario.last_name, email: usuario.email, is_active: usuario.is_active, modulos: usuario.modulos, permissoes: usuario.permissoes, password: "", password_confirmation: "" });
     setErro(""); setSucesso("");
@@ -68,7 +73,7 @@ export default function UsuariosPage({ usuarioAtualId, onAtualizado }: { usuario
   }
   async function excluir(usuario: Usuario) {
     if (trava.current) return;
-    if (!window.confirm(`Excluir o usuário "${usuario.username}"? O login será bloqueado e seus lançamentos anteriores serão preservados.`)) return;
+    if (!(await confirmar({titulo:`Excluir usuário ${usuario.username}`, perigo:true, confirmar:"Excluir usuário", mensagem:"O login será bloqueado. Os lançamentos anteriores permanecerão no histórico."}))) return;
     trava.current = true; setErro(""); setSucesso(""); setSalvando(true);
     try {
       await excluirUsuario(usuario.id);
@@ -109,7 +114,7 @@ export default function UsuariosPage({ usuarioAtualId, onAtualizado }: { usuario
           {form.modulos.map(id => <fieldset className="permissoes-modulo" key={id}><legend>{nomeModulo(id)}</legend><div>{ACOES.map(acao => <label className="usuario-checkbox" key={acao}><input type="checkbox" checked={(form.permissoes?.[id] ?? ACOES).includes(acao)} onChange={e => alternarAcao(id, acao, e.target.checked)} />{acao.charAt(0).toUpperCase()+acao.slice(1)}</label>)}</div></fieldset>)}
           </details>
         </fieldset>
-        <div className="acoes"><button disabled={salvando || carregando} type="submit">{salvando ? "Salvando..." : edicao ? "Salvar alterações" : "Criar usuário"}</button>{edicao && <button disabled={salvando} className="secundario" type="button" onClick={cancelar}>Cancelar edição</button>}</div>
+        <div className="acoes"><button disabled={salvando || carregando} type="submit">{salvando ? "Salvando..." : edicao ? "Salvar alterações" : "Criar usuário"}</button>{edicao && <button disabled={salvando} className="secundario" type="button" onClick={async () => {if (await protecao.confirmarDescarte()) cancelar();}}>Cancelar edição</button>}</div>
         </fieldset>
       </form>
       </PainelFormulario>
@@ -120,7 +125,7 @@ export default function UsuariosPage({ usuarioAtualId, onAtualizado }: { usuario
         {!carregando && <div className="lista usuarios-lista">{filtrados.map(usuario => <article className="usuario-item" key={usuario.id}>
           <div><strong>{usuario.username}</strong><span>{[usuario.first_name, usuario.last_name].filter(Boolean).join(" ")}</span><small>{usuario.is_staff ? "Administrador" : "Usuário"} · {usuario.is_active ? "Ativo" : "Inativo"}{usuario.id === usuarioAtualId ? " · Sua conta" : ""}</small>
           <p>{usuario.is_staff ? "Todos os módulos" : usuario.modulos.length ? MODULOS.filter(([id]) => usuario.modulos.includes(id)).map(([, nome]) => nome).join(" · ") : "Nenhum módulo permitido"}</p></div>
-          <div className="acoes"><button disabled={salvando} className="secundario" type="button" onClick={() => editar(usuario)}>Editar</button><button disabled={salvando || usuario.id === usuarioAtualId} className="perigo" type="button" onClick={() => void excluir(usuario)}>Excluir</button></div>
+          <div className="acoes"><button disabled={salvando} className="secundario" type="button" onClick={() => editar(usuario)}>Editar</button><button disabled={salvando || usuario.id === usuarioAtualId} className="perigo" type="button" onClick={() => void excluir(usuario)}>Excluir</button>{usuario.id === usuarioAtualId && <small role="status">Sua conta não pode ser excluída enquanto você está conectado.</small>}</div>
         </article>)}</div>}
       </section>
     </section>

@@ -2,6 +2,8 @@ import { useEntradaPainel } from "../../components/AcoesContext";
 import { useRascunhoAutomatico } from "../../components/RascunhoAutomatico";
 import FiltrosFavoritos from "../../components/FiltrosFavoritos";
 import { BotaoAcao } from "../../components/AcoesContext";
+import { useAlteracoesNaoSalvas } from "../../components/AlteracoesNaoSalvas";
+import { useConfirmacaoCompacta } from "../../components/ConfirmacaoCompacta";
 import axios from "axios";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import PainelFormulario from "../../components/PainelFormulario";
@@ -151,8 +153,8 @@ function mensagemErro(falha: unknown) {
   return falha instanceof Error ? falha.message : "Não foi possível concluir a operação de venda.";
 }
 
-export function BotaoMutacaoVenda({ processando, children }: { processando: boolean; children: string }) {
-  return <button disabled={processando} type="submit">{children}</button>;
+export function BotaoMutacaoVenda({ processando, children, motivoBloqueio }: { processando: boolean; children: string; motivoBloqueio?: string }) {
+  return <span className="acao-com-aviso"><button disabled={processando} title={motivoBloqueio} type="submit">{children}</button>{processando && motivoBloqueio && <small role="status">{motivoBloqueio}</small>}</span>;
 }
 
 export function AcoesLancamentoVenda({ desabilitado, editar, excluir }: { desabilitado: boolean; editar: () => void; excluir: () => void }) {
@@ -194,6 +196,10 @@ export default function VendasPage() {
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
   const controlador = useRef(criarControladorMutacaoVenda());
+  const confirmarPedido = useConfirmacaoCompacta();
+  const protecao = useAlteracoesNaoSalvas({formulario,novaSaida,novaPosicao,tipoLancamento,origemSelecionada}, "Nova venda");
+  const protecaoMovimento = useAlteracoesNaoSalvas({dadosEntrega,quantidadeMovimento}, "Entrega ou devolução", selecionada?.id || null);
+  async function selecionarVenda(item: VendaGraos) { if (item.id !== selecionada?.id && !(await protecaoMovimento.confirmarDescarte())) return; if (item.id !== selecionada?.id) {setDadosEntrega(entregaVazia);setQuantidadeMovimento("");} setSelecionada(item); }
 
   const rascunho = useRascunhoAutomatico("vendas", {formulario,novaSaida,novaPosicao,tipoLancamento,origemSelecionada}, salvo => {setFormulario({...vazio,...salvo.formulario});setNovaSaida({...entregaVazia,...salvo.novaSaida});setNovaPosicao({...novaPosicao,...salvo.novaPosicao});setTipoLancamento(salvo.tipoLancamento||"saida");setOrigemSelecionada(salvo.origemSelecionada||"");});
   async function carregar(atuais = filtros) {
@@ -263,7 +269,7 @@ export default function VendasPage() {
       return;
     }
     if (!particular && !simulacao) {setErro(erroSimulacao||"Aguarde a simulação do saldo antes de confirmar.");return;}
-    if (!window.confirm(particular ? "Confirmar a venda com o rateio e os saldos apresentados?" : tipoLancamento === "rascunho" ? "Criar o rascunho comercial sem alterar o saldo?" : `Confirmar a saída? Saldo físico: ${kg(simulacao!.saldo_anterior_kg)} → ${kg(simulacao!.saldo_posterior_kg)}.`)) return;
+    if (!(await confirmarPedido({titulo:"Confirmar venda", mensagem:particular ? "Confirmar a venda com o rateio e os saldos apresentados?" : tipoLancamento === "rascunho" ? "Criar o rascunho comercial sem alterar o saldo?" : `Confirmar a saída? Saldo físico: ${kg(simulacao!.saldo_anterior_kg)} → ${kg(simulacao!.saldo_posterior_kg)}.`}))) return;
     const criada = await executar(JSON.stringify(["criar", tipoLancamento, formulario, novaSaida, origemSelecionada, novaPosicao, previaParticular?.hash_previa]), (chave) => {
       const dados: RegistroVenda = { ...formulario, cliente_nome: formulario.contrato || tipoLancamento === "rascunho" ? formulario.cliente_nome : novaSaida.destino.trim(), data_limite_entrega: tipoLancamento === "saida" ? null : formulario.data_limite_entrega, quantidade_kg: quantidadeContrato(formulario.quantidade_kg) };
       if (particular) {
@@ -278,7 +284,7 @@ export default function VendasPage() {
         ? registrarVendaComSaida({ ...novaSaida, ...dados, data_movimento: formulario.data_contrato }, chave)
         : criarVenda(dados, chave);
     }, particular ? "Venda PARTICULAR registrada; saída distribuída entre todas as propriedades proporcionalmente à área." : tipoLancamento === "saida" ? "Venda e saída registradas; peso líquido baixado do estoque." : "Venda criada em rascunho, sem alterar o saldo.");
-    if (criada) { rascunho.limpar({formulario:vazio,novaSaida:entregaVazia,novaPosicao,tipoLancamento,origemSelecionada:""}); setFormulario(vazio); setNovaSaida(entregaVazia); setOrigemSelecionada(""); }
+    if (criada) { const limpo = {formulario:vazio,novaSaida:entregaVazia,novaPosicao,tipoLancamento,origemSelecionada:""}; protecao.marcarSalvo(limpo); rascunho.limpar(limpo); setFormulario(vazio); setNovaSaida(entregaVazia); setOrigemSelecionada(""); }
   }
 
   const aberto = selecionada && !selecionada.excluida_em && ["confirmada", "parcial"].includes(selecionada.status);
@@ -341,7 +347,7 @@ export default function VendasPage() {
           {tipoLancamento === "rascunho" && <label>Limite de entrega<input type="date" value={formulario.data_limite_entrega ?? ""} onChange={e => setFormulario({ ...formulario, data_limite_entrega: e.target.value || null })} /></label>}
           <label>Observações<textarea value={formulario.observacoes} onChange={(e) => setFormulario({ ...formulario, observacoes: e.target.value })} /></label>
           {!particular && <div role="status">{simulacao ? <p>Simulação sem lançamento: saldo físico {kg(simulacao.saldo_anterior_kg)} → <strong>{kg(simulacao.saldo_posterior_kg)}</strong>; disponível após a operação: {kg(simulacao.disponivel_posterior_kg)}. {tipoLancamento==="rascunho"?"O rascunho comercial não movimenta estoque.":"Saldos negativos continuam permitidos por sobra técnica."}</p>:erroSimulacao?<p className="erro">{erroSimulacao}</p>:<p>Informe a origem e o peso para simular antes de confirmar.</p>}</div>}
-          <BotaoMutacaoVenda processando={processando || (particular ? !previaParticular : !simulacao)}>{tipoLancamento === "saida" ? "Registrar venda e saída" : "Criar rascunho"}</BotaoMutacaoVenda>
+          <BotaoMutacaoVenda processando={processando || (particular ? !previaParticular : !simulacao)} motivoBloqueio={processando ? "Aguarde o processamento." : particular ? erroPrevia || "Preencha cultura, safra, armazenagem e peso para conferir o rateio." : erroSimulacao || "Informe origem e peso para obter a simulação antes de confirmar."}>{tipoLancamento === "saida" ? "Registrar venda e saída" : "Criar rascunho"}</BotaoMutacaoVenda>
         </form>
         </PainelFormulario>
 
@@ -353,20 +359,20 @@ export default function VendasPage() {
 
         <section className="conteudo vendas-lista-compacta">
           <h3>Vendas registradas</h3>
-          <div className="lista">{vendas.length ? vendas.map((item) => <article className={`card item venda-item ${selecionada?.id === item.id ? "ativo" : ""}`} key={item.id} onClick={() => setSelecionada(item)}><div><span className="kicker">{item.excluida_em ? "Excluída — histórico" : item.status}</span><h3>{item.numero_contrato || "Sem contrato"} · {item.cliente_nome}</h3><p>{item.cad_pro_codigo} · {item.cultura} {item.safra} · {item.classificacao_codigo} · {item.armazem_nome}</p></div><div className="metricas-venda"><span>Contratado <strong>{kg(item.quantidade_kg)}</strong></span><span>Reservado <strong>{kg(item.quantidade_reservada_kg)}</strong></span><span>Entregue <strong>{kg(item.quantidade_entregue_kg)}</strong></span><span>Cancelado <strong>{kg(item.quantidade_cancelada_kg)}</strong></span>{!item.excluida_em && <AcoesLancamentoVenda desabilitado={processando} editar={() => setEditor({ venda: item, natureza: "venda", excluir: false })} excluir={() => setEditor({ venda: item, natureza: "venda", excluir: true })} />}</div></article>) : <div className="card vazio">Nenhuma venda encontrada.</div>}</div>
+          <div className="lista">{vendas.length ? vendas.map((item) => <article className={`card item venda-item ${selecionada?.id === item.id ? "ativo" : ""}`} key={item.id} onClick={() => selecionarVenda(item)}><div><span className="kicker">{item.excluida_em ? "Excluída — histórico" : item.status}</span><h3>{item.numero_contrato || "Sem contrato"} · {item.cliente_nome}</h3><p>{item.cad_pro_codigo} · {item.cultura} {item.safra} · {item.classificacao_codigo} · {item.armazem_nome}</p></div><div className="metricas-venda"><span>Contratado <strong>{kg(item.quantidade_kg)}</strong></span><span>Reservado <strong>{kg(item.quantidade_reservada_kg)}</strong></span><span>Entregue <strong>{kg(item.quantidade_entregue_kg)}</strong></span><span>Cancelado <strong>{kg(item.quantidade_cancelada_kg)}</strong></span>{!item.excluida_em && <AcoesLancamentoVenda desabilitado={processando} editar={() => setEditor({ venda: item, natureza: "venda", excluir: false })} excluir={() => setEditor({ venda: item, natureza: "venda", excluir: true })} />}</div></article>) : <div className="card vazio">Nenhuma venda encontrada.</div>}</div>
         </section>
       </section>
 
       {selecionada && <section className="card detalhe-venda"><div className="detalhe-venda-topo"><div><span className="kicker">Detalhe e rastreabilidade</span><h3>{selecionada.numero_contrato || "Sem contrato"}</h3><p>{selecionada.propriedade_nome} · posição oficial #{selecionada.posicao}</p></div><div className="acoes">{!selecionada.excluida_em && selecionada.status === "rascunho" && <BotaoAcao acao="editar" disabled={processando} onClick={() => { void executar(`confirmar:${selecionada.id}`, (chave) => confirmarVenda(selecionada.id, chave), "Venda confirmada e saldo reservado."); }}>Confirmar e reservar</BotaoAcao>}{!selecionada.excluida_em && selecionada.status !== "entregue" && selecionada.status !== "cancelada" && <BotaoAcao acao="excluir" className="perigo" disabled={processando} onClick={() => { void executar(`cancelar:${selecionada.id}`, (chave) => cancelarVenda(selecionada.id, "Cancelamento pelo painel", chave), "Venda cancelada; somente a reserva aberta foi liberada."); }}>Cancelar</BotaoAcao>}</div></div>
         <div className="resumo-venda"><span>Físico da posição <strong>{kg(saldoSelecionado?.saldo_fisico_kg ?? "0")}</strong></span><span>Comprometido da posição <strong>{kg(saldoSelecionado?.saldo_comprometido_kg ?? "0")}</strong></span><span>Disponível da posição <strong>{kg(saldoSelecionado?.saldo_disponivel_kg ?? "0")}</strong></span><span>Reservado nesta venda <strong>{kg(selecionada.quantidade_reservada_kg)}</strong></span><span>Entregue <strong>{kg(selecionada.quantidade_entregue_kg)}</strong></span><span>Devolvido <strong>{kg(selecionada.quantidade_devolvida_kg)}</strong></span><span>Cancelado <strong>{kg(selecionada.quantidade_cancelada_kg)}</strong></span></div>
-        {aberto && <form className="movimentos-venda formulario-saida" onSubmit={e => { e.preventDefault(); const assinatura = JSON.stringify(["entregar", selecionada.id, dadosEntrega]); void executar(assinatura, (chave) => entregarVenda(selecionada.id, { ...dadosEntrega, quantidade_kg: quantidadeContrato(dadosEntrega.quantidade_kg) }, chave), "Entrega registrada; físico e comprometido foram reduzidos uma única vez.").then(ok => { if (ok) setDadosEntrega(entregaVazia); }); }}>
+        {aberto && <form className="movimentos-venda formulario-saida" onSubmit={e => { e.preventDefault(); const assinatura = JSON.stringify(["entregar", selecionada.id, dadosEntrega]); void executar(assinatura, (chave) => entregarVenda(selecionada.id, { ...dadosEntrega, quantidade_kg: quantidadeContrato(dadosEntrega.quantidade_kg) }, chave), "Entrega registrada; físico e comprometido foram reduzidos uma única vez.").then(ok => { if (ok) {setDadosEntrega(entregaVazia);protecaoMovimento.marcarSalvo({dadosEntrega:entregaVazia,quantidadeMovimento});} }); }}>
           <label>Data<input required type="date" value={dadosEntrega.data_movimento} onChange={e => setDadosEntrega({ ...dadosEntrega, data_movimento: e.target.value })} /></label>
           <CamposTransporteVenda dados={dadosEntrega} alterar={setDadosEntrega} destinoPadrao={selecionada.cliente_nome} />
           <label>CAD/PRO<input readOnly value={selecionada.cad_pro_codigo} /></label><label>Nº do contrato<input readOnly value={selecionada.numero_contrato} /></label>
           <label>Peso líquido (kg)<input required inputMode="decimal" placeholder="Ex.: 35.000,500" value={dadosEntrega.quantidade_kg} onChange={e => setDadosEntrega({ ...dadosEntrega, quantidade_kg: e.target.value })} /></label>
           <BotaoAcao acao="cadastrar" type="submit" disabled={processando}>Registrar entrega</BotaoAcao>
         </form>}
-        {!selecionada.excluida_em && devolvivel > 0 && <div className="movimentos-venda"><label>Quantidade da devolução (kg)<input min="0.001" step="0.001" type="number" value={quantidadeMovimento} onChange={(e) => setQuantidadeMovimento(e.target.value)} /></label><BotaoAcao acao="cadastrar" className="secundario" disabled={processando || !quantidadeMovimento} onClick={() => { void executar(`devolver:${selecionada.id}:${quantidadeMovimento}`, (chave) => devolverVenda(selecionada.id, quantidadeMovimento, hoje, chave), "Devolução registrada no físico sem reabrir a reserva."); }}>Registrar devolução</BotaoAcao></div>}
+        {!selecionada.excluida_em && devolvivel > 0 && <div className="movimentos-venda"><label>Quantidade da devolução (kg)<input min="0.001" step="0.001" type="number" value={quantidadeMovimento} onChange={(e) => setQuantidadeMovimento(e.target.value)} /></label><BotaoAcao acao="cadastrar" className="secundario" disabled={processando || !quantidadeMovimento} motivoBloqueio={processando ? "Aguarde o processamento." : "Informe a quantidade da devolução."} onClick={() => { void executar(`devolver:${selecionada.id}:${quantidadeMovimento}`, (chave) => devolverVenda(selecionada.id, quantidadeMovimento, hoje, chave), "Devolução registrada no físico sem reabrir a reserva."); }}>Registrar devolução</BotaoAcao></div>}
         <RastreabilidadeVenda venda={selecionada} />
         {selecionada.rateio_particular_snapshot && <div><p>Parcela da venda PARTICULAR #{selecionada.rateio_particular_id}. O rateio abaixo registra as áreas e quantidades usadas no lançamento original. Correções, exclusões e devoluções deste detalhe afetam apenas esta parcela.</p><PreviaRateioParticular previa={selecionada.rateio_particular_snapshot} /></div>}
         <h4>Entregas e devoluções</h4>
