@@ -68,6 +68,8 @@ export type VendaGraos = {
 };
 
 export type FiltrosVenda = {
+  data_inicio?:string;
+  data_fim?:string;
   mostrar_excluidas?: string;
   propriedade?: string;
   search?: string;

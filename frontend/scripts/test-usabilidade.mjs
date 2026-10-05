@@ -64,6 +64,20 @@ try {
   assert.match(bloqueado,/role="status"[^>]*>Informe o motivo/);
   const semPermissao=renderToStaticMarkup(React.createElement(AcoesContext.Provider,{value:{modulo:"vendas",acesso:{is_staff:false,modulos:["vendas"],permissoes:{vendas:["consultar"]}}}},React.createElement(BotaoAcao,{acao:"excluir",disabled:true,motivoBloqueio:"Informe o motivo"},"Excluir")));
   assert.equal(semPermissao,"","Ajuda não revela ações sem permissão");
+  const {ordenarConsulta,noPeriodo,totalConsulta}=await servidor.ssrLoadModule("/src/components/ResumoConsulta.tsx");
+  const registros=[{id:1,data:"2026-10-01",propriedade:"B",quantidade:2},{id:2,data:"2026-10-02",propriedade:"A",quantidade:10}];
+  assert.deepEqual(ordenarConsulta(registros,"quantidade-desc",x=>x).map(x=>x.id),[2,1]);
+  assert.deepEqual(registros.map(x=>x.id),[1,2]);
+  assert.equal(noPeriodo("2026-10-02","2026-10-02","2026-10-02"),true);
+  assert.equal(noPeriodo("2026-10-01","2026-10-02",""),false);
+  assert.equal(totalConsulta(registros.filter(x=>noPeriodo(x.data,"2026-10-02","")),x=>x.quantidade),10);
+  const {htmlComprovante}=await servidor.ssrLoadModule("/src/components/ComprovanteLancamento.tsx");
+  const documento=htmlComprovante({titulo:"Teste <script>",campos:[["Comprador","<img src=x onerror=alert(1)>"]]});
+  assert.doesNotMatch(documento,/<script>|<img/);assert.match(documento,/&lt;img/);
+  const {mensagemValidacao}=await servidor.ssrLoadModule("/src/components/FormularioValidado.tsx");
+  assert.match(mensagemValidacao({valueMissing:true}),/Preencha/);
+  assert.match(mensagemValidacao({rangeUnderflow:true}),/limites/);
+  assert.match(mensagemValidacao({badInput:true}),/formato/);
 } finally {await servidor.close();}
 
 // Exercita o hook real com ciclos de renderização, sem persistir formulários.

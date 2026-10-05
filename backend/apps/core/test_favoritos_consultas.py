@@ -12,7 +12,7 @@ class FavoritosConsultasTests(APITestCase):
         self.client.force_authenticate(self.user)
 
     def test_filtros_completos_legado_e_isolamento(self):
-        filtros = {"search":"#52", "mostrarHistorico":True, "cultura":"Soja", "safra":"2026/2027", "propriedade":"2"}
+        filtros = {"search":"#52", "mostrarHistorico":True, "cultura":"Soja", "safra":"2026/2027", "propriedade":"2", "data_inicio":"2026-10-01", "data_fim":"2026-10-05"}
         for contexto in ("cargas", "transferencias"):
             resposta = self.client.post("/api/core/favoritos/", {"contexto":contexto,"nome":"Consulta completa","filtros":filtros}, format="json")
             self.assertEqual(resposta.status_code, 201, resposta.data)

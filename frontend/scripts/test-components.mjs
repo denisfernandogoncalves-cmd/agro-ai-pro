@@ -588,7 +588,8 @@ try {
   const htmlCargaHistorica = renderizarCarga({ ...cargaDoisCadpros, status: "cancelada" });
   assert.match(htmlCargaHistorica, /CAD\/PRO 2056/);
   assert.match(htmlCargaHistorica, /Cancelada/);
-  assert.doesNotMatch(htmlCargaHistorica, /<button/);
+  assert.doesNotMatch(htmlCargaHistorica, />Editar<|>Excluir</);
+  assert.match(htmlCargaHistorica, />Comprovante</);
   const htmlCargaLegada = renderizarCarga({ ...cargaDoisCadpros, contexto_colheita: {} });
   assert.match(htmlCargaLegada, /SÍTIO SAGRILO/);
   assert.match(htmlCargaLegada, /CAD\/PRO 987654321/);

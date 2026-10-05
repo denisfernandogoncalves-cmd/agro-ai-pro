@@ -1,4 +1,7 @@
 import AnexosLancamento from "../../components/AnexosLancamento";
+import ComprovanteLancamento from "../../components/ComprovanteLancamento";
+import FormularioValidado from "../../components/FormularioValidado";
+import ResumoConsulta, { noPeriodo, ordenarConsulta, OrdemConsulta, totalConsulta } from "../../components/ResumoConsulta";
 import { useConferirDuplicidades } from "../../components/ConferirDuplicidades";
 import { formatarPercentual } from "../../utils/numeros";
 import FiltrosFavoritos from "../../components/FiltrosFavoritos";
@@ -244,7 +247,7 @@ export function CartaoCargaColhida({ item, carregando, onEditar, onExcluir }: {
         </li>)}</ul>
       </section>}
       <div className="carga-metricas"><span>Bruto total <strong>{formatar(numero(item.peso_bruto_kg))} kg</strong></span><span>Desconto <strong>{formatarPercentual(item.desconto_total_percentual)}</strong></span><span>Líquido total <strong>{formatar(numero(item.peso_liquido_kg))} kg</strong></span></div>
-      <div className="carga-analises" aria-label="Análise e rastreabilidade da carga">
+      <details className="detalhes-listagem"><summary>Análises e histórico da carga</summary><div className="carga-analises" aria-label="Análise e rastreabilidade da carga">
         <span>Umidade <strong>{formatarPercentual(item.umidade_percentual)}</strong></span>
         <span>Impureza <strong>{formatarPercentual(item.impureza_percentual)}</strong></span>
         <span>Avariados <strong>{formatarPercentual(item.defeitos_percentual)}</strong></span>
@@ -252,8 +255,9 @@ export function CartaoCargaColhida({ item, carregando, onEditar, onExcluir }: {
         {item.destinado_semente && <span>Semente</span>}
         <span>Movimento principal #{item.movimentacao}</span>
         {item.substituida_por && <span>Substituída pela carga #{item.substituida_por}</span>}
-      </div>
+      </div>{item.observacoes&&<p>{item.observacoes}</p>}</details>
       <AnexosLancamento entidade="carga" registro={item.id} />
+      <ComprovanteLancamento dados={{titulo:`Carga #${item.id}`,campos:[["Situação",item.status],["Data",dataPlanilhaCarga(item.data_colheita)],["Propriedades / CAD/PRO",produtores.map(p=>`${p.nome} / ${p.cadpro}: ${formatar(p.peso)} kg`).join("; ")],["Produto / safra",`${item.cultura} / ${item.safra}`],["Armazenagem",item.armazem_nome],["Placa / motorista",`${item.placa||"Sem placa"} / ${item.motorista||"—"}`],["Bruto",`${formatar(numero(item.peso_bruto_kg))} kg`],["Desconto",formatarPercentual(item.desconto_total_percentual)],["Líquido",`${formatar(numero(item.peso_liquido_kg))} kg`],["Sacas",formatar(numero(item.sacas_60kg))],["Umidade / impureza / avariados",`${formatarPercentual(item.umidade_percentual)} / ${formatarPercentual(item.impureza_percentual)} / ${formatarPercentual(item.defeitos_percentual)}`],["Movimento",String(item.movimentacao)],["Observações",item.observacoes||"—"],["Motivo de cancelamento",item.motivo_cancelamento||"—"]]}}/>
       {item.status !== "ativa" && item.motivo_cancelamento && <small>Motivo: {item.motivo_cancelamento}</small>}
       {item.status === "ativa" && <div className="acoes carga-item-acoes"><BotaoAcao acao="editar" disabled={carregando} className="secundario" type="button" onClick={() => onEditar(item)}>Editar</BotaoAcao><BotaoAcao acao="excluir" disabled={carregando} className="perigo" type="button" onClick={() => onExcluir(item)}>Excluir</BotaoAcao></div>}
     </article>
@@ -335,6 +339,7 @@ export default function CargasColhidasPage({ propriedades }: Props) {
   const [edicaoId, setEdicaoId] = useState<number | null>(null);
   const protecao = useAlteracoesNaoSalvas({...carga, chave_registro: undefined}, "Carga colhida", edicaoId);
   const [filtrosRapidos, setFiltrosRapidos] = useState(filtrosRapidosVazios);
+  const [ordem,setOrdem]=useState<OrdemConsulta>("data-desc");
   const [busca, setBusca] = useState("");
   const [mostrarHistorico, setMostrarHistorico] = useState(false);
   const [erro, setErro] = useState("");
@@ -379,10 +384,10 @@ export default function CargasColhidasPage({ propriedades }: Props) {
     .reduce((total, item) => total + numero(item.area_hectares), 0);
   const calculo = useMemo(() => resumoCalculado(carga), [carga]);
 
-  const cargasFiltradas = cargas.filter((item) => {
+  const cargasFiltradas = ordenarConsulta(cargas.filter((item) => {
     if (!mostrarHistorico && item.status !== "ativa") return false;
-    return cargaCorrespondeBusca(item, busca) && correspondeFiltrosRapidos(filtrosRapidos, item.cultura, item.safra, propriedadesDoContexto(item));
-  });
+    return noPeriodo(item.data_colheita,filtrosRapidos.data_inicio,filtrosRapidos.data_fim) && cargaCorrespondeBusca(item, busca) && correspondeFiltrosRapidos(filtrosRapidos, item.cultura, item.safra, propriedadesDoContexto(item));
+  }),ordem,item=>({data:item.data_colheita,propriedade:produtoresDaCarga(item).map(p=>p.nome).join(" / "),quantidade:Number(item.peso_liquido_kg),id:item.id}));
   const propriedadesImpressao = [...new Set(cargasFiltradas.flatMap(
     item => produtoresDaCarga(item).map(produtor => produtor.nome),
   ))];
@@ -604,7 +609,7 @@ export default function CargasColhidasPage({ propriedades }: Props) {
 
       <section className="grade cargas-grade">
         <PainelFormulario titulo={edicaoId ? `Editar carga #${edicaoId}` : "Registrar carga manual"} edicao={edicaoId}>
-        <form className="card formulario formulario-carga-horizontal" onSubmit={salvarCarga}>
+        <FormularioValidado className="card formulario formulario-carga-horizontal" onSubmit={salvarCarga}>
           <h3>{edicaoId ? `Editar carga #${edicaoId}` : "Registrar carga manual"}</h3>
           {edicaoId && <><p className="aviso-contexto">Ao salvar, a carga original será estornada e preservada; uma versão corrigida será criada.</p><div className="comparacao-edicao"><span>Líquido atual da carga <strong>{numero(cargas.find(c => c.id === edicaoId)?.peso_liquido_kg || 0).toLocaleString("pt-BR")} kg</strong></span><span>Novo crédito líquido <strong>{calculo.liquido.toLocaleString("pt-BR")} kg</strong></span></div><small>Prévia do crédito da carga. Saldos finais de cada posição e bloqueios são validados ao salvar.</small></>}
           <label>Usar grupo de colheita
@@ -681,7 +686,7 @@ export default function CargasColhidasPage({ propriedades }: Props) {
           {previaRateio.length > 0 && <div className="resumo-peso" aria-label="Prévia do rateio proporcional">{previaRateio.map((item) => <span key={`previa-${item.id}`}>{item.nome}<strong>{item.peso.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} kg · {(item.proporcao * 100).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}% · CAD/PRO {item.cadpro?.codigo || "revisar cadastro"}</strong></span>)}</div>}
           <small>O cálculo definitivo e o snapshot auditável são gravados pelo servidor.</small>
           <div className="acoes"><button disabled={salvando || carregando || calculo.percentual >= 100} type="submit">{salvando ? "Salvando carga..." : edicaoId ? "Salvar alterações" : "Registrar e creditar saldo"}</button>{edicaoId && <button className="secundario" type="button" onClick={async () => {if (await protecao.confirmarDescarte()) cancelarEdicao();}}>Cancelar</button>}</div>
-        </form>
+        </FormularioValidado>
 
         </PainelFormulario>
         <section className="conteudo">
@@ -691,10 +696,11 @@ export default function CargasColhidasPage({ propriedades }: Props) {
             <button disabled={carregando} type="button" onClick={() => void carregar()}>Atualizar</button>
           </div>
           <FiltrosRapidos valor={filtrosRapidos} alterar={setFiltrosRapidos} culturas={[...new Set(cargas.map(c => c.cultura))].sort()} safras={[...new Set(cargas.map(c => c.safra))].sort()} propriedades={propriedades} busca={busca} limparBusca={() => setBusca("")} quantidade={cargasFiltradas.length} />
+          <ResumoConsulta quantidade={cargasFiltradas.length} descricao="Totais apenas das cargas ativas desta consulta; histórico não somado." ordem={ordem} alterar={setOrdem} totais={[{nome:"Bruto ativo",valor:totalConsulta(cargasFiltradas.filter(c=>c.status==="ativa"),c=>c.peso_bruto_kg),unidade:"kg"},{nome:"Líquido ativo",valor:totalConsulta(cargasFiltradas.filter(c=>c.status==="ativa"),c=>c.peso_liquido_kg),unidade:"kg"},{nome:"Sacas ativas",valor:totalConsulta(cargasFiltradas.filter(c=>c.status==="ativa"),c=>c.sacas_60kg),unidade:"sc"}]}/>
           <div className="lista cargas-lista">
             {carregando && cargas.length === 0 ? <div className="card vazio">Carregando cargas colhidas...</div> : cargasFiltradas.length === 0 ? <div className="card vazio">Nenhuma carga colhida {mostrarHistorico ? "encontrada" : "ativa"}.</div> : cargasFiltradas.map((item) => (
               <Fragment key={item.id}><CartaoCargaColhida item={item} carregando={carregando || salvando} onEditar={editar} onExcluir={(selecionada) => void prepararExclusao(selecionada)} />
-              {exclusao?.item.id === item.id && <form className="card formulario confirmacao-exclusao-carga" onSubmit={e => { e.preventDefault(); void excluir(item); }}><h3>Excluir carga #{item.id}</h3>
+              {exclusao?.item.id === item.id && <FormularioValidado className="card formulario confirmacao-exclusao-carga" onSubmit={e => { e.preventDefault(); void excluir(item); }}><h3>Excluir carga #{item.id}</h3>
                 {exclusao.carregando && <p role="status">Conferindo os saldos antes da exclusão...</p>}
                 {exclusao.erro && <p className="erro" role="alert">{exclusao.erro}</p>}
                 {exclusao.previa && <><p>A exclusão estorna a entrada e mantém o registro no histórico.</p>
@@ -704,7 +710,7 @@ export default function CargasColhidasPage({ propriedades }: Props) {
                   {exclusao.previa.pode_excluir && <label>Motivo da exclusão<textarea required maxLength={500} disabled={salvando} value={exclusao.motivo} onChange={e => setExclusao({ ...exclusao, motivo: e.target.value })} /></label>}
                 </>}
                 <div className="acoes"><BotaoAcao acao="excluir" type="submit" className="perigo" disabled={salvando || !exclusao.previa?.pode_excluir || !exclusao.motivo.trim()} motivoBloqueio={salvando ? "Aguarde o processamento." : exclusao.carregando ? "Conferindo os saldos." : !exclusao.previa?.pode_excluir ? exclusao.previa?.impedimentos[0] || "Confira os saldos para liberar a exclusão." : "Informe o motivo da exclusão."}>Confirmar exclusão</BotaoAcao><button type="button" className="secundario" disabled={salvando} onClick={() => void prepararExclusao(item)}>Conferir novamente</button><button type="button" className="secundario" disabled={salvando} onClick={() => setExclusao(null)}>Cancelar exclusão</button></div>
-              </form>}
+              </FormularioValidado>}
               </Fragment>
             ))}
           </div>
