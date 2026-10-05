@@ -954,3 +954,21 @@ dialog.editor-venda::backdrop { background: #102f2480; }
 
 .comprovante-dialogo.duas-vias{width:min(820px,calc(100vw - 24px))}.previa-duas-vias{overflow-x:auto}.comprovante-dialogo.duas-vias .previa-duas-vias dl>div.campo-largo{grid-template-columns:22% 78%}
 @media print{.duas-vias .previa-duas-vias{overflow:visible!important;width:190mm!important;height:276mm!important}}
+
+/* Cadastro e documentos próximos, com adaptação à largura disponível. */
+.vendas-trabalho-duas-colunas { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); align-items:start; gap:20px; margin:16px 0; }
+.vendas-trabalho-duas-colunas > section { min-width:0; }
+.vendas-nova-coluna .painel-formulario { margin:0; }
+.vendas-nova-coluna .formulario-venda-horizontal { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.vendas-nova-coluna .transporte-venda-grade, .vendas-nova-coluna .pesagem-venda-grade { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.vendas-documentos-coluna .detalhe-venda { margin:0; }
+.vendas-documentos-coluna .resumo-venda { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.vendas-documentos-coluna .formulario-saida { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.vendas-documentos-coluna [aria-label="Romaneios de saída"] { background:#f0f6f2; border:1px solid #d6e4dc; border-radius:12px; padding:14px; }
+.vendas-documentos-coluna [aria-label="Romaneios de saída"] h4 { margin:0 0 10px; }
+@media(max-width:1100px) { .vendas-trabalho-duas-colunas { grid-template-columns:1fr; } }
+@media(max-width:560px) { .vendas-nova-coluna .formulario-venda-horizontal, .vendas-nova-coluna .transporte-venda-grade, .vendas-nova-coluna .pesagem-venda-grade, .vendas-documentos-coluna .resumo-venda, .vendas-documentos-coluna .formulario-saida { grid-template-columns:1fr; } }
+@media print { .vendas-trabalho-duas-colunas { display:block; } }
+
+.vendas-nova-coluna:empty { display:none; }
+.vendas-trabalho-duas-colunas:not(:has(.painel-formulario)) { grid-template-columns:1fr; }

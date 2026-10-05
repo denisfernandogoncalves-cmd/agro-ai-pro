@@ -1,0 +1,7 @@
+# Vendas: cadastro e romaneios em duas colunas
+
+Objetivo solicitado: aproximar Nova venda e Imprimir romaneio. Em telas acima de 1.100 px, cadastro à esquerda e venda selecionada/documentos à direita; filtros e resultados abaixo. Romaneios e comprovante foram movidos para o início do detalhe. Até 1.100 px, uma coluna; campos adaptáveis, respeitando os acessos existentes. Impressão continua em duas vias numa folha A4. Nenhuma alteração de dados, API ou migration.
+
+Arquivos: frontend/src/pages/Vendas/VendasPage.tsx e frontend/src/styles.css. Branch codex/melhorias-gestao-transferencias-20261003. Critérios: ações próximas, responsividade sem transbordamento, formulários/edição/consulta preservados. Comandos npm --prefix frontend test e run build aprovados; Docker build frontend aprovado e atualização local em 5174. Backups código/banco/uploads: backups/agro-ai-pro-2026-10-05-143320-569547 e backups/agro-ai-pro-2026-10-05-143513-501241, ambos hashes/CRC e restauração isolada aprovados. Testes operacionais não modificam registros reais. Merge/produção não autorizados.
+
+Conferência autenticada: largura 1.366 px com duas colunas de 633 px alinhadas no topo; 360 px e 768 px com uma coluna. Largura de conteúdo igual à largura disponível em todas, sem transbordamento. Formulário apenas aberto/fechado, sem editar campos ou registrar operações reais. Evidência privada backups/vendas-duas-colunas-20261005.png. Não há migration; impressão A4 não alterada. Documentação atualizada e diff revisado.
