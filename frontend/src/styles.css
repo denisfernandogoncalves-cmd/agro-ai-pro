@@ -1029,3 +1029,41 @@ dialog.editor-venda::backdrop { background: #102f2480; }
   .cargas-cabecalho h2, .vendas-cabecalho h2 { margin:4px 0; }
   .cargas-cabecalho p, .vendas-cabecalho p { margin:4px 0 0; }
 }
+
+/* Listas de cadastros em linha, com quebra natural apenas quando necessário. */
+@media screen {
+  .modulo-cadastros-agricolas .lista > .item { display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; padding:10px 14px; }
+  .modulo-cadastros-agricolas .lista > .item > div { display:contents; }
+  .modulo-cadastros-agricolas .lista > .item h3,
+  .modulo-cadastros-agricolas .lista > .item h4,
+  .modulo-cadastros-agricolas .lista > .item p,
+  .modulo-cadastros-agricolas .lista > .item small { margin:0; min-width:0; max-width:100%; overflow-wrap:anywhere; }
+  .modulo-cadastros-agricolas .lista > .item > .kicker { order:1; white-space:nowrap; font-size:.8rem; }
+  .modulo-cadastros-agricolas .lista > .item .acoes { order:2; margin:0 0 0 auto; display:flex; gap:8px; flex-shrink:0; }
+  .modulo-cadastros-agricolas .lista > .item .acoes button { min-height:44px; width:auto; padding:8px 12px; }
+}
+
+@media screen {
+  .terceiro-recebimento { display:flex; flex-wrap:wrap; align-items:center; gap:8px 16px; padding:10px 14px; }
+  .terceiro-recebimento > div { display:contents; }
+  .terceiro-recebimento h4, .terceiro-recebimento p { margin:0; min-width:0; max-width:100%; overflow-wrap:anywhere; }
+  .terceiro-recebimento > div > .acoes { margin:0 0 0 auto; display:flex; flex-wrap:wrap; gap:8px; }
+  .terceiro-recebimento .acoes button { min-height:44px; width:auto; padding:8px 12px; }
+  .terceiro-recebimento > div > details { min-width:0; max-width:100%; }
+  .terceiro-recebimento > div > details[open] { flex-basis:100%; }
+  .terceiro-recebimento > div > details summary { cursor:pointer; }
+  .terceiro-recebimento > div > details[open] p { margin:8px 0; }
+}
+
+@media screen {
+  .romaneio-resultado { display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; }
+  .romaneio-linha, .romaneio-linha > div { display:contents; }
+  .romaneio-linha > button { margin-left:auto; }
+  .romaneio-dados { min-width:0; max-width:100%; }
+  .romaneio-dados summary { margin:0; }
+  .romaneio-dados[open] { flex-basis:100%; }
+}
+
+@media screen {
+  .modulo-cadastros-agricolas .auxiliares-grade { grid-template-columns:minmax(0,1fr); }
+}
