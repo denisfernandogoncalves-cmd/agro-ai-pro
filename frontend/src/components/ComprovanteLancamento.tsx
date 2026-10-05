@@ -25,7 +25,7 @@ export const estilosDuasVias=`
 .compacta .via-comprovante h3{font-size:1.2em;margin-bottom:0}
 .compacta .via-comprovante small{margin-bottom:.5mm}
 .compacta .via-comprovante dl{gap:0 4mm}
-.compacta .via-comprovante dl>div{display:grid;grid-template-columns:38% 62%;padding:.3mm 0}
+.compacta .via-comprovante dl>div{display:grid;grid-template-columns:38% 62%;gap:0;padding:.3mm 0}
 .compacta .via-comprovante dl>div.campo-largo{display:block}
 .compacta .via-comprovante dt{font-size:1em;text-transform:none;letter-spacing:0;margin:0}
 .compacta .via-comprovante .campo-peso dd{font-size:1em}

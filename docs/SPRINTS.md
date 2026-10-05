@@ -227,3 +227,5 @@ Nova venda no início; edição/exclusão por estorno de terceiros com motivo, v
 
 
 Refinamento visual de 05/10/2026: cabeçalho, rótulos, pesos destacados e fonte maior nas duas vias, com formato compacto adaptável para conteúdo extenso. Frontend/TypeScript/build e DOM validados; sem alteração de dados ou migrations. Referência: docs/decisoes/2026-10-05-impressao-duas-vias.md.
+
+Correção de 05/10/2026: comprovante geral de vendas também em duas vias na mesma folha A4; prévia no topo e impressão sem margem superior do diálogo. Frontend/TypeScript/build aprovados, sem migration ou alteração operacional. Evidências em docs/decisoes/2026-10-05-impressao-duas-vias.md.
