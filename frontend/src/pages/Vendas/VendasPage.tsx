@@ -1,5 +1,6 @@
 import AnexosLancamento from "../../components/AnexosLancamento";
 import ComprovanteLancamento from "../../components/ComprovanteLancamento";
+import RomaneiosVenda from "./RomaneioVenda";
 import FormularioValidado from "../../components/FormularioValidado";
 import ResumoConsulta, { noPeriodo, ordenarConsulta, OrdemConsulta, totalConsulta } from "../../components/ResumoConsulta";
 import { useConferirDuplicidades } from "../../components/ConferirDuplicidades";
@@ -403,6 +404,7 @@ export default function VendasPage() {
         {!selecionada.excluida_em && devolvivel > 0 && <div className="movimentos-venda"><label>Quantidade da devolução (kg)<input min="0.001" step="0.001" type="number" value={quantidadeMovimento} onChange={(e) => setQuantidadeMovimento(e.target.value)} /></label><BotaoAcao acao="cadastrar" className="secundario" disabled={processando || !quantidadeMovimento} motivoBloqueio={processando ? "Aguarde o processamento." : "Informe a quantidade da devolução."} onClick={() => { void executar(`devolver:${selecionada.id}:${quantidadeMovimento}`, (chave) => devolverVenda(selecionada.id, quantidadeMovimento, hoje, chave), "Devolução registrada no físico sem reabrir a reserva."); }}>Registrar devolução</BotaoAcao></div>}
         <RastreabilidadeVenda venda={selecionada} />
         {selecionada.rateio_particular_snapshot && <div><p>Parcela da venda PARTICULAR #{selecionada.rateio_particular_id}. O rateio abaixo registra as áreas e quantidades usadas no lançamento original. Correções, exclusões e devoluções deste detalhe afetam apenas esta parcela.</p><PreviaRateioParticular previa={selecionada.rateio_particular_snapshot} /></div>}
+        <RomaneiosVenda venda={selecionada} />
         <h4>Entregas e devoluções</h4>
         <details className="detalhes-listagem"><summary>Histórico de entregas e devoluções</summary>{(["entrega", "devolucao"] as const).map(natureza => <div key={natureza}>{(natureza === "entrega" ? selecionada.entregas : selecionada.devolucoes).filter(m => !m.cancelado_em || filtros.mostrar_excluidas === "true").map(m => <article className="item" key={m.id}><div><strong>{natureza === "entrega" ? "Entrega" : "Devolução"} #{m.id} · {kg(m.quantidade_kg)}</strong><p>{dataPlanilhaVenda(m.data_entrega || m.data_devolucao)} · {m.cancelado_em ? "Excluído/substituído" : "Ativo"}</p>{!m.cancelado_em && !selecionada.excluida_em && <AcoesLancamentoVenda desabilitado={processando} editar={() => setEditor({ venda: selecionada, natureza, movimento: m, excluir: false })} excluir={() => setEditor({ venda: selecionada, natureza, movimento: m, excluir: true })} />}</div></article>)}</div>)}</details>
         {!!selecionada.alteracoes?.length && <details><summary>Histórico de correções e exclusões</summary>{selecionada.alteracoes.map(a => <p key={a.id}>{new Date(a.criado_em).toLocaleString("pt-BR")} · {a.usuario} · {a.tipo.replace(/_/g, " ")} · {a.motivo}</p>)}</details>}

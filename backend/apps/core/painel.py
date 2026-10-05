@@ -47,6 +47,17 @@ def construir_painel(user, propriedade=None, safra=""):
         if safra:
             cargas = cargas.filter(safra=safra)
         resumo["cargas"] = cargas.count()
+        if not propriedade:
+            from apps.graos.models import EntradaProducaoTerceiro
+            terceiros = EntradaProducaoTerceiro.objects.all()
+            if safra:
+                terceiros = terceiros.filter(safra=safra)
+            resumo["saldo_terceiros_kg"] = total(terceiros, "saldo_kg")
+            if pode(user, "producao-saldos") or pode(user, "transferencias"):
+                fisico = PosicaoSaldoGraos.objects.filter(saldo_fisico_kg__gt=0)
+                if safra:
+                    fisico = fisico.filter(safra=safra)
+                resumo["estoque_total_kg"] = str(Decimal(total(fisico, "saldo_fisico_kg")) + Decimal(resumo["saldo_terceiros_kg"]))
         # Quando filtrada por propriedade, contar somente a parcela produtora.
         if propriedade:
             from apps.graos.models import RateioCargaColhida

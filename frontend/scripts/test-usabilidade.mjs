@@ -78,6 +78,20 @@ try {
   assert.match(mensagemValidacao({valueMissing:true}),/Preencha/);
   assert.match(mensagemValidacao({rangeUnderflow:true}),/limites/);
   assert.match(mensagemValidacao({badInput:true}),/formato/);
+  const {dadosRomaneioVenda}=await servidor.ssrLoadModule("/src/pages/Vendas/RomaneioVenda.tsx");
+  const vendaRomaneio={id:8,excluida_em:null,propriedade_nome:"Fazenda",cad_pro_codigo:"001",cliente_nome:"Comprador",cultura:"Milho",safra:"2026",armazem_nome:"Silo",classificacao_codigo:"PADRAO",quantidade_kg:"9000",observacoes:""};
+  const saidaRomaneio={id:12,data_entrega:"2026-10-05",quantidade_kg:"1200",destino:"Destino específico",motorista:"José",nota_produtor:"0008",nota_empresa:"009",movimentacao_id:77,cancelado_em:null};
+  const romaneio=dadosRomaneioVenda(vendaRomaneio,saidaRomaneio);
+  assert.match(romaneio.titulo,/12.*8/);
+  const camposRomaneio=Object.fromEntries(romaneio.campos);
+  assert.equal(camposRomaneio["Peso líquido"],"1.200 kg");
+  assert.equal(camposRomaneio["Sacas de 60 kg"],"20");
+  assert.equal(camposRomaneio["Destino / comprador"],"Destino específico");
+  assert.equal(camposRomaneio["Nota do produtor"],"0008");
+  assert.match(Object.fromEntries(dadosRomaneioVenda(vendaRomaneio,{...saidaRomaneio,cancelado_em:"2026-10-05"}).campos)["Situação"],/histórico/);
+  const {default:Comprovante}=await servidor.ssrLoadModule("/src/components/ComprovanteLancamento.tsx");
+  const semImpressao=renderToStaticMarkup(React.createElement(AcoesContext.Provider,{value:{modulo:"vendas",acesso:{is_staff:false,modulos:["vendas"],permissoes:{vendas:["consultar"]}}}},React.createElement(Comprovante,{dados:romaneio,rotulo:"Imprimir romaneio"})));
+  assert.equal(semImpressao,"");
 } finally {await servidor.close();}
 
 // Exercita o hook real com ciclos de renderização, sem persistir formulários.

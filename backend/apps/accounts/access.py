@@ -36,6 +36,7 @@ REGRAS = (
     ("financeiro/", {"financeiro"}, {"financeiro"}),
     ("graos/armazens/", {"cadastros-agricolas", "cargas", "producao-saldos", "transferencias", "vendas"}, {"cadastros-agricolas"}),
     ("graos/cargas-colhidas/", {"cargas"}, {"cargas"}),
+    ("graos/terceiros/", {"cargas"}, {"cargas"}),
     ("graos/saldos/transferir/", {"transferencias"}, {"transferencias"}),
     ("graos/transferencias/", {"transferencias"}, {"transferencias"}),
     ("graos/lotes/", {"producao-saldos", "vendas", "transferencias"}, {"producao-saldos", "cadastros-agricolas"}),

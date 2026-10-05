@@ -14,6 +14,76 @@ from apps.talhoes.models import Talhao
 ZERO = Decimal("0.000")
 
 
+class EntradaProducaoTerceiro(models.Model):
+    """Depósito independente, sem vínculo com a produção das propriedades."""
+    depositante = models.CharField(max_length=160)
+    propriedade_origem = models.CharField(max_length=160, blank=True)
+    cad_pro = models.CharField(max_length=80, blank=True)
+    cultura = models.CharField(max_length=50)
+    safra = models.CharField(max_length=20)
+    armazem = models.ForeignKey("ArmazemGraos", on_delete=models.PROTECT)
+    peso_liquido_kg = models.DecimalField(max_digits=16, decimal_places=3)
+    saldo_kg = models.DecimalField(max_digits=16, decimal_places=3)
+    data_entrada = models.DateField(default=timezone.localdate)
+    placa = models.CharField(max_length=7, blank=True)
+    motorista = models.CharField(max_length=120, blank=True)
+    documento = models.CharField(max_length=120, blank=True)
+    observacoes = models.TextField(blank=True)
+    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-data_entrada", "-id")
+        constraints = [
+            models.CheckConstraint(condition=models.Q(peso_liquido_kg__gt=0), name="terceiro_entrada_peso_positivo"),
+            models.CheckConstraint(condition=models.Q(saldo_kg__gte=0, saldo_kg__lte=models.F("peso_liquido_kg")), name="terceiro_entrada_saldo_valido"),
+        ]
+
+
+class MovimentoProducaoTerceiroQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise ValidationError("Movimentos de terceiros são imutáveis.")
+
+    def delete(self):
+        raise ValidationError("Movimentos de terceiros são imutáveis.")
+
+    def bulk_update(self, *args, **kwargs):
+        raise ValidationError("Movimentos de terceiros são imutáveis.")
+
+
+class MovimentoProducaoTerceiro(models.Model):
+    entrada = models.ForeignKey(EntradaProducaoTerceiro, on_delete=models.PROTECT, related_name="movimentos")
+    tipo = models.CharField(max_length=8, choices=(("entrada", "Entrada"), ("saida", "Saída"), ("estorno", "Estorno")))
+    quantidade_kg = models.DecimalField(max_digits=16, decimal_places=3)
+    delta_kg = models.DecimalField(max_digits=16, decimal_places=3)
+    saldo_anterior_kg = models.DecimalField(max_digits=16, decimal_places=3)
+    saldo_posterior_kg = models.DecimalField(max_digits=16, decimal_places=3)
+    data_movimento = models.DateField(default=timezone.localdate)
+    destino = models.CharField(max_length=160, blank=True)
+    documento = models.CharField(max_length=120, blank=True)
+    placa = models.CharField(max_length=7, blank=True)
+    motorista = models.CharField(max_length=120, blank=True)
+    observacoes = models.TextField(blank=True)
+    estorno_de = models.OneToOneField("self", null=True, blank=True, on_delete=models.PROTECT, related_name="estorno")
+    chave_idempotencia = models.CharField(max_length=160, unique=True)
+    hash_requisicao = models.CharField(max_length=64)
+    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    objects = MovimentoProducaoTerceiroQuerySet.as_manager()
+
+    class Meta:
+        ordering = ("-criado_em", "-id")
+        constraints = [models.CheckConstraint(condition=models.Q(quantidade_kg__gt=0), name="terceiro_mov_peso_positivo")]
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValidationError("Movimentos de terceiros são imutáveis.")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError("Movimentos de terceiros são imutáveis.")
+
+
 def normalizar_placa(placa):
     return re.sub(r"[^A-Z0-9]", "", str(placa or "").upper())
 

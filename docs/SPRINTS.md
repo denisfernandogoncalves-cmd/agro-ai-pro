@@ -203,3 +203,10 @@ Cargas e transferências salvam busca, histórico, cultura, safra e propriedade 
 **Status:** aplicado localmente em 05/10/2026; testes e conferência autenticada aprovados nos limites registrados.
 
 Cargas, vendas e transferências recebem filtros por período, totais ativos, ordenação, detalhes recolhíveis, validação acessível e comprovantes individuais HTML/imprimíveis. Frontend/TypeScript/build, 42 core PostgreSQL e migrations consistentes. Responsividade conferida em 360/768/1366 px. Download final e diálogo nativo de impressão não confirmados; sem alteração de dados operacionais. Detalhes: docs/decisoes/2026-10-05-resumos-comprovantes.md.
+
+
+## Incremento — Romaneio de venda e produção de terceiros
+
+**Status:** aplicado e validado localmente em 05/10/2026 nos limites documentados.
+
+Romaneio por saída de venda e recebimentos/retiradas de terceiros separados do ledger próprio e das médias das propriedades. Estoque físico/capacidade incluem terceiros; painel distingue saldos. Migration graos0015 aditiva aplicada após backup com restauração verificada. Suíte PostgreSQL 560 casos (555 aprovados, 5 skips), 105 direcionados, frontend/TypeScript/build e migrations consistentes. Conferência autenticada de formulários/romaneio; persistência de terceiros testada em banco isolado. Impressão nativa/download final não confirmados. Referência: docs/decisoes/2026-10-05-romaneio-terceiros.md.

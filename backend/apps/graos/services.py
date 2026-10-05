@@ -551,6 +551,8 @@ def _bloquear_contexto_reserva(reserva_id):
 
 
 def _ocupacao_armazem_bloqueada(armazem_id):
+    from .models import EntradaProducaoTerceiro
+    terceiros = EntradaProducaoTerceiro.objects.filter(armazem_id=armazem_id).aggregate(total=Sum("saldo_kg"))["total"] or ZERO
     # Déficit comercial de uma posição não libera espaço ocupado por outra.
     return PosicaoSaldoGraos.objects.filter(armazem_id=armazem_id, saldo_fisico_kg__gt=0).aggregate(
         total=Coalesce(
@@ -558,7 +560,7 @@ def _ocupacao_armazem_bloqueada(armazem_id):
             Value(ZERO),
             output_field=CAMPO_QUANTIDADE,
         )
-    )["total"]
+    )["total"] + terceiros
 
 
 def _variacao_ocupacao(posicao, delta):

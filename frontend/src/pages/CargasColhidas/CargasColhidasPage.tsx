@@ -1,5 +1,6 @@
 import AnexosLancamento from "../../components/AnexosLancamento";
 import ComprovanteLancamento from "../../components/ComprovanteLancamento";
+import ProducaoTerceiros from "./ProducaoTerceiros";
 import FormularioValidado from "../../components/FormularioValidado";
 import ResumoConsulta, { noPeriodo, ordenarConsulta, OrdemConsulta, totalConsulta } from "../../components/ResumoConsulta";
 import { useConferirDuplicidades } from "../../components/ConferirDuplicidades";
@@ -592,6 +593,7 @@ export default function CargasColhidasPage({ propriedades }: Props) {
       {sucesso && <p className="sucesso card" role="status">{sucesso}</p>}
       {(carregando || salvando) && <p role="status">{salvando ? "Salvando carga..." : "Atualizando cargas colhidas..."}</p>}
 
+      <ProducaoTerceiros armazens={armazens} atualizarArmazens={carregar} />
       <section className="card controle-planilha controle-planilha-impressao controle-planilha-cargas somente-impressao" hidden={carregando}>
         <h2 className="somente-impressao titulo-impressao-planilha">Cargas colhidas</h2>
         <div className="controle-planilha-titulo"><div><span className="kicker">Controle de entrada de produção</span><h3>{propriedadesImpressao.join(" · ") || "Todas as propriedades"}</h3><p>CAD/PRO {cadprosImpressao.join(", ") || "—"} · {culturasImpressao.join(", ") || "todas as culturas"} · safra {safrasImpressao.join(", ") || "todas"}</p></div><div className="controle-planilha-total"><span>Entrada líquida</span><strong>{numeroPlanilhaCarga(pesoLiquidoImpressao)} kg</strong><small>{numeroPlanilhaCarga(pesoLiquidoImpressao / 60)} sacas de 60 kg</small></div></div>

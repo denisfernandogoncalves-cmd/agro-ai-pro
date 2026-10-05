@@ -86,7 +86,7 @@ def modulo_da_requisicao(request, app):
     caminho = getattr(request, "path", "").removeprefix("/api/")
     if caminho.startswith("estoque/faturamentos/"):
         return "faturamento-insumos"
-    if caminho.startswith("graos/cargas-colhidas/"):
+    if caminho.startswith(("graos/cargas-colhidas/", "graos/terceiros/")):
         return "cargas"
     if caminho.startswith("graos/transferencias/") or caminho.endswith("/transferir/"):
         return "transferencias"
