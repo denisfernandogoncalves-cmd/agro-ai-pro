@@ -9,3 +9,10 @@ Arquivos: frontend/src/components/ComprovanteLancamento.tsx, frontend/src/styles
 Backups privados com código/banco/uploads, SHA256/CRC e restauração PostgreSQL isolada aprovados: backups/agro-ai-pro-2026-10-05-124152-448093 e backups/agro-ai-pro-2026-10-05-124658-711850. Novo backup antes da atualização final. Comandos npm --prefix frontend test; npm --prefix frontend run build; docker compose -p agro-ai-pro build frontend; up com FRONTEND_PORT=5174; git diff --check. Ajustes anteriores:567 testes PostgreSQL (562 aprovados, 5 skips), sem mudança backend adicional para impressão.
 
 Branch codex/melhorias-gestao-transferencias-20261003, PR29. Commit/push autorizados, sem merge/produção. Automação única removida porque usuário solicitou execução imediata.
+
+
+## Refinamento visual solicitado após a conferência
+
+Cabeçalho com identificação da via, campos alinhados com rótulo acima do valor, pesos destacados, tipografia inicial de 15 px e maior separação entre campos. Campos extensos seguem em largura inteira. O ajuste automático usa fonte de 15 até 9,5 px e ativa uma apresentação compacta somente para documentos extensos, preservando a única folha A4. Testes frontend/TypeScript/build aprovados; rateio fictício com oito propriedades e observações de cerca de 4.000 caracteres conferido no DOM sem transbordamento. Backup inicial backups/agro-ai-pro-2026-10-05-130352-766339 com restauração isolada aprovada. Sem migration ou mudança de dados.
+
+Conferência da versão local final: carga #53 em fonte de 13 px, folha com 1.043 px de altura e cada via com 503 px, sem exceder largura ou altura. Evidência privada: backups/duas-vias-layout-melhorado-20261005.png. Backup antes da atualização final: backups/agro-ai-pro-2026-10-05-130810-025227, com hashes/CRC e restauração isolada aprovados. Não foi realizada impressão física.

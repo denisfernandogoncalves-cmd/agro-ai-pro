@@ -952,5 +952,5 @@ dialog.editor-venda::backdrop { background: #102f2480; }
 .transporte-venda-grade {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;}
 @media(max-width:900px){.transporte-venda-grade{grid-template-columns:1fr;}}
 
-.comprovante-dialogo.duas-vias{width:min(820px,calc(100vw - 24px))}.previa-duas-vias{overflow-x:auto}.comprovante-dialogo.duas-vias .previa-duas-vias dl>div{gap:0;padding:.3mm 0}.comprovante-dialogo.duas-vias .previa-duas-vias dl>div.campo-largo{grid-template-columns:22% 78%}
+.comprovante-dialogo.duas-vias{width:min(820px,calc(100vw - 24px))}.previa-duas-vias{overflow-x:auto}.comprovante-dialogo.duas-vias .previa-duas-vias dl>div.campo-largo{grid-template-columns:22% 78%}
 @media print{.duas-vias .previa-duas-vias{overflow:visible!important;width:190mm!important;height:276mm!important}}
