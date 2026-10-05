@@ -972,3 +972,35 @@ dialog.editor-venda::backdrop { background: #102f2480; }
 
 .vendas-nova-coluna:empty { display:none; }
 .vendas-trabalho-duas-colunas:not(:has(.painel-formulario)) { grid-template-columns:1fr; }
+
+/* Consulta compacta: resultados limitados por página, detalhes sob demanda. */
+.localizador-romaneios { display:grid; gap:12px; margin:0; padding:18px; }
+.localizador-romaneios header { display:flex; flex-wrap:wrap; align-items:start; justify-content:space-between; gap:10px; }
+.localizador-romaneios header h3 { margin:0 0 4px; }
+.localizador-romaneios header p { margin:0; color:#52665c; font-size:.9rem; }
+.localizador-romaneios input, .localizador-romaneios select { min-height:42px; padding:8px 10px; }
+.localizador-romaneios button { padding:9px 12px; min-height:42px; }
+.romaneios-filtros-avancados > summary { cursor:pointer; font-weight:600; color:#47604f; }
+.romaneios-filtros { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; margin-top:12px; }
+.romaneios-historico { display:flex; flex-direction:row; align-items:center; gap:8px; }
+.romaneios-contagem { display:flex; flex-wrap:wrap; gap:10px; justify-content:space-between; align-items:center; color:#52665c; font-size:.9rem; }
+.romaneios-contagem label { display:flex; flex-direction:row; align-items:center; gap:8px; }
+.romaneios-contagem select { width:auto; }
+.romaneios-resultados { display:grid; gap:0; max-height:460px; overflow:auto; border:1px solid #d6e4dc; border-radius:10px; }
+.romaneios-resultados:empty { display:none; }
+.romaneio-resultado { min-width:0; padding:10px 12px; border-bottom:1px solid #d6e4dc; overflow-wrap:anywhere; }
+.romaneio-resultado:last-child { border-bottom:0; }
+.romaneio-resultado:nth-child(even) { background:#f5f8f6; }
+.romaneio-linha { display:grid; grid-template-columns:95px minmax(0,1fr) auto; gap:10px; align-items:center; }
+.romaneio-linha > div { display:grid; gap:3px; min-width:0; }
+.romaneio-numero strong { color:#165840; }
+.romaneio-linha span { color:#52665c; font-size:.85rem; }
+.romaneio-dados summary { cursor:pointer; font-size:.85rem; color:#47604f; margin-top:5px; }
+.romaneio-dados p { margin:8px 0 0; color:#52665c; font-size:.9rem; }
+.romaneio-historico { display:block; margin-top:5px; color:#993f32; font-size:.85rem; }
+@media(max-width:560px) {
+  .romaneios-filtros { grid-template-columns:1fr; }
+  .romaneio-linha { grid-template-columns:85px minmax(0,1fr); }
+  .romaneio-linha > button { grid-column:1/-1; justify-self:end; }
+  .localizador-romaneios button { min-height:44px; }
+}

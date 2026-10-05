@@ -26,3 +26,10 @@ Arquivos: frontend/src/pages/Vendas/VendasPage.tsx, frontend/src/styles.css e fr
 Conferência autenticada: venda #49, duas vias completas em fonte 15 px; folha 1.043 px, cada via 503 px, sem exceder largura/altura; diálogo a 16 px do topo. Evidência privada backups/venda-duas-vias-topo-20261005.png. Romaneio #47 revelou gap herdado de 12 px no modo compacto, corrigido com gap zero na grade interna. Novo backup backups/agro-ai-pro-2026-10-05-141551-928832: primeiro ensaio de restauração falhou; repetição isolada aprovada (verificacao-restauracao-20261005-141715-686956.json) antes da atualização. Impressão física/diálogo nativo não realizados; validação por prévia e geometria DOM.
 
 Revalidação final local: romaneio #47 em fonte 11 px sem aviso de transbordamento, duas vias de 503 px com largura/scroll de 718 px. Comprovante geral #49 novamente conferido, duas vias completas. Prévia em 360 px permaneceu dentro da tela, no topo, com rolagem interna. Sem alterações de registros reais.
+
+
+## Aproveitamento da folha e isolamento dos estilos
+
+Solicitação adicional: evitar campos pequenos concentrados no topo de cada via. Corrigida a especificidade dos estilos internos da folha para que o diálogo da tela não imponha sua grade/padding aos campos impressos. Grade normal de três colunas, rótulos acima, pesos destacados, distribuição vertical do espaço em cada via, fonte adaptável de 17 a 9,5 px; modo compacto preserva duas colunas para documentos extensos. HTML e prévia usam os mesmos estilos. A4 retrato 190 × 276 mm, duas vias e bloqueio de transbordamento mantidos.
+
+Frontend/test/TypeScript/build e Docker aprovados. Romaneio #48 validado autenticado com fonte 16 px (antes 11 px), duas vias completas de 503 px dentro da folha de 1.043 px, largura 718 px sem exceder limites. Evidência backups/romaneio-a4-aproveitamento-20261005.png. Sem impressão física ou alteração de dados. Backup anterior às alterações backups/agro-ai-pro-2026-10-05-150109-029269; antes da atualização final backups/agro-ai-pro-2026-10-05-150409-018184, SHA256/CRC e restauração isolada aprovados (verificacao-restauracao-20261005-150417-363831.json).

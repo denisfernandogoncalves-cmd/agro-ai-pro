@@ -231,3 +231,13 @@ Refinamento visual de 05/10/2026: cabeçalho, rótulos, pesos destacados e fonte
 Correção de 05/10/2026: comprovante geral de vendas também em duas vias na mesma folha A4; prévia no topo e impressão sem margem superior do diálogo. Frontend/TypeScript/build aprovados, sem migration ou alteração operacional. Evidências em docs/decisoes/2026-10-05-impressao-duas-vias.md.
 
 Incremento de 05/10/2026: Nova venda e documentos em duas colunas no desktop, com romaneio no topo do detalhe; uma coluna em telas menores. Frontend/TypeScript/build aprovados e conferência autenticada 360/768/1366 px sem transbordamento. Sem migration/dados alterados. Referência: docs/decisoes/2026-10-05-vendas-duas-colunas.md.
+
+
+## Incremento — Localizador compacto de romaneios
+
+**Status:** `[x]` — aplicado e validado localmente em 05/10/2026 nos limites documentados.
+
+Consulta independente da venda selecionada, busca e período da saída, histórico e detalhes recolhidos, impressão individual de saídas anteriores. Lista compacta com cinco por página (opções dez/vinte), teste de 1.000 registros e limites de paginação. Frontend/TypeScript/build aprovados; conferência autenticada de romaneio anterior e responsividade 360/768/1366 px. Duas vias em uma folha A4 preservadas; sem migration ou alteração operacional. Referência: docs/decisoes/2026-10-05-localizar-romaneios.md.
+
+
+Refinamento adicional dos impressos: estilos internos isolados do diálogo, grade de três colunas e distribuição vertical aproveitando cada metade da folha. Romaneio #48 validado em fonte 16 px e duas vias sem transbordamento; frontend/TypeScript/build aprovados. Sem migration ou dado operacional alterado. Referência: docs/decisoes/2026-10-05-impressao-duas-vias.md.
