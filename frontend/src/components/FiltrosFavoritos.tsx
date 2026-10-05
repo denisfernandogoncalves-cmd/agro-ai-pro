@@ -2,10 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../api/propriedades";
 import { Modulo } from "../api/usuarios";
 import { useDestinoConsulta } from "./AcoesContext";
+import { useConfirmacaoCompacta } from "./ConfirmacaoCompacta";
 type Valores = Record<string, string | number | boolean | undefined>;
 type Configuracao = {colunas?:string[]; orientacao?:string; densidade?:string};
 type Favorito = { id: number; nome: string; filtros: Valores; configuracao?:Configuracao };
 export default function FiltrosFavoritos({ contexto, filtros, aplicar, configuracao, aplicarConfiguracao }: { contexto: Modulo; filtros: Valores; aplicar: (filtros: Valores) => void; configuracao?:Configuracao; aplicarConfiguracao?:(config:Configuracao)=>void }) {
+  const confirmar = useConfirmacaoCompacta();
   const [itens, setItens] = useState<Favorito[]>([]); const [nome, setNome] = useState(""); const [selecionado, setSelecionado] = useState("");
   const [erro, setErro] = useState(""); const [ocupado, setOcupado] = useState(false); const trava = useRef(false);
   useDestinoConsulta(contexto, valores => aplicar(valores));
@@ -14,7 +16,7 @@ export default function FiltrosFavoritos({ contexto, filtros, aplicar, configura
     try { const {data} = await api.post<Favorito>("/core/favoritos/", { contexto, nome: nome.trim(), filtros, configuracao:configuracao||{} }); setItens(atual => [...atual, data]); setNome(""); setSelecionado(String(data.id)); }
     catch { setErro("Não foi possível salvar. Verifique se o nome já existe."); } finally { trava.current = false; setOcupado(false); }
   }
-  async function excluir() { if (!selecionado || trava.current) return; if (!window.confirm("Excluir este filtro favorito?")) return; trava.current = true; setOcupado(true); setErro("");
+  async function excluir() { if (!selecionado || trava.current) return; if (!(await confirmar({titulo:"Excluir favorito",mensagem:`Excluir o favorito “${itens.find(item=>String(item.id)===selecionado)?.nome || "selecionado"}”? Os lançamentos serão preservados.`,confirmar:"Excluir favorito",perigo:true}))) return; trava.current = true; setOcupado(true); setErro("");
     try { await api.delete(`/core/favoritos/${selecionado}/`); setItens(atual => atual.filter(item => String(item.id) !== selecionado)); setSelecionado(""); }
     catch { setErro("Não foi possível excluir o favorito."); } finally { trava.current = false; setOcupado(false); }
   }

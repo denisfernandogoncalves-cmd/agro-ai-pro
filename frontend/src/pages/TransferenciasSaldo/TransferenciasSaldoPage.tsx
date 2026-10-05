@@ -1,6 +1,7 @@
 import AnexosLancamento from "../../components/AnexosLancamento";
 import axios from "axios";
-import FiltrosRapidos, { correspondeFiltrosRapidos, filtrosRapidosVazios } from "../../components/FiltrosRapidos";
+import FiltrosRapidos, { correspondeFiltrosRapidos, filtrosRapidosVazios, restaurarConsultaFavorita } from "../../components/FiltrosRapidos";
+import FiltrosFavoritos from "../../components/FiltrosFavoritos";
 import { useAlteracoesNaoSalvas } from "../../components/AlteracoesNaoSalvas";
 import { useConfirmacaoCompacta } from "../../components/ConfirmacaoCompacta";
 import { BotaoAcao, useAcoes } from "../../components/AcoesContext";
@@ -274,6 +275,7 @@ export default function TransferenciasSaldoPage() {
   ), 0);
 
   return <section className="modulo-producao-saldos modulo-transferencias-saldo">
+    <FiltrosFavoritos contexto="transferencias" filtros={{search:busca, mostrarHistorico, ...filtrosRapidos}} aplicar={valores => {const consulta=restaurarConsultaFavorita(valores);setBusca(consulta.busca);setMostrarHistorico(consulta.mostrarHistorico);setFiltrosRapidos(consulta.filtros);}} />
     <h2>Transferência de saldo entre CAD/PROs</h2>
     <p>Selecione a cultura e o ano/safra e, em seguida, as propriedades e os CAD/PROs de origem e destino. O destino pode receber saldo mesmo sem colheita dessa cultura. Para um novo saldo, serão mantidos a safra, a classificação e o armazém da origem; débito e crédito ficam vinculados no histórico.</p>
     {erro && <p className="erro card" role="alert">{erro}</p>}{sucesso && <p className="sucesso card" role="status">{sucesso}</p>}

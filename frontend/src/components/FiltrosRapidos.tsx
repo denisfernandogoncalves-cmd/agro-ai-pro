@@ -1,5 +1,10 @@
 export type FiltrosRapidosValor = { cultura: string; safra: string; propriedade: string };
 export const filtrosRapidosVazios: FiltrosRapidosValor = { cultura: "", safra: "", propriedade: "" };
+export function restaurarConsultaFavorita(valores: Record<string, unknown>) {
+  const texto = (chave: string) => typeof valores[chave] === "string" || typeof valores[chave] === "number" ? String(valores[chave]) : "";
+  return { busca: texto("search"), mostrarHistorico: valores.mostrarHistorico === true || valores.mostrarHistorico === "true",
+    filtros: {cultura:texto("cultura"), safra:texto("safra"), propriedade:texto("propriedade")} };
+}
 export function correspondeFiltrosRapidos(filtros: FiltrosRapidosValor, cultura: string, safra: string, propriedades: number[]) {
   return (!filtros.cultura || filtros.cultura === cultura) && (!filtros.safra || filtros.safra === safra)
     && (!filtros.propriedade || propriedades.includes(Number(filtros.propriedade)));

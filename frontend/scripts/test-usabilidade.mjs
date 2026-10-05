@@ -20,7 +20,10 @@ try {
   const {autorizado}=await servidor.ssrLoadModule("/src/components/AcoesContext.tsx");
   assert.equal(autorizado({is_staff:false,modulos:["relatorios"],permissoes:{relatorios:["consultar","imprimir"]}},"backup","consultar"),false);
   assert.equal(autorizado({is_staff:true,modulos:[]},"backup","consultar"),true);
-  const {correspondeFiltrosRapidos,default:FiltrosRapidos} = await servidor.ssrLoadModule("/src/components/FiltrosRapidos.tsx");
+  const {correspondeFiltrosRapidos,restaurarConsultaFavorita,default:FiltrosRapidos} = await servidor.ssrLoadModule("/src/components/FiltrosRapidos.tsx");
+  assert.deepEqual(restaurarConsultaFavorita({search:"#52",mostrarHistorico:"true",cultura:"Soja",safra:"2026/2027",propriedade:2}),{busca:"#52",mostrarHistorico:true,filtros:{cultura:"Soja",safra:"2026/2027",propriedade:"2"}});
+  assert.deepEqual(restaurarConsultaFavorita({search:"legado"}),{busca:"legado",mostrarHistorico:false,filtros:{cultura:"",safra:"",propriedade:""}});
+  assert.deepEqual(restaurarConsultaFavorita({propriedade:null,cultura:{}}).filtros,{cultura:"",safra:"",propriedade:""});
   const filtros = {cultura:"Soja",safra:"2026/2027",propriedade:"2"};
   assert.equal(correspondeFiltrosRapidos(filtros,"Soja","2026/2027",[1,2]),true);
   assert.equal(correspondeFiltrosRapidos(filtros,"Milho","2026/2027",[2]),false);

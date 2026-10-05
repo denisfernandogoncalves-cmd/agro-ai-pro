@@ -2,7 +2,7 @@ import AnexosLancamento from "../../components/AnexosLancamento";
 import { useConferirDuplicidades } from "../../components/ConferirDuplicidades";
 import { formatarPercentual } from "../../utils/numeros";
 import FiltrosFavoritos from "../../components/FiltrosFavoritos";
-import FiltrosRapidos, { correspondeFiltrosRapidos, filtrosRapidosVazios } from "../../components/FiltrosRapidos";
+import FiltrosRapidos, { correspondeFiltrosRapidos, filtrosRapidosVazios, restaurarConsultaFavorita } from "../../components/FiltrosRapidos";
 import { useAlteracoesNaoSalvas } from "../../components/AlteracoesNaoSalvas";
 import { BotaoAcao } from "../../components/AcoesContext";
 import axios from "axios";
@@ -582,7 +582,7 @@ export default function CargasColhidasPage({ propriedades }: Props) {
 
   return (
     <section className="modulo-cargas">
-      <FiltrosFavoritos contexto="cargas" filtros={{search:busca, mostrarHistorico}} aplicar={valores => {setBusca(String(valores.search || "")); setMostrarHistorico(valores.mostrarHistorico === true || valores.mostrarHistorico === "true");}} />
+      <FiltrosFavoritos contexto="cargas" filtros={{search:busca, mostrarHistorico, ...filtrosRapidos}} aplicar={valores => {const consulta=restaurarConsultaFavorita(valores);setBusca(consulta.busca);setMostrarHistorico(consulta.mostrarHistorico);setFiltrosRapidos(consulta.filtros);}} />
       {erro && <p className="erro card" role="alert">{erro}</p>}
       {sucesso && <p className="sucesso card" role="status">{sucesso}</p>}
       {(carregando || salvando) && <p role="status">{salvando ? "Salvando carga..." : "Atualizando cargas colhidas..."}</p>}
@@ -674,7 +674,7 @@ export default function CargasColhidasPage({ propriedades }: Props) {
           <label>Observações<textarea value={carga.observacoes} onChange={(e) => setCarga({ ...carga, observacoes: e.target.value })} /></label>
           {edicaoId && <label>Motivo da correção<input required maxLength={500} placeholder="Ex.: correção do peso informado" value={carga.motivo_correcao ?? ""} onChange={(e) => setCarga({ ...carga, motivo_correcao: e.target.value })} /></label>}
           <div className="resumo-peso" aria-live="polite">
-            <span>Desconto estimado <strong>{calculo.percentual.toFixed(3)}%</strong></span>
+            <span>Desconto estimado <strong>{formatarPercentual(calculo.percentual)}</strong></span>
             <span>Peso líquido estimado <strong>{calculo.liquido.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} kg</strong></span>
             <span>Conversão estimada <strong>{calculo.sacas.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} sacas</strong></span>
           </div>

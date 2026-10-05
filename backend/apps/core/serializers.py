@@ -6,7 +6,8 @@ from .models import FavoritoFiltro, RegistroAlteracao
 CONTEXTOS = {
     "relatorios": {"cad_pro", "propriedade", "proprietario", "cultura", "safra", "classificacao_codigo", "armazem", "destinado_semente", "motorista", "placa", "numero_contrato", "comprador", "data_inicio", "data_fim", "secao", "pagina", "por_pagina"},
     "financeiro": {"search", "tipo", "status", "parceiro", "recebedor", "dataReferencia", "inicio", "fim"},
-    "cargas": {"search", "mostrarHistorico"},
+    "cargas": {"search", "mostrarHistorico", "cultura", "safra", "propriedade"},
+    "transferencias": {"search", "mostrarHistorico", "cultura", "safra", "propriedade"},
     "producao-saldos": {"cad_pro", "propriedade", "cultura", "safra", "classificacao_codigo", "armazem"},
     "vendas": {"mostrar_excluidas", "status", "search", "cad_pro", "propriedade", "cultura", "safra", "classificacao_codigo", "armazem", "data_inicio", "data_fim", "numero_contrato", "comprador", "motorista", "placa"},
 }
