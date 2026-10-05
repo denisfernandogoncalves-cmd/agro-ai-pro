@@ -1004,3 +1004,28 @@ dialog.editor-venda::backdrop { background: #102f2480; }
   .romaneio-linha > button { grid-column:1/-1; justify-self:end; }
   .localizador-romaneios button { min-height:44px; }
 }
+
+/* Abas internas dos módulos: largura integral, foco visível e painéis persistentes. */
+.abas-modulo { display:flex; flex-wrap:wrap; gap:8px; grid-column:1/-1; margin:16px 0; padding:8px; background:#edf4ef; border:1px solid #d3e2d8; border-radius:12px; min-width:0; }
+.abas-modulo [role="tab"] { width:auto; min-height:44px; padding:10px 18px; background:transparent; color:#345445; border:1px solid transparent; font-weight:600; }
+.abas-modulo [aria-selected="true"] { background:#176348; color:white; box-shadow:0 2px 5px #123d281a; }
+.abas-modulo [role="tab"]:focus-visible { outline:3px solid #d79b31; outline-offset:2px; }
+.aba-modulo-painel { min-width:0; width:100%; grid-column:1/-1; }
+.aba-modulo-painel[hidden] { display:none!important; }
+.aba-modulo-painel > .localizador-romaneios { width:100%; }
+.vendas-formulario-aba .formulario-venda-horizontal { grid-template-columns:repeat(3,minmax(0,1fr)); }
+.modulo-cadastros-agricolas .aba-modulo-painel > .card { width:100%; }
+@media(max-width:900px) { .vendas-formulario-aba .formulario-venda-horizontal { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:560px) { .abas-modulo { gap:6px; }.abas-modulo [role="tab"] { flex:1 1 130px; padding:10px 12px; }.vendas-formulario-aba .formulario-venda-horizontal { grid-template-columns:1fr; } }
+@media print { .aba-modulo-painel[hidden], .abas-modulo { display:none!important; } }
+
+/* Cabeçalhos compactos: evitar soma de margens com o espaçamento da grade. */
+@media screen {
+  .modulo-cargas, .modulo-vendas { gap:12px; }
+  .modulo-cargas > .filtros-favoritos, .modulo-vendas > .filtros-favoritos { margin:0; padding:8px 16px; }
+  .modulo-cargas > .filtros-favoritos > summary, .modulo-vendas > .filtros-favoritos > summary { min-height:44px; align-content:center; }
+  .modulo-cargas > .abas-modulo, .modulo-vendas > .abas-modulo { margin:0; }
+  .cargas-cabecalho, .vendas-cabecalho { margin:0; }
+  .cargas-cabecalho h2, .vendas-cabecalho h2 { margin:4px 0; }
+  .cargas-cabecalho p, .vendas-cabecalho p { margin:4px 0 0; }
+}

@@ -57,7 +57,7 @@ export default function ConsultaDisponibilidade({ produtos, fornecedores, revisa
     return () => { sequencia.current++; };
   }, [aplicados, revisao, atualizacao]);
   function consultar(evento: FormEvent) { evento.preventDefault(); setAplicados({ ...filtros }); setAtualizacao((valor) => valor + 1); }
-  return <details className="card estoque-disponibilidade"><summary>Disponibilidade por fornecedor e data da compra</summary>
+  return <details open className="card estoque-disponibilidade"><summary>Disponibilidade por fornecedor e data da compra</summary>
     <h2>Saldo e preço médio de aquisição</h2>
     <p>Consulte os produtos de cada fornecedor, com saldo atual e preço médio das compras selecionadas.</p>
     <details className="disponibilidade-ajuda"><summary>Como os valores são calculados</summary>

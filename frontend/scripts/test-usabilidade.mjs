@@ -5,6 +5,30 @@ import {renderToStaticMarkup} from "react-dom/server";
 import {createServer, transformWithOxc} from "vite";
 const servidor = await createServer({appType:"custom",configLoader:"runner",logLevel:"silent",server:{middlewareMode:true}});
 try {
+  const {default:AbasModulo,PainelAba,indiceAbaTeclado}=await servidor.ssrLoadModule("/src/components/AbasModulo.tsx");
+  for(const [key,index,count,result] of [["ArrowRight",2,3,0],["ArrowLeft",0,3,2],["Home",2,3,0],["End",0,3,2],["Enter",0,3,null],["Home",0,0,null]]) assert.equal(indiceAbaTeclado(key,index,count),result);
+  const navAbas=renderToStaticMarkup(React.createElement(AbasModulo,{modulo:"teste",abas:[{id:"novo",titulo:"Novo"},{id:"lista",titulo:"Lista"}],ativa:"lista",alterar(){}}));
+  assert.match(navAbas,/role="tablist"/);assert.match(navAbas,/id="teste-aba-lista"[^>]*aria-controls="teste-painel-lista"[^>]*aria-selected="true"[^>]*tabindex="0"/);
+  assert.match(navAbas,/id="teste-aba-novo"[^>]*aria-selected="false"[^>]*tabindex="-1"/);
+  const painelInativo=renderToStaticMarkup(React.createElement(PainelAba,{modulo:"teste",aba:"novo",ativa:"lista"},"Não carregar ainda"));
+  assert.match(painelInativo,/hidden/);assert.doesNotMatch(painelInativo,/Não carregar ainda/);
+  const {abaDosFiltros,filtrosDaAba}=await servidor.ssrLoadModule("/src/pages/Financeiro/abasFinanceiro.ts");
+  const filtrosFinanceiros={tipo:"receber",status:"cancelado",search:"José",data_inicio:"2026-10-01",parceiro:"2"};
+  assert.equal(abaDosFiltros(filtrosFinanceiros),"todos");
+  for(const [aba,tipo,status] of [["todos","",""],["pagar","pagar","pendente"],["receber","receber","pendente"],["liquidados","","liquidado"]]){
+    const novos=filtrosDaAba(aba,filtrosFinanceiros);assert.deepEqual(novos,{...filtrosFinanceiros,tipo,status});assert.equal(abaDosFiltros(novos),aba);
+  }
+  assert.equal(filtrosFinanceiros.status,"cancelado","Atalho não altera a consulta original");
+  const {consultarRomaneiosEntrada}=await servidor.ssrLoadModule("/src/pages/CargasColhidas/ListaRomaneiosEntrada.tsx");
+  const entradas=[{id:12,origem:"propria",data:"2026-10-04",nome:"Fazenda José",cadpros:["12345"],placa:"ABC1D23",cultura:"Soja",safra:"2026",historico:false},{id:12,origem:"terceiro",data:"2026-10-05",nome:"José",placa:"DEF1D23",cultura:"Milho",safra:"2026",historico:false},{id:13,origem:"propria",data:"2026-10-05",nome:"Outra",placa:"",cultura:"Milho",safra:"2026",historico:true}];
+  assert.deepEqual(consultarRomaneiosEntrada(entradas,"#12","",false).map(i=>i.origem),["terceiro","propria"],"Origens distintas podem ter o mesmo número");
+  assert.equal(consultarRomaneiosEntrada(entradas,"jose","",false).length,2);
+  assert.equal(consultarRomaneiosEntrada(entradas,"12345","",false)[0].id,12,"Busca numérica também localiza CAD/PRO");
+  assert.equal(consultarRomaneiosEntrada(entradas,"#12345","",false).length,0,"Número explícito não procura CAD/PRO");
+  assert.equal(consultarRomaneiosEntrada(entradas,"abc1d23","",false)[0].origem,"propria");
+  assert.equal(consultarRomaneiosEntrada(entradas,"","terceiro",true).length,1);
+  assert.equal(consultarRomaneiosEntrada(entradas,"","",true)[0].id,13);
+  assert.deepEqual(entradas.map(i=>i.id),[12,12,13],"Ordenação não modifica registros originais");
   const {liquidoPesagem,payloadPesagem}=await servidor.ssrLoadModule("/src/pages/Vendas/CamposPesagemVenda.tsx");
   assert.equal(liquidoPesagem("35.000,500","5.000,250"),"30.000,25");
   assert.equal(liquidoPesagem("100","0"),"100");
@@ -65,6 +89,12 @@ try {
   const devolucao=previaEdicaoVenda({...alvo,natureza:"devolucao",movimento:{quantidade_kg:"10"}},saldos,15,1);
   assert.equal(devolucao.linhas[0].posterior,505);assert.equal(devolucao.linhas[0].disponivel,465);
   const {AcoesContext,BotaoAcao}=await servidor.ssrLoadModule("/src/components/AcoesContext.tsx");
+  const {default:VendasAbas}=await servidor.ssrLoadModule("/src/pages/Vendas/VendasPage.tsx");
+  const consultaSemCadastro=renderToStaticMarkup(React.createElement(AcoesContext.Provider,{value:{modulo:"vendas",acesso:{is_staff:false,modulos:["vendas"],permissoes:{vendas:["consultar"]}}}},React.createElement(VendasAbas)));
+  assert.doesNotMatch(consultaSemCadastro,/role="tab"[^>]*id="vendas-aba-nova"/);
+  assert.match(consultaSemCadastro,/id="vendas-aba-consulta"[^>]*aria-selected="true"/);
+  assert.doesNotMatch(consultaSemCadastro,/Registrar venda e saída|Imprimir romaneio/);
+
   const bloqueado=renderToStaticMarkup(React.createElement(BotaoAcao,{acao:"excluir",disabled:true,motivoBloqueio:"Informe o motivo"},"Excluir"));
   assert.match(bloqueado,/role="status"[^>]*>Informe o motivo/);
   const semPermissao=renderToStaticMarkup(React.createElement(AcoesContext.Provider,{value:{modulo:"vendas",acesso:{is_staff:false,modulos:["vendas"],permissoes:{vendas:["consultar"]}}}},React.createElement(BotaoAcao,{acao:"excluir",disabled:true,motivoBloqueio:"Informe o motivo"},"Excluir")));
@@ -157,5 +187,16 @@ let prevented=false;const ev={preventDefault(){prevented=true;}};
 eventos.get("beforeunload")(ev);assert.equal(prevented,false);
 registro.atualizar("1","Venda",true);eventos.get("beforeunload")(ev);assert.equal(prevented,true);assert.equal(ev.returnValue,"");
 hooks.close();assert.equal(eventos.size,0);
+// Abas visitadas permanecem montadas; o formulário mantém a mesma identidade.
+let fonteAbas=await readFile(new URL("../src/components/AbasModulo.tsx",import.meta.url),"utf8");
+fonteAbas=fonteAbas.replace('from "react"',`from "${shim}"`);
+const codigoAbas=await transformWithOxc(fonteAbas,"abas.tsx",{lang:"tsx",sourceType:"module",target:"es2022",jsx:{runtime:"automatic"}});
+const {PainelAba:painelPersistente}=await import(url(codigoAbas.code.replaceAll('"react/jsx-runtime"',JSON.stringify(import.meta.resolve("react/jsx-runtime")))));
+globalThis.hooks=new Hooks();const formularioMantido=React.createElement("input",{defaultValue:"Rascunho"});
+let selecao="lista";const renderPainel=()=>hooks.render(()=>painelPersistente({modulo:"teste",aba:"novo",ativa:selecao,children:formularioMantido}));
+assert.equal(renderPainel().props.children,null);
+selecao="novo";assert.equal(renderPainel().props.children,formularioMantido);
+selecao="lista";const oculto=renderPainel();assert.equal(oculto.props.hidden,true);assert.equal(oculto.props.children,formularioMantido,"Ocultar não desmonta nem descarta campos");
+selecao="novo";assert.equal(renderPainel().props.hidden,false);hooks.close();
 delete globalThis.hooks;delete globalThis.registry;delete globalThis.window;delete globalThis.ask;
 console.log("Usabilidade aprovada: busca por número/CAD, filtros combinados, prévias de saldos/reservas, ajuda com permissões e proteção de alterações/saída.");

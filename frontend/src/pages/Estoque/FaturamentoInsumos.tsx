@@ -1,3 +1,4 @@
+import AbasModulo, { PainelAba } from "../../components/AbasModulo";
 import AnexosLancamento from "../../components/AnexosLancamento";
 import { BotaoAcao, useAcoes } from "../../components/AcoesContext";
 import { useAlteracoesNaoSalvas } from "../../components/AlteracoesNaoSalvas";
@@ -53,6 +54,7 @@ export function HistoricoFaturamento({ historico, ocupado, onVer, onPdf, onExclu
 export default function FaturamentoInsumos() {
   const confirmarPedido = useConfirmacaoCompacta();
   const pode = useAcoes();
+  const [aba, setAba] = useState(pode("cadastrar") ? "novo" : "historico");
   const [produtos, setProdutos] = useState<ProdutoEstoque[]>([]);
   const [empresas, setEmpresas] = useState<ParceiroFinanceiro[]>([]);
   const [propriedades, setPropriedades] = useState<Propriedade[]>([]);
@@ -171,6 +173,7 @@ export default function FaturamentoInsumos() {
     {aviso && <p className="sucesso card nao-imprimir" role="status">{aviso}</p>}
     {carregando && <p role="status">Carregando cadastros e histórico...</p>}
     {incerto && <div className="card nao-imprimir"><p>Existe uma confirmação pendente. Consulte o resultado com os mesmos dados para evitar uma segunda baixa.</p><BotaoAcao acao="cadastrar" type="button" disabled={ocupado} onClick={() => void confirmar()}>Verificar / repetir confirmação</BotaoAcao></div>}
+<AbasModulo modulo="faturamento" ativa={aba} alterar={setAba} abas={[{id:"novo",titulo:pode("cadastrar") ? "Novo faturamento" : "Conferir envio"},{id:"historico",titulo:"Envios realizados"}]} /><PainelAba modulo="faturamento" aba="novo" ativa={aba}>
     {pode("cadastrar") && <form onSubmit={simular} className="card nao-imprimir">
       <fieldset disabled={carregando || ocupado || incerto || Boolean(confirmado)}>
         <div className="faturamento-campos">
@@ -207,6 +210,9 @@ export default function FaturamentoInsumos() {
       {confirmado && <button type="button" onClick={() => { invalidar(); setItens({}); protecao.marcarSalvo({form,itens:{}}); embalagensEditadas.current.clear(); }}>Novo faturamento</button>}
     </div>
     {confirmado && <p className="sucesso card nao-imprimir" role="status">Baixa registrada. Protocolo {confirmado.id} · {confirmado.responsavel}.</p>}
-    <HistoricoFaturamento historico={historico} ocupado={ocupado || incerto} onVer={async h => { if (!(await protecao.confirmarDescarte())) return; setConfirmado(h); setPrevia(h.resumo); setPendente(null); }} onPdf={h => void exportarPdf(h)} onExcluir={h => void excluir(h)} />
-  </section>;
+
+</PainelAba><PainelAba modulo="faturamento" aba="historico" ativa={aba}>
+    <HistoricoFaturamento historico={historico} ocupado={ocupado || incerto} onVer={async h => { if (!(await protecao.confirmarDescarte())) return; setAba("novo"); setConfirmado(h); setPrevia(h.resumo); setPendente(null); }} onPdf={h => void exportarPdf(h)} onExcluir={h => void excluir(h)} />
+
+</PainelAba>  </section>;
 }

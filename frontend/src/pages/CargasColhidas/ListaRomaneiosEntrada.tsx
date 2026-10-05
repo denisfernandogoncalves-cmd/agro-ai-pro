@@ -1,0 +1,29 @@
+import { useEffect, useMemo, useState } from "react";
+import { listarTerceiros, EntradaTerceiro } from "../../api/terceiros";
+import ComprovanteLancamento, { DadosComprovante } from "../../components/ComprovanteLancamento";
+import { dadosRomaneioTerceiro } from "./romaneioTerceiro";
+import { formatarNumero } from "../../utils/numeros";
+export type RomaneioEntrada = { id:number; origem:"propria"|"terceiro"; data:string; nome:string; cultura:string; safra:string; placa:string; cadpros?:string[]; peso:string; historico:boolean; dados:DadosComprovante };
+const normalizar=(texto:string)=>texto.normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+export function consultarRomaneiosEntrada(itens:RomaneioEntrada[],busca:string,origem:string,historico:boolean){
+  const termo=normalizar(busca.trim());
+  return itens.filter(i=>(!origem||i.origem===origem)&&(historico||!i.historico)&&(!termo||(/^#?\d+$/.test(termo)?(String(i.id)===termo.replace(/^#/,"")||(!termo.startsWith("#")&&i.cadpros?.includes(termo))):normalizar(`${i.nome} ${i.placa} ${i.cultura} ${i.safra}`).includes(termo)))).sort((a,b)=>b.data.localeCompare(a.data)||b.id-a.id);
+}
+export default function ListaRomaneiosEntrada({cargas,ativo,atualizarCargas}:{cargas:RomaneioEntrada[];ativo:boolean;atualizarCargas:()=>Promise<void>}){
+  const [terceiros,setTerceiros]=useState<EntradaTerceiro[]>([]),[erro,setErro]=useState(""),[carregando,setCarregando]=useState(false),[atualizacao,setAtualizacao]=useState(0);
+  const [busca,setBusca]=useState(""),[origem,setOrigem]=useState(""),[historico,setHistorico]=useState(false),[pagina,setPagina]=useState(0);
+  useEffect(()=>{if(!ativo)return;let atual=true;setCarregando(true);setErro("");void listarTerceiros().then(itens=>{if(atual)setTerceiros(itens);}).catch(()=>{if(atual)setErro("Não foi possível consultar os romaneios de terceiros. Atualize para tentar novamente.");}).finally(()=>{if(atual)setCarregando(false);});return()=>{atual=false;};},[ativo,atualizacao]);
+  const itens=useMemo(()=>[...cargas,...terceiros.map(i=>({id:i.id,origem:"terceiro" as const,data:i.data_entrada,nome:i.depositante,cultura:i.cultura,safra:i.safra,placa:i.placa,peso:i.peso_liquido_kg,historico:i.movimentos.some(m=>m.tipo==="entrada"&&m.estornado),dados:dadosRomaneioTerceiro(i)}))],[cargas,terceiros]);
+  const resultados=consultarRomaneiosEntrada(itens,busca,origem,historico),paginas=Math.max(1,Math.ceil(resultados.length/5)),atual=Math.min(pagina,paginas-1);
+  useEffect(()=>{setPagina(0);},[busca,origem,historico]);
+  return <section className="card localizador-romaneios nao-imprimir" aria-label="Romaneios de entrada">
+    <header><div><h3>Romaneios de entrada</h3><p>Cargas próprias, compartilhadas e de terceiros. Duas vias na mesma folha A4.</p></div><button type="button" className="secundario" disabled={carregando} onClick={()=>{setAtualizacao(v=>v+1);void atualizarCargas().catch(()=>setErro("Não foi possível atualizar as cargas próprias. Tente novamente."));}}>Atualizar romaneios</button></header>
+    <label>Buscar romaneio de entrada<input type="search" placeholder="Número, nome, propriedade, CAD/PRO ou placa" value={busca} onChange={e=>setBusca(e.target.value)}/></label>
+    <details className="romaneios-filtros-avancados"><summary>Filtros de entrada</summary><label>Origem do romaneio<select value={origem} onChange={e=>setOrigem(e.target.value)}><option value="">Todas as entradas</option><option value="propria">Cargas próprias e compartilhadas</option><option value="terceiro">Terceiros</option></select></label><label className="romaneios-historico"><input type="checkbox" checked={historico} onChange={e=>setHistorico(e.target.checked)}/>Incluir cancelados e substituídos</label></details>
+    {carregando&&<p role="status">Atualizando entradas de terceiros…</p>}{erro&&<p role="alert" className="erro">{erro}</p>}
+    <p role="status">{resultados.length?atual*5+1:0}–{Math.min((atual+1)*5,resultados.length)} de {resultados.length} romaneios</p>
+    <div className="romaneios-resultados">{resultados.slice(atual*5,(atual+1)*5).map(i=><article className="romaneio-resultado" key={`${i.origem}-${i.id}`}><div className="romaneio-linha"><div className="romaneio-numero"><strong>#{i.id}</strong><span>{i.data.split("-").reverse().join("/")}</span></div><div><strong>{i.nome}</strong>{i.historico&&<span className="erro">Cancelado ou substituído — histórico</span>}<span>{i.origem==="terceiro"?"Terceiro":"Carga própria"} · {i.placa||"Sem placa"} · {formatarNumero(i.peso)} kg</span></div><ComprovanteLancamento duasVias dados={i.dados} rotulo={`Imprimir ${i.origem==="terceiro"?"terceiro":"carga"} #${i.id}`} tipoDocumento="romaneio"/></div><details className="romaneio-dados"><summary>Detalhes da entrada #{i.id}</summary><p>{i.cultura} · {i.safra} · {i.historico?"Cancelado/substituído — histórico":"Ativa"}</p></details></article>)}</div>
+    {!resultados.length&&<p>Nenhum romaneio encontrado para esta busca.</p>}
+    {paginas>1&&<nav className="acoes" aria-label="Páginas de romaneios de entrada"><button type="button" className="secundario" disabled={!atual} onClick={()=>setPagina(atual-1)}>Anteriores</button><span>Página {atual+1} de {paginas}</span><button type="button" className="secundario" disabled={atual===paginas-1} onClick={()=>setPagina(atual+1)}>Próximos</button></nav>}
+  </section>;
+}

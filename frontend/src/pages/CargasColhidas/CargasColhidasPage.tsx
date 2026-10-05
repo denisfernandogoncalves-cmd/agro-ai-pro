@@ -1,3 +1,6 @@
+import AbasModulo, { PainelAba } from "../../components/AbasModulo";
+import ListaRomaneiosEntrada from "./ListaRomaneiosEntrada";
+import { DadosComprovante } from "../../components/ComprovanteLancamento";
 import AnexosLancamento from "../../components/AnexosLancamento";
 import ComprovanteLancamento from "../../components/ComprovanteLancamento";
 import ProducaoTerceiros from "./ProducaoTerceiros";
@@ -217,6 +220,12 @@ export function cargaCorrespondeBusca(item: CargaColhida, busca: string) {
   ].some((valor) => texto(valor).toLocaleLowerCase("pt-BR").includes(termo));
 }
 
+export function dadosRomaneioCarga(item:CargaColhida):DadosComprovante {
+  const produtores = produtoresDaCarga(item);
+  const formatar = (valor:number)=>valor.toLocaleString("pt-BR",{maximumFractionDigits:3});
+  return {titulo:`Carga #${item.id}`,campos:[["Situação",item.status],["Data",dataPlanilhaCarga(item.data_colheita)],["Propriedades / CAD/PRO",produtores.map(p=>`${p.nome} / ${p.cadpro}: ${formatar(p.peso)} kg`).join("; ")],["Produto / safra",`${item.cultura} / ${item.safra}`],["Armazenagem",item.armazem_nome],["Placa / motorista",`${item.placa||"Sem placa"} / ${item.motorista||"—"}`],["Bruto",`${formatar(numero(item.peso_bruto_kg))} kg`],["Desconto",formatarPercentual(item.desconto_total_percentual)],["Líquido",`${formatar(numero(item.peso_liquido_kg))} kg`],["Sacas",formatar(numero(item.sacas_60kg))],["Umidade / impureza / avariados",`${formatarPercentual(item.umidade_percentual)} / ${formatarPercentual(item.impureza_percentual)} / ${formatarPercentual(item.defeitos_percentual)}`],["Movimento",String(item.movimentacao)],["Observações",item.observacoes||"—"],["Motivo de cancelamento",item.motivo_cancelamento||"—"]]};
+}
+
 export function CartaoCargaColhida({ item, carregando, onEditar, onExcluir }: {
   item: CargaColhida;
   carregando: boolean;
@@ -258,7 +267,7 @@ export function CartaoCargaColhida({ item, carregando, onEditar, onExcluir }: {
         {item.substituida_por && <span>Substituída pela carga #{item.substituida_por}</span>}
       </div>{item.observacoes&&<p>{item.observacoes}</p>}</details>
       <AnexosLancamento entidade="carga" registro={item.id} />
-      <ComprovanteLancamento duasVias dados={{titulo:`Carga #${item.id}`,campos:[["Situação",item.status],["Data",dataPlanilhaCarga(item.data_colheita)],["Propriedades / CAD/PRO",produtores.map(p=>`${p.nome} / ${p.cadpro}: ${formatar(p.peso)} kg`).join("; ")],["Produto / safra",`${item.cultura} / ${item.safra}`],["Armazenagem",item.armazem_nome],["Placa / motorista",`${item.placa||"Sem placa"} / ${item.motorista||"—"}`],["Bruto",`${formatar(numero(item.peso_bruto_kg))} kg`],["Desconto",formatarPercentual(item.desconto_total_percentual)],["Líquido",`${formatar(numero(item.peso_liquido_kg))} kg`],["Sacas",formatar(numero(item.sacas_60kg))],["Umidade / impureza / avariados",`${formatarPercentual(item.umidade_percentual)} / ${formatarPercentual(item.impureza_percentual)} / ${formatarPercentual(item.defeitos_percentual)}`],["Movimento",String(item.movimentacao)],["Observações",item.observacoes||"—"],["Motivo de cancelamento",item.motivo_cancelamento||"—"]]}}/>
+      <ComprovanteLancamento duasVias dados={dadosRomaneioCarga(item)}/>
       {item.status !== "ativa" && item.motivo_cancelamento && <small>Motivo: {item.motivo_cancelamento}</small>}
       {item.status === "ativa" && <div className="acoes carga-item-acoes"><BotaoAcao acao="editar" disabled={carregando} className="secundario" type="button" onClick={() => onEditar(item)}>Editar</BotaoAcao><BotaoAcao acao="excluir" disabled={carregando} className="perigo" type="button" onClick={() => onExcluir(item)}>Excluir</BotaoAcao></div>}
     </article>
@@ -323,6 +332,7 @@ export function resumoCalculado(carga: CargaColhidaInput) {
 type Props = { propriedades: Propriedade[] };
 
 export default function CargasColhidasPage({ propriedades }: Props) {
+  const [aba, setAba] = useState("proprias");
   const [exclusao, setExclusao] = useState<{ item: CargaColhida; previa?: PreviaExclusaoCarga; erro: string; motivo: string; carregando: boolean } | null>(null);
 
   const [grupos, setGrupos] = useState<GrupoPropriedades[]>([]);
@@ -588,17 +598,11 @@ export default function CargasColhidasPage({ propriedades }: Props) {
 
   return (
     <section className="modulo-cargas">
-      <FiltrosFavoritos contexto="cargas" filtros={{search:busca, mostrarHistorico, ...filtrosRapidos}} aplicar={valores => {const consulta=restaurarConsultaFavorita(valores);setBusca(consulta.busca);setMostrarHistorico(consulta.mostrarHistorico);setFiltrosRapidos(consulta.filtros);}} />
+      <FiltrosFavoritos contexto="cargas" filtros={{search:busca, mostrarHistorico, ...filtrosRapidos}} aplicar={valores => {setAba("proprias"); const consulta=restaurarConsultaFavorita(valores);setBusca(consulta.busca);setMostrarHistorico(consulta.mostrarHistorico);setFiltrosRapidos(consulta.filtros);}} />
       {erro && <p className="erro card" role="alert">{erro}</p>}
       {sucesso && <p className="sucesso card" role="status">{sucesso}</p>}
       {(carregando || salvando) && <p role="status">{salvando ? "Salvando carga..." : "Atualizando cargas colhidas..."}</p>}
 
-      <ProducaoTerceiros armazens={armazens} atualizarArmazens={carregar} />
-      <section className="card controle-planilha controle-planilha-impressao controle-planilha-cargas somente-impressao" hidden={carregando}>
-        <h2 className="somente-impressao titulo-impressao-planilha">Cargas colhidas</h2>
-        <div className="controle-planilha-titulo"><div><span className="kicker">Controle de entrada de produção</span><h3>{propriedadesImpressao.join(" · ") || "Todas as propriedades"}</h3><p>CAD/PRO {cadprosImpressao.join(", ") || "—"} · {culturasImpressao.join(", ") || "todas as culturas"} · safra {safrasImpressao.join(", ") || "todas"}</p></div><div className="controle-planilha-total"><span>Entrada líquida</span><strong>{numeroPlanilhaCarga(pesoLiquidoImpressao)} kg</strong><small>{numeroPlanilhaCarga(pesoLiquidoImpressao / 60)} sacas de 60 kg</small></div></div>
-        <TabelaImpressaoCargas cargas={cargasFiltradas} propriedades={propriedades} />
-      </section>
 
       <div className="cargas-cabecalho">
         <div>
@@ -606,8 +610,15 @@ export default function CargasColhidasPage({ propriedades }: Props) {
           <h2>Cargas colhidas</h2>
           <p>Registro por propriedades, seus CAD/PROs, cultura, safra e armazenagem.</p>
         </div>
-        <span className="kicker">{mostrarHistorico ? "Exibindo ativas e histórico" : "Exibindo cargas ativas"}</span>
+        <span className="kicker">{aba === "proprias" ? (mostrarHistorico ? "Exibindo ativas e histórico" : "Exibindo cargas ativas") : aba === "terceiros" ? "Entradas e saldo de terceiros" : "Romaneios de entrada"}</span>
       </div>
+
+<AbasModulo modulo="cargas" ativa={aba} alterar={setAba} desabilitado={salvando} abas={[{id:"proprias",titulo:"Cargas próprias"},{id:"terceiros",titulo:"Terceiros"},{id:"romaneios",titulo:"Romaneios"}]} /><PainelAba modulo="cargas" aba="proprias" ativa={aba}>
+      <section className="card controle-planilha controle-planilha-impressao controle-planilha-cargas somente-impressao" hidden={carregando}>
+        <h2 className="somente-impressao titulo-impressao-planilha">Cargas colhidas</h2>
+        <div className="controle-planilha-titulo"><div><span className="kicker">Controle de entrada de produção</span><h3>{propriedadesImpressao.join(" · ") || "Todas as propriedades"}</h3><p>CAD/PRO {cadprosImpressao.join(", ") || "—"} · {culturasImpressao.join(", ") || "todas as culturas"} · safra {safrasImpressao.join(", ") || "todas"}</p></div><div className="controle-planilha-total"><span>Entrada líquida</span><strong>{numeroPlanilhaCarga(pesoLiquidoImpressao)} kg</strong><small>{numeroPlanilhaCarga(pesoLiquidoImpressao / 60)} sacas de 60 kg</small></div></div>
+        <TabelaImpressaoCargas cargas={cargasFiltradas} propriedades={propriedades} />
+      </section>
 
       <section className="grade cargas-grade">
         <PainelFormulario titulo={edicaoId ? `Editar carga #${edicaoId}` : "Registrar carga manual"} edicao={edicaoId}>
@@ -718,6 +729,11 @@ export default function CargasColhidasPage({ propriedades }: Props) {
           </div>
         </section>
       </section>
-    </section>
+
+</PainelAba><PainelAba modulo="cargas" aba="terceiros" ativa={aba}>
+<ProducaoTerceiros armazens={armazens} atualizarArmazens={carregar} inicialmenteAberto ativo={aba === "terceiros"} />
+</PainelAba><PainelAba modulo="cargas" aba="romaneios" ativa={aba}>
+<ListaRomaneiosEntrada cargas={cargas.map(item=>({id:item.id,origem:"propria" as const,cadpros:produtoresDaCarga(item).map(p=>p.cadpro),data:item.data_colheita,nome:produtoresDaCarga(item).map(p=>`${p.nome} / ${p.cadpro}`).join(" · "),cultura:item.cultura,safra:item.safra,placa:item.placa,peso:item.peso_liquido_kg,historico:item.status!=="ativa",dados:dadosRomaneioCarga(item)}))} ativo={aba === "romaneios"} atualizarCargas={carregar}/>
+</PainelAba>    </section>
   );
 }

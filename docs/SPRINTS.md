@@ -241,3 +241,12 @@ Consulta independente da venda selecionada, busca e período da saída, históri
 
 
 Refinamento adicional dos impressos: estilos internos isolados do diálogo, grade de três colunas e distribuição vertical aproveitando cada metade da folha. Romaneio #48 validado em fonte 16 px e duas vias sem transbordamento; frontend/TypeScript/build aprovados. Sem migration ou dado operacional alterado. Referência: docs/decisoes/2026-10-05-impressao-duas-vias.md.
+
+
+### Incremento autorizado — abas internas e espaçamento (05/10/2026)
+
+- [x] Sete módulos com abas acessíveis, preservação de formulários/filtros e permissões; catálogo de entradas próprias/terceiros paginado.
+- [x] Financeiro e Máquinas conferidos; Nova venda restrita ao cadastro; legendas e espaçamento de Cargas/Vendas corrigidos.
+- [x] Testes frontend, TypeScript/Vite no Docker, backup verificado e validação visual responsiva aprovados. Impressão física/PDF nativo não realizada; duas vias A4 preservadas no DOM.
+
+Referência: docs/decisoes/2026-10-05-abas-modulos.md. Sem alteração de dados, backend ou migrations.

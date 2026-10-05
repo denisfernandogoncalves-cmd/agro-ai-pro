@@ -1,3 +1,4 @@
+import AbasModulo, { PainelAba } from "../../components/AbasModulo";
 import CamposPesagemVenda, { payloadPesagem } from "./CamposPesagemVenda";
 import AnexosLancamento from "../../components/AnexosLancamento";
 import ComprovanteLancamento from "../../components/ComprovanteLancamento";
@@ -8,7 +9,7 @@ import { useConferirDuplicidades } from "../../components/ConferirDuplicidades";
 import { useEntradaPainel } from "../../components/AcoesContext";
 import { useRascunhoAutomatico } from "../../components/RascunhoAutomatico";
 import FiltrosFavoritos from "../../components/FiltrosFavoritos";
-import { BotaoAcao } from "../../components/AcoesContext";
+import { BotaoAcao, useAcoes } from "../../components/AcoesContext";
 import { useAlteracoesNaoSalvas } from "../../components/AlteracoesNaoSalvas";
 import { useConfirmacaoCompacta } from "../../components/ConfirmacaoCompacta";
 import axios from "axios";
@@ -177,6 +178,8 @@ export function RastreabilidadeVenda({
 }
 
 export default function VendasPage() {
+  const pode = useAcoes();
+  const [aba, setAba] = useState(pode("cadastrar") ? "nova" : "consulta");
   const entradaPainel = useEntradaPainel("vendas");
   const [vendas, setVendas] = useState<VendaGraos[]>([]);
   const [posicoes, setPosicoes] = useState<PosicaoSaldo[]>([]);
@@ -304,7 +307,7 @@ export default function VendasPage() {
         ? registrarVendaComSaida({ ...novaSaida, ...payloadPesagem(novaSaida), ...dados, data_movimento: formulario.data_contrato }, chave)
         : criarVenda(dados, chave);
     }, particular ? "Venda PARTICULAR registrada; saída distribuída entre todas as propriedades proporcionalmente à área." : tipoLancamento === "saida" ? "Venda e saída registradas; peso líquido baixado do estoque." : "Venda criada em rascunho, sem alterar o saldo.");
-    if (criada) { const limpo = {formulario:vazio,novaSaida:entregaVazia,novaPosicao,tipoLancamento,origemSelecionada:""}; protecao.marcarSalvo(limpo); rascunho.limpar(limpo); setFormulario(vazio); setNovaSaida(entregaVazia); setOrigemSelecionada(""); }
+    if (criada) { setAba(tipoLancamento === "saida" ? "romaneios" : "consulta"); const limpo = {formulario:vazio,novaSaida:entregaVazia,novaPosicao,tipoLancamento,origemSelecionada:""}; protecao.marcarSalvo(limpo); rascunho.limpar(limpo); setFormulario(vazio); setNovaSaida(entregaVazia); setOrigemSelecionada(""); }
   }
 
   const aberto = selecionada && !selecionada.excluida_em && ["confirmada", "parcial"].includes(selecionada.status);
@@ -334,16 +337,15 @@ export default function VendasPage() {
 
   return (
     <section className="modulo-vendas">
-      <FiltrosFavoritos contexto="vendas" filtros={filtros} aplicar={valores => {const proximos = {...filtrosVazios, ...valores}; setFiltros(proximos); void carregar(proximos).catch(falha => setErro(mensagemErro(falha)));}} />
-      <div><span className="kicker">Comercial integrado ao ledger oficial</span><h2>Vendas de grãos</h2><p>Contratos, reservas, entregas e devoluções rastreados por CAD/PRO e posição oficial.</p></div>
+      <FiltrosFavoritos contexto="vendas" filtros={filtros} aplicar={valores => {setAba("consulta"); const proximos = {...filtrosVazios, ...valores}; setFiltros(proximos); void carregar(proximos).catch(falha => setErro(mensagemErro(falha)));}} />
+      <div className="vendas-cabecalho"><span className="kicker">Comercial integrado ao ledger oficial</span><h2>Vendas de grãos</h2><p>Contratos, reservas, entregas e devoluções rastreados por CAD/PRO e posição oficial.</p></div>
 
       {erro && <p className="erro card" role="alert">{erro}</p>}
       {sucesso && <p className="sucesso card" role="status">{sucesso}</p>}
 
 
-      <div className="vendas-trabalho-duas-colunas">
-        <section className="vendas-nova-coluna" aria-label="Nova venda">
-        <PainelFormulario titulo="Nova venda">
+<AbasModulo modulo="vendas" ativa={aba} alterar={setAba} abas={[...(pode("cadastrar") ? [{id:"nova",titulo:"Nova venda"}] : []),{id:"consulta",titulo:"Vendas registradas"},{id:"romaneios",titulo:"Romaneios"}]} /><PainelAba modulo="vendas" aba="nova" ativa={aba}>
+<div className="vendas-formulario-aba">        <PainelFormulario titulo="Nova venda" inicialmenteAberto>
         {rascunho.aviso}
         <FormularioValidado className="card formulario formulario-venda-horizontal" onSubmit={criar}>
           <h3>Nova venda</h3>
@@ -365,14 +367,10 @@ export default function VendasPage() {
           {!particular && <div role="status">{simulacao ? <p>Simulação sem lançamento: saldo físico {kg(simulacao.saldo_anterior_kg)} → <strong>{kg(simulacao.saldo_posterior_kg)}</strong>; disponível após a operação: {kg(simulacao.disponivel_posterior_kg)}. {tipoLancamento==="rascunho"?"O rascunho comercial não movimenta estoque.":"Saldos negativos continuam permitidos por sobra técnica."}</p>:erroSimulacao?<p className="erro">{erroSimulacao}</p>:<p>Informe a origem e o peso para simular antes de confirmar.</p>}</div>}
           <BotaoMutacaoVenda processando={processando || (particular ? !previaParticular : !simulacao)} motivoBloqueio={processando ? "Aguarde o processamento." : particular ? erroPrevia || "Preencha cultura, safra, armazenagem e peso para conferir o rateio." : erroSimulacao || "Informe origem e peso para obter a simulação antes de confirmar."}>{tipoLancamento === "saida" ? "Registrar venda e saída" : "Criar rascunho"}</BotaoMutacaoVenda>
         </FormularioValidado>
-        </PainelFormulario>
-        </section>
-        <section className="vendas-documentos-coluna" aria-label="Venda selecionada e romaneios">
-
-          <LocalizadorRomaneios revisao={vendas} />
-        </section>
-      </div>
-
+        </PainelFormulario></div>
+</PainelAba><PainelAba modulo="vendas" aba="romaneios" ativa={aba}>
+<LocalizadorRomaneios revisao={vendas} />
+</PainelAba><PainelAba modulo="vendas" aba="consulta" ativa={aba}>
       <details className="card filtros-vendas-painel"><summary>Filtros de vendas</summary><FormularioValidado className="filtros-vendas" onSubmit={(e) => { e.preventDefault(); void carregar().catch(falha => setErro(mensagemErro(falha))); }}>
         <input aria-label="Buscar vendas" placeholder="Contrato ou cliente" value={filtros.search} onChange={(e) => setFiltros({ ...filtros, search: e.target.value })} />
         <select aria-label="Filtrar venda por status" value={filtros.status} onChange={(e) => setFiltros({ ...filtros, status: e.target.value })}><option value="">Todos os status</option><option value="rascunho">Rascunho</option><option value="confirmada">Confirmada</option><option value="parcial">Entrega parcial</option><option value="entregue">Entregue</option><option value="cancelada">Cancelada</option></select>
@@ -423,7 +421,8 @@ export default function VendasPage() {
         <details className="detalhes-listagem"><summary>Histórico de entregas e devoluções</summary>{(["entrega", "devolucao"] as const).map(natureza => <div key={natureza}>{(natureza === "entrega" ? selecionada.entregas : selecionada.devolucoes).filter(m => !m.cancelado_em || filtros.mostrar_excluidas === "true").map(m => <article className="item" key={m.id}><div><strong>{natureza === "entrega" ? "Entrega" : "Devolução"} #{m.id} · {kg(m.quantidade_kg)}</strong><p>{dataPlanilhaVenda(m.data_entrega || m.data_devolucao)} · {m.cancelado_em ? "Excluído/substituído" : "Ativo"}</p>{!m.cancelado_em && !selecionada.excluida_em && <AcoesLancamentoVenda desabilitado={processando} editar={() => setEditor({ venda: selecionada, natureza, movimento: m, excluir: false })} excluir={() => setEditor({ venda: selecionada, natureza, movimento: m, excluir: true })} />}</div></article>)}</div>)}</details>
         {!!selecionada.alteracoes?.length && <details><summary>Histórico de correções e exclusões</summary>{selecionada.alteracoes.map(a => <p key={a.id}>{new Date(a.criado_em).toLocaleString("pt-BR")} · {a.usuario} · {a.tipo.replace(/_/g, " ")} · {a.motivo}</p>)}</details>}
       </section>}
-      {editor && <EditorLancamentoVenda alvo={editor} contratos={contratos} posicoes={posicoes} processando={processando} erroOperacao={erro} executar={executar} fechar={() => setEditor(null)} />}
+
+</PainelAba>      {editor && <EditorLancamentoVenda alvo={editor} contratos={contratos} posicoes={posicoes} processando={processando} erroOperacao={erro} executar={executar} fechar={() => setEditor(null)} />}
     </section>
   );
 }

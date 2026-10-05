@@ -1,3 +1,5 @@
+import AbasModulo from "../../components/AbasModulo";
+import { abaDosFiltros, filtrosDaAba } from "./abasFinanceiro";
 import AnexosLancamento from "../../components/AnexosLancamento";
 import { useConferirDuplicidades } from "../../components/ConferirDuplicidades";
 import { useEntradaPainel } from "../../components/AcoesContext";
@@ -63,6 +65,8 @@ const filtrosVazios = { tipo: "", status: "", search: "", parceiro: "", recebedo
 type Props = { propriedades: Propriedade[] };
 
 export default function FinanceiroPage(_props: Props) {
+  const [aba, setAba] = useState("todos");
+  const sequenciaConsulta = useRef(0);
   const entradaPainel = useEntradaPainel("financeiro");
   const [parceiros, setParceiros] = useState<ParceiroFinanceiro[]>([]);
   const [lancamentos, setLancamentos] = useState<LancamentoFinanceiro[]>([]);
@@ -101,6 +105,7 @@ export default function FinanceiroPage(_props: Props) {
       setErro("A data final deve ser igual ou posterior à inicial.");
       return;
     }
+    const requisicao = ++sequenciaConsulta.current;
     setCarregando(true);
     setErro("");
     try {
@@ -109,6 +114,8 @@ export default function FinanceiroPage(_props: Props) {
         [`${selecao.dataReferencia}_inicio`]: selecao.inicio,
         [`${selecao.dataReferencia}_fim`]: selecao.fim,
       });
+      if (requisicao !== sequenciaConsulta.current) return;
+      setAba(abaDosFiltros(selecao));
       setParceiros(dados.parceiros);
       setLancamentos(dados.lancamentos);
       setResumo(dados.resumo);
@@ -121,9 +128,9 @@ export default function FinanceiroPage(_props: Props) {
         (selecao.inicio || selecao.fim) && `${selecao.dataReferencia === "vencimento" ? "Vencimento" : "Liquidação"}: ${selecao.inicio ? selecao.inicio.split("-").reverse().join("/") : "sem início"} a ${selecao.fim ? selecao.fim.split("-").reverse().join("/") : "sem fim"}`,
       ].filter(Boolean).join(" · ") || "Todos os lançamentos");
     } catch (falha) {
-      setErro(mensagemErro(falha));
+      if (requisicao === sequenciaConsulta.current) setErro(mensagemErro(falha));
     } finally {
-      setCarregando(false);
+      if (requisicao === sequenciaConsulta.current) setCarregando(false);
     }
   }
 
@@ -208,6 +215,9 @@ export default function FinanceiroPage(_props: Props) {
         </section>
       )}
 
+      <AbasModulo modulo="financeiro" ativa={aba} desabilitado={carregando || salvando || excluindo} alterar={id => {const proximos=filtrosDaAba(id,filtros);setFiltros(proximos);void carregar(proximos);}} abas={[{id:"todos",titulo:"Todos"},{id:"pagar",titulo:"A pagar"},{id:"receber",titulo:"A receber"},{id:"liquidados",titulo:"Liquidados"}]} />
+      {["todos","pagar","receber","liquidados"].filter(id=>id!==aba).map(id=><section key={id} role="tabpanel" id={`financeiro-painel-${id}`} aria-labelledby={`financeiro-aba-${id}`} hidden className="aba-modulo-painel"/>)}
+      <section role="tabpanel" id={`financeiro-painel-${aba}`} aria-labelledby={`financeiro-aba-${aba}`} tabIndex={0} className="aba-modulo-painel">
       <section className="grade financeiro-grade">
       <PainelFormulario titulo="Novo lançamento financeiro">
       <LeitorCodigoFinanceiro desabilitado={carregando || excluindo || salvando} aplicar={(leitura, vencimento) => {
@@ -291,6 +301,7 @@ export default function FinanceiroPage(_props: Props) {
         </section>
       </section>
 
+      </section>
     </section>
   );
 }

@@ -494,9 +494,10 @@ try {
   const htmlEstoque = renderToStaticMarkup(
     React.createElement(EstoquePage, { propriedades: [propriedade] }),
   );
-  assert.match(htmlEstoque, /Nova movimentaÃ§Ã£o|Nova movimentação/);
-  assert.match(htmlEstoque, /Rastreabilidade/);
-  assert.match(htmlEstoque, /Novo lote/);
+  for (const aba of ["Disponibilidade", "Compras", "Movimentações", "Lotes"]) assert.ok(htmlEstoque.includes(aba));
+  assert.match(htmlEstoque, /Saldo e preço médio de aquisição/);
+  assert.match(htmlEstoque, /id="estoque-painel-movimentos"[^>]*hidden/);
+  assert.doesNotMatch(htmlEstoque, /Nova movimentação/, "Formulário de outra aba não carrega antes da primeira visita");
   assert.doesNotMatch(htmlEstoque, /Cadastrar produto/);
 
   const htmlOperacoes = renderToStaticMarkup(
@@ -612,8 +613,8 @@ try {
   assert.match(htmlCadastrosAgricolas, /Silos e armazéns de grãos/);
   assert.match(htmlCadastrosAgricolas, /Destinos independentes de propriedades/);
   assert.match(htmlCadastrosAgricolas, /Depósitos de insumos/);
-  assert.match(htmlCadastrosAgricolas, /Produtos agrícolas/);
-  assert.match(htmlCadastrosAgricolas, /Fornecedores/);
+  assert.match(htmlCadastrosAgricolas, /Produtos<\/button>/);
+  assert.match(htmlCadastrosAgricolas, /Parceiros<\/button>/);
   assert.match(htmlCadastrosAgricolas, /modulo-cadastros-agricolas/);
   assert.match(htmlCadastrosAgricolas, /Silos e armazéns de grãos[\s\S]*?<form class="conteudo"><label>Nome/);
 
@@ -756,9 +757,9 @@ try {
   assert.match(htmlVendas, /Venda com saldo negativo permitida por sobra técnica/);
   assert.ok(htmlVendas.includes("Propriedade / CAD/PRO / Proprietário"));
   assert.match(htmlVendas, /Contrato \/ empresa/);
-  assert.match(htmlCadastrosAgricolas, /Nº do contrato/);
-  assert.match(htmlCadastrosAgricolas, /Quantidade \(kg\)/);
-  assert.match(htmlCadastrosAgricolas, /Cadastrar contrato/);
+  assert.match(htmlCadastrosAgricolas, /Contratos<\/button>/);
+  assert.match(htmlCadastrosAgricolas, /id="cadastros-painel-contratos"[^>]*hidden/);
+  assert.doesNotMatch(htmlCadastrosAgricolas, /Cadastrar contrato/, "Contratos carregam ao visitar a aba");
   assert.match(htmlVendas, /Registrar venda e saída/);
   assert.match(htmlVendas, /formulario-venda-horizontal/);
   const estilosVendas = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
@@ -772,10 +773,10 @@ try {
   assert.ok(seletorContrato, "Contrato opcional deve estar disponível");
   assert.doesNotMatch(seletorContrato[1], /required/);
   for (const campo of ["Data", "Destino", "Placa", "Motorista", "CAD/PRO", "Nº do contrato", "Nº nota produtor", "Nº nota empresa", "Peso líquido (kg)"]) assert.ok(htmlVendas.includes(campo), campo);
-  assert.match(htmlVendas, /Placa \/ Motorista/);
-  assert.match(htmlVendas, /controle-planilha-vendas/);
-  assert.match(htmlVendas, /vendas-planilha/);
-  assert.match(htmlVendas, /Quantidade \(sacas de 60 kg\)/);
+  assert.match(htmlVendas, /Placa/);
+  assert.match(htmlVendas, /id="vendas-painel-consulta"[^>]*hidden/);
+  assert.match(htmlVendas, /Vendas registradas<\/button>/);
+  assert.doesNotMatch(htmlVendas, /Quantidade \(sacas de 60 kg\)/, "Planilha fica na aba de consulta");
   assert.equal(dataPlanilhaVenda("2026-08-29"), "29/08/2026");
   assert.equal(dataPlanilhaVenda(""), "—");
   assert.equal(numeroPlanilhaVenda("37440.000", 3), "37.440,000");
@@ -889,7 +890,8 @@ try {
     React.createElement(MaquinasPage, { propriedades: [propriedade] }),
   );
   assert.match(htmlMaquinas, /Nova mÃ¡quina|Nova máquina/);
-  assert.match(htmlMaquinas, /Uso, combustÃ­vel e manutenÃ§Ã£o|Uso, combustível e manutenção/);
+  for (const aba of ["Frota", "Uso e combustível", "Manutenções"]) assert.ok(htmlMaquinas.includes(aba));
+  assert.match(htmlMaquinas, /id="maquinas-painel-manutencoes"[^>]*hidden/);
 
   const htmlRelatorios = renderToStaticMarkup(
     React.createElement(RelatoriosPage, { propriedades: [propriedade] }),

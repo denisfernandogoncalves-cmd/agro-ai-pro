@@ -1,3 +1,4 @@
+import AbasModulo, { PainelAba } from "../../components/AbasModulo";
 import { useEntradaPainel } from "../../components/AcoesContext";
 import { BotaoAcao, useDestinoConsulta } from "../../components/AcoesContext";
 import { formatarData } from "../../utils/datas";
@@ -34,6 +35,7 @@ function mensagemErro(falha: unknown) {
 type Props = { propriedades: Propriedade[] };
 
 export default function EstoquePage({ propriedades }: Props) {
+  const [aba, setAba] = useState("disponibilidade");
   const entradaPainel = useEntradaPainel("estoque");
   const [revisaoEstoque, setRevisaoEstoque] = useState(0);
   const [produtos, setProdutos] = useState<ProdutoEstoque[]>([]);
@@ -67,11 +69,12 @@ export default function EstoquePage({ propriedades }: Props) {
   const cadastroLotes = useRef<HTMLDetailsElement>(null);
   const seletorLote = useRef<HTMLSelectElement>(null);
 
-  useDestinoConsulta("estoque", valores => {const proximos = {search:String(valores.search || ""), tipo:"", produto:""}; setFiltros(proximos); void carregar(proximos);});
+  useDestinoConsulta("estoque", valores => {setAba("movimentos"); const proximos = {search:String(valores.search || ""), tipo:"", produto:""}; setFiltros(proximos); void carregar(proximos);});
 
   function abrirCadastroLote() {
-    if (!cadastroLotes.current) return;
+    setAba("lotes");
     void carregar();
+    if (!cadastroLotes.current) return;
     cadastroLotes.current.open = true;
     cadastroLotes.current.scrollIntoView({ behavior: "smooth", block: "center" });
     cadastroLotes.current.querySelector("select")?.focus({ preventScroll: true });
@@ -145,7 +148,7 @@ export default function EstoquePage({ propriedades }: Props) {
       setMovimento((atual) => ({ ...atual, lote: String(novoLote.id) }));
       setSucesso("Lote cadastrado e selecionado. Complete os dados para registrar a movimentação.");
       await carregar();
-      seletorLote.current?.focus();
+      setAba("movimentos");
     } catch (falha) {
       setErro(mensagemErro(falha));
     } finally {
@@ -168,10 +171,13 @@ export default function EstoquePage({ propriedades }: Props) {
         </section>
       )}
 
+<AbasModulo modulo="estoque" ativa={aba} alterar={setAba} abas={[{id:"disponibilidade",titulo:"Disponibilidade"},{id:"compras",titulo:"Compras"},{id:"movimentos",titulo:"Movimentações"},{id:"lotes",titulo:"Lotes"}]} /><PainelAba modulo="estoque" aba="disponibilidade" ativa={aba}>
       <ConsultaDisponibilidade produtos={produtos} fornecedores={fornecedores} revisao={revisaoEstoque} />
+
+</PainelAba><PainelAba modulo="estoque" aba="compras" ativa={aba}>
       <ComprasEstoque produtos={produtos} fornecedores={fornecedores} atualizarEstoque={carregar} />
-      <details className="card estoque-movimentos">
-      <summary>Outras movimentações, saldos e rastreabilidade</summary>
+
+</PainelAba><PainelAba modulo="estoque" aba="movimentos" ativa={aba}>
       <section className="grade estoque-grade">
         <form className="card formulario" onSubmit={salvarMovimento}>
           <h2>Nova movimentação</h2>
@@ -215,18 +221,6 @@ export default function EstoquePage({ propriedades }: Props) {
           </form>
 
           <section className="card">
-            <h2>Posição por lote</h2>
-            <div className="lista">
-              {posicoes.length === 0 ? <p className="vazio">Nenhum lote cadastrado.</p> : posicoes.map((item) => (
-                <article className={`item posicao ${item.vencido || item.abaixo_minimo ? "alerta-estoque" : ""}`} key={item.lote_id}>
-                  <div><h3>{item.produto}</h3><p>Lote {item.codigo_lote} · {item.fornecedor || item.local || "Fornecedor não informado"}</p><small>{item.data_validade ? `Validade ${item.data_validade}` : "Sem validade informada"}</small></div>
-                  <strong>{item.saldo} {item.unidade}</strong>
-                </article>
-              ))}
-            </div>
-          </section>
-
-          <section className="card">
             <h2>Rastreabilidade</h2>
             <div className="lista">
               {movimentos.map((item) => (
@@ -240,7 +234,21 @@ export default function EstoquePage({ propriedades }: Props) {
         </section>
       </section>
 
-      <details ref={cadastroLotes} className="card cadastros-auxiliares">
+
+</PainelAba><PainelAba modulo="estoque" aba="lotes" ativa={aba}>
+          <section className="card">
+            <h2>Posição por lote</h2>
+            <div className="lista">
+              {posicoes.length === 0 ? <p className="vazio">Nenhum lote cadastrado.</p> : posicoes.map((item) => (
+                <article className={`item posicao ${item.vencido || item.abaixo_minimo ? "alerta-estoque" : ""}`} key={item.lote_id}>
+                  <div><h3>{item.produto}</h3><p>Lote {item.codigo_lote} · {item.fornecedor || item.local || "Fornecedor não informado"}</p><small>{item.data_validade ? `Validade ${item.data_validade}` : "Sem validade informada"}</small></div>
+                  <strong>{item.saldo} {item.unidade}</strong>
+                </article>
+              ))}
+            </div>
+          </section>
+
+      <details open ref={cadastroLotes} className="card cadastros-auxiliares">
         <summary>Cadastro de lotes</summary>
         <div className="auxiliares-grade">
           <section>
@@ -255,7 +263,8 @@ export default function EstoquePage({ propriedades }: Props) {
           </section>
         </div>
       </details>
-      </details>
+</PainelAba>
+
     </section>
   );
 }

@@ -1,3 +1,4 @@
+import AbasModulo, { PainelAba } from "../../components/AbasModulo";
 import { BotaoAcao } from "../../components/AcoesContext";
 import PainelFormulario from "../../components/PainelFormulario";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
@@ -81,6 +82,7 @@ function numero(valor: string) {
 type Props = { propriedades: Propriedade[] };
 
 export default function CadastrosAgricolasPage({ propriedades }: Props) {
+  const [aba, setAba] = useState("armazens");
   const [armazens, setArmazens] = useState<ArmazemGraos[]>([]);
   const [locais, setLocais] = useState<LocalEstoque[]>([]);
   const [produtos, setProdutos] = useState<ProdutoEstoque[]>([]);
@@ -189,9 +191,8 @@ export default function CadastrosAgricolasPage({ propriedades }: Props) {
 
       {erro && <p className="erro card" role="alert">{erro}</p>}
       {sucesso && <p className="sucesso card" role="status">{sucesso}</p>}
-      <section className="auxiliares-grade" aria-label="Formulários de cadastros agrícolas">
-        <ContratosComerciais />
-        <section className="card">
+<AbasModulo modulo="cadastros" ativa={aba} alterar={setAba} abas={[{id:"armazens",titulo:"Armazéns e locais"},{id:"produtos",titulo:"Produtos"},{id:"parceiros",titulo:"Parceiros"},{id:"contratos",titulo:"Contratos"}]} /><PainelAba modulo="cadastros" aba="armazens" ativa={aba}>
+<div className="auxiliares-grade"><section className="card">
           <div><span className="kicker">Produção colhida</span><h3>Silos e armazéns de grãos</h3><p>Destinos independentes de propriedades para as cargas colhidas.</p></div>
           <PainelFormulario titulo={edicaoArmazem ? "Editar armazenagem" : "Novo cadastro de armazenagem"} edicao={edicaoArmazem}>
 <form className="conteudo" onSubmit={(evento) => void salvarCadastro(
@@ -211,7 +212,7 @@ export default function CadastrosAgricolasPage({ propriedades }: Props) {
           </div>
         </section>
 
-        <section className="card">
+<section className="card">
           <div><span className="kicker">Estoque de insumos</span><h3>Depósitos de insumos</h3><p>Locais usados para guardar produtos e controlar lotes.</p></div>
           <PainelFormulario titulo={edicaoLocal ? "Editar depósito" : "Novo cadastro de depósito"} edicao={edicaoLocal}>
 <form className="conteudo" onSubmit={(evento) => void salvarCadastro(
@@ -232,7 +233,9 @@ export default function CadastrosAgricolasPage({ propriedades }: Props) {
           </div>
         </section>
 
-        <section className="card">
+</div>
+</PainelAba><PainelAba modulo="cadastros" aba="produtos" ativa={aba}>
+<section className="card">
           <div><span className="kicker">Catálogo de estoque</span><h3>Produtos agrícolas</h3><p>Insumos, defensivos, fertilizantes e sementes.</p></div>
           <PainelFormulario titulo={edicaoProduto ? "Editar produto" : "Novo cadastro de produto"} edicao={edicaoProduto}>
 <form className="conteudo" onSubmit={(evento) => void salvarCadastro(
@@ -255,7 +258,9 @@ export default function CadastrosAgricolasPage({ propriedades }: Props) {
           </div>
         </section>
 
-        <section className="card">
+
+</PainelAba><PainelAba modulo="cadastros" aba="parceiros" ativa={aba}>
+<section className="card">
           <div><span className="kicker">Parceiros comerciais</span><h3>Fornecedores</h3><p>Fornecedores e parceiros que também atuam como clientes.</p></div>
           <PainelFormulario titulo={edicaoFornecedor ? "Editar fornecedor" : "Novo cadastro de fornecedor"} edicao={edicaoFornecedor}>
 <form className="conteudo" onSubmit={(evento) => void salvarCadastro(
@@ -279,7 +284,10 @@ export default function CadastrosAgricolasPage({ propriedades }: Props) {
             }) : <p className="vazio">{carregando ? "Carregando fornecedores..." : "Nenhum fornecedor cadastrado."}</p>}
           </div>
         </section>
-      </section>
+
+</PainelAba><PainelAba modulo="cadastros" aba="contratos" ativa={aba}>
+<ContratosComerciais />
+</PainelAba>
     </section>
   );
 }

@@ -22,3 +22,8 @@ Critérios para eventual implementação: abas internas ao módulo (não navegad
 Ordem prática: Vendas, Cargas, Estoque e Cadastros primeiro; demais conforme uso. Abas não substituem paginação: mil romaneios precisam limite de linhas e busca direta. A paginação atual dos romaneios é no cliente; volumes muito maiores justificam endpoint paginado no servidor em escopo posterior.
 
 Fontes locais: frontend/src/pages/Vendas/VendasPage.tsx; CargasColhidas/CargasColhidasPage.tsx e ProducaoTerceiros.tsx; Estoque/EstoquePage.tsx e FaturamentoInsumos.tsx; CadastrosAgricolas/CadastrosAgricolasPage.tsx; Financeiro/FinanceiroPage.tsx; Maquinas/MaquinasPage.tsx; ProducaoSaldos/ProducaoSaldosPage.tsx; Usuarios/UsuariosPage.tsx; Relatorios/RelatoriosPage.tsx.
+
+
+## Resultado da implementação autorizada
+
+Os sete módulos prioritários (Vendas, Cargas, Estoque, Cadastros, Faturamento, Financeiro e Máquinas) receberam as abas recomendadas, com Todos adicional no Financeiro para preservar consultas completas. Validações, preservação de permissões/formulários, compactação do espaço e limitações registradas em docs/decisoes/2026-10-05-abas-modulos.md. A descrição inicial acima corresponde à auditoria anterior à implementação; demais propostas seguem futuras.

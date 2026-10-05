@@ -1,3 +1,4 @@
+import AbasModulo, { PainelAba } from "../../components/AbasModulo";
 import { BotaoAcao } from "../../components/AcoesContext";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import axios from "axios";
@@ -30,6 +31,7 @@ function erroDe(falha: unknown) {
 }
 
 export default function MaquinasPage({ propriedades }: { propriedades: Propriedade[] }) {
+  const [aba, setAba] = useState("frota");
   const [maquinas, setMaquinas] = useState<Maquina[]>([]);
   const [manutencoes, setManutencoes] = useState<Manutencao[]>([]);
   const [operacoes, setOperacoes] = useState<OperacaoAgricola[]>([]);
@@ -68,14 +70,14 @@ export default function MaquinasPage({ propriedades }: { propriedades: Proprieda
     finally { trava.current = false; setSalvando(false); }
   }
 
-  async function salvarRegistro(evento: FormEvent) {
+  async function salvarRegistro(evento: FormEvent, tipoRegistro = registro.tipo) {
     evento.preventDefault();
     if (trava.current) return;
     trava.current = true; setSalvando(true); setErro(""); setSucesso("");
     try {
-      if (registro.tipo === "uso") {
+      if (tipoRegistro === "uso") {
         await registrarUso({ maquina: registro.maquina, operacao: registro.operacao, operador: registro.operador, data: registro.data, horimetro_inicial: registro.horimetro_inicial, horimetro_final: registro.horimetro_final });
-      } else if (registro.tipo === "abastecimento") {
+      } else if (tipoRegistro === "abastecimento") {
         await registrarAbastecimento({ maquina: registro.maquina, data: registro.data, litros: registro.litros, valor_total: registro.valor_total, horimetro: registro.horimetro, documento: registro.documento });
       } else {
         await agendarManutencao({ maquina: registro.maquina, descricao: registro.descricao, data_prevista: registro.data_prevista, horimetro_previsto: registro.horimetro_previsto });
@@ -101,6 +103,22 @@ export default function MaquinasPage({ propriedades }: { propriedades: Proprieda
     finally { trava.current = false; setSalvando(false); }
   }
 
+  const formularioRegistro = (tipoRegistro: string) => (
+        <PainelFormulario titulo={tipoRegistro === "manutencao" ? "Agendar manutenção" : "Registrar uso ou combustível"} inicialmenteAberto>
+        <form className="card formulario" onSubmit={e => void salvarRegistro(e,tipoRegistro)}>
+          <fieldset className="campos-formulario" disabled={salvando || carregando}>
+          <h2>{tipoRegistro === "manutencao" ? "Agendar manutenção" : "Uso e combustível"}</h2>
+          {tipoRegistro !== "manutencao" && <label>Registro<select value={tipoRegistro} onChange={(e) => setRegistro({ ...registro, tipo: e.target.value })}><option value="uso">Uso em operação</option><option value="abastecimento">Abastecimento</option></select></label>}
+          <label>Máquina<select required value={registro.maquina} onChange={(e) => setRegistro({ ...registro, maquina: e.target.value })}><option value="">Selecione</option>{maquinas.map((item) => <option key={item.id} value={item.id}>{item.identificacao} · {item.horimetro_atual} h</option>)}</select></label>
+          {tipoRegistro === "uso" && <><label>Operação<select required value={registro.operacao} onChange={(e) => setRegistro({ ...registro, operacao: e.target.value })}><option value="">Selecione</option>{operacoes.map((item) => <option key={item.id} value={item.id}>{item.descricao}</option>)}</select></label><label>Operador<input value={registro.operador} onChange={(e) => setRegistro({ ...registro, operador: e.target.value })} /></label><div className="linha"><label>Horímetro inicial<input required step="0.1" type="number" value={registro.horimetro_inicial} onChange={(e) => setRegistro({ ...registro, horimetro_inicial: e.target.value })} /></label><label>Horímetro final<input required step="0.1" type="number" value={registro.horimetro_final} onChange={(e) => setRegistro({ ...registro, horimetro_final: e.target.value })} /></label></div></>}
+          {tipoRegistro === "abastecimento" && <><div className="linha"><label>Litros<input required min="0.01" step="0.01" type="number" value={registro.litros} onChange={(e) => setRegistro({ ...registro, litros: e.target.value })} /></label><label>Valor total<input required min="0" step="0.01" type="number" value={registro.valor_total} onChange={(e) => setRegistro({ ...registro, valor_total: e.target.value })} /></label></div><label>Horímetro<input required step="0.1" type="number" value={registro.horimetro} onChange={(e) => setRegistro({ ...registro, horimetro: e.target.value })} /></label><label>Documento<input value={registro.documento} onChange={(e) => setRegistro({ ...registro, documento: e.target.value })} /></label></>}
+          {tipoRegistro === "manutencao" && <><label>Descrição<input required value={registro.descricao} onChange={(e) => setRegistro({ ...registro, descricao: e.target.value })} /></label><label>Data prevista<input required type="date" value={registro.data_prevista} onChange={(e) => setRegistro({ ...registro, data_prevista: e.target.value })} /></label><label>Horímetro previsto<input step="0.1" type="number" value={registro.horimetro_previsto} onChange={(e) => setRegistro({ ...registro, horimetro_previsto: e.target.value })} /></label></>}
+          {tipoRegistro !== "manutencao" && <label>Data<input required type="date" value={registro.data} onChange={(e) => setRegistro({ ...registro, data: e.target.value })} /></label>}
+          <button disabled={salvando || carregando} type="submit">{salvando ? "Salvando..." : "Salvar registro"}</button>
+          </fieldset>
+        </form>
+        </PainelFormulario>
+  );
   return (
     <section className="modulo-maquinas">
       {carregando && <p className="card" role="status">Carregando frota e manutenções...</p>}
@@ -112,7 +130,8 @@ export default function MaquinasPage({ propriedades }: { propriedades: Proprieda
         <article className="card"><span>Ativas</span><strong>{maquinas.filter((item) => item.status === "ativa").length}</strong></article>
         <article className="card alerta-estoque"><span>Manutenções agendadas</span><strong>{manutencoes.filter((item) => item.status === "agendada").length}</strong></article>
       </section>
-      <section className="grade maquinas-grade">
+<AbasModulo modulo="maquinas" ativa={aba} alterar={setAba} desabilitado={salvando} abas={[{id:"frota",titulo:"Frota"},{id:"uso",titulo:"Uso e combustível"},{id:"manutencoes",titulo:"Manutenções"}]} /><PainelAba modulo="maquinas" aba="frota" ativa={aba}>
+
         <PainelFormulario titulo="Nova máquina">
         <form className="card formulario" onSubmit={salvarMaquina}>
           <fieldset className="campos-formulario" disabled={salvando || carregando}>
@@ -127,23 +146,15 @@ export default function MaquinasPage({ propriedades }: { propriedades: Proprieda
           </fieldset>
         </form>
         </PainelFormulario>
-        <PainelFormulario titulo="Registrar uso, combustível ou manutenção">
-        <form className="card formulario" onSubmit={salvarRegistro}>
-          <fieldset className="campos-formulario" disabled={salvando || carregando}>
-          <h2>Uso, combustível e manutenção</h2>
-          <label>Registro<select value={registro.tipo} onChange={(e) => setRegistro({ ...registro, tipo: e.target.value })}><option value="uso">Uso em operação</option><option value="abastecimento">Abastecimento</option><option value="manutencao">Agendar manutenção</option></select></label>
-          <label>Máquina<select required value={registro.maquina} onChange={(e) => setRegistro({ ...registro, maquina: e.target.value })}><option value="">Selecione</option>{maquinas.map((item) => <option key={item.id} value={item.id}>{item.identificacao} · {item.horimetro_atual} h</option>)}</select></label>
-          {registro.tipo === "uso" && <><label>Operação<select required value={registro.operacao} onChange={(e) => setRegistro({ ...registro, operacao: e.target.value })}><option value="">Selecione</option>{operacoes.map((item) => <option key={item.id} value={item.id}>{item.descricao}</option>)}</select></label><label>Operador<input value={registro.operador} onChange={(e) => setRegistro({ ...registro, operador: e.target.value })} /></label><div className="linha"><label>Horímetro inicial<input required step="0.1" type="number" value={registro.horimetro_inicial} onChange={(e) => setRegistro({ ...registro, horimetro_inicial: e.target.value })} /></label><label>Horímetro final<input required step="0.1" type="number" value={registro.horimetro_final} onChange={(e) => setRegistro({ ...registro, horimetro_final: e.target.value })} /></label></div></>}
-          {registro.tipo === "abastecimento" && <><div className="linha"><label>Litros<input required min="0.01" step="0.01" type="number" value={registro.litros} onChange={(e) => setRegistro({ ...registro, litros: e.target.value })} /></label><label>Valor total<input required min="0" step="0.01" type="number" value={registro.valor_total} onChange={(e) => setRegistro({ ...registro, valor_total: e.target.value })} /></label></div><label>Horímetro<input required step="0.1" type="number" value={registro.horimetro} onChange={(e) => setRegistro({ ...registro, horimetro: e.target.value })} /></label><label>Documento<input value={registro.documento} onChange={(e) => setRegistro({ ...registro, documento: e.target.value })} /></label></>}
-          {registro.tipo === "manutencao" && <><label>Descrição<input required value={registro.descricao} onChange={(e) => setRegistro({ ...registro, descricao: e.target.value })} /></label><label>Data prevista<input required type="date" value={registro.data_prevista} onChange={(e) => setRegistro({ ...registro, data_prevista: e.target.value })} /></label><label>Horímetro previsto<input step="0.1" type="number" value={registro.horimetro_previsto} onChange={(e) => setRegistro({ ...registro, horimetro_previsto: e.target.value })} /></label></>}
-          {registro.tipo !== "manutencao" && <label>Data<input required type="date" value={registro.data} onChange={(e) => setRegistro({ ...registro, data: e.target.value })} /></label>}
-          <button disabled={salvando || carregando} type="submit">{salvando ? "Salvando..." : "Salvar registro"}</button>
-          </fieldset>
-        </form>
-        </PainelFormulario>
-      </section>
+
+
       <section className="card"><h2>Frota e horímetros</h2>{!carregando && !maquinas.length && <p className="vazio">Nenhuma máquina cadastrada.</p>}<div className="lista">{maquinas.map((item) => <article className="item" key={item.id}><div><h3>{item.identificacao}</h3><p>{item.marca} {item.modelo} · {item.propriedade_nome || "Sem propriedade"} · {item.status}</p></div><strong>{item.horimetro_atual} h</strong></article>)}</div></section>
-      <section className="card"><h2>Manutenções</h2>{!carregando && !manutencoes.length && <p className="vazio">Nenhuma manutenção cadastrada.</p>}<div className="lista">{manutencoes.map((item) => <article className="item" key={item.id}><div><h3>{item.descricao}</h3><p>{item.maquina_nome} · prevista {formatarData(item.data_prevista)} · {item.status}</p></div>{item.status === "agendada" && <BotaoAcao acao="editar" disabled={salvando || carregando} type="button" onClick={() => void concluir(item)}>Concluir</BotaoAcao>}</article>)}</div></section>
-    </section>
+
+</PainelAba><PainelAba modulo="maquinas" aba="uso" ativa={aba}>
+{formularioRegistro(registro.tipo === "manutencao" ? "uso" : registro.tipo)}
+</PainelAba><PainelAba modulo="maquinas" aba="manutencoes" ativa={aba}>
+{formularioRegistro("manutencao")}      <section className="card"><h2>Manutenções</h2>{!carregando && !manutencoes.length && <p className="vazio">Nenhuma manutenção cadastrada.</p>}<div className="lista">{manutencoes.map((item) => <article className="item" key={item.id}><div><h3>{item.descricao}</h3><p>{item.maquina_nome} · prevista {formatarData(item.data_prevista)} · {item.status}</p></div>{item.status === "agendada" && <BotaoAcao acao="editar" disabled={salvando || carregando} type="button" onClick={() => void concluir(item)}>Concluir</BotaoAcao>}</article>)}</div></section>
+
+</PainelAba>    </section>
   );
 }

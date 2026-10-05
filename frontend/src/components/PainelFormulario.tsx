@@ -1,9 +1,9 @@
 import { useAcoes } from "./AcoesContext";
 import { ReactNode, useEffect, useRef, useState } from "react";
 
-export default function PainelFormulario({ titulo, edicao, children }: { titulo: string; edicao?: string | number | null; children: ReactNode }) {
+export default function PainelFormulario({ titulo, edicao, children, inicialmenteAberto = false }: { titulo: string; edicao?: string | number | null; children: ReactNode; inicialmenteAberto?: boolean }) {
   const pode = useAcoes();
-  const [aberto, setAberto] = useState(!!edicao);
+  const [aberto, setAberto] = useState(!!edicao || inicialmenteAberto);
   const painel = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
     if (!edicao) return;
