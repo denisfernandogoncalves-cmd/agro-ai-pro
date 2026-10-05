@@ -26,7 +26,26 @@ class TerceirosTests(CargaColhidaBase, APITestCase):
         self.client.force_authenticate(self.usuario)
 
     def entrada(self, peso="600.000", chave=None):
-        return self.client.post("/api/graos/terceiros/entradas/", {"depositante":"Produtor externo", "propriedade_origem":"Sítio de terceiro", "cad_pro":"0009", "cultura":"Milho", "safra":"2026", "armazem":self.armazem.pk, "peso_liquido_kg":peso, "data_entrada":"2026-10-05"}, format="json", HTTP_IDEMPOTENCY_KEY=chave or str(uuid4()))
+        return self.client.post("/api/graos/terceiros/entradas/", {"depositante":"Produtor externo", "propriedade_origem":"Sítio de terceiro", "cad_pro":"0009", "cultura":"Milho", "safra":"2026", "armazem":self.armazem.pk, "peso_bruto_kg":peso, "umidade_percentual":"14", "impureza_percentual":"0", "defeitos_percentual":"0", "data_entrada":"2026-10-05"}, format="json", HTTP_IDEMPOTENCY_KEY=chave or str(uuid4()))
+
+    def test_descontos_iguais_cargas_proprias_e_previa_sem_movimento(self):
+        from .cargas_services import calcular_peso_liquido
+        dados = {"cultura":"Milho", "peso_bruto_kg":"1000", "umidade_percentual":"20.5", "impureza_percentual":"2", "defeitos_percentual":"3", "ph":"70", "ph_minimo":"75", "desconto_ph_por_ponto":"0.1"}
+        esperado = calcular_peso_liquido(**dados)
+        previa = self.client.post("/api/graos/terceiros/previa/", dados, format="json")
+        self.assertEqual(previa.status_code, 200)
+        self.assertEqual(Decimal(previa.data["peso_liquido_kg"]), esperado[2])
+        self.assertEqual(EntradaProducaoTerceiro.objects.count(), 0)
+        resposta = self.client.post("/api/graos/terceiros/entradas/", {**dados, "depositante":"Nome apenas", "safra":"2026", "armazem":self.armazem.pk, "data_entrada":"2026-10-05", "peso_liquido_kg":"99999"}, format="json", HTTP_IDEMPOTENCY_KEY=str(uuid4()))
+        self.assertEqual(resposta.status_code, 201, resposta.data)
+        self.assertEqual(Decimal(resposta.data["peso_liquido_kg"]), esperado[2])
+        self.assertEqual(Decimal(resposta.data["saldo_kg"]), esperado[2])
+        self.assertEqual(resposta.data["regra_desconto_aplicada"]["metodo"], esperado[4]["metodo"])
+        self.assertEqual(Decimal(resposta.data["desconto_total_kg"]), esperado[1])
+        self.assertEqual(resposta.data["propriedade_origem"], "")
+        self.assertEqual(resposta.data["cad_pro"], "")
+        dados["umidade_percentual"] = "14.1"
+        self.assertEqual(self.client.post("/api/graos/terceiros/previa/", dados, format="json").status_code, 400)
 
     def saida(self, entrada, peso, chave=None):
         return self.client.post(f"/api/graos/terceiros/entradas/{entrada}/registrar-saida/", {"quantidade_kg":peso, "destino":"Depositante", "data_movimento":"2026-10-05"}, format="json", HTTP_IDEMPOTENCY_KEY=chave or str(uuid4()))

@@ -16,14 +16,46 @@ from apps.accounts.views import NoStoreResponseMixin
 from .models import ArmazemGraos, EntradaProducaoTerceiro, MovimentoProducaoTerceiro, normalizar_placa
 
 
+from .cargas_services import calcular_peso_liquido, CargaColhidaError
+
+
+class CalculoSerializer(serializers.Serializer):
+    cultura = serializers.CharField()
+    peso_bruto_kg = serializers.DecimalField(max_digits=16, decimal_places=3, min_value=Decimal("0.001"))
+    umidade_percentual = serializers.DecimalField(max_digits=6, decimal_places=3, min_value=0, max_value=100)
+    impureza_percentual = serializers.DecimalField(max_digits=6, decimal_places=3, min_value=0, max_value=100)
+    defeitos_percentual = serializers.DecimalField(max_digits=6, decimal_places=3, min_value=0, max_value=100)
+    ph = serializers.DecimalField(max_digits=6, decimal_places=3, min_value=0, max_value=100, required=False, allow_null=True)
+    tolerancia_impureza_percentual = serializers.DecimalField(max_digits=6, decimal_places=3, min_value=0, max_value=100, required=False)
+    desconto_impureza_por_ponto = serializers.DecimalField(max_digits=6, decimal_places=3, min_value=0, max_value=100, required=False)
+    tolerancia_defeitos_percentual = serializers.DecimalField(max_digits=6, decimal_places=3, min_value=0, max_value=100, required=False)
+    desconto_defeitos_por_ponto = serializers.DecimalField(max_digits=6, decimal_places=3, min_value=0, max_value=100, required=False)
+    ph_minimo = serializers.DecimalField(max_digits=6, decimal_places=3, min_value=0, max_value=100, required=False)
+    desconto_ph_por_ponto = serializers.DecimalField(max_digits=6, decimal_places=3, min_value=0, max_value=100, required=False)
+
+    def validate(self, dados):
+        try:
+            percentual, desconto, liquido, sacas, regra = calcular_peso_liquido(**dados)
+        except CargaColhidaError as exc:
+            raise serializers.ValidationError(str(exc)) from exc
+        return {**dados, "peso_liquido_kg": liquido, "desconto_total_percentual": percentual, "desconto_total_kg": desconto, "regra_desconto_aplicada": regra}
+
+
 class EntradaSerializer(serializers.ModelSerializer):
     armazem_nome = serializers.CharField(source="armazem.nome", read_only=True)
     movimentos = serializers.SerializerMethodField()
 
     class Meta:
         model = EntradaProducaoTerceiro
-        fields = ("id", "depositante", "propriedade_origem", "cad_pro", "cultura", "safra", "armazem", "armazem_nome", "peso_liquido_kg", "saldo_kg", "data_entrada", "placa", "motorista", "documento", "observacoes", "criado_em", "movimentos")
-        read_only_fields = ("saldo_kg", "criado_em")
+        fields = ("id", "depositante", "propriedade_origem", "cad_pro", "cultura", "safra", "armazem", "armazem_nome", "peso_liquido_kg", "saldo_kg", "data_entrada", "placa", "motorista", "documento", "observacoes", "criado_em", "movimentos", "peso_bruto_kg", "umidade_percentual", "impureza_percentual", "defeitos_percentual", "ph", "desconto_total_percentual", "desconto_total_kg", "regra_desconto_aplicada")
+        read_only_fields = ("saldo_kg", "criado_em", "peso_liquido_kg", "desconto_total_percentual", "desconto_total_kg", "regra_desconto_aplicada", "propriedade_origem", "cad_pro")
+
+    def validate(self, dados):
+        calculo = CalculoSerializer(data={k: self.initial_data[k] for k in CalculoSerializer().fields if k in self.initial_data})
+        calculo.is_valid(raise_exception=True)
+        calculados = calculo.validated_data
+        campos = {f.name for f in EntradaProducaoTerceiro._meta.fields}
+        return {**dados, **{k: v for k, v in calculados.items() if k in campos}}
 
     def validate_peso_liquido_kg(self, valor):
         if valor <= 0:
@@ -147,6 +179,11 @@ class TerceirosView(NoStoreResponseMixin, APIView):
         return Response(EntradaSerializer(itens, many=True).data)
 
     def post(self, request, pk=None):
+        if self.tipo == "previa":
+            self.verificar(request, "consultar")
+            calculo = CalculoSerializer(data=request.data)
+            calculo.is_valid(raise_exception=True)
+            return Response(calculo.validated_data)
         self.verificar(request, "excluir" if self.tipo == "estorno" else "cadastrar")
         classe = {"entrada": EntradaSerializer, "saida": SaidaSerializer, "estorno": EstornoSerializer}[self.tipo]
         serializer = classe(data=request.data)

@@ -5,6 +5,11 @@ import {renderToStaticMarkup} from "react-dom/server";
 import {createServer, transformWithOxc} from "vite";
 const servidor = await createServer({appType:"custom",configLoader:"runner",logLevel:"silent",server:{middlewareMode:true}});
 try {
+  const {liquidoPesagem,payloadPesagem}=await servidor.ssrLoadModule("/src/pages/Vendas/CamposPesagemVenda.tsx");
+  assert.equal(liquidoPesagem("35.000,500","5.000,250"),"30.000,25");
+  assert.equal(liquidoPesagem("100","0"),"100");
+  assert.equal(liquidoPesagem("100","100"),"");
+  assert.deepEqual(payloadPesagem({peso_bruto_kg:"1.000",tara_kg:"0",umidade_percentual:"20,5",avariados_percentual:"0",quebrados_percentual:"",ph:null}),{peso_bruto_kg:"1000",tara_kg:"0",umidade_percentual:"20.5",avariados_percentual:"0"});
   const {formatarNumero,formatarPercentual}=await servidor.ssrLoadModule("/src/utils/numeros.ts");
   assert.equal(formatarNumero("15000.500"),"15.000,5");assert.equal(formatarNumero(null),"—");assert.equal(formatarPercentual("3.715"),"3,715%");assert.equal(formatarPercentual("14.00"),"14%");
   const {expiracaoToken,sessaoPrecisaRenovar}=await servidor.ssrLoadModule("/src/auth/expiracao.ts");

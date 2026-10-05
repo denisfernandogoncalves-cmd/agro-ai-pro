@@ -210,3 +210,10 @@ Cargas, vendas e transferências recebem filtros por período, totais ativos, or
 **Status:** aplicado e validado localmente em 05/10/2026 nos limites documentados.
 
 Romaneio por saída de venda e recebimentos/retiradas de terceiros separados do ledger próprio e das médias das propriedades. Estoque físico/capacidade incluem terceiros; painel distingue saldos. Migration graos0015 aditiva aplicada após backup com restauração verificada. Suíte PostgreSQL 560 casos (555 aprovados, 5 skips), 105 direcionados, frontend/TypeScript/build e migrations consistentes. Conferência autenticada de formulários/romaneio; persistência de terceiros testada em banco isolado. Impressão nativa/download final não confirmados. Referência: docs/decisoes/2026-10-05-romaneio-terceiros.md.
+
+
+## Incremento — Descontos de terceiros e pesagem de vendas
+
+**Status:** implementado e validado localmente em 05/10/2026.
+
+Terceiros identificados pelo nome, com descontos iguais às cargas próprias e prévia sem movimentação; estoque separado e médias preservadas. Vendas com bruto, tara e líquido calculado, qualidade apenas informativa no romaneio e rascunho. Filtros recolhíveis e formulários responsivos. Migrations graos0016 e vendas0009 aditivas aplicadas após backups restaurados em isolamento. Suíte PostgreSQL 563 casos (558 aprovados e 5 skips), mais 21 de ajustes finais; frontend/test/TypeScript/build aprovados. Detalhes em docs/decisoes/2026-10-05-romaneio-terceiros.md.

@@ -98,6 +98,8 @@ def registrar_particular(*, usuario, chave_idempotencia, dados):
     snapshot = previa_particular(contexto=contexto, quantidade_kg=dados["quantidade_kg"])
     if dados.get("hash_previa") != snapshot["hash_previa"]:
         raise VendaGraosConflitoError("O rateio mudou. Confira a prévia atualizada e registre novamente.")
+    tara_distribuida = Decimal("0")
+    parcelas_positivas = [p for p in snapshot["parcelas"] if Decimal(p["quantidade_kg"]) > 0]
     for parcela in snapshot["parcelas"]:
         if Decimal(parcela["quantidade_kg"]) == 0:
             continue
@@ -111,6 +113,12 @@ def registrar_particular(*, usuario, chave_idempotencia, dados):
             "contexto_particular", "hash_previa", "posicao", "nova_posicao",
         )}
         campos.update(posicao=posicao, quantidade_kg=parcela["quantidade_kg"])
+        if dados.get("peso_bruto_kg") is not None:
+            tara = (dados["tara_kg"] * Decimal(parcela["quantidade_kg"]) / dados["quantidade_kg"]).quantize(Decimal("0.001"), rounding=ROUND_DOWN)
+            if parcela is parcelas_positivas[-1]:
+                tara = dados["tara_kg"] - tara_distribuida
+            tara_distribuida += tara
+            campos.update(tara_kg=tara, peso_bruto_kg=Decimal(parcela["quantidade_kg"]) + tara)
         venda = registrar_venda_com_saida(
             usuario=usuario, chave_idempotencia=f"particular:{grupo.pk}:{vinculo.propriedade_id}", dados=campos,
         )

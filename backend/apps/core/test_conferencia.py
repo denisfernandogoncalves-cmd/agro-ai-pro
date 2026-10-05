@@ -60,7 +60,7 @@ class ConferenciaTests(GraosSaldoBase, APITestCase):
         self.assertEqual(self.client.post("/api/core/conferencia/movimentos/1/estornar/",{},format="json").status_code,403)
     def test_rascunhos_privados_e_whitelist(self):
         url="/api/core/rascunhos/vendas/"
-        dados={"formulario":{"quantidade_kg":"50","cliente_nome":"Particular"},"novaSaida":{"nota_produtor":"123"}}
+        dados={"formulario":{"quantidade_kg":"50","cliente_nome":"Particular"},"novaSaida":{"nota_produtor":"123","peso_bruto_kg":"100","tara_kg":"50","umidade_percentual":"20","avariados_percentual":"3","quebrados_percentual":"4","ph":"72"}}
         self.assertEqual(self.client.put(url,{"dados":dados},format="json").status_code,200)
         u=get_user_model().objects.create_user("outra-conta",is_staff=True);self.client.force_authenticate(u)
         self.assertIsNone(self.client.get(url).data["dados"])

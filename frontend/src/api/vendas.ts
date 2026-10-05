@@ -5,7 +5,16 @@ import { ArmazemGraos, CADPro } from "./cargasColhidas";
 
 export type StatusVenda = "rascunho" | "confirmada" | "parcial" | "entregue" | "cancelada";
 
-export type MovimentoVenda = {
+export type DadosPesagemVenda = {
+  peso_bruto_kg?: string | null;
+  tara_kg?: string | null;
+  umidade_percentual?: string | null;
+  avariados_percentual?: string | null;
+  quebrados_percentual?: string | null;
+  ph?: string | null;
+};
+
+export type MovimentoVenda = DadosPesagemVenda & {
   id: number;
   cancelado_em: string | null;
   observacoes: string;
@@ -21,7 +30,7 @@ export type MovimentoVenda = {
   movimentacao_id: number;
 };
 
-export type DadosEntrega = {
+export type DadosEntrega = DadosPesagemVenda & {
   quantidade_kg: string;
   data_movimento: string;
   destino: string;

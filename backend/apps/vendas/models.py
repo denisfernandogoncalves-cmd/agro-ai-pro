@@ -180,6 +180,12 @@ class EntregaVendaGraos(models.Model):
     venda = models.ForeignKey(
         VendaGraos, on_delete=models.PROTECT, related_name="entregas"
     )
+    peso_bruto_kg = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
+    tara_kg = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
+    umidade_percentual = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
+    avariados_percentual = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
+    quebrados_percentual = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
+    ph = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
     quantidade_kg = models.DecimalField(max_digits=16, decimal_places=3)
     data_entrega = models.DateField(default=timezone.localdate)
     referencia_externa = models.CharField(max_length=120, blank=True)

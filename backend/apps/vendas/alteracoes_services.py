@@ -188,8 +188,10 @@ def alterar_movimento(*, usuario, venda, movimento_id, natureza, excluir,
     if not excluir:
         campos = ("referencia_externa", "observacoes")
         if natureza == "entrega":
-            campos += ("destino", "placa", "motorista", "nota_produtor", "nota_empresa")
+            campos += ("destino", "placa", "motorista", "nota_produtor", "nota_empresa", "peso_bruto_kg", "tara_kg", "umidade_percentual", "avariados_percentual", "quebrados_percentual", "ph")
         novos = {campo: dados.get(campo, getattr(item, campo)) for campo in campos}
+        if natureza == "entrega" and novos.get("peso_bruto_kg") is not None and (novos.get("tara_kg") is None or novos["peso_bruto_kg"] - novos["tara_kg"] != quantidade_nova):
+            raise VendaGraosError("Confira peso bruto e tara para a nova quantidade líquida.")
         campo_data = "data_entrega" if natureza == "entrega" else "data_devolucao"
         data = dados.get("data_movimento", getattr(item, campo_data))
         if natureza == "entrega":

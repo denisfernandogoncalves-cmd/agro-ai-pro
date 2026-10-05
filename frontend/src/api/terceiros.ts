@@ -1,8 +1,9 @@
 import { api } from "./propriedades";
 
 export type MovimentoTerceiro = {id:number;tipo:"entrada"|"saida"|"estorno";quantidade_kg:string;saldo_anterior_kg:string;saldo_posterior_kg:string;data_movimento:string;destino:string;placa:string;motorista:string;documento:string;observacoes:string;estornado:boolean;criado_por_nome:string};
-export type EntradaTerceiro = {id:number;depositante:string;propriedade_origem:string;cad_pro:string;cultura:string;safra:string;armazem:number;armazem_nome:string;peso_liquido_kg:string;saldo_kg:string;data_entrada:string;placa:string;motorista:string;documento:string;observacoes:string;movimentos:MovimentoTerceiro[]};
-export type NovaEntradaTerceiro = Omit<EntradaTerceiro,"id"|"armazem_nome"|"saldo_kg"|"movimentos">;
+export type EntradaTerceiro = {id:number;depositante:string;propriedade_origem:string;cad_pro:string;cultura:string;safra:string;armazem:number;armazem_nome:string;peso_bruto_kg:string|null;umidade_percentual:string|null;impureza_percentual:string|null;defeitos_percentual:string|null;ph:string|null;desconto_total_percentual:string|null;desconto_total_kg:string|null;peso_liquido_kg:string;saldo_kg:string;data_entrada:string;placa:string;motorista:string;documento:string;observacoes:string;movimentos:MovimentoTerceiro[]};
+export type NovaEntradaTerceiro = Omit<EntradaTerceiro,"id"|"armazem_nome"|"saldo_kg"|"movimentos"|"propriedade_origem"|"cad_pro"|"peso_liquido_kg"|"desconto_total_percentual"|"desconto_total_kg"|"peso_bruto_kg"|"umidade_percentual"|"impureza_percentual"|"defeitos_percentual"|"ph"> & {peso_bruto_kg:string;umidade_percentual:string;impureza_percentual:string;defeitos_percentual:string;ph:string|null;ph_minimo:string;desconto_ph_por_ponto:string};
+export async function previaTerceiro(dados:Record<string,unknown>){return (await api.post<{peso_liquido_kg:string;desconto_total_percentual:string;desconto_total_kg:string}>("/graos/terceiros/previa/",dados)).data;}
 export type SaidaTerceiro = {quantidade_kg:string;data_movimento:string;destino:string;documento:string;placa:string;motorista:string;observacoes:string};
 const headers=(chave:string)=>({headers:{"Idempotency-Key":chave}});
 export async function listarTerceiros(){return (await api.get<EntradaTerceiro[]>("/graos/terceiros/entradas/")).data;}

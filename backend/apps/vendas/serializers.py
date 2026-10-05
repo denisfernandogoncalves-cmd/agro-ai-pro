@@ -90,7 +90,27 @@ class MovimentoVendaSerializer(serializers.Serializer):
     observacoes = serializers.CharField(required=False, allow_blank=True)
 
 
+def validar_pesagem_venda(attrs):
+    bruto, tara = attrs.get("peso_bruto_kg"), attrs.get("tara_kg")
+    if bruto is not None or tara is not None:
+        if bruto is None or tara is None:
+            raise serializers.ValidationError("Informe peso bruto e tara juntos.")
+        if bruto <= tara:
+            raise serializers.ValidationError("Peso bruto deve ser maior que a tara.")
+        attrs["quantidade_kg"] = bruto - tara
+    return attrs
+
+
 class EntregaMovimentoVendaSerializer(MovimentoVendaSerializer):
+    peso_bruto_kg = serializers.DecimalField(max_digits=16, decimal_places=3, min_value=0, required=False, allow_null=True)
+    tara_kg = serializers.DecimalField(max_digits=16, decimal_places=3, min_value=0, required=False, allow_null=True)
+    umidade_percentual = serializers.DecimalField(max_digits=16, decimal_places=3, min_value=0, max_value=100, required=False, allow_null=True)
+    avariados_percentual = serializers.DecimalField(max_digits=16, decimal_places=3, min_value=0, max_value=100, required=False, allow_null=True)
+    quebrados_percentual = serializers.DecimalField(max_digits=16, decimal_places=3, min_value=0, max_value=100, required=False, allow_null=True)
+    ph = serializers.DecimalField(max_digits=16, decimal_places=3, min_value=0, max_value=100, required=False, allow_null=True)
+    def validate(self, attrs):
+        return validar_pesagem_venda(super().validate(attrs))
+
     destino = serializers.CharField(max_length=160, required=False, allow_blank=True)
     placa = serializers.CharField(max_length=12, required=False, allow_blank=True)
     motorista = serializers.CharField(max_length=160, required=False, allow_blank=True)
@@ -119,6 +139,7 @@ class SaidaVendaSerializer(VendaGraosCriacaoSerializer, EntregaMovimentoVendaSer
     hash_previa = serializers.CharField(max_length=64, min_length=64, required=False)
 
     def validate(self, attrs):
+        attrs = validar_pesagem_venda(attrs)
         particular = attrs.get("destino", "").strip().upper() == "PARTICULAR"
         if particular:
             if not attrs.get("contexto_particular") or not attrs.get("hash_previa"):
@@ -140,6 +161,7 @@ class EntregaVendaSerializer(serializers.ModelSerializer):
             "id", "quantidade_kg", "data_entrega", "referencia_externa",
             "destino", "placa", "motorista", "nota_produtor", "nota_empresa",
             "observacoes", "movimentacao_id", "criado_em", "cancelado_em",
+            "peso_bruto_kg", "tara_kg", "umidade_percentual", "avariados_percentual", "quebrados_percentual", "ph",
         )
 
 

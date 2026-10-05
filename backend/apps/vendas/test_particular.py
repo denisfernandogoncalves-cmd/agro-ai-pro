@@ -48,6 +48,16 @@ class ParticularTests(ParticularMixin, APITestCase):
     def setUp(self):
         self.preparar()
 
+    def test_pesagem_particular_conserva_totais_sem_descontar_qualidade(self):
+        from .models import EntregaVendaGraos
+        resposta = self.enviar({**self.dados, "peso_bruto_kg":"50.001", "tara_kg":"0.001", "umidade_percentual":"20", "avariados_percentual":"5", "quebrados_percentual":"2", "ph":"70"})
+        self.assertEqual(resposta.status_code, 201, resposta.data)
+        entregas = list(EntregaVendaGraos.objects.all())
+        self.assertEqual(sum(e.quantidade_kg for e in entregas), Decimal("50"))
+        self.assertEqual(sum(e.peso_bruto_kg for e in entregas), Decimal("50.001"))
+        self.assertEqual(sum(e.tara_kg for e in entregas), Decimal("0.001"))
+        self.assertTrue(all(e.tara_kg >= 0 and e.peso_bruto_kg - e.tara_kg == e.quantidade_kg and e.umidade_percentual == Decimal("20") for e in entregas))
+
     def test_previa_mostra_saldos_antes_e_depois_sem_baixa(self):
         movimentos=MovimentacaoGraos.objects.count()
         previa=self.client.post(self.previa_url,self.dados,format="json")

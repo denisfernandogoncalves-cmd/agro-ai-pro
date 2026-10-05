@@ -9,7 +9,7 @@ from apps.accounts.views import NoStoreResponseMixin
 from .models import RascunhoFormulario
 
 CAMPOS = {
- "vendas": {"formulario": {"contrato","numero_contrato","cliente_nome","posicao","quantidade_kg","data_contrato","data_limite_entrega","observacoes"},"novaSaida":{"quantidade_kg","data_movimento","destino","placa","motorista","nota_produtor","nota_empresa","observacoes"},"novaPosicao":{"propriedade","cad_pro","cultura","safra","classificacao_codigo","armazem"},"tipoLancamento":None,"origemSelecionada":None},
+ "vendas": {"formulario": {"contrato","numero_contrato","cliente_nome","posicao","quantidade_kg","data_contrato","data_limite_entrega","observacoes"},"novaSaida":{"quantidade_kg","data_movimento","destino","placa","motorista","nota_produtor","nota_empresa","observacoes","peso_bruto_kg","tara_kg","umidade_percentual","avariados_percentual","quebrados_percentual","ph"},"novaPosicao":{"propriedade","cad_pro","cultura","safra","classificacao_codigo","armazem"},"tipoLancamento":None,"origemSelecionada":None},
  "producao-saldos": {"credito":{"lote","quantidade_kg","data_movimento","referencia_externa","observacoes"}},
 }
 
