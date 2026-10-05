@@ -217,3 +217,10 @@ Romaneio por saída de venda e recebimentos/retiradas de terceiros separados do 
 **Status:** implementado e validado localmente em 05/10/2026.
 
 Terceiros identificados pelo nome, com descontos iguais às cargas próprias e prévia sem movimentação; estoque separado e médias preservadas. Vendas com bruto, tara e líquido calculado, qualidade apenas informativa no romaneio e rascunho. Filtros recolhíveis e formulários responsivos. Migrations graos0016 e vendas0009 aditivas aplicadas após backups restaurados em isolamento. Suíte PostgreSQL 563 casos (558 aprovados e 5 skips), mais 21 de ajustes finais; frontend/test/TypeScript/build aprovados. Detalhes em docs/decisoes/2026-10-05-romaneio-terceiros.md.
+
+
+## Incremento — Edição de terceiros, PH por cultura e duas vias
+
+**Status:** `[x]` — aplicado e validado localmente em 05/10/2026 nos limites documentados.
+
+Nova venda no início; edição/exclusão por estorno de terceiros com motivo, versão, permissões e snapshots; PH somente trigo. Migration graos0017 aplicada, suíte PostgreSQL com 567 casos (562 aprovados, 5 skips), frontend/TypeScript/build aprovados. Entradas próprias/compartilhadas/terceiros e vendas imprimem duas vias na mesma folha A4, com fonte adaptável e bloqueio de transbordamento. Dados completos e escape HTML testados; conferência DOM/visual, sem impressão física. Backups restaurados em isolamento, sem modificar registros reais nos testes. Detalhes: docs/decisoes/2026-10-05-terceiros-edicao-ph.md e docs/decisoes/2026-10-05-impressao-duas-vias.md.

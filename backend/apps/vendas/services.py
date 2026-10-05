@@ -309,6 +309,8 @@ def registrar_entrega_venda(
         "nota_produtor": str(nota_produtor or "").strip(),
         "nota_empresa": str(nota_empresa or "").strip(),
     }
+    if venda.posicao.cultura.lower() != "trigo":
+        ph = None
     pesagem = {"peso_bruto_kg": peso_bruto_kg, "tara_kg": tara_kg, "umidade_percentual": umidade_percentual, "avariados_percentual": avariados_percentual, "quebrados_percentual": quebrados_percentual, "ph": ph}
     if peso_bruto_kg is not None or tara_kg is not None:
         if peso_bruto_kg is None or tara_kg is None or Decimal(str(tara_kg)) < 0 or Decimal(str(peso_bruto_kg)) - Decimal(str(tara_kg)) != quantidade:

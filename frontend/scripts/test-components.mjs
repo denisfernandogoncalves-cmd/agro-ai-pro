@@ -1218,6 +1218,19 @@ try {
   const {PreviaRateioParticular} = await servidor.ssrLoadModule("/src/pages/Vendas/VendasPage.tsx");
   const htmlPreviaSaldo = renderToStaticMarkup(React.createElement(PreviaRateioParticular,{previa:{quantidade_total_kg:"50",parcelas:[{propriedade:1,propriedade_nome:"Electra",cad_pro_codigo:"1",area_hectares:"174.24",quantidade_kg:"50",saldo_anterior_kg:"100",saldo_posterior_kg:"50"}]}}));
   assert.match(htmlPreviaSaldo,/Saldo antes/);assert.match(htmlPreviaSaldo,/Saldo depois/);assert.match(htmlPreviaSaldo,/100,000/);
+  const {htmlComprovante,FolhaDuasVias} = await servidor.ssrLoadModule("/src/components/ComprovanteLancamento.tsx");
+  for(const titulo of ["Carga #1","Carga compartilhada #2","Entrada de terceiros #3","Romaneio de saída #4"]){
+    const dados={titulo,campos:[["Peso líquido","1.000 kg"],["Observações","<script>alert('x')</script> & observação "+"Texto completo. ".repeat(260)]]};
+    for(const html of [htmlComprovante(dados,true,10),renderToStaticMarkup(React.createElement(FolhaDuasVias,{dados}))]){
+      assert.equal((html.match(/Via do arquivo/g)||[]).length,1);
+      assert.equal((html.match(/Via do cliente/g)||[]).length,1);
+      assert.equal((html.match(/1.000 kg/g)||[]).length,2);
+      assert.equal((html.match(/Texto completo\./g)||[]).length,520);
+      assert.doesNotMatch(html,/<script>/);
+      assert.match(html,/&lt;script&gt;/);
+    }
+    assert.match(htmlComprovante(dados,true,10),/size:A4 portrait;margin:10mm/);
+  }
   console.log("Testes de componentes, submissão, geometria, PWA, impressão financeira e agrupamento por fornecedor aprovados.");
 } finally {
   await servidor.close();

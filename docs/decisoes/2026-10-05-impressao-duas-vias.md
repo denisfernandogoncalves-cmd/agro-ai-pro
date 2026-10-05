@@ -1,0 +1,11 @@
+# Duas vias na mesma folha A4
+
+05/10/2026. Comprovantes individuais de cargas próprias, compartilhadas/rateadas, entradas de terceiros e romaneios de venda imprimem Via do arquivo e Via do cliente, com os mesmos dados, na mesma e única folha A4. Separação tracejada para corte. Não duplica movimentos ou altera estoque/médias. Relatórios gerais de várias cargas e comprovantes de transferência preservam seu formato.
+
+Componente ComprovanteLancamento recebe duasVias nesses documentos. Folha de 190 × 276 mm, margens de 10 mm, duas vias de 133 mm e separação de 10 mm. Campos curtos em duas colunas; observações/rateios em largura inteira. Fonte adapta de 12 a 9,5 px. A prévia mede transbordamento vertical/horizontal antes de imprimir ou baixar; HTML recebe o tamanho validado. Conteúdo excepcional que ainda não caiba é bloqueado com aviso para revisão, sem ocultar dados nem gerar outra folha. Configurações manuais da impressora podem substituir o A4/margens da aplicação.
+
+Arquivos: frontend/src/components/ComprovanteLancamento.tsx, frontend/src/styles.css, páginas CargasColhidas/ProducaoTerceiros/RomaneioVenda e frontend/scripts/test-components.mjs. Testes frontend aprovados: duplicação completa de dados/observações longas, escape HTML e identificação das vias nos quatro tipos. TypeScript/Vite e Docker aprovados. Verificação DOM de dimensões/transbordamento com observações de aproximadamente 4.000 caracteres e oito propriedades fictícias em carga compartilhada; conferência autenticada de carga existente sem modificar registros. Impressão física e contagem de páginas em PDF nativo não confirmadas; limites A4 foram medidos no navegador.
+
+Backups privados com código/banco/uploads, SHA256/CRC e restauração PostgreSQL isolada aprovados: backups/agro-ai-pro-2026-10-05-124152-448093 e backups/agro-ai-pro-2026-10-05-124658-711850. Novo backup antes da atualização final. Comandos npm --prefix frontend test; npm --prefix frontend run build; docker compose -p agro-ai-pro build frontend; up com FRONTEND_PORT=5174; git diff --check. Ajustes anteriores:567 testes PostgreSQL (562 aprovados, 5 skips), sem mudança backend adicional para impressão.
+
+Branch codex/melhorias-gestao-transferencias-20261003, PR29. Commit/push autorizados, sem merge/produção. Automação única removida porque usuário solicitou execução imediata.

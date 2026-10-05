@@ -252,13 +252,13 @@ export function CartaoCargaColhida({ item, carregando, onEditar, onExcluir }: {
         <span>Umidade <strong>{formatarPercentual(item.umidade_percentual)}</strong></span>
         <span>Impureza <strong>{formatarPercentual(item.impureza_percentual)}</strong></span>
         <span>Avariados <strong>{formatarPercentual(item.defeitos_percentual)}</strong></span>
-        {item.ph && <span>PH <strong>{formatarPercentual(item.ph).slice(0,-1)}</strong></span>}
+        {item.cultura.toLowerCase()==="trigo" && item.ph && <span>PH <strong>{formatarPercentual(item.ph).slice(0,-1)}</strong></span>}
         {item.destinado_semente && <span>Semente</span>}
         <span>Movimento principal #{item.movimentacao}</span>
         {item.substituida_por && <span>Substituída pela carga #{item.substituida_por}</span>}
       </div>{item.observacoes&&<p>{item.observacoes}</p>}</details>
       <AnexosLancamento entidade="carga" registro={item.id} />
-      <ComprovanteLancamento dados={{titulo:`Carga #${item.id}`,campos:[["Situação",item.status],["Data",dataPlanilhaCarga(item.data_colheita)],["Propriedades / CAD/PRO",produtores.map(p=>`${p.nome} / ${p.cadpro}: ${formatar(p.peso)} kg`).join("; ")],["Produto / safra",`${item.cultura} / ${item.safra}`],["Armazenagem",item.armazem_nome],["Placa / motorista",`${item.placa||"Sem placa"} / ${item.motorista||"—"}`],["Bruto",`${formatar(numero(item.peso_bruto_kg))} kg`],["Desconto",formatarPercentual(item.desconto_total_percentual)],["Líquido",`${formatar(numero(item.peso_liquido_kg))} kg`],["Sacas",formatar(numero(item.sacas_60kg))],["Umidade / impureza / avariados",`${formatarPercentual(item.umidade_percentual)} / ${formatarPercentual(item.impureza_percentual)} / ${formatarPercentual(item.defeitos_percentual)}`],["Movimento",String(item.movimentacao)],["Observações",item.observacoes||"—"],["Motivo de cancelamento",item.motivo_cancelamento||"—"]]}}/>
+      <ComprovanteLancamento duasVias dados={{titulo:`Carga #${item.id}`,campos:[["Situação",item.status],["Data",dataPlanilhaCarga(item.data_colheita)],["Propriedades / CAD/PRO",produtores.map(p=>`${p.nome} / ${p.cadpro}: ${formatar(p.peso)} kg`).join("; ")],["Produto / safra",`${item.cultura} / ${item.safra}`],["Armazenagem",item.armazem_nome],["Placa / motorista",`${item.placa||"Sem placa"} / ${item.motorista||"—"}`],["Bruto",`${formatar(numero(item.peso_bruto_kg))} kg`],["Desconto",formatarPercentual(item.desconto_total_percentual)],["Líquido",`${formatar(numero(item.peso_liquido_kg))} kg`],["Sacas",formatar(numero(item.sacas_60kg))],["Umidade / impureza / avariados",`${formatarPercentual(item.umidade_percentual)} / ${formatarPercentual(item.impureza_percentual)} / ${formatarPercentual(item.defeitos_percentual)}`],["Movimento",String(item.movimentacao)],["Observações",item.observacoes||"—"],["Motivo de cancelamento",item.motivo_cancelamento||"—"]]}}/>
       {item.status !== "ativa" && item.motivo_cancelamento && <small>Motivo: {item.motivo_cancelamento}</small>}
       {item.status === "ativa" && <div className="acoes carga-item-acoes"><BotaoAcao acao="editar" disabled={carregando} className="secundario" type="button" onClick={() => onEditar(item)}>Editar</BotaoAcao><BotaoAcao acao="excluir" disabled={carregando} className="perigo" type="button" onClick={() => onExcluir(item)}>Excluir</BotaoAcao></div>}
     </article>
@@ -306,7 +306,7 @@ export function resumoCalculado(carga: CargaColhidaInput) {
       - numero(carga.tolerancia_defeitos_percentual),
   ) * numero(carga.desconto_defeitos_por_ponto);
   const phMedido = carga.ph === "" ? numero(carga.ph_minimo) : numero(carga.ph);
-  const descontoPh = Math.max(
+  const descontoPh = carga.cultura.toLowerCase() !== "trigo" ? 0 : Math.max(
     0,
     numero(carga.ph_minimo) - phMedido,
   ) * numero(carga.desconto_ph_por_ponto);
@@ -666,7 +666,7 @@ export default function CargasColhidasPage({ propriedades }: Props) {
             <label>Avariados (%)<input required min="0" max="100" step="0.01" type="number" value={carga.defeitos_percentual} onChange={(e) => setCarga({ ...carga, defeitos_percentual: e.target.value })} /></label>
           </div>
           <div className="linha">
-            <label>PH<input required={numero(carga.desconto_ph_por_ponto) > 0} min="0" max="100" step="0.01" type="number" value={carga.ph} onChange={(e) => setCarga({ ...carga, ph: e.target.value })} /></label>
+            {carga.cultura.toLowerCase()==="trigo"&&<label>PH<input required={numero(carga.desconto_ph_por_ponto) > 0} min="0" max="100" step="0.01" type="number" value={carga.ph} onChange={(e) => setCarga({ ...carga, ph: e.target.value })} /></label>}
             <label className="opcao-checkbox"><input type="checkbox" checked={carga.destinado_semente} onChange={(e) => setCarga({ ...carga, destinado_semente: e.target.checked })} /> Destinada a semente</label>
           </div>
           <details className="configuracao-descontos">
@@ -675,7 +675,7 @@ export default function CargasColhidasPage({ propriedades }: Props) {
             <div className="regras-desconto">
               <fieldset><legend>Impureza</legend><label>Tolerância (%)<input min="0" max="100" step="0.01" type="number" value={carga.tolerancia_impureza_percentual ?? ""} onChange={(e) => setCarga({ ...carga, tolerancia_impureza_percentual: e.target.value })} /></label><label>Desconto/ponto (%)<input min="0" max="100" step="0.001" type="number" value={carga.desconto_impureza_por_ponto ?? ""} onChange={(e) => setCarga({ ...carga, desconto_impureza_por_ponto: e.target.value })} /></label></fieldset>
               <fieldset><legend>Avariados</legend><label>Tolerância (%)<input min="0" max="100" step="0.01" type="number" value={carga.tolerancia_defeitos_percentual ?? ""} onChange={(e) => setCarga({ ...carga, tolerancia_defeitos_percentual: e.target.value })} /></label><label>Desconto/ponto (%)<input min="0" max="100" step="0.001" type="number" value={carga.desconto_defeitos_por_ponto ?? ""} onChange={(e) => setCarga({ ...carga, desconto_defeitos_por_ponto: e.target.value })} /></label></fieldset>
-              <fieldset><legend>PH</legend><label>PH mínimo<input min="0" max="100" step="0.01" type="number" value={carga.ph_minimo ?? ""} onChange={(e) => setCarga({ ...carga, ph_minimo: e.target.value })} /></label><label>Desconto/ponto abaixo (%)<input min="0" max="100" step="0.001" type="number" value={carga.desconto_ph_por_ponto ?? ""} onChange={(e) => setCarga({ ...carga, desconto_ph_por_ponto: e.target.value })} /></label></fieldset>
+              {carga.cultura.toLowerCase()==="trigo"&&<fieldset><legend>PH</legend><label>PH mínimo<input min="0" max="100" step="0.01" type="number" value={carga.ph_minimo ?? ""} onChange={(e) => setCarga({ ...carga, ph_minimo: e.target.value })} /></label><label>Desconto/ponto abaixo (%)<input min="0" max="100" step="0.001" type="number" value={carga.desconto_ph_por_ponto ?? ""} onChange={(e) => setCarga({ ...carga, desconto_ph_por_ponto: e.target.value })} /></label></fieldset>}
             </div>
           </details>
           <label>Observações<textarea value={carga.observacoes} onChange={(e) => setCarga({ ...carga, observacoes: e.target.value })} /></label>

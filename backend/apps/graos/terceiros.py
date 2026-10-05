@@ -34,6 +34,8 @@ class CalculoSerializer(serializers.Serializer):
     desconto_ph_por_ponto = serializers.DecimalField(max_digits=6, decimal_places=3, min_value=0, max_value=100, required=False)
 
     def validate(self, dados):
+        if dados["cultura"].lower() != "trigo":
+            dados.update(ph=None, ph_minimo=Decimal("0"), desconto_ph_por_ponto=Decimal("0"))
         try:
             percentual, desconto, liquido, sacas, regra = calcular_peso_liquido(**dados)
         except CargaColhidaError as exc:
@@ -47,15 +49,24 @@ class EntradaSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = EntradaProducaoTerceiro
-        fields = ("id", "depositante", "propriedade_origem", "cad_pro", "cultura", "safra", "armazem", "armazem_nome", "peso_liquido_kg", "saldo_kg", "data_entrada", "placa", "motorista", "documento", "observacoes", "criado_em", "movimentos", "peso_bruto_kg", "umidade_percentual", "impureza_percentual", "defeitos_percentual", "ph", "desconto_total_percentual", "desconto_total_kg", "regra_desconto_aplicada")
-        read_only_fields = ("saldo_kg", "criado_em", "peso_liquido_kg", "desconto_total_percentual", "desconto_total_kg", "regra_desconto_aplicada", "propriedade_origem", "cad_pro")
+        fields = ("id", "versao", "depositante", "propriedade_origem", "cad_pro", "cultura", "safra", "armazem", "armazem_nome", "peso_liquido_kg", "saldo_kg", "data_entrada", "placa", "motorista", "documento", "observacoes", "criado_em", "movimentos", "peso_bruto_kg", "umidade_percentual", "impureza_percentual", "defeitos_percentual", "ph", "desconto_total_percentual", "desconto_total_kg", "regra_desconto_aplicada")
+        read_only_fields = ("versao", "saldo_kg", "criado_em", "peso_liquido_kg", "desconto_total_percentual", "desconto_total_kg", "regra_desconto_aplicada", "propriedade_origem", "cad_pro")
 
     def validate(self, dados):
-        calculo = CalculoSerializer(data={k: self.initial_data[k] for k in CalculoSerializer().fields if k in self.initial_data})
+        dados_calculo = {k: self.initial_data[k] for k in CalculoSerializer().fields if k in self.initial_data}
+        if self.instance:
+            parcelas = self.instance.regra_desconto_aplicada.get("parcelas", {})
+            for campo, parcela, chave in (("tolerancia_impureza_percentual","impureza","tolerancia_percentual"),("desconto_impureza_por_ponto","impureza","desconto_por_ponto"),("tolerancia_defeitos_percentual","defeitos","tolerancia_percentual"),("desconto_defeitos_por_ponto","defeitos","desconto_por_ponto"),("ph_minimo","ph","minimo"),("desconto_ph_por_ponto","ph","desconto_por_ponto")):
+                if campo not in dados_calculo and parcelas.get(parcela, {}).get(chave) is not None:
+                    dados_calculo[campo] = parcelas[parcela][chave]
+        calculo = CalculoSerializer(data=dados_calculo)
         calculo.is_valid(raise_exception=True)
         calculados = calculo.validated_data
         campos = {f.name for f in EntradaProducaoTerceiro._meta.fields}
-        return {**dados, **{k: v for k, v in calculados.items() if k in campos}}
+        resultado = {**dados, **{k: v for k, v in calculados.items() if k in campos}}
+        if resultado.get("cultura", "").lower() != "trigo":
+            resultado["ph"] = None
+        return resultado
 
     def validate_peso_liquido_kg(self, valor):
         if valor <= 0:
@@ -67,6 +78,15 @@ class EntradaSerializer(serializers.ModelSerializer):
 
     def get_movimentos(self, obj):
         return MovimentoSerializer(obj.movimentos.all(), many=True).data
+
+
+class EdicaoEntradaSerializer(EntradaSerializer):
+    versao = serializers.IntegerField(min_value=1)
+    motivo = serializers.CharField(max_length=500)
+
+    class Meta(EntradaSerializer.Meta):
+        fields = EntradaSerializer.Meta.fields + ("motivo",)
+        read_only_fields = tuple(c for c in EntradaSerializer.Meta.read_only_fields if c != "versao")
 
 
 class MovimentoSerializer(serializers.ModelSerializer):
@@ -92,6 +112,7 @@ class SaidaSerializer(serializers.Serializer):
 
 
 class EstornoSerializer(serializers.Serializer):
+    versao = serializers.IntegerField(min_value=1, required=False)
     motivo = serializers.CharField(max_length=500)
     data_movimento = serializers.DateField()
 
@@ -114,7 +135,7 @@ def executar_terceiro(*, usuario, tipo, dados, chave, pk=None):
         return anterior.entrada, True
     if tipo == "entrada":
         armazem_id = dados["armazem"].pk
-    elif tipo == "saida":
+    elif tipo in ("saida", "edicao"):
         armazem_id = get_object_or_404(EntradaProducaoTerceiro, pk=pk).armazem_id
     else:
         armazem_id = get_object_or_404(MovimentoProducaoTerceiro, pk=pk).entrada.armazem_id
@@ -134,15 +155,35 @@ def executar_terceiro(*, usuario, tipo, dados, chave, pk=None):
                 original = get_object_or_404(MovimentoProducaoTerceiro, pk=pk) if tipo == "estorno" else None
                 entrada_id = original.entrada_id if original else pk
                 entrada = EntradaProducaoTerceiro.objects.select_for_update().get(pk=entrada_id)
-                if tipo == "saida":
+                if tipo == "edicao":
+                    if entrada.versao != dados["versao"]:
+                        raise serializers.ValidationError("Esta entrada mudou. Atualize a consulta antes de editar.")
+                    if entrada.movimentos.filter(tipo="entrada", estorno__isnull=False).exists():
+                        raise serializers.ValidationError("Esta entrada foi excluída; consulte o histórico.")
+                    if dados["armazem"].pk != entrada.armazem_id:
+                        raise serializers.ValidationError("Para mudar o armazém, exclua a entrada e registre novamente.")
+                    retirado = entrada.peso_liquido_kg - entrada.saldo_kg
+                    if dados["peso_liquido_kg"] < retirado:
+                        raise serializers.ValidationError("O novo peso líquido não pode ser menor que a quantidade já retirada.")
+                    if retirado > 0 and (dados["cultura"] != entrada.cultura or dados["safra"] != entrada.safra):
+                        raise serializers.ValidationError("Estorne as retiradas antes de alterar cultura ou safra.")
+                    snapshot_antes = json.loads(json.dumps({k:v for k,v in EntradaSerializer(entrada).data.items() if k != "movimentos"}, default=str))
+                    delta = dados["peso_liquido_kg"] - entrada.peso_liquido_kg
+                    for campo, valor in dados.items():
+                        if campo not in ("versao", "motivo"):
+                            setattr(entrada, campo, valor)
+                    movimento_dados = {"data_movimento": entrada.data_entrada, "observacoes": dados["motivo"], "snapshot_antes": snapshot_antes}
+                elif tipo == "saida":
                     if entrada.movimentos.filter(tipo="entrada", estorno__isnull=False).exists():
                         raise serializers.ValidationError("Esta entrada foi estornada.")
                     delta = -dados["quantidade_kg"]
                     movimento_dados = {k: v for k, v in dados.items() if k != "quantidade_kg"}
                 else:
-                    if original.tipo == "estorno" or hasattr(original, "estorno"):
+                    if original.tipo in ("estorno", "edicao") or hasattr(original, "estorno"):
                         raise serializers.ValidationError("Este movimento já foi estornado ou é um estorno.")
-                    delta = -original.delta_kg
+                    if original.tipo == "entrada" and "versao" in dados and entrada.versao != dados["versao"]:
+                        raise serializers.ValidationError("Esta entrada mudou. Atualize antes de excluir.")
+                    delta = -entrada.peso_liquido_kg if original.tipo == "entrada" else -original.delta_kg
                     movimento_dados = {"data_movimento": dados["data_movimento"], "observacoes": dados["motivo"], "estorno_de": original}
             saldo_anterior = entrada.saldo_kg
             saldo_novo = saldo_anterior + delta
@@ -153,8 +194,12 @@ def executar_terceiro(*, usuario, tipo, dados, chave, pk=None):
                 if _ocupacao_armazem_bloqueada(armazem.pk) + delta > armazem.capacidade_kg:
                     raise serializers.ValidationError("Capacidade do armazém insuficiente para esta entrada.")
             entrada.saldo_kg = saldo_novo
+            if tipo != "entrada":
+                entrada.versao += 1
             entrada.save()
-            MovimentoProducaoTerceiro.objects.create(entrada=entrada, tipo=tipo, quantidade_kg=abs(delta), delta_kg=delta, saldo_anterior_kg=saldo_anterior, saldo_posterior_kg=saldo_novo, chave_idempotencia=chave, hash_requisicao=digest, criado_por=usuario, **movimento_dados)
+            if tipo == "edicao":
+                movimento_dados["snapshot_depois"] = json.loads(json.dumps({k:v for k,v in EntradaSerializer(entrada).data.items() if k != "movimentos"}, default=str))
+            MovimentoProducaoTerceiro.objects.create(entrada=entrada, tipo=tipo, quantidade_kg=entrada.peso_liquido_kg if tipo == "edicao" else abs(delta), delta_kg=delta, saldo_anterior_kg=saldo_anterior, saldo_posterior_kg=saldo_novo, chave_idempotencia=chave, hash_requisicao=digest, criado_por=usuario, **movimento_dados)
             return entrada, False
     except IntegrityError:
         anterior = repetido()
@@ -190,3 +235,25 @@ class TerceirosView(NoStoreResponseMixin, APIView):
         serializer.is_valid(raise_exception=True)
         entrada, repetida = executar_terceiro(usuario=request.user, tipo=self.tipo, dados=serializer.validated_data, chave=request.headers.get("Idempotency-Key", ""), pk=pk)
         return Response(EntradaSerializer(entrada).data, status=200 if repetida else 201)
+
+
+    def patch(self, request, pk=None):
+        if self.tipo != "entrada" or pk is None:
+            return Response(status=405)
+        self.verificar(request, "editar")
+        entrada = get_object_or_404(EntradaProducaoTerceiro, pk=pk)
+        serializer = EdicaoEntradaSerializer(instance=entrada, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        salvo, _ = executar_terceiro(usuario=request.user, tipo="edicao", dados=serializer.validated_data, chave=request.headers.get("Idempotency-Key", ""), pk=pk)
+        return Response(EntradaSerializer(salvo).data)
+
+    def delete(self, request, pk=None):
+        if self.tipo != "entrada" or pk is None:
+            return Response(status=405)
+        self.verificar(request, "excluir")
+        entrada = get_object_or_404(EntradaProducaoTerceiro, pk=pk)
+        original = get_object_or_404(MovimentoProducaoTerceiro, entrada=entrada, tipo="entrada")
+        serializer = EstornoSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        salvo, _ = executar_terceiro(usuario=request.user, tipo="estorno", dados=serializer.validated_data, chave=request.headers.get("Idempotency-Key", ""), pk=original.pk)
+        return Response(EntradaSerializer(salvo).data)

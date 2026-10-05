@@ -20,7 +20,7 @@ export function dadosRomaneioVenda(venda: VendaGraos, saida: MovimentoVenda): Da
       ["Nota da empresa", saida.nota_empresa || "—"],
       ["Peso bruto", saida.peso_bruto_kg==null?"Não informado":`${formatarNumero(saida.peso_bruto_kg)} kg`],
       ["Tara", saida.tara_kg==null?"Não informada":`${formatarNumero(saida.tara_kg)} kg`],
-      ["Qualidade (apenas informativa)", `Umidade ${saida.umidade_percentual??"—"}% · Avariados ${saida.avariados_percentual??"—"}% · Quebrados ${saida.quebrados_percentual??"—"}% · PH ${saida.ph??"—"}`],
+      ["Qualidade (apenas informativa)", `Umidade ${saida.umidade_percentual??"—"}% · Avariados ${saida.avariados_percentual??"—"}% · Quebrados ${saida.quebrados_percentual??"—"}%${venda.cultura.toLowerCase()==="trigo"?` · PH ${saida.ph??"—"}`:""}`],
       ["Peso líquido", `${formatarNumero(saida.quantidade_kg)} kg`],
       ["Sacas de 60 kg", formatarNumero(Number(saida.quantidade_kg) / 60)],
       ["Movimento", String(saida.movimentacao_id)],
@@ -35,7 +35,7 @@ export default function RomaneiosVenda({ venda }: { venda: VendaGraos }) {
     <h4>Romaneios de saída</h4>
     {venda.entregas.length ? venda.entregas.map(saida => <div className="acoes" key={saida.id}>
       <span>Saída #{saida.id} · {formatarNumero(saida.quantidade_kg)} kg{saida.cancelado_em ? " · Cancelada" : ""}</span>
-      <ComprovanteLancamento dados={dadosRomaneioVenda(venda, saida)} rotulo="Imprimir romaneio" tipoDocumento="romaneio" />
+      <ComprovanteLancamento duasVias dados={dadosRomaneioVenda(venda, saida)} rotulo="Imprimir romaneio" tipoDocumento="romaneio" />
     </div>) : <p>O romaneio estará disponível após registrar uma saída de grãos.</p>}
   </section>;
 }

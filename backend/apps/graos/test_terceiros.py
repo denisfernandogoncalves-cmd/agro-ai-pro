@@ -47,6 +47,48 @@ class TerceirosTests(CargaColhidaBase, APITestCase):
         dados["umidade_percentual"] = "14.1"
         self.assertEqual(self.client.post("/api/graos/terceiros/previa/", dados, format="json").status_code, 400)
 
+    def test_editar_excluir_preserva_historico_e_saldos(self):
+        entrada = self.entrada().data
+        retirada = self.saida(entrada["id"], "100").data
+        url = f"/api/graos/terceiros/entradas/{entrada['id']}/"
+        dados = {"depositante":"Nome corrigido", "cultura":"Milho", "safra":"2026", "armazem":self.armazem.pk, "peso_bruto_kg":"700", "umidade_percentual":"14", "impureza_percentual":"0", "defeitos_percentual":"0", "data_entrada":"2026-10-05", "versao":retirada["versao"], "motivo":"Conferência da pesagem"}
+        chave = str(uuid4())
+        editada = self.client.patch(url, dados, format="json", HTTP_IDEMPOTENCY_KEY=chave)
+        self.assertEqual(editada.status_code,200,editada.data)
+        self.assertEqual(Decimal(editada.data["saldo_kg"]),Decimal("600"))
+        self.assertEqual(Decimal(editada.data["peso_liquido_kg"]),Decimal("700"))
+        edicao = MovimentoProducaoTerceiro.objects.get(tipo="edicao")
+        self.assertEqual(edicao.snapshot_antes["depositante"],"Produtor externo")
+        self.assertEqual(edicao.snapshot_depois["depositante"],"Nome corrigido")
+        self.assertEqual(self.client.patch(url,dados,format="json",HTTP_IDEMPOTENCY_KEY=chave).status_code,200)
+        self.assertEqual(MovimentoProducaoTerceiro.objects.filter(tipo="edicao").count(),1)
+        self.assertEqual(self.client.patch(url,dados,format="json",HTTP_IDEMPOTENCY_KEY=str(uuid4())).status_code,400)
+        invalidos={**dados,"versao":editada.data["versao"],"peso_bruto_kg":"50"}
+        self.assertEqual(self.client.patch(url,invalidos,format="json",HTTP_IDEMPOTENCY_KEY=str(uuid4())).status_code,400)
+        self.assertEqual(self.client.delete(url,{"motivo":"Excluir","data_movimento":"2026-10-05","versao":editada.data["versao"]},format="json",HTTP_IDEMPOTENCY_KEY=str(uuid4())).status_code,400)
+        movimento_saida = next(m for m in retirada["movimentos"] if m["tipo"]=="saida")
+        restaurada=self.estornar(movimento_saida["id"])
+        self.assertEqual(restaurada.status_code,201,restaurada.data)
+        excluida=self.client.delete(url,{"motivo":"Entrada incorreta","data_movimento":"2026-10-05","versao":restaurada.data["versao"]},format="json",HTTP_IDEMPOTENCY_KEY=str(uuid4()))
+        self.assertEqual(excluida.status_code,200,excluida.data)
+        self.assertEqual(Decimal(excluida.data["saldo_kg"]),Decimal("0"))
+        self.assertEqual(EntradaProducaoTerceiro.objects.count(),1)
+        self.assertEqual(sum(m.delta_kg for m in MovimentoProducaoTerceiro.objects.all()),Decimal("0"))
+        self.assertEqual(self.client.patch(url,{**dados,"versao":excluida.data["versao"]},format="json",HTTP_IDEMPOTENCY_KEY=str(uuid4())).status_code,400)
+
+    def test_edicao_metadados_delta_zero_e_permissao(self):
+        entrada=self.entrada().data
+        url=f"/api/graos/terceiros/entradas/{entrada['id']}/"
+        dados={"depositante":"Corrigido", "cultura":"Milho", "safra":"2026", "armazem":self.armazem.pk, "peso_bruto_kg":"600", "umidade_percentual":"14", "impureza_percentual":"0", "defeitos_percentual":"0", "data_entrada":"2026-10-05", "versao":entrada["versao"], "motivo":"Corrigir nome"}
+        r=self.client.patch(url,dados,format="json",HTTP_IDEMPOTENCY_KEY=str(uuid4()))
+        self.assertEqual(r.status_code,200,r.data)
+        self.assertEqual(MovimentoProducaoTerceiro.objects.get(tipo="edicao").delta_kg,Decimal("0"))
+        usuario=get_user_model().objects.create_user("sem-editar-terceiros")
+        AcessoUsuario.objects.create(usuario=usuario,modulos=["cargas"],permissoes={"cargas":["consultar","cadastrar"]})
+        self.client.force_authenticate(usuario)
+        self.assertEqual(self.client.patch(url,{**dados,"versao":r.data["versao"]},format="json",HTTP_IDEMPOTENCY_KEY=str(uuid4())).status_code,403)
+        self.assertEqual(self.client.delete(url,{"motivo":"Excluir","data_movimento":"2026-10-05"},format="json",HTTP_IDEMPOTENCY_KEY=str(uuid4())).status_code,403)
+
     def saida(self, entrada, peso, chave=None):
         return self.client.post(f"/api/graos/terceiros/entradas/{entrada}/registrar-saida/", {"quantidade_kg":peso, "destino":"Depositante", "data_movimento":"2026-10-05"}, format="json", HTTP_IDEMPOTENCY_KEY=chave or str(uuid4()))
 

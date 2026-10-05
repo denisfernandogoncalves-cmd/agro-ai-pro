@@ -183,6 +183,12 @@ def calcular_peso_liquido(
             "desconto_percentual": str(desconto),
         }
 
+    # PH se aplica somente ao trigo; medições antigas permanecem nos registros.
+    if cultura.lower() != "trigo":
+        ph = None
+        ph_minimo = Decimal("0")
+        desconto_ph_por_ponto = Decimal("0")
+
     taxa_ph = desconto_ph_por_ponto
     if ph in (None, ""):
         if taxa_ph > 0:
@@ -645,6 +651,8 @@ def registrar_carga_colhida(
         cadpros_por_propriedade=cadpros_por_propriedade,
     )
     contexto_colheita.update(cultura=cultura, safra=safra)
+    if cultura.lower() != "trigo":
+        ph = None
 
     placa_normalizada = normalizar_placa(placa)
     motorista_normalizado = " ".join(str(motorista or "").strip().split())

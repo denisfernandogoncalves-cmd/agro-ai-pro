@@ -16,6 +16,7 @@ ZERO = Decimal("0.000")
 
 class EntradaProducaoTerceiro(models.Model):
     """Depósito independente, sem vínculo com a produção das propriedades."""
+    versao = models.PositiveIntegerField(default=1)
     depositante = models.CharField(max_length=160)
     propriedade_origem = models.CharField(max_length=160, blank=True)
     cad_pro = models.CharField(max_length=80, blank=True)
@@ -61,7 +62,7 @@ class MovimentoProducaoTerceiroQuerySet(models.QuerySet):
 
 class MovimentoProducaoTerceiro(models.Model):
     entrada = models.ForeignKey(EntradaProducaoTerceiro, on_delete=models.PROTECT, related_name="movimentos")
-    tipo = models.CharField(max_length=8, choices=(("entrada", "Entrada"), ("saida", "Saída"), ("estorno", "Estorno")))
+    tipo = models.CharField(max_length=8, choices=(("entrada", "Entrada"), ("saida", "Saída"), ("estorno", "Estorno"), ("edicao", "Edição")))
     quantidade_kg = models.DecimalField(max_digits=16, decimal_places=3)
     delta_kg = models.DecimalField(max_digits=16, decimal_places=3)
     saldo_anterior_kg = models.DecimalField(max_digits=16, decimal_places=3)
@@ -72,6 +73,8 @@ class MovimentoProducaoTerceiro(models.Model):
     placa = models.CharField(max_length=7, blank=True)
     motorista = models.CharField(max_length=120, blank=True)
     observacoes = models.TextField(blank=True)
+    snapshot_antes = models.JSONField(default=dict, blank=True)
+    snapshot_depois = models.JSONField(default=dict, blank=True)
     estorno_de = models.OneToOneField("self", null=True, blank=True, on_delete=models.PROTECT, related_name="estorno")
     chave_idempotencia = models.CharField(max_length=160, unique=True)
     hash_requisicao = models.CharField(max_length=64)
