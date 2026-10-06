@@ -28,7 +28,9 @@ O romaneio de saída mantém duas vias completas em uma página A4. A primeira v
 - O tema das telas passa a usar letras pretas, superfícies brancas, bordas cinza e foco visível de alto contraste. Os estilos de impressão existentes são preservados.
 - Validação desta continuação: 83 testes do app Vendas passaram em SQLite isolado (9 skips por exigirem PostgreSQL real); quatro testes específicos dos downloads passaram, incluindo A4/uma página, `.xlsx` ajustado a uma página, fórmulas por kg e saca e permissão de imprimir; `makemigrations --check --dry-run` sem mudanças; `npm test`, `tsc --noEmit` e build Vite passaram.
 - Uma execução do banco PostgreSQL de testes persistente não foi usada como evidência: falhou por duplicidade de usuário de execuções anteriores. O banco não foi apagado nem limpo. O build padrão com `tsc -b` também encontrou bloqueio de escrita no `tsconfig.tsbuildinfo` preexistente; os comandos equivalentes sem arquivo incremental (`tsc --noEmit` e Vite build) passaram.
-- A sessão autenticada do navegador não está disponível nesta retomada, portanto não houve conferência visual autenticada. A compilação e os testes DOM foram concluídos.
+- Backup validado antes de atualizar os serviços locais: `backups/agro-ai-pro-2026-10-05-223851-206768`; relatório de restauração isolada: `verificacao-restauracao-20261005-223859-690962.json`.
+- Após a atualização, frontend `127.0.0.1:5174` e API `/api/health/` responderam com sucesso; o painel autenticado carregou no navegador. Não foram abertos romaneios nem baixados documentos de registros reais; os endpoints PDF/Excel foram exercitados em fixtures isoladas.
+- Commit enviado à branch da PR #29; CI frontend e backend concluíram com sucesso. A descrição da PR foi preservada, sem merge ou publicação em produção.
 
 - Backup verificado antes da migration: `backups/agro-ai-pro-2026-10-05-175703-223245`.
 - Relatório de restauração isolada: `verificacao-restauracao-20261005-175713-586650.json`; SHA256/CRC e PostgreSQL isolado aprovados.
