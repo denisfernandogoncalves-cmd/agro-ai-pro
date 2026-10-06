@@ -11,10 +11,26 @@ ZERO = Decimal("0.000")
 
 
 class ContratoComercial(models.Model):
+    class UnidadePreco(models.TextChoices):
+        KG = "kg", "kg"
+        SACA = "sc", "saca"
+
     numero = models.CharField(max_length=80)
     empresa = models.CharField(max_length=160)
     quantidade_kg = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True, validators=[MinValueValidator(Decimal("0.001"))])
     produto = models.CharField(max_length=80, blank=True)
+    preco_venda = models.DecimalField(
+        max_digits=16,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0.01"))],
+    )
+    unidade_preco = models.CharField(
+        max_length=2,
+        choices=UnidadePreco.choices,
+        default=UnidadePreco.KG,
+    )
     ativo = models.BooleanField(default=True)
     criado_em = models.DateTimeField(auto_now_add=True)
 

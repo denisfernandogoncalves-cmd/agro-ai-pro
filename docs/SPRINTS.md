@@ -250,3 +250,11 @@ Refinamento adicional dos impressos: estilos internos isolados do diálogo, grad
 - [x] Testes frontend, TypeScript/Vite no Docker, backup verificado e validação visual responsiva aprovados. Impressão física/PDF nativo não realizada; duas vias A4 preservadas no DOM.
 
 Referência: docs/decisoes/2026-10-05-abas-modulos.md. Sem alteração de dados, backend ou migrations.
+
+### Incremento — preço negociado e modelo do romaneio de venda (05/10/2026)
+
+**Status:** `[x]` — implementado e validado localmente.
+
+Cadastros agrícolas agora aceitam preço opcional por kg ou saca de 60 kg. O total negociado é calculado pela quantidade líquida da saída: peso em kg × preço/kg, ou peso ÷ 60 × preço/saca; ele aparece somente na segunda via do romaneio, destinada ao arquivo. A primeira via permanece destinada ao cliente. O romaneio passou a usar a grade de conferência solicitada: Peso bruto, Tara e Peso líquido, com Sacas/60 no bloco de pesagem e qualidade na lateral; classificação padrão e nota da empresa foram removidas. Migration `vendas.0010` aditiva aplicada após backup verificado. Backend de vendas, frontend, TypeScript/Vite e testes de duas vias aprovados; detalhes em `docs/decisoes/2026-10-05-preco-romaneio.md`.
+
+Continuação: romaneios individuais podem ser baixados em PDF ou Excel (`.xlsx`) com duas vias, PDF A4 de uma página e total restrito ao arquivo; tema da interface passou para texto preto em fundo branco. Os 83 testes de vendas (9 skips), quatro testes específicos de download, frontend, TypeScript sem incremental, build Vite e consistência de migrations passaram. Conferência visual autenticada pendente; a base persistente de testes PostgreSQL apresentou usuário duplicado e foi preservada. Detalhes em `docs/decisoes/2026-10-05-preco-romaneio.md`.

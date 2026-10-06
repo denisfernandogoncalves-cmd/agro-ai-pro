@@ -78,7 +78,7 @@ def pode(user, modulo, acao="consultar"):
 def acao_da_requisicao(path, method):
     recurso = path.rstrip("/")
     if method in {"GET", "HEAD", "OPTIONS"}:
-        return "imprimir" if recurso.endswith(("/pdf", "/imprimir", "/exportar")) else "consultar"
+        return "imprimir" if recurso.endswith(("/pdf", "/excel", "/imprimir", "/exportar")) else "consultar"
     if method == "DELETE" or recurso.endswith(("/cancelar", "/excluir", "/estornar")):
         return "excluir"
     if method in {"PATCH", "PUT"}:

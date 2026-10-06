@@ -12,10 +12,21 @@ from .models import ContratoComercial, DevolucaoVendaGraos, EntregaVendaGraos, V
 class ContratoComercialSerializer(serializers.ModelSerializer):
     quantidade_kg = serializers.DecimalField(max_digits=16, decimal_places=3, min_value=Decimal("0.001"))
     produto = serializers.CharField(max_length=80, allow_blank=False)
+    preco_venda = serializers.DecimalField(
+        max_digits=16,
+        decimal_places=2,
+        min_value=Decimal("0.01"),
+        required=False,
+        allow_null=True,
+    )
+    unidade_preco = serializers.ChoiceField(
+        choices=ContratoComercial.UnidadePreco.choices,
+        required=False,
+    )
 
     class Meta:
         model = ContratoComercial
-        fields = ("id", "numero", "empresa", "quantidade_kg", "produto", "ativo")
+        fields = ("id", "numero", "empresa", "quantidade_kg", "produto", "preco_venda", "unidade_preco", "ativo")
 
 
 class NovaPosicaoVendaSerializer(serializers.Serializer):
@@ -188,6 +199,13 @@ class VendaGraosSerializer(serializers.ModelSerializer):
     classificacao_codigo = serializers.CharField(
         source="posicao.classificacao_codigo", read_only=True
     )
+    contrato_preco_venda = serializers.DecimalField(
+        source="contrato.preco_venda", max_digits=16, decimal_places=2,
+        read_only=True, allow_null=True,
+    )
+    contrato_unidade_preco = serializers.CharField(
+        source="contrato.unidade_preco", read_only=True, allow_null=True,
+    )
     armazem = serializers.IntegerField(
         source="posicao.armazem_id", read_only=True
     )
@@ -230,6 +248,7 @@ class VendaGraosSerializer(serializers.ModelSerializer):
             "lote_operacional", "lote_operacional_codigo",
             "origem_fisica_alocada", "cad_pro", "cad_pro_codigo", "cultura",
             "safra", "classificacao_codigo", "armazem", "armazem_nome",
+            "contrato_preco_venda", "contrato_unidade_preco",
             "propriedade", "propriedade_nome", "quantidade_kg",
             "quantidade_reservada_kg", "quantidade_entregue_kg",
             "quantidade_devolvida_kg", "quantidade_cancelada_kg",

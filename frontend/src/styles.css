@@ -63,6 +63,11 @@ dialog.confirmacao-compacta, dialog.editor-venda.confirmacao-compacta { width: m
 .acao-com-aviso { display: inline-flex; flex-direction: column; align-items: flex-start; gap: .35rem; max-width: 100%; }
 .acao-com-aviso small { max-width: 32rem; color: var(--cor-suave); font-weight: 400; }
 .filtros-rapidos { display: grid; gap: .6rem; min-width: 0; }
+.filtros-rapidos-dropdown { display: block; border: 1px solid var(--cor-borda); border-radius: 10px; padding: .7rem .9rem; background: #f7faf8; }
+.filtros-rapidos-dropdown > summary { display: flex; align-items: center; justify-content: space-between; gap: .75rem; min-height: 34px; cursor: pointer; font-weight: 700; color: #345445; list-style-position: inside; }
+.filtros-rapidos-dropdown > summary small { color: var(--cor-suave); font-weight: 400; text-align: right; }
+.filtros-rapidos-dropdown[open] > summary { margin-bottom: .8rem; }
+.filtros-rapidos-conteudo { display: grid; gap: .6rem; }
 .filtros-rapidos-campos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .65rem; }
 .filtros-rapidos button { justify-self: start; }
 .filtros-rapidos p { margin: 0; overflow-wrap: anywhere; }
@@ -72,6 +77,7 @@ dialog.confirmacao-compacta, dialog.editor-venda.confirmacao-compacta { width: m
 .previa-edicao { display: grid; gap: .5rem; }
 .previa-edicao h4 { margin: 0; }
 @media (max-width: 540px) { .filtros-rapidos-campos { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 540px) { .filtros-rapidos-dropdown > summary { align-items: flex-start; flex-direction: column; gap: .2rem; } .filtros-rapidos-dropdown > summary small { text-align: left; } }
 
 /* Grupos ficam no fluxo da página, sem cobrir os registros ao rolar. */
 .grupos-colheita { display: grid; gap: 1rem; min-width: 0; }
@@ -1066,4 +1072,33 @@ dialog.editor-venda::backdrop { background: #102f2480; }
 
 @media screen {
   .modulo-cadastros-agricolas .auxiliares-grade { grid-template-columns:minmax(0,1fr); }
+}
+
+/* Tema de alto contraste solicitado: texto preto sobre superfícies brancas. */
+@media screen {
+  :root {
+    color-scheme: light;
+    --cor-texto: #000;
+    --cor-suave: #111;
+    --cor-borda: #888;
+    --cor-superficie: #fff;
+    --cor-fundo: #fff;
+    --cor-principal: #000;
+    --cor-principal-escura: #000;
+    --cor-foco: #000;
+  }
+
+  body,
+  body * {
+    color: #000 !important;
+    background-color: #fff !important;
+    background-image: none !important;
+    border-color: #888 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  body { accent-color: #000; }
+  body :focus-visible { outline: 3px solid #000 !important; outline-offset: 2px; }
+  body ::placeholder { color: #333 !important; opacity: 1; }
 }

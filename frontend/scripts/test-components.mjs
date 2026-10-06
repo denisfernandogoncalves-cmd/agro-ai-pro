@@ -1233,6 +1233,25 @@ try {
     }
     assert.match(htmlComprovante(dados,true,10),/size:A4 portrait;margin:10mm/);
   }
+  const dadosComValorArquivo={titulo:"Romaneio de saída #6",modelo:"romaneio",campos:[["Data da saída","05/10/2026"],["Destino / comprador","Comprador"],["Contrato","CTR-6"],["Cultura / safra","Milho / 2026"],["Propriedade / CAD/PRO","Electra / 1"],["Armazenagem","Silo"],["Nota do produtor","111"],["Motorista","Motorista"],["Placa","ABC1D23"],["Referência","—"],["Observações","—"],["Peso bruto","4.080 kg"],["Tara","3.230 kg"],["Peso líquido","850 kg"],["Qualidade","Umidade 14% · Avariados 1%"],["Sacas de 60 kg","14,17"]],camposViaArquivo:[["Valor negociado","R$ 1.020,00"]]};
+  for(const html of [htmlComprovante(dadosComValorArquivo,true,10),renderToStaticMarkup(React.createElement(FolhaDuasVias,{dados:dadosComValorArquivo}))]){
+    assert.ok(html.indexOf("Via do cliente") < html.indexOf("Via do arquivo"));
+    assert.equal((html.match(/<section class="via-comprovante romaneio-modelo">/g)||[]).length,2);
+    assert.equal((html.match(/R\$ 1\.020,00/g)||[]).length,1);
+    assert.match(html,/ROMANEIO #6/); assert.match(html,/Sacas\/60/); assert.match(html,/<strong>Umidade<\/strong><span>14%<\/span>/);
+    assert.doesNotMatch(html,/Nota da empresa/);
+  }
+  const {dadosRomaneioVenda} = await servidor.ssrLoadModule("/src/pages/Vendas/RomaneioVenda.tsx");
+  const vendaRomaneio = {id:50,excluida_em:null,numero_contrato:"CTR-1",cliente_nome:"Comprador",contrato_preco_venda:"1.20",contrato_unidade_preco:"kg",propriedade_nome:"Electra",cad_pro_codigo:"1",cultura:"Milho",safra:"2026",armazem_nome:"Silo",observacoes:"",entregas:[],classificacao_codigo:"PADRAO"};
+  const saidaRomaneio = {id:48,cancelado_em:null,data_entrega:"2026-10-05",destino:"Comprador",placa:"ABC1D23",motorista:"Motorista",nota_produtor:"111",nota_empresa:"222",peso_bruto_kg:"4080",tara_kg:"3230",quantidade_kg:"850",umidade_percentual:"14",avariados_percentual:"1",quebrados_percentual:"1",ph:null,movimentacao_id:178,referencia_externa:"",observacoes:""};
+  const romaneio = dadosRomaneioVenda(vendaRomaneio,saidaRomaneio);
+  const nomesRomaneio = romaneio.campos.map(([nome]) => nome);
+  assert.equal(romaneio.modelo,"romaneio");
+  assert.deepEqual(nomesRomaneio.filter(nome => ["Peso bruto","Tara","Peso líquido","Qualidade","Sacas de 60 kg"].includes(nome)), ["Peso bruto","Tara","Peso líquido","Qualidade","Sacas de 60 kg"]);
+  assert.ok(!nomesRomaneio.includes("Classificação")); assert.ok(!nomesRomaneio.includes("Nota da empresa"));
+  assert.deepEqual(romaneio.camposViaArquivo, [["Valor negociado","R$ 1.020,00"]]);
+  const romaneioPorSaca = dadosRomaneioVenda({...vendaRomaneio, contrato_preco_venda:"120.00", contrato_unidade_preco:"sc"},{...saidaRomaneio,id:49,movimentacao_id:179});
+  assert.deepEqual(romaneioPorSaca.camposViaArquivo, [["Valor negociado","R$ 1.700,00"]]);
   console.log("Testes de componentes, submissão, geometria, PWA, impressão financeira e agrupamento por fornecedor aprovados.");
 } finally {
   await servidor.close();

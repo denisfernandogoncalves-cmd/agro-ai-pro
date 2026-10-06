@@ -60,6 +60,8 @@ export type VendaGraos = {
   cultura: string;
   safra: string;
   classificacao_codigo: string;
+  contrato_preco_venda: string | null;
+  contrato_unidade_preco: "kg" | "sc" | null;
   armazem_nome: string;
   propriedade: number | null;
   propriedade_nome: string | null;

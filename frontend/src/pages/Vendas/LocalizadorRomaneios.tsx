@@ -62,10 +62,10 @@ export default function LocalizadorRomaneios({ revisao }: { revisao: VendaGraos[
         <div className="romaneio-linha">
           <div className="romaneio-numero"><strong>#{saida.id}</strong><span>{saida.data_entrega?.slice(0, 10).split("-").reverse().join("/") || "Sem data"}</span></div>
           <div className="romaneio-comprador"><strong>{saida.destino || venda.cliente_nome || "Comprador não informado"}</strong><span>{saida.placa || "Sem placa"} · {formatarNumero(saida.quantidade_kg)} kg</span></div>
-          <ComprovanteLancamento duasVias dados={dadosRomaneioVenda(venda, saida)} rotulo={`Imprimir #${saida.id}`} tipoDocumento="romaneio"/>
+          <ComprovanteLancamento duasVias dados={dadosRomaneioVenda(venda, saida)} rotulo={`Imprimir #${saida.id}`} tipoDocumento="romaneio" downloadRomaneio={{vendaId:venda.id,saidaId:saida.id}}/>
         </div>
         {(venda.excluida_em || saida.cancelado_em) && <strong className="romaneio-historico">Cancelado/excluído — histórico</strong>}
-        <details className="romaneio-dados"><summary>Detalhes do romaneio #{saida.id}</summary><p>Venda #{venda.id} · {venda.propriedade_nome || "Sem propriedade"} · CAD/PRO {venda.cad_pro_codigo} · {venda.cultura} {venda.safra}</p><p>Motorista: {saida.motorista || "Não informado"} · Nota produtor: {saida.nota_produtor || "—"} · Nota empresa: {saida.nota_empresa || "—"}</p></details>
+        <details className="romaneio-dados"><summary>Detalhes do romaneio #{saida.id}</summary><p>Venda #{venda.id} · {venda.propriedade_nome || "Sem propriedade"} · CAD/PRO {venda.cad_pro_codigo} · {venda.cultura} {venda.safra}</p><p>Motorista: {saida.motorista || "Não informado"} · Nota produtor: {saida.nota_produtor || "—"}</p></details>
       </article>)}</div>
       {!resultados.length && <p>Nenhum romaneio encontrado. Confira a busca e as datas ou inclua o histórico.</p>}
       {paginas > 1 && <nav className="acoes" aria-label="Páginas de romaneios"><button type="button" className="secundario" disabled={!atual} onClick={() => setPagina(atual - 1)}>Anteriores</button><span>Página {atual + 1} de {paginas}</span><button type="button" className="secundario" disabled={atual >= paginas - 1} onClick={() => setPagina(atual + 1)}>Próximos</button></nav>}
