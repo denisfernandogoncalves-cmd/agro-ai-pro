@@ -950,6 +950,7 @@ def estornar_movimentacao(
     *, usuario, movimentacao, chave_idempotencia, data_movimento=None,
     referencia_externa="", observacoes="", metadados=None,
     permitir_carga_colhida=False, permitir_venda=False, permitir_saldo_negativo_transitorio=False,
+    permitir_terceiro=False,
 ):
     movimento_id = movimentacao.pk
     payload = {"movimentacao": movimento_id, "data": data_movimento,
@@ -964,6 +965,8 @@ def estornar_movimentacao(
     movimento = MovimentacaoGraos.objects.select_related(
         "posicao", "lote", "reserva"
     ).get(pk=movimento_id)
+    if not permitir_terceiro and hasattr(movimento, "movimento_terceiro"):
+        raise SaldoGraosError("Estorne a transferência pelo histórico de terceiros para devolver os dois saldos.")
     if (
         not permitir_carga_colhida
         and (

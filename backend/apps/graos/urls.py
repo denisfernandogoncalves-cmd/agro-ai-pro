@@ -33,6 +33,7 @@ urlpatterns = [
     path("terceiros/entradas/<int:pk>/", TerceirosView.as_view(), name="terceiros-entrada-detalhe"),
     path("terceiros/entradas/", TerceirosView.as_view(), name="terceiros-entradas"),
     path("terceiros/entradas/<int:pk>/registrar-saida/", TerceirosView.as_view(tipo="saida"), name="terceiros-saida"),
+    path("terceiros/entradas/<int:pk>/transferir/", TerceirosView.as_view(tipo="transferencia"), name="terceiros-transferencia"),
     path("terceiros/movimentos/<int:pk>/estornar/", TerceirosView.as_view(tipo="estorno"), name="terceiros-estorno"),
     path("transferencias/<int:pk>/", CorrecaoTransferenciaView.as_view(), name="correcao-transferencia-saldo"),
     path(

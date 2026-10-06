@@ -223,7 +223,19 @@ export function cargaCorrespondeBusca(item: CargaColhida, busca: string) {
 export function dadosRomaneioCarga(item:CargaColhida):DadosComprovante {
   const produtores = produtoresDaCarga(item);
   const formatar = (valor:number)=>valor.toLocaleString("pt-BR",{maximumFractionDigits:3});
-  return {titulo:`Carga #${item.id}`,campos:[["Situação",item.status],["Data",dataPlanilhaCarga(item.data_colheita)],["Propriedades / CAD/PRO",produtores.map(p=>`${p.nome} / ${p.cadpro}: ${formatar(p.peso)} kg`).join("; ")],["Produto / safra",`${item.cultura} / ${item.safra}`],["Armazenagem",item.armazem_nome],["Placa / motorista",`${item.placa||"Sem placa"} / ${item.motorista||"—"}`],["Bruto",`${formatar(numero(item.peso_bruto_kg))} kg`],["Desconto",formatarPercentual(item.desconto_total_percentual)],["Líquido",`${formatar(numero(item.peso_liquido_kg))} kg`],["Sacas",formatar(numero(item.sacas_60kg))],["Umidade / impureza / avariados",`${formatarPercentual(item.umidade_percentual)} / ${formatarPercentual(item.impureza_percentual)} / ${formatarPercentual(item.defeitos_percentual)}`],["Movimento",String(item.movimentacao)],["Observações",item.observacoes||"—"],["Motivo de cancelamento",item.motivo_cancelamento||"—"]]};
+  const qualidade = `Umidade ${formatarPercentual(item.umidade_percentual)} · Impureza ${formatarPercentual(item.impureza_percentual)} · Avariados ${formatarPercentual(item.defeitos_percentual)}`
+    + (item.cultura.trim().toLowerCase()==="trigo"?` · PH ${item.ph==null?"Não informado":formatar(numero(item.ph))}`:"");
+  return {titulo:`Romaneio de entrada #${item.id}`,modelo:"romaneio",tipoMovimento:"entrada",campos:[
+    ["Origem","Produção própria"],["Situação",item.status],["Data da entrada",dataPlanilhaCarga(item.data_colheita)],
+    ["Propriedades / CAD/PRO",produtores.map(p=>`${p.nome} / ${p.cadpro}`).join("; ")],
+    ["Cultura / safra",`${item.cultura} / ${item.safra}`],["Armazenagem",item.armazem_nome],
+    ["Placa",item.placa||"Sem placa"],["Motorista",item.motorista||"—"],
+    ["Peso bruto",`${formatar(numero(item.peso_bruto_kg))} kg`],["Tara","Não informada"],
+    ["Peso líquido",`${formatar(numero(item.peso_liquido_kg))} kg`],["Sacas de 60 kg",formatar(numero(item.sacas_60kg))],
+    ["Desconto (%)",formatarPercentual(item.desconto_total_percentual)],["Desconto (kg)",`${formatar(numero(item.desconto_total_kg))} kg`],
+    ["Qualidade",qualidade],["Movimento",String(item.movimentacao)],["Observações",item.observacoes||"—"],
+    ["Motivo de cancelamento",item.motivo_cancelamento||"—"]
+  ]};
 }
 
 export function CartaoCargaColhida({ item, carregando, onEditar, onExcluir }: {
@@ -731,7 +743,7 @@ export default function CargasColhidasPage({ propriedades }: Props) {
       </section>
 
 </PainelAba><PainelAba modulo="cargas" aba="terceiros" ativa={aba}>
-<ProducaoTerceiros armazens={armazens} atualizarArmazens={carregar} inicialmenteAberto ativo={aba === "terceiros"} />
+<ProducaoTerceiros propriedades={propriedades} cadpros={cadpros} armazens={armazens} atualizarArmazens={carregar} inicialmenteAberto ativo={aba === "terceiros"} />
 </PainelAba><PainelAba modulo="cargas" aba="romaneios" ativa={aba}>
 <ListaRomaneiosEntrada cargas={cargas.map(item=>({id:item.id,origem:"propria" as const,cadpros:produtoresDaCarga(item).map(p=>p.cadpro),data:item.data_colheita,nome:produtoresDaCarga(item).map(p=>`${p.nome} / ${p.cadpro}`).join(" · "),cultura:item.cultura,safra:item.safra,placa:item.placa,peso:item.peso_liquido_kg,historico:item.status!=="ativa",dados:dadosRomaneioCarga(item)}))} ativo={aba === "romaneios"} atualizarCargas={carregar}/>
 </PainelAba>    </section>

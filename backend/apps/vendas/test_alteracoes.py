@@ -268,6 +268,7 @@ class DownloadRomaneioTests(ContextoVendaMixin, APITestCase):
         self.assertIn(b"VIA DO CLIENTE", resposta.content)
         self.assertIn(b"VIA DO ARQUIVO", resposta.content)
         self.assertIn(b"R$ 1.020,00", resposta.content)
+        self.assertLess(resposta.content.index(b"MOTORISTA"), resposta.content.index(b"PLACA"))
 
     def test_baixar_excel_com_cliente_sem_preco_e_arquivo_com_total(self):
         resposta = self.client.get(f"{self.url}/excel/")
@@ -280,6 +281,7 @@ class DownloadRomaneioTests(ContextoVendaMixin, APITestCase):
         self.assertFalse(any("VALOR NEGOCIADO" in str(valor) for valor in valores[:indice_arquivo]))
         self.assertIn("R$ 1.020,00", valores[indice_arquivo:])
         self.assertEqual(livro.active.page_setup.fitToHeight, 1)
+        self.assertLess(valores.index("MOTORISTA"), valores.index("PLACA"))
 
     def test_preco_por_saca_e_download_usa_acao_imprimir(self):
         self.venda.contrato.unidade_preco = "sc"

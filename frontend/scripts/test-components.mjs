@@ -1240,6 +1240,7 @@ try {
     assert.equal((html.match(/R\$ 1\.020,00/g)||[]).length,1);
     assert.match(html,/ROMANEIO #6/); assert.match(html,/Sacas\/60/); assert.match(html,/<strong>Umidade<\/strong><span>14%<\/span>/);
     assert.doesNotMatch(html,/Nota da empresa/);
+    assert.ok(html.indexOf("<strong>Motorista</strong>") < html.indexOf("<strong>Placa</strong>"));
   }
   const {dadosRomaneioVenda} = await servidor.ssrLoadModule("/src/pages/Vendas/RomaneioVenda.tsx");
   const vendaRomaneio = {id:50,excluida_em:null,numero_contrato:"CTR-1",cliente_nome:"Comprador",contrato_preco_venda:"1.20",contrato_unidade_preco:"kg",propriedade_nome:"Electra",cad_pro_codigo:"1",cultura:"Milho",safra:"2026",armazem_nome:"Silo",observacoes:"",entregas:[],classificacao_codigo:"PADRAO"};
@@ -1252,6 +1253,51 @@ try {
   assert.deepEqual(romaneio.camposViaArquivo, [["Valor negociado","R$ 1.020,00"]]);
   const romaneioPorSaca = dadosRomaneioVenda({...vendaRomaneio, contrato_preco_venda:"120.00", contrato_unidade_preco:"sc"},{...saidaRomaneio,id:49,movimentacao_id:179});
   assert.deepEqual(romaneioPorSaca.camposViaArquivo, [["Valor negociado","R$ 1.700,00"]]);
+  const {dadosRomaneioCarga} = await servidor.ssrLoadModule("/src/pages/CargasColhidas/CargasColhidasPage.tsx");
+  const {dadosRomaneioTerceiro} = await servidor.ssrLoadModule("/src/pages/CargasColhidas/romaneioTerceiro.ts");
+  const verificarDuasViasEntrada = (dados, valores) => {
+    assert.equal(dados.modelo, "romaneio");
+    assert.equal(dados.tipoMovimento, "entrada");
+    assert.ok(!dados.camposViaArquivo?.length);
+    for (const html of [htmlComprovante(dados, true, 10), renderToStaticMarkup(React.createElement(FolhaDuasVias, {dados}))]) {
+      assert.ok(html.indexOf("Via do cliente") < html.indexOf("Via do arquivo"));
+      assert.equal((html.match(/class="via-comprovante romaneio-modelo"/g) || []).length, 2);
+      assert.equal((html.match(/>ENTRADA</g) || []).length, 2);
+      assert.doesNotMatch(html, /R\$|Valor negociado|Nota da empresa|Classificação/);
+      assert.ok(html.indexOf("<strong>Motorista</strong>") < html.indexOf("<strong>Placa</strong>"));
+      for (const via of [html.slice(0, html.indexOf("Via do arquivo")), html.slice(html.indexOf("Via do arquivo"))]) {
+        for (const valor of valores) assert.ok(via.includes(valor), `${dados.titulo}: ${valor} nas duas vias`);
+      }
+      const pesagem = ["Peso bruto", "Tara", "Peso líquido", "Sacas/60"].map(rotulo => html.indexOf(`<strong>${rotulo}</strong>`));
+      assert.ok(pesagem.every(indice => indice >= 0));
+      assert.deepEqual(pesagem, [...pesagem].sort((a, b) => a - b));
+    }
+    assert.match(htmlComprovante(dados, true, 10), /size:A4 portrait;margin:10mm/);
+  };
+  const cargaEntradaRomaneio = {...cargaDoisCadpros, desconto_total_kg:"1050.000", observacoes:"Recebimento para conferência", motivo_cancelamento:""};
+  const romaneioCargaCompartilhada = dadosRomaneioCarga(cargaEntradaRomaneio);
+  verificarDuasViasEntrada(romaneioCargaCompartilhada, ["1,75%", "1.050 kg", "58.950 kg", "Não informada", "Recebimento para conferência"]);
+  assert.doesNotMatch(romaneioCargaCompartilhada.campos.find(([nome]) => nome === "Propriedades / CAD/PRO")[1], /kg|:/);
+  assert.match(romaneioCargaCompartilhada.campos.find(([nome]) => nome === "Propriedades / CAD/PRO")[1], /SÍTIO SAGRILO \/ 987654321[\s\S]*teste 2 \/ 2056/);
+  assert.doesNotMatch(romaneioCargaCompartilhada.campos.find(([nome]) => nome === "Qualidade")[1], /PH/);
+  const romaneioCargaSimples = dadosRomaneioCarga({...cargaEntradaRomaneio, contexto_colheita:{}, cultura:"Trigo", ph:"78.50", status:"cancelada", motivo_cancelamento:"Pesagem corrigida"});
+  verificarDuasViasEntrada(romaneioCargaSimples, ["58.950 kg", "78,5", "Pesagem corrigida"]);
+  assert.match(romaneioCargaSimples.campos.find(([nome]) => nome === "Qualidade")[1], /PH 78,5/);
+  const entradaTerceiroRomaneio = {id:12, versao:1, depositante:"Terceiro de teste", propriedade_origem:"", cad_pro:"", cultura:"Soja", safra:"2026", armazem:1, armazem_nome:"Silo externo", peso_bruto_kg:"1000", peso_liquido_kg:"972.675", saldo_kg:"500", umidade_percentual:"14", impureza_percentual:"1", defeitos_percentual:"1", ph:"78.5", desconto_total_percentual:"2.7325", desconto_total_kg:"27.325", regra_desconto_aplicada:{}, data_entrada:"2026-10-05", placa:"ABC1D23", motorista:"Motorista terceiro", documento:"REC-12", observacoes:"Conferência do terceiro", movimentos:[]};
+  const romaneioTerceiro = dadosRomaneioTerceiro(entradaTerceiroRomaneio);
+  verificarDuasViasEntrada(romaneioTerceiro, ["Terceiro de teste", "972,675 kg", "27,325 kg", "2,733%", "500 kg", "REC-12", "Conferência do terceiro"]);
+  assert.doesNotMatch(romaneioTerceiro.campos.find(([nome]) => nome === "Qualidade")[1], /PH/);
+  const romaneioTerceiroLegado = dadosRomaneioTerceiro({...entradaTerceiroRomaneio, peso_bruto_kg:null, umidade_percentual:null, impureza_percentual:null, defeitos_percentual:null, ph:null, desconto_total_percentual:null, desconto_total_kg:null, movimentos:[{tipo:"entrada", estornado:true}]});
+  verificarDuasViasEntrada(romaneioTerceiroLegado, ["972,675 kg", "Entrada estornada"]);
+  for (const nome of ["Peso bruto", "Desconto (%)", "Desconto (kg)"]) assert.match(romaneioTerceiroLegado.campos.find(([chave]) => chave === nome)[1], /Não informad/);
+  assert.doesNotMatch(romaneioTerceiroLegado.campos.find(([nome]) => nome === "Qualidade")[1], /\b0%/);
+  const observacaoEntradaCompleta = "<script>alert('x')</script> & " + "Observação integral. ".repeat(100);
+  const romaneioEntradaComTexto = dadosRomaneioCarga({...cargaEntradaRomaneio, observacoes:observacaoEntradaCompleta});
+  for (const html of [htmlComprovante(romaneioEntradaComTexto, true, 10), renderToStaticMarkup(React.createElement(FolhaDuasVias, {dados:romaneioEntradaComTexto}))]) {
+    assert.equal((html.match(/Observação integral\./g) || []).length, 200);
+    assert.match(html, /&lt;script&gt;/);
+    assert.doesNotMatch(html, /<script>/);
+  }
   console.log("Testes de componentes, submissão, geometria, PWA, impressão financeira e agrupamento por fornecedor aprovados.");
 } finally {
   await servidor.close();

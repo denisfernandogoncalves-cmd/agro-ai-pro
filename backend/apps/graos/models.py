@@ -62,7 +62,8 @@ class MovimentoProducaoTerceiroQuerySet(models.QuerySet):
 
 class MovimentoProducaoTerceiro(models.Model):
     entrada = models.ForeignKey(EntradaProducaoTerceiro, on_delete=models.PROTECT, related_name="movimentos")
-    tipo = models.CharField(max_length=8, choices=(("entrada", "Entrada"), ("saida", "Saída"), ("estorno", "Estorno"), ("edicao", "Edição")))
+    tipo = models.CharField(max_length=13, choices=(("entrada", "Entrada"), ("saida", "Saída"), ("estorno", "Estorno"), ("edicao", "Edição"), ("transferencia", "Transferência para CAD/PRO")))
+    movimentacao_saldo = models.OneToOneField("MovimentacaoGraos", null=True, blank=True, on_delete=models.PROTECT, related_name="movimento_terceiro")
     quantidade_kg = models.DecimalField(max_digits=16, decimal_places=3)
     delta_kg = models.DecimalField(max_digits=16, decimal_places=3)
     saldo_anterior_kg = models.DecimalField(max_digits=16, decimal_places=3)

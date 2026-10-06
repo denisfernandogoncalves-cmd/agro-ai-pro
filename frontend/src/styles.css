@@ -1074,31 +1074,121 @@ dialog.editor-venda::backdrop { background: #102f2480; }
   .modulo-cadastros-agricolas .auxiliares-grade { grid-template-columns:minmax(0,1fr); }
 }
 
-/* Tema de alto contraste solicitado: texto preto sobre superfícies brancas. */
+/* Paleta da interface; os impressos mantêm seus próprios estilos preto e branco. */
 @media screen {
   :root {
     color-scheme: light;
-    --cor-texto: #000;
-    --cor-suave: #111;
-    --cor-borda: #888;
+    color: var(--cor-texto);
+    background: var(--cor-fundo);
+    --cor-texto: #1f2933;
+    --cor-suave: #52616b;
+    --cor-borda: #cfd8de;
     --cor-superficie: #fff;
-    --cor-fundo: #fff;
-    --cor-principal: #000;
-    --cor-principal-escura: #000;
-    --cor-foco: #000;
+    --cor-fundo: #f3f5f7;
+    --cor-principal: #164e63;
+    --cor-principal-escura: #103b4b;
+    --cor-foco: #176b91;
+    --cor-painel: #eef2f5;
+    --cor-selecao: #e5eff4;
   }
 
-  body,
-  body * {
-    color: #000 !important;
-    background-color: #fff !important;
-    background-image: none !important;
-    border-color: #888 !important;
-    box-shadow: none !important;
-    text-shadow: none !important;
+  body, .login { background: var(--cor-fundo); color: var(--cor-texto); }
+  body { accent-color: var(--cor-principal); }
+  .pagina > header {
+    background: var(--cor-principal);
+    border-color: var(--cor-principal-escura);
+    box-shadow: 0 8px 24px rgb(16 59 75 / 12%);
+  }
+  .pagina > header .kicker { color: #dcebf2; }
+  .marca-aplicativo { background: #fff; color: var(--cor-principal); box-shadow: none; }
+  .pagina :is(h2, h3), .login h1, .editor-venda h3, .editor-lancamento h3,
+  .confirmacao-compacta h3, .comprovante-dialogo > h2, label, legend { color: var(--cor-texto); }
+  .kicker { color: var(--cor-suave); }
+  a:hover { color: var(--cor-principal); }
+
+  .card, .navegacao-modulos { box-shadow: 0 4px 18px rgb(31 41 51 / 5%); }
+  .navegacao-modulos button, .navegacao-modulos button.secundario { color: var(--cor-texto); }
+  .navegacao-itens button.secundario { background: var(--cor-painel); }
+  .navegacao-modulos button:hover { background: var(--cor-selecao); color: var(--cor-principal-escura); }
+  .navegacao-modulos button:not(.secundario) { color: #fff; box-shadow: 0 3px 8px rgb(22 78 99 / 16%); }
+  .abas-modulo { background: var(--cor-painel); border-color: var(--cor-borda); }
+  .abas-modulo [role="tab"] { color: var(--cor-texto); }
+  .abas-modulo [role="tab"]:hover:not(:disabled) { background: var(--cor-selecao); color: var(--cor-principal-escura); }
+  .abas-modulo [aria-selected="true"], .abas-modulo [aria-selected="true"]:hover:not(:disabled) {
+    background: var(--cor-principal); color: #fff; box-shadow: 0 2px 5px rgb(22 78 99 / 16%);
   }
 
-  body { accent-color: #000; }
-  body :focus-visible { outline: 3px solid #000 !important; outline-offset: 2px; }
-  body ::placeholder { color: #333 !important; opacity: 1; }
+  button.secundario { background: var(--cor-painel); border-color: var(--cor-borda); color: var(--cor-principal-escura); }
+  button.secundario:hover:not(:disabled) { background: #dfe8ee; color: var(--cor-principal-escura); }
+  input, select, textarea { border-color: #84949f; }
+  input::placeholder, textarea::placeholder { color: var(--cor-suave); opacity: 1; }
+  input:hover:not(:disabled), select:hover:not(:disabled), textarea:hover:not(:disabled) { border-color: var(--cor-principal); }
+  input:disabled, select:disabled, textarea:disabled { background: var(--cor-painel); color: var(--cor-suave); }
+  :is(button, a, input, select, textarea, summary):focus-visible,
+  .abas-modulo [role="tab"]:focus-visible {
+    outline: 3px solid var(--cor-foco); outline-offset: 2px; box-shadow: 0 0 0 2px #fff;
+  }
+
+  .item:hover, tbody tr:hover { background: #f5f8fa; }
+  .item.ativo { background: var(--cor-selecao); }
+  .formulario-venda-horizontal, .formulario-carga-horizontal { background: var(--cor-superficie); }
+  .filtros-rapidos-dropdown, .comparacao-edicao, .grupos-lista article,
+  .modulo-cadastros-agricolas .item, .compra-campos output,
+  .disponibilidade-fornecedor-titulo, .catalogo-relatorios > section,
+  .resumo-venda span, .formulario-saida, .resumo-peso, .carga-rateios, .carga-metricas,
+  .rastreabilidade-grade section, .resumo-consulta, .resumo-listagem, .terceiros-resumo,
+  .pesagem-venda, .formulario-venda-horizontal > p,
+  .vendas-documentos-coluna [aria-label="Romaneios de saída"] {
+    background: var(--cor-painel); border-color: var(--cor-borda);
+  }
+  .modulo-cadastros-agricolas .item:hover { background: var(--cor-selecao); }
+  .compra-tabela tbody tr:nth-child(even), .romaneio-resultado:nth-child(even) { background: #f5f8fa; }
+  .compra-tabela th { background: var(--cor-principal); }
+  .tabela-relatorio th, .tabela-saldos th, .faturamento-tabela th,
+  .controle-planilha-titulo, .producao-propriedade-cadpro tfoot td, .vendas-planilha tfoot td {
+    background: var(--cor-painel); color: var(--cor-texto); border-color: var(--cor-borda);
+  }
+  .grupo-formulario fieldset, .modulo-cadastros-agricolas .lista,
+  .disponibilidade-fornecedor, .configuracao-descontos, .regras-desconto fieldset,
+  .snapshot-rastreabilidade, .usuario-permissoes, .historico-lista details,
+  .transporte-venda, .romaneios-resultados, .romaneio-resultado,
+  .painel-lista-alertas li, dialog.editor-venda { border-color: var(--cor-borda); }
+
+  summary, .filtros-rapidos-dropdown > summary, .configuracao-descontos summary,
+  .regras-desconto legend, .anexos-lancamento summary, .detalhes-listagem summary,
+  .romaneios-filtros-avancados > summary, .romaneio-dados summary,
+  .catalogo-relatorios h3, .romaneio-numero strong, .noticias-mercado a {
+    color: var(--cor-principal-escura);
+  }
+  .item p, .historico-lista p, .previsao-card dt, .previsao-card small,
+  .grafico-mercado figcaption, .compra-campos small, .compra-rodape p,
+  .disponibilidade-ajuda, .disponibilidade-fornecedor-titulo span, .disponibilidade-tabela-scroll th,
+  .posicao small, .movimento-estoque small, .tabela-relatorio caption,
+  .configuracao-descontos > p, .resumo-peso span, .carga-rateios li span, .carga-metricas span,
+  .cabecalho-relatorio p, .resumos-operacionais span, .tabela-relatorio small,
+  .rastreabilidade-topo > span, .rastreabilidade-grade section > span, .rastreabilidade-grade small,
+  .snapshot-rastreabilidade span, .resumo-listagem > p, .formulario-venda-horizontal > p,
+  .localizador-romaneios header p, .romaneios-contagem, .romaneio-linha span, .romaneio-dados p {
+    color: var(--cor-suave);
+  }
+  .resumo-peso strong, .carga-item-topo > strong, .carga-metricas strong,
+  .cargas-lista .carga-item-topo h3, .cargas-lista .carga-item-total strong,
+  .cargas-lista .carga-metricas strong, .cargas-lista .carga-rateios li strong,
+  .painel-indicadores strong { color: var(--cor-texto); }
+  .resumo-consulta, .destino-aviso, .formulario-venda-horizontal > div[role="status"] {
+    color: var(--cor-principal-escura); background: var(--cor-selecao); border-left-color: var(--cor-principal);
+  }
+  .selo-leitura, .seletor-colunas-cabecalho > strong { background: var(--cor-selecao); color: var(--cor-principal-escura); }
+  .insight.informativo { border-left-color: var(--cor-principal); }
+  .grafico-mercado svg { background: linear-gradient(#f3f5f7, #fff); }
+  .confirmacao-compacta::backdrop, .editor-lancamento::backdrop,
+  dialog.editor-venda::backdrop, .comprovante-dialogo::backdrop { background: rgb(15 32 43 / 55%); }
+
+  /* Verde, vermelho e âmbar continuam a indicar estado, erro e atenção. */
+  .status-aplicativo .online, .sucesso, .cargas-lista .carga-item-total .kicker {
+    background: #e9f7ed; color: #1d653b;
+  }
+  .valor-negativo, .painel-indicadores strong.valor-negativo, .aviso-urgente .kicker { color: #a1342b; }
+  .pagina > header button.secundario { background: #fff; border-color: #fff; color: var(--cor-principal-escura); }
+  .pagina > header button.secundario:hover:not(:disabled) { background: var(--cor-selecao); }
 }

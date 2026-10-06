@@ -25,3 +25,13 @@ Na interface, o motivo e a confirmação da exclusão aparecem junto à carga; i
 O seletor Cultura aparece também nas vendas comuns. As posições são filtradas por propriedade/CAD/PRO e cultura, sem excluir posições de saldo zero ou negativo. Trocar a cultura limpa a posição anterior. A cultura também define a posição a iniciar e o rateio PARTICULAR. O cadastro e a confirmação continuam sujeitos às validações comerciais existentes.
 
 Migration aditiva: `graos0014_correcaotransferenciasaldo`; não transforma transferências ou cargas existentes.
+
+## Transferência de terceiros para propriedade
+
+`POST /api/graos/terceiros/entradas/<id>/transferir/`, com cabeçalho `Idempotency-Key`, exige `cargas/cadastrar` e `transferencias/cadastrar`. Informe `versao` atual do recebimento, `propriedade` (ID), `cad_pro` (UUID), `quantidade_kg` líquida positiva e `data_movimento`; `documento` e `observacoes` são opcionais. O CAD/PRO deve estar ativo e vinculado à propriedade.
+
+A operação debita o líquido disponível do terceiro e credita a posição oficial da propriedade, na mesma transação e no mesmo armazém. Cultura e safra são preservadas; não reaplica descontos nem gera carga/produção colhida. O crédito reutiliza o ajuste do ledger, com metadados `tipo=transferencia_terceiro` e `entrada_terceiro_id`. A média de produção permanece inalterada. O histórico retorna `tipo=transferencia` e `movimentacao_saldo`, vínculo imutável com o crédito oficial.
+
+O estorno usa `POST /api/graos/terceiros/movimentos/<id>/estornar/`, com motivo, data e nova chave de reenvio. Exige `cargas/excluir` e `transferencias/excluir`, inclusive ao reenviar uma operação já realizada. Debita a posição oficial e devolve o mesmo líquido ao terceiro; saldo consumido ou reservado impede o estorno. O endpoint genérico do ledger bloqueia reversões desse crédito para evitar devolver apenas um dos saldos.
+
+Sucesso retorna o recebimento atualizado (201; 200 no reenvio idêntico do mesmo usuário). Saldo insuficiente, versão antiga, destino inválido ou chave reutilizada com outra intenção retornam 400; ausência de permissão, 403. Migration `graos0018` aditiva, com vínculo opcional para preservar movimentos anteriores.

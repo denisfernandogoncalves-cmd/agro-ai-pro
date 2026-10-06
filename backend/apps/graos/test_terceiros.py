@@ -92,6 +92,124 @@ class TerceirosTests(CargaColhidaBase, APITestCase):
     def saida(self, entrada, peso, chave=None):
         return self.client.post(f"/api/graos/terceiros/entradas/{entrada}/registrar-saida/", {"quantidade_kg":peso, "destino":"Depositante", "data_movimento":"2026-10-05"}, format="json", HTTP_IDEMPOTENCY_KEY=chave or str(uuid4()))
 
+    def transferir(self, entrada, peso="200", chave=None, **alteracoes):
+        dados = {"versao":entrada["versao"], "propriedade":self.propriedade.pk,
+                 "cad_pro":str(self.cad_pro.pk), "quantidade_kg":peso, "data_movimento":"2026-10-06", **alteracoes}
+        return self.client.post(f"/api/graos/terceiros/entradas/{entrada['id']}/transferir/", dados,
+                                format="json", HTTP_IDEMPOTENCY_KEY=chave or str(uuid4()))
+
+    def test_transferencia_conserva_estoque_sem_producao_e_reenvio(self):
+        registrar_carga_colhida(usuario=self.usuario, **self.dados_carga())
+        antes = selecionar_relatorio_operacional(secao="produtividade", pagina=1, por_pagina=25)
+        painel = construir_painel(self.usuario)
+        entrada = self.entrada().data
+        ocupacao = saldo_armazem(self.armazem)
+        chave = str(uuid4())
+        resposta = self.transferir(entrada, chave=chave)
+        self.assertEqual(resposta.status_code, 201, resposta.data)
+        self.assertEqual(Decimal(resposta.data["saldo_kg"]), Decimal("400"))
+        movimento = MovimentoProducaoTerceiro.objects.get(tipo="transferencia")
+        oficial = movimento.movimentacao_saldo
+        self.assertEqual(oficial.operacao, MovimentacaoGraos.Operacao.AJUSTE)
+        self.assertEqual(oficial.posicao.propriedade_id, self.propriedade.pk)
+        self.assertEqual(oficial.posicao.cad_pro_id, self.cad_pro.pk)
+        self.assertEqual(oficial.posicao.saldo_fisico_kg, Decimal("200"))
+        self.assertEqual(oficial.posicao.cultura, "Milho")
+        self.assertEqual(saldo_armazem(self.armazem), ocupacao)
+        depois = selecionar_relatorio_operacional(secao="produtividade", pagina=1, por_pagina=25)
+        for campo in ("dados", "totais_producao_propriedade", "produtividade_por_cad_pro"):
+            self.assertEqual(antes[campo], depois[campo])
+        self.assertEqual(construir_painel(self.usuario)["resumo"]["producao_kg"], painel["resumo"]["producao_kg"])
+        self.assertEqual(self.transferir(entrada, chave=chave).status_code, 200)
+        self.assertEqual(MovimentoProducaoTerceiro.objects.filter(tipo="transferencia").count(), 1)
+        self.assertEqual(self.transferir(entrada, peso="201", chave=chave).status_code, 400)
+        self.assertEqual(self.transferir(entrada).status_code, 400)  # versão antiga
+        estorno = self.estornar(movimento.pk)
+        self.assertEqual(estorno.status_code, 201, estorno.data)
+        self.assertEqual(Decimal(estorno.data["saldo_kg"]), Decimal("600"))
+        oficial.posicao.refresh_from_db()
+        self.assertEqual(oficial.posicao.saldo_fisico_kg, Decimal("0"))
+        self.assertEqual(saldo_armazem(self.armazem), ocupacao)
+        self.assertEqual(self.estornar(movimento.pk).status_code, 400)
+
+    def test_transferencia_armazem_cheio_e_saldo_insuficiente(self):
+        entrada = self.entrada("100000").data
+        self.assertEqual(self.transferir(entrada, "100001").status_code, 400)
+        resposta = self.transferir(entrada, "100000")
+        self.assertEqual(resposta.status_code, 201, resposta.data)
+        self.assertEqual(Decimal(resposta.data["saldo_kg"]), Decimal("0"))
+        self.assertEqual(saldo_armazem(self.armazem), Decimal("100000"))
+
+    def test_transferencia_destino_invalido_e_rollback(self):
+        from apps.cadpro.models import CADPro
+        from unittest.mock import patch
+        from .services import SaldoGraosError
+        entrada = self.entrada().data
+        outro = CADPro.objects.create(codigo="SEM-VINCULO", descricao="Sem vínculo")
+        self.assertEqual(self.transferir(entrada, cad_pro=str(outro.pk)).status_code, 400)
+        self.cad_pro.ativo = False
+        self.cad_pro.save()
+        self.assertEqual(self.transferir(entrada).status_code, 400)
+        self.cad_pro.ativo = True
+        self.cad_pro.save()
+        with patch("apps.graos.terceiros.registrar_ajuste", side_effect=SaldoGraosError("Falha no crédito")):
+            self.assertEqual(self.transferir(entrada).status_code, 400)
+        salvo = EntradaProducaoTerceiro.objects.get(pk=entrada["id"])
+        self.assertEqual(salvo.saldo_kg, Decimal("600"))
+        self.assertEqual(salvo.versao, entrada["versao"])
+        self.assertFalse(MovimentacaoGraos.objects.exists())
+        self.assertFalse(MovimentoProducaoTerceiro.objects.filter(tipo="transferencia").exists())
+
+    def test_estorno_transferencia_bloqueia_reserva_e_atalho_ledger(self):
+        from .services import reservar_saldo, estornar_movimentacao, SaldoGraosError
+        self.transferir(self.entrada().data)
+        movimento = MovimentoProducaoTerceiro.objects.get(tipo="transferencia")
+        oficial = movimento.movimentacao_saldo
+        with self.assertRaises(SaldoGraosError):
+            estornar_movimentacao(usuario=self.usuario, movimentacao=oficial, chave_idempotencia=str(uuid4()))
+        reservar_saldo(usuario=self.usuario, lote=oficial.lote, quantidade_kg="100", chave_idempotencia=str(uuid4()))
+        self.assertEqual(self.estornar(movimento.pk).status_code, 400)
+        movimento.entrada.refresh_from_db()
+        oficial.posicao.refresh_from_db()
+        self.assertEqual(movimento.entrada.saldo_kg, Decimal("400"))
+        self.assertEqual(oficial.posicao.saldo_fisico_kg, Decimal("200"))
+        self.assertFalse(MovimentoProducaoTerceiro.objects.filter(estorno_de=movimento).exists())
+        self.assertFalse(MovimentacaoGraos.objects.filter(estorno_de=oficial).exists())
+
+    def test_estorno_reenviado_confere_permissao_atual(self):
+        self.transferir(self.entrada().data)
+        movimento = MovimentoProducaoTerceiro.objects.get(tipo="transferencia")
+        usuario = get_user_model().objects.create_user("estorno-reenvio-terceiros")
+        acesso = AcessoUsuario.objects.create(usuario=usuario, modulos=["cargas", "transferencias"], permissoes={"cargas":["consultar", "excluir"], "transferencias":["consultar", "excluir"]})
+        self.client.force_authenticate(usuario)
+        url = f"/api/graos/terceiros/movimentos/{movimento.pk}/estornar/"
+        dados = {"motivo":"Conferência", "data_movimento":"2026-10-06"}
+        chave = str(uuid4())
+        self.assertEqual(self.client.post(url, dados, format="json", HTTP_IDEMPOTENCY_KEY=chave).status_code, 201)
+        self.assertEqual(self.client.post(url, dados, format="json", HTTP_IDEMPOTENCY_KEY=chave).status_code, 200)
+        acesso.permissoes["transferencias"] = ["consultar"]
+        acesso.save()
+        self.assertEqual(self.client.post(url, dados, format="json", HTTP_IDEMPOTENCY_KEY=chave).status_code, 403)
+
+    def test_transferencia_exige_permissoes_das_duas_origens(self):
+        entrada = self.entrada().data
+        usuario = get_user_model().objects.create_user("terceiros-permissoes")
+        acesso = AcessoUsuario.objects.create(usuario=usuario, modulos=["cargas", "transferencias"], permissoes={"cargas":["consultar", "cadastrar", "excluir"], "transferencias":["consultar"]})
+        self.client.force_authenticate(usuario)
+        self.assertEqual(self.transferir(entrada).status_code, 403)
+        acesso.permissoes = {"cargas":["consultar"], "transferencias":["consultar", "cadastrar", "excluir"]}
+        acesso.save()
+        self.assertEqual(self.transferir(entrada).status_code, 403)
+        self.client.force_authenticate(self.usuario)
+        self.assertEqual(self.transferir(entrada).status_code, 201)
+        movimento = MovimentoProducaoTerceiro.objects.get(tipo="transferencia")
+        self.client.force_authenticate(usuario)
+        self.assertEqual(self.estornar(movimento.pk).status_code, 403)
+        acesso.permissoes = {"cargas":["consultar", "excluir"], "transferencias":["consultar"]}
+        acesso.save()
+        self.assertEqual(self.estornar(movimento.pk).status_code, 403)
+        self.assertFalse(MovimentoProducaoTerceiro.objects.filter(estorno_de=movimento).exists())
+
     def estornar(self, movimento):
         return self.client.post(f"/api/graos/terceiros/movimentos/{movimento}/estornar/", {"motivo":"Conferência", "data_movimento":"2026-10-05"}, format="json", HTTP_IDEMPOTENCY_KEY=str(uuid4()))
 
@@ -195,3 +313,42 @@ class TerceirosConcorrenciaTests(CargaColhidaBase, TransactionTestCase):
         self.entrada.refresh_from_db()
         self.assertEqual(self.entrada.saldo_kg,Decimal("200"))
         self.assertEqual(MovimentoProducaoTerceiro.objects.filter(tipo="saida").count(),1)
+
+    def transferir_concorrente(self, chave, barreira):
+        close_old_connections()
+        try:
+            usuario = get_user_model().objects.get(pk=self.usuario.pk)
+            dados = {"versao":1, "propriedade":self.propriedade, "cad_pro":self.cad_pro,
+                     "quantidade_kg":Decimal("400"), "data_movimento":date(2026,10,6)}
+            barreira.wait(timeout=10)
+            try:
+                executar_terceiro(usuario=usuario, tipo="transferencia", pk=self.entrada.pk, dados=dados, chave=chave)
+                return True
+            except APIValidationError:
+                return False
+        finally:
+            close_old_connections()
+
+    def test_transferencias_concorrentes_e_reenvio(self):
+        for mesma_chave in (False, True):
+            if mesma_chave:
+                # Outro recebimento mantém o primeiro histórico intacto.
+                self.entrada, _ = executar_terceiro(usuario=self.usuario, tipo="entrada", dados={"depositante":"Outro", "cultura":"Milho", "safra":"2026", "armazem":self.armazem, "peso_liquido_kg":Decimal("600"), "data_entrada":date(2026,10,5)}, chave=str(uuid4()))
+            barreira = Barrier(2)
+            chave = str(uuid4())
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                futuros = [executor.submit(self.transferir_concorrente, chave if mesma_chave else str(uuid4()), barreira) for _ in range(2)]
+                resultados = [f.result(timeout=20) for f in futuros]
+            self.assertEqual(sorted(resultados), [True, True] if mesma_chave else [False, True])
+            self.entrada.refresh_from_db()
+            self.assertEqual(self.entrada.saldo_kg, Decimal("200"))
+            self.assertEqual(self.entrada.movimentos.filter(tipo="transferencia").count(), 1)
+
+    def test_retirada_e_transferencia_concorrentes(self):
+        barreira = Barrier(2)
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            futuros = [executor.submit(funcao, str(uuid4()), barreira) for funcao in (self.retirar, self.transferir_concorrente)]
+            self.assertEqual(sorted(f.result(timeout=20) for f in futuros), [False, True])
+        self.entrada.refresh_from_db()
+        self.assertEqual(self.entrada.saldo_kg, Decimal("200"))
+        self.assertEqual(self.entrada.movimentos.filter(tipo__in=("saida", "transferencia")).count(), 1)

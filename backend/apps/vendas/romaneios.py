@@ -56,9 +56,9 @@ def dados_romaneio(venda, saida):
         ("Peso líquido", f"{_numero(saida.quantidade_kg)} kg"),
         ("Sacas de 60 kg", _numero(Decimal(saida.quantidade_kg) / Decimal(60), 2)),
         *[(nome, f"{_numero(valor, 2)}%" if valor is not None else "—") for nome, valor in qualidade],
-        ("Nota do produtor", saida.nota_produtor or "—"),
         ("Motorista", saida.motorista or "—"),
         ("Placa", saida.placa or "Sem placa"),
+        ("Nota do produtor", saida.nota_produtor or "—"),
         ("Armazenagem", posicao.armazem.nome),
         ("Referência", saida.referencia_externa or "—"),
         ("Observações", saida.observacoes or venda.observacoes or "—"),
@@ -104,9 +104,9 @@ def gerar_pdf(venda, saida):
             (("TARA", campos.get("Tara")), ("IMPUREZA", qualidade[1][1])),
             (("PESO LÍQUIDO", campos.get("Peso líquido")), ("AVARIADO", qualidade[2][1])),
             (("SACAS / 60 KG", campos.get("Sacas de 60 kg")), ("TRIGUILHO", qualidade[3][1])),
+            (("MOTORISTA", campos.get("Motorista")), ("PLACA", campos.get("Placa"))),
             (("NOTA DO PRODUTOR", campos.get("Nota do produtor")), ("PH", qualidade[4][1])),
-            (("MOTORISTA", campos.get("Motorista")), ("ARMAZENAGEM", campos.get("Armazenagem"))),
-            (("PLACA", campos.get("Placa")), ("REFERÊNCIA", campos.get("Referência"))),
+            (("ARMAZENAGEM", campos.get("Armazenagem")), ("REFERÊNCIA", campos.get("Referência"))),
             (("VALOR NEGOCIADO", campos.get("Valor negociado") if arquivo else "—"), ("", "")),
         ]
         altura_linha = 18

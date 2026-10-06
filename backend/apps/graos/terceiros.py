@@ -13,7 +13,10 @@ from rest_framework.generics import get_object_or_404
 
 from apps.accounts.access import pode
 from apps.accounts.views import NoStoreResponseMixin
-from .models import ArmazemGraos, EntradaProducaoTerceiro, MovimentoProducaoTerceiro, normalizar_placa
+from apps.cadpro.models import CADPro, CADProPropriedade
+from apps.propriedades.models import Propriedade
+from .models import ArmazemGraos, EntradaProducaoTerceiro, MovimentoProducaoTerceiro, LoteGraos, MovimentacaoGraos, normalizar_placa
+from .services import SaldoGraosError, _bloquear_cadpros_para_saldo, registrar_ajuste, estornar_movimentacao
 
 
 from .cargas_services import calcular_peso_liquido, CargaColhidaError
@@ -117,12 +120,27 @@ class EstornoSerializer(serializers.Serializer):
     data_movimento = serializers.DateField()
 
 
+class TransferenciaSerializer(serializers.Serializer):
+    versao = serializers.IntegerField(min_value=1)
+    propriedade = serializers.PrimaryKeyRelatedField(queryset=Propriedade.objects.all())
+    cad_pro = serializers.PrimaryKeyRelatedField(queryset=CADPro.objects.filter(ativo=True))
+    quantidade_kg = serializers.DecimalField(max_digits=16, decimal_places=3, min_value=Decimal("0.001"))
+    data_movimento = serializers.DateField()
+    documento = serializers.CharField(max_length=120, required=False, allow_blank=True)
+    observacoes = serializers.CharField(max_length=4000, required=False, allow_blank=True)
+
+    def validate(self, dados):
+        if not CADProPropriedade.objects.filter(propriedade=dados["propriedade"], cad_pro=dados["cad_pro"], ativo=True).exists():
+            raise serializers.ValidationError("Selecione um CAD/PRO com vínculo ativo na propriedade de destino.")
+        return dados
+
+
 def executar_terceiro(*, usuario, tipo, dados, chave, pk=None):
     if not chave or len(chave) > 160:
         raise serializers.ValidationError("Informe a chave de reenvio do lançamento.")
     # Valores normalizados identificam a intenção; uma chave não pode mudar dados/usuário.
     resumo = {k: v.pk if hasattr(v, "pk") else str(v) for k, v in dados.items()}
-    digest = hashlib.sha256(json.dumps([tipo, pk, resumo], sort_keys=True).encode()).hexdigest()
+    digest = hashlib.sha256(json.dumps([tipo, pk, resumo], sort_keys=True, default=str).encode()).hexdigest()
 
     def repetido():
         movimento = MovimentoProducaoTerceiro.objects.filter(chave_idempotencia=chave).first()
@@ -135,12 +153,19 @@ def executar_terceiro(*, usuario, tipo, dados, chave, pk=None):
         return anterior.entrada, True
     if tipo == "entrada":
         armazem_id = dados["armazem"].pk
-    elif tipo in ("saida", "edicao"):
+    elif tipo in ("saida", "edicao", "transferencia"):
         armazem_id = get_object_or_404(EntradaProducaoTerceiro, pk=pk).armazem_id
     else:
         armazem_id = get_object_or_404(MovimentoProducaoTerceiro, pk=pk).entrada.armazem_id
     try:
         with transaction.atomic():
+            # Mesma ordem do ledger: CAD/PRO, armazém, entrada, posição.
+            if tipo == "transferencia":
+                _bloquear_cadpros_para_saldo((dados["cad_pro"].pk,))
+            elif tipo == "estorno":
+                referencia = get_object_or_404(MovimentoProducaoTerceiro, pk=pk)
+                if referencia.movimentacao_saldo_id:
+                    _bloquear_cadpros_para_saldo((referencia.movimentacao_saldo.posicao.cad_pro_id,))
             armazem = ArmazemGraos.objects.select_for_update().get(pk=armazem_id)
             anterior = repetido()
             if anterior:
@@ -173,11 +198,20 @@ def executar_terceiro(*, usuario, tipo, dados, chave, pk=None):
                         if campo not in ("versao", "motivo"):
                             setattr(entrada, campo, valor)
                     movimento_dados = {"data_movimento": entrada.data_entrada, "observacoes": dados["motivo"], "snapshot_antes": snapshot_antes}
-                elif tipo == "saida":
+                elif tipo in ("saida", "transferencia"):
                     if entrada.movimentos.filter(tipo="entrada", estorno__isnull=False).exists():
                         raise serializers.ValidationError("Esta entrada foi estornada.")
                     delta = -dados["quantidade_kg"]
-                    movimento_dados = {k: v for k, v in dados.items() if k != "quantidade_kg"}
+                    if tipo == "transferencia":
+                        if entrada.versao != dados["versao"]:
+                            raise serializers.ValidationError("Esta entrada mudou. Atualize antes de transferir.")
+                        cad = CADPro.objects.get(pk=dados["cad_pro"].pk)
+                        if not cad.ativo or not CADProPropriedade.objects.filter(cad_pro=cad, propriedade=dados["propriedade"], ativo=True).exists():
+                            raise serializers.ValidationError("O CAD/PRO de destino deve estar ativo e vinculado à propriedade.")
+                        movimento_dados = {k: v for k, v in dados.items() if k in ("data_movimento", "documento", "observacoes")}
+                        movimento_dados["destino"] = f"{dados['propriedade'].nome} / CAD/PRO {cad.codigo}"[:160]
+                    else:
+                        movimento_dados = {k: v for k, v in dados.items() if k != "quantidade_kg"}
                 else:
                     if original.tipo in ("estorno", "edicao") or hasattr(original, "estorno"):
                         raise serializers.ValidationError("Este movimento já foi estornado ou é um estorno.")
@@ -185,6 +219,14 @@ def executar_terceiro(*, usuario, tipo, dados, chave, pk=None):
                         raise serializers.ValidationError("Esta entrada mudou. Atualize antes de excluir.")
                     delta = -entrada.peso_liquido_kg if original.tipo == "entrada" else -original.delta_kg
                     movimento_dados = {"data_movimento": dados["data_movimento"], "observacoes": dados["motivo"], "estorno_de": original}
+                    if original.movimentacao_saldo_id:
+                        if not pode(usuario, "transferencias", "excluir"):
+                            raise PermissionDenied("Sem permissão para estornar transferências.")
+                        resultado = estornar_movimentacao(usuario=usuario, movimentacao=original.movimentacao_saldo,
+                            chave_idempotencia=f"terceiro-estorno:{hashlib.sha256(chave.encode()).hexdigest()}",
+                            data_movimento=dados["data_movimento"], observacoes=dados["motivo"], permitir_terceiro=True)
+                        movimento_dados["movimentacao_saldo"] = MovimentacaoGraos.objects.get(pk=resultado.movimentacoes[0].id)
+                        movimento_dados["destino"] = original.destino
             saldo_anterior = entrada.saldo_kg
             saldo_novo = saldo_anterior + delta
             if saldo_novo < 0 or saldo_novo > entrada.peso_liquido_kg:
@@ -197,10 +239,25 @@ def executar_terceiro(*, usuario, tipo, dados, chave, pk=None):
             if tipo != "entrada":
                 entrada.versao += 1
             entrada.save()
+            if tipo == "transferencia":
+                # Reclassifica a titularidade do líquido no mesmo silo; não gera produção.
+                produto = hashlib.sha256(f"{entrada.cultura}:{entrada.safra}".encode()).hexdigest()[:12]
+                codigo = f"TERCEIRO-{entrada.pk}-{dados['propriedade'].pk}-{dados['cad_pro'].pk}-{produto}"
+                lote, _ = LoteGraos.objects.get_or_create(armazem=armazem, codigo=codigo,
+                    defaults={"propriedade": dados["propriedade"], "cad_pro": dados["cad_pro"], "cultura": entrada.cultura, "safra": entrada.safra})
+                if (lote.propriedade_id, lote.cad_pro_id, lote.cultura, lote.safra) != (dados["propriedade"].pk, dados["cad_pro"].pk, entrada.cultura, entrada.safra):
+                    raise serializers.ValidationError("O lote de destino mudou. Confira seu cadastro antes de transferir.")
+                resultado = registrar_ajuste(usuario=usuario, lote=lote, delta_fisico_kg=-delta,
+                    chave_idempotencia=f"terceiro-transferencia:{hashlib.sha256(chave.encode()).hexdigest()}",
+                    data_movimento=dados["data_movimento"], referencia_externa=dados.get("documento", ""),
+                    observacoes=dados.get("observacoes", ""), metadados={"entrada_terceiro_id": entrada.pk, "depositante": entrada.depositante, "tipo": "transferencia_terceiro"})
+                movimento_dados["movimentacao_saldo"] = MovimentacaoGraos.objects.get(pk=resultado.movimentacoes[0].id)
             if tipo == "edicao":
                 movimento_dados["snapshot_depois"] = json.loads(json.dumps({k:v for k,v in EntradaSerializer(entrada).data.items() if k != "movimentos"}, default=str))
             MovimentoProducaoTerceiro.objects.create(entrada=entrada, tipo=tipo, quantidade_kg=entrada.peso_liquido_kg if tipo == "edicao" else abs(delta), delta_kg=delta, saldo_anterior_kg=saldo_anterior, saldo_posterior_kg=saldo_novo, chave_idempotencia=chave, hash_requisicao=digest, criado_por=usuario, **movimento_dados)
             return entrada, False
+    except SaldoGraosError as exc:
+        raise serializers.ValidationError(str(exc)) from exc
     except IntegrityError:
         anterior = repetido()
         if anterior:
@@ -230,7 +287,13 @@ class TerceirosView(NoStoreResponseMixin, APIView):
             calculo.is_valid(raise_exception=True)
             return Response(calculo.validated_data)
         self.verificar(request, "excluir" if self.tipo == "estorno" else "cadastrar")
-        classe = {"entrada": EntradaSerializer, "saida": SaidaSerializer, "estorno": EstornoSerializer}[self.tipo]
+        if self.tipo == "transferencia" and not pode(request.user, "transferencias", "cadastrar"):
+            raise PermissionDenied("Sem permissão para transferir saldo para CAD/PRO.")
+        if self.tipo == "estorno":
+            original = get_object_or_404(MovimentoProducaoTerceiro, pk=pk)
+            if original.movimentacao_saldo_id and not pode(request.user, "transferencias", "excluir"):
+                raise PermissionDenied("Sem permissão para estornar transferências.")
+        classe = {"entrada": EntradaSerializer, "saida": SaidaSerializer, "estorno": EstornoSerializer, "transferencia": TransferenciaSerializer}[self.tipo]
         serializer = classe(data=request.data)
         serializer.is_valid(raise_exception=True)
         entrada, repetida = executar_terceiro(usuario=request.user, tipo=self.tipo, dados=serializer.validated_data, chave=request.headers.get("Idempotency-Key", ""), pk=pk)
