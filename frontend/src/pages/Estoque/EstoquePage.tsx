@@ -1,3 +1,4 @@
+import { prioridadeValidade } from "../../utils/conferenciaConsultas";
 import AbasModulo, { PainelAba } from "../../components/AbasModulo";
 import { useEntradaPainel } from "../../components/AcoesContext";
 import { BotaoAcao, useDestinoConsulta } from "../../components/AcoesContext";
@@ -190,10 +191,10 @@ export default function EstoquePage({ propriedades }: Props) {
           <label>Lote
             <select ref={seletorLote} required value={movimento.lote} onChange={(e) => setMovimento({ ...movimento, lote: e.target.value })}>
               <option value="">Selecione</option>
-              {lotes.filter((item) => item.ativo).map((item) => <option key={item.id} value={item.id}>{item.produto_nome} · {item.codigo} · {item.fornecedor_nome || item.local_nome || "Fornecedor não informado"}</option>)}
+              {prioridadeValidade(lotes.filter((item) => item.ativo)).map((item) => <option key={item.id} value={item.id}>{item.produto_nome} · {item.codigo} · validade {item.data_validade?formatarData(item.data_validade):"não informada"} · saldo {item.saldo} {item.vencido?"· VENCIDO":""} · {item.fornecedor_nome || item.local_nome || "Fornecedor não informado"}</option>)}
             </select>
           </label>
-          <BotaoAcao acao="cadastrar" type="button" onClick={abrirCadastroLote}>Novo lote</BotaoAcao>
+          <p>Lotes ordenados pela validade: para saídas, prefira o que vence antes entre os lotes válidos do mesmo produto e local. Lotes vencidos exigem conferência; a seleção é manual.</p><BotaoAcao acao="cadastrar" type="button" onClick={abrirCadastroLote}>Novo lote</BotaoAcao>
           {lotes.every((item) => !item.ativo) && <p>Nenhum lote ativo. Use Novo lote para cadastrar antes de movimentar.</p>}
           <div className="linha">
             <label>Quantidade<input required min="0.001" step="0.001" type="number" value={movimento.quantidade} onChange={(e) => setMovimento({ ...movimento, quantidade: e.target.value })} /></label>
@@ -239,9 +240,9 @@ export default function EstoquePage({ propriedades }: Props) {
           <section className="card">
             <h2>Posição por lote</h2>
             <div className="lista">
-              {posicoes.length === 0 ? <p className="vazio">Nenhum lote cadastrado.</p> : posicoes.map((item) => (
-                <article className={`item posicao ${item.vencido || item.abaixo_minimo ? "alerta-estoque" : ""}`} key={item.lote_id}>
-                  <div><h3>{item.produto}</h3><p>Lote {item.codigo_lote} · {item.fornecedor || item.local || "Fornecedor não informado"}</p><small>{item.data_validade ? `Validade ${item.data_validade}` : "Sem validade informada"}</small></div>
+              {posicoes.length === 0 ? <p className="vazio">Nenhum lote cadastrado.</p> : prioridadeValidade(posicoes).map((item) => (
+                <article className={`item posicao ${item.vencido || item.vence_em_30_dias || item.abaixo_minimo ? "alerta-estoque" : ""}`} key={item.lote_id}>
+                  <div><h3>{item.produto}</h3><p>Lote {item.codigo_lote} · {item.fornecedor || item.local || "Fornecedor não informado"}</p><small>{item.data_validade ? `Validade ${formatarData(item.data_validade)}` : "Sem validade informada"}</small>{Number(item.saldo)>0&&(item.vencido||item.vence_em_30_dias)&&<p><strong>{item.vencido?"Vencido — conferir destinação":"Vence em até 30 dias — priorizar uso"}</strong></p>}</div>
                   <strong>{item.saldo} {item.unidade}</strong>
                 </article>
               ))}

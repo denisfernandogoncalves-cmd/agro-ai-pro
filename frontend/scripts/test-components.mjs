@@ -14,6 +14,59 @@ const servidor = await createServer({
 });
 
 try {
+  const {DadosHistoricos}=await servidor.ssrLoadModule('/src/components/ConferenciaOperacional.tsx');
+  const historia=renderToStaticMarkup(React.createElement(DadosHistoricos,{antes:{depositante:'Pessoa <A>',peso_liquido_kg:'100',cultura:'Soja'},depois:{depositante:'Pessoa B',peso_liquido_kg:'110',cultura:'Soja'}}));
+  assert.match(historia,/Pessoa &lt;A&gt;/);assert.match(historia,/Pessoa B/);assert.match(historia,/100/);assert.match(historia,/110/);assert.doesNotMatch(historia,/Soja/);
+  const {opcoesTerceiros,filtroTerceiro}=await servidor.ssrLoadModule('/src/api/terceiros.ts');
+  const homonimos=[{id:1,terceiro:10,terceiro_codigo:'A',depositante:'Mesmo nome'},{id:2,terceiro:20,terceiro_codigo:'B',depositante:'Mesmo nome'},{id:3,depositante:'Mesmo nome'}];
+  assert.equal(opcoesTerceiros(homonimos).length,3);
+  assert.deepEqual(filtroTerceiro('cad:20'),{terceiro:20});
+  assert.deepEqual(filtroTerceiro('entrada:3'),{entrada:3});
+  const {useOperacaoConferida}=await servidor.ssrLoadModule('/src/components/OperacaoConferida.ts');
+  const {api:apiConferencia}=await servidor.ssrLoadModule('/src/api/propriedades.ts');
+  let conferirOperacao;
+  function HarnessOperacao(){conferirOperacao=useOperacaoConferida();return null;}
+  renderToStaticMarkup(React.createElement(HarnessOperacao));
+  const janelaAntes=globalThis.window,requestAntes=apiConferencia.request;
+  try{
+    let confirmou=false;
+    globalThis.window={confirm:()=>confirmou};
+    const bloqueio={isAxiosError:true,response:{status:409,data:{codigo:'periodo_fechado',detail:'Conferir período'}},config:{url:'/graos/terceiros/entradas/',headers:{'Idempotency-Key':'mesma-chave'}}};
+    const acao=async()=>{throw bloqueio;};
+    await assert.rejects(conferirOperacao(acao),/cancelada/);
+    confirmou=true;
+    apiConferencia.request=async config=>{assert.equal(config.headers['Confirmar-Periodo-Fechado'],'sim');assert.equal(config.headers['Idempotency-Key'],'mesma-chave');return {data:{id:42}};};
+    assert.deepEqual(await conferirOperacao(acao),{id:42});
+  }finally{globalThis.window=janelaAntes;apiConferencia.request=requestAntes;}
+  const {EquacaoPesagem,equacaoPesagem,useConferirPesagem} = await servidor.ssrLoadModule("/src/components/ConferenciaPesagem.tsx");
+  const pesagemConferida={peso_total_kg:"1500",tara_kg:"500",peso_bruto_kg:"1000",desconto_total_kg:"20",peso_liquido_kg:"980"};
+  assert.match(equacaoPesagem(pesagemConferida), /1\.500 kg − tara 500 kg = bruto do produto 1\.000 kg/);
+  assert.match(renderToStaticMarkup(React.createElement(EquacaoPesagem,{dados:pesagemConferida})), /descontos 20 kg = líquido 980 kg/);
+  assert.match(equacaoPesagem({...pesagemConferida,peso_total_kg:null,tara_kg:null}), /Total e tara não informados/);
+  const {api:apiPesagem} = await servidor.ssrLoadModule("/src/api/propriedades.ts");
+  const postPesagemOriginal=apiPesagem.post, janelaPesagemOriginal=globalThis.window;
+  let conferirPesagem;
+  function HarnessConferencia(){conferirPesagem=useConferirPesagem();return null;}
+  renderToStaticMarkup(React.createElement(HarnessConferencia));
+  try {
+    let mensagemPesagem="",aceitarPesagem=false,pedidosPesagem=0;
+    globalThis.window={confirm:mensagem=>{mensagemPesagem=mensagem;return aceitarPesagem;}};
+    apiPesagem.post=async(url,dados)=>{assert.equal(url,"/graos/cargas-colhidas/conferencia-pesagem/previa/");assert.equal(dados.ph,null);pedidosPesagem++;return {data:{...pesagemConferida,alertas:[{rotulo:"Tara",mediana_kg:"300",valor_kg:"500",desvio_percentual:"66.7",amostras:5}]}};};
+    assert.equal(await conferirPesagem({ph:""}),false);
+    assert.match(mensagemPesagem,/66,7% de diferença da mediana de 300 kg \(5 lançamentos semelhantes\)/);
+    aceitarPesagem=true;
+    assert.equal(await conferirPesagem({ph:""}),true);
+    assert.equal(pedidosPesagem,2);
+    apiPesagem.post=async()=>({data:{...pesagemConferida,alertas:[],duplicados:[42]}});
+    aceitarPesagem=false;
+    assert.equal(await conferirPesagem({ph:""}),false);
+    assert.match(mensagemPesagem,/Possível duplicidade: romaneios #42/);
+    aceitarPesagem=true;
+    assert.equal(await conferirPesagem({ph:""}),true);
+  } finally {apiPesagem.post=postPesagemOriginal;globalThis.window=janelaPesagemOriginal;}
+  const {formatarDataHora} = await servidor.ssrLoadModule("/src/utils/datas.ts");
+  assert.match(formatarDataHora("2026-10-07T11:00:00Z"),/07\/10\/2026.*08:00/);
+  assert.equal(formatarDataHora("inválido"),"Não informado");
   const { default: UsuariosPage, filtrarUsuarios } = await servidor.ssrLoadModule("/src/pages/Usuarios/UsuariosPage.tsx");
   const usuariosBusca = [{ username: "operador", first_name: "José", last_name: "Silva", email: "campo@example.test" }, { username: "gestor", first_name: "Ana", last_name: "Souza", email: "gestao@example.test" }];
   assert.deepEqual(filtrarUsuarios(usuariosBusca, "  JOSE ").map(item => item.username), ["operador"]);
@@ -144,8 +197,8 @@ try {
     tolerancia_defeitos_percentual: "0", desconto_defeitos_por_ponto: "1",
     ph_minimo: "0", desconto_ph_por_ponto: "0",
   };
-  assert.deepEqual(resumoCalculado(exemploCarga), { percentual: 2, liquido: 980, sacas: 16.333 });
-  assert.deepEqual(resumoCalculado({ ...exemploCarga, peso_bruto_kg: "10000", umidade_percentual: "20.5", impureza_percentual: "2", defeitos_percentual: "3" }), { percentual: 14.5, liquido: 8550, sacas: 142.5 });
+  assert.deepEqual(resumoCalculado(exemploCarga), { percentual: 2, liquido: 980, sacas: 16.333, umidadeKg:0, classificacaoKg:20, phKg:0 });
+  assert.deepEqual(resumoCalculado({ ...exemploCarga, peso_bruto_kg: "10000", umidade_percentual: "20.5", impureza_percentual: "2", defeitos_percentual: "3" }), { percentual: 14.5, liquido: 8550, sacas: 142.5, umidadeKg:1000, classificacaoKg:450, phKg:0 });
   const { loteElegivel } = await servidor.ssrLoadModule("/src/api/importacoes.ts");
   const lotePronto = { pode_confirmar: true, total_erros: 0, total_linhas: 2, status: "pronto_confirmacao" };
   assert.equal(loteElegivel(lotePronto), true);
@@ -1268,15 +1321,16 @@ try {
       for (const via of [html.slice(0, html.indexOf("Via do arquivo")), html.slice(html.indexOf("Via do arquivo"))]) {
         for (const valor of valores) assert.ok(via.includes(valor), `${dados.titulo}: ${valor} nas duas vias`);
       }
-      const pesagem = ["Peso bruto", "Tara", "Peso líquido", "Sacas/60"].map(rotulo => html.indexOf(`<strong>${rotulo}</strong>`));
+      const pesagem = ["Peso total", "Tara", "Peso bruto do produto", "Peso líquido", "Sacas/60"].map(rotulo => html.indexOf(`<strong>${rotulo}</strong>`));
       assert.ok(pesagem.every(indice => indice >= 0));
       assert.deepEqual(pesagem, [...pesagem].sort((a, b) => a - b));
     }
     assert.match(htmlComprovante(dados, true, 10), /size:A4 portrait;margin:10mm/);
   };
-  const cargaEntradaRomaneio = {...cargaDoisCadpros, desconto_total_kg:"1050.000", observacoes:"Recebimento para conferência", motivo_cancelamento:""};
+  const cargaEntradaRomaneio = {...cargaDoisCadpros, criado_por_nome:"operador de teste",criado_em:"2026-10-07T11:00:00Z",desconto_total_kg:"1050.000", observacoes:"Recebimento para conferência", motivo_cancelamento:""};
   const romaneioCargaCompartilhada = dadosRomaneioCarga(cargaEntradaRomaneio);
   verificarDuasViasEntrada(romaneioCargaCompartilhada, ["1,75%", "1.050 kg", "58.950 kg", "Não informada", "Recebimento para conferência"]);
+  verificarDuasViasEntrada(romaneioCargaCompartilhada, ["operador de teste", "07/10/2026", "08:00", "Responsável pelo registro"]);
   assert.doesNotMatch(romaneioCargaCompartilhada.campos.find(([nome]) => nome === "Propriedades / CAD/PRO")[1], /kg|:/);
   assert.match(romaneioCargaCompartilhada.campos.find(([nome]) => nome === "Propriedades / CAD/PRO")[1], /SÍTIO SAGRILO \/ 987654321[\s\S]*teste 2 \/ 2056/);
   assert.doesNotMatch(romaneioCargaCompartilhada.campos.find(([nome]) => nome === "Qualidade")[1], /PH/);
@@ -1284,12 +1338,14 @@ try {
   verificarDuasViasEntrada(romaneioCargaSimples, ["58.950 kg", "78,5", "Pesagem corrigida"]);
   assert.match(romaneioCargaSimples.campos.find(([nome]) => nome === "Qualidade")[1], /PH 78,5/);
   const entradaTerceiroRomaneio = {id:12, versao:1, depositante:"Terceiro de teste", propriedade_origem:"", cad_pro:"", cultura:"Soja", safra:"2026", armazem:1, armazem_nome:"Silo externo", peso_bruto_kg:"1000", peso_liquido_kg:"972.675", saldo_kg:"500", umidade_percentual:"14", impureza_percentual:"1", defeitos_percentual:"1", ph:"78.5", desconto_total_percentual:"2.7325", desconto_total_kg:"27.325", regra_desconto_aplicada:{}, data_entrada:"2026-10-05", placa:"ABC1D23", motorista:"Motorista terceiro", documento:"REC-12", observacoes:"Conferência do terceiro", movimentos:[]};
-  const romaneioTerceiro = dadosRomaneioTerceiro(entradaTerceiroRomaneio);
+  const romaneioTerceiro = dadosRomaneioTerceiro({...entradaTerceiroRomaneio,criado_por_nome:"operador terceiro",criado_em:"2026-10-07T11:00:00Z"});
+  verificarDuasViasEntrada(romaneioTerceiro, ["operador terceiro", "07/10/2026", "08:00"]);
+  verificarDuasViasEntrada(dadosRomaneioTerceiro({...entradaTerceiroRomaneio,peso_total_kg:"1500.5",tara_kg:"500.5"}), ["1.500,5 kg", "500,5 kg", "1.000 kg"]);
   verificarDuasViasEntrada(romaneioTerceiro, ["Terceiro de teste", "972,675 kg", "27,325 kg", "2,733%", "500 kg", "REC-12", "Conferência do terceiro"]);
   assert.doesNotMatch(romaneioTerceiro.campos.find(([nome]) => nome === "Qualidade")[1], /PH/);
   const romaneioTerceiroLegado = dadosRomaneioTerceiro({...entradaTerceiroRomaneio, peso_bruto_kg:null, umidade_percentual:null, impureza_percentual:null, defeitos_percentual:null, ph:null, desconto_total_percentual:null, desconto_total_kg:null, movimentos:[{tipo:"entrada", estornado:true}]});
   verificarDuasViasEntrada(romaneioTerceiroLegado, ["972,675 kg", "Entrada estornada"]);
-  for (const nome of ["Peso bruto", "Desconto (%)", "Desconto (kg)"]) assert.match(romaneioTerceiroLegado.campos.find(([chave]) => chave === nome)[1], /Não informad/);
+  for (const nome of ["Peso total", "Tara", "Peso bruto do produto", "Desconto (%)", "Desconto (kg)"]) assert.match(romaneioTerceiroLegado.campos.find(([chave]) => chave === nome)[1], /Não informad/);
   assert.doesNotMatch(romaneioTerceiroLegado.campos.find(([nome]) => nome === "Qualidade")[1], /\b0%/);
   const observacaoEntradaCompleta = "<script>alert('x')</script> & " + "Observação integral. ".repeat(100);
   const romaneioEntradaComTexto = dadosRomaneioCarga({...cargaEntradaRomaneio, observacoes:observacaoEntradaCompleta});

@@ -7,6 +7,7 @@ import FormularioValidado from "../../components/FormularioValidado";
 import ResumoConsulta, { noPeriodo, ordenarConsulta, OrdemConsulta, totalConsulta } from "../../components/ResumoConsulta";
 import { useConferirDuplicidades } from "../../components/ConferirDuplicidades";
 import { useEntradaPainel } from "../../components/AcoesContext";
+import {useOperacaoConferida} from "../../components/OperacaoConferida";
 import { useRascunhoAutomatico } from "../../components/RascunhoAutomatico";
 import FiltrosFavoritos from "../../components/FiltrosFavoritos";
 import { BotaoAcao, useAcoes } from "../../components/AcoesContext";
@@ -16,6 +17,8 @@ import axios from "axios";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import PainelFormulario from "../../components/PainelFormulario";
 
+const converterQuantidadeEntrega=(v:string)=>{try{return quantidadeContrato(v);}catch{return "0";}};
+import { restanteEntrega } from "../../utils/conferenciaConsultas";
 import { PosicaoSaldo } from "../../api/producaoSaldos";
 import { api } from "../../api/propriedades";
 import { Propriedade } from "../../api/propriedades";
@@ -73,7 +76,7 @@ const COLUNAS_VENDAS = [
 ] as const;
 type ColunaVenda = typeof COLUNAS_VENDAS[number][0];
 
-function kg(valor: string) {
+function kg(valor: string | number) {
   return `${Number(valor || 0).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} kg`;
 }
 
@@ -255,11 +258,12 @@ export default function VendasPage() {
   }, [particular, novaPosicao, formulario.quantidade_kg,revisaoPrevia]);
 
   useEffect(()=>{let ativo=true;setSimulacao(null);setErroSimulacao("");if(particular||!formulario.quantidade_kg||(!iniciarPosicao&&!formulario.posicao)||(iniciarPosicao&&(!origemVenda?.propriedade||!novaPosicao.armazem||!novaPosicao.safra)))return;const timer=window.setTimeout(()=>{try{const dados={quantidade_kg:quantidadeContrato(formulario.quantidade_kg),tipo:tipoLancamento,...(iniciarPosicao?{nova_posicao:{...novaPosicao,propriedade:origemVenda!.propriedade,cad_pro:origemVenda!.cad_pro}}:{posicao:formulario.posicao})};void api.post("/core/simular-venda/",dados).then(({data})=>{if(ativo)setSimulacao(data);}).catch(()=>{if(ativo)setErroSimulacao("Não foi possível simular o saldo. Confira a origem e a quantidade.");});}catch{if(ativo)setErroSimulacao("Informe uma quantidade válida para simular.");}},300);return()=>{ativo=false;window.clearTimeout(timer);};},[particular,formulario.posicao,formulario.quantidade_kg,tipoLancamento,novaPosicao,origemSelecionada,revisaoPrevia]);
+  const executarConferido=useOperacaoConferida();
   async function executar(assinatura: string, acao: (chave: string) => Promise<unknown>, mensagem: string) {
     if (controlador.current.emAndamento()) return false;
     setErro(""); setSucesso(""); setProcessando(true);
     try {
-      await controlador.current.executar(assinatura, acao);
+      await controlador.current.executar(assinatura, chave=>executarConferido(()=>acao(chave)));
       setSucesso(mensagem);
       await carregar();
       return true;
@@ -397,7 +401,7 @@ export default function VendasPage() {
 
         <section className="conteudo vendas-lista-compacta">
           <h3>Vendas registradas</h3>
-          <div className="lista">{vendasConsulta.length ? vendasConsulta.map((item) => <article className={`card item venda-item ${selecionada?.id === item.id ? "ativo" : ""}`} key={item.id} onClick={() => selecionarVenda(item)}><div><span className="kicker">{item.excluida_em ? "Excluída — histórico" : item.status}</span><h3>{item.numero_contrato || "Sem contrato"} · {item.cliente_nome}</h3><p>{item.cad_pro_codigo} · {item.cultura} {item.safra} · {item.classificacao_codigo} · {item.armazem_nome}</p></div><div className="metricas-venda"><span>Contratado <strong>{kg(item.quantidade_kg)}</strong></span><span>Reservado <strong>{kg(item.quantidade_reservada_kg)}</strong></span><span>Entregue <strong>{kg(item.quantidade_entregue_kg)}</strong></span><span>Cancelado <strong>{kg(item.quantidade_cancelada_kg)}</strong></span>{!item.excluida_em && <AcoesLancamentoVenda desabilitado={processando} editar={() => setEditor({ venda: item, natureza: "venda", excluir: false })} excluir={() => setEditor({ venda: item, natureza: "venda", excluir: true })} />}</div></article>) : <div className="card vazio">Nenhuma venda encontrada.</div>}</div>
+          <div className="lista">{vendasConsulta.length ? vendasConsulta.map((item) => <article className={`card item venda-item ${selecionada?.id === item.id ? "ativo" : ""}`} key={item.id} onClick={() => selecionarVenda(item)}><div><span className="kicker">{item.excluida_em ? "Excluída — histórico" : item.status}</span><h3>{item.numero_contrato || "Sem contrato"} · {item.cliente_nome}</h3><p>{item.cad_pro_codigo} · {item.cultura} {item.safra} · {item.classificacao_codigo} · {item.armazem_nome}</p></div><div className="metricas-venda"><span>Contratado <strong>{kg(item.quantidade_kg)}</strong></span><span>Reservado <strong>{kg(item.quantidade_reservada_kg)}</strong></span><span>Entregue <strong>{kg(item.quantidade_entregue_kg)}</strong></span><span>Cancelado <strong>{kg(item.quantidade_cancelada_kg)}</strong></span><span>Restante a entregar <strong>{kg(restanteEntrega(item.quantidade_kg,item.quantidade_entregue_kg,item.quantidade_cancelada_kg))}</strong></span>{!item.excluida_em && <AcoesLancamentoVenda desabilitado={processando} editar={() => setEditor({ venda: item, natureza: "venda", excluir: false })} excluir={() => setEditor({ venda: item, natureza: "venda", excluir: true })} />}</div></article>) : <div className="card vazio">Nenhuma venda encontrada.</div>}</div>
         </section>
       </section>
 
@@ -412,7 +416,7 @@ export default function VendasPage() {
           <CamposTransporteVenda dados={dadosEntrega} alterar={setDadosEntrega} destinoPadrao={selecionada.cliente_nome} />
           <label>CAD/PRO<input readOnly value={selecionada.cad_pro_codigo} /></label><label>Nº do contrato<input readOnly value={selecionada.numero_contrato} /></label>
           <label>Peso líquido (kg)<input required inputMode="decimal" placeholder="Ex.: 35.000,500" value={dadosEntrega.quantidade_kg} onChange={e => setDadosEntrega({ ...dadosEntrega, ...payloadPesagem(dadosEntrega), quantidade_kg: e.target.value })} /></label>
-          <BotaoAcao acao="cadastrar" type="submit" disabled={processando}>Registrar entrega</BotaoAcao>
+          <p role="status">Restante do contrato: <strong>{kg(restanteEntrega(selecionada.quantidade_kg,selecionada.quantidade_entregue_kg,selecionada.quantidade_cancelada_kg))}</strong>. {Number(converterQuantidadeEntrega(dadosEntrega.quantidade_kg))>restanteEntrega(selecionada.quantidade_kg,selecionada.quantidade_entregue_kg,selecionada.quantidade_cancelada_kg)&&<strong className="erro">A quantidade informada excede o restante do contrato. Revise antes de registrar.</strong>}</p><BotaoAcao acao="cadastrar" type="submit" disabled={processando}>Registrar entrega</BotaoAcao>
         </FormularioValidado>}
         {!selecionada.excluida_em && devolvivel > 0 && <div className="movimentos-venda"><label>Quantidade da devolução (kg)<input min="0.001" step="0.001" type="number" value={quantidadeMovimento} onChange={(e) => setQuantidadeMovimento(e.target.value)} /></label><BotaoAcao acao="cadastrar" className="secundario" disabled={processando || !quantidadeMovimento} motivoBloqueio={processando ? "Aguarde o processamento." : "Informe a quantidade da devolução."} onClick={() => { void executar(`devolver:${selecionada.id}:${quantidadeMovimento}`, (chave) => devolverVenda(selecionada.id, quantidadeMovimento, hoje, chave), "Devolução registrada no físico sem reabrir a reserva."); }}>Registrar devolução</BotaoAcao></div>}
         <RastreabilidadeVenda venda={selecionada} />

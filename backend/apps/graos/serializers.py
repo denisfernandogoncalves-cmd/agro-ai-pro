@@ -287,6 +287,8 @@ class CargaColhidaSerializer(serializers.ModelSerializer):
             "data_colheita",
             "placa",
             "motorista",
+            "peso_total_kg",
+            "tara_kg",
             "peso_bruto_kg",
             "umidade_percentual",
             "impureza_percentual",
@@ -359,6 +361,7 @@ class CargaColhidaSerializer(serializers.ModelSerializer):
         validated_data.pop("motivo_correcao", None)
         return registrar_carga_colhida(
             usuario=self.context["request"].user,
+            request=self.context['request'],
             **validated_data,
         )
 
@@ -429,6 +432,8 @@ class CargaColhidaSerializer(serializers.ModelSerializer):
             "data_colheita",
             "placa",
             "motorista",
+            "peso_total_kg",
+            "tara_kg",
             "peso_bruto_kg",
             "umidade_percentual",
             "impureza_percentual",
@@ -448,6 +453,7 @@ class CargaColhidaSerializer(serializers.ModelSerializer):
         dados["cadpros_por_propriedade"] = cadpros_por_propriedade
         return corrigir_carga_colhida(
             usuario=self.context["request"].user,
+            request=self.context['request'],
             carga=instance,
             motivo=motivo,
             **dados,
@@ -961,6 +967,16 @@ def serializar_resultado(resultado: ResultadoOperacaoSaldo):
 
 
 def serializar_painel_saldos(resultado):
+    from django.db.models import Sum
+    from .models import MovimentoProducaoTerceiro
+    recebidos = list(MovimentoProducaoTerceiro.objects.filter(
+        tipo='transferencia', estorno__isnull=True,
+        movimentacao_saldo__posicao__in=resultado['posicoes'],
+    ).values('movimentacao_saldo__posicao_id').annotate(quantidade=Sum('quantidade_kg')))
+    from .models import MovimentacaoGraos
+    composicao = list(MovimentacaoGraos.objects.filter(posicao__in=resultado['posicoes']).values(
+        'operacao','origem__metadados__tipo',
+    ).annotate(fisico=Sum('delta_fisico_kg'),comprometido=Sum('delta_comprometido_kg')))
     campos_saldo = (
         "saldo_fisico_kg",
         "saldo_comprometido_kg",
@@ -982,6 +998,8 @@ def serializar_painel_saldos(resultado):
             propriedade[campo] = _decimal_api(propriedade[campo])
         propriedades.append(propriedade)
     return {
+        'recebimentos_terceiros': [{'posicao':r['movimentacao_saldo__posicao_id'],'quantidade_kg':_decimal_api(r['quantidade'])} for r in recebidos],
+        'composicao': [{'operacao':r['operacao'],'origem_externa':r['origem__metadados__tipo']=='transferencia_terceiro','fisico_kg':_decimal_api(r['fisico']),'comprometido_kg':_decimal_api(r['comprometido'])} for r in composicao],
         "resumo": resumo,
         "consolidado_cadpro": consolidados,
         "consolidado_propriedade": propriedades,

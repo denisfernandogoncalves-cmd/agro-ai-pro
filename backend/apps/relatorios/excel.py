@@ -9,6 +9,13 @@ from apps.core.excel import PlanilhaExportacao, consulta_consistente
 from .serializers import FiltrosRelatorioOperacionalSerializer
 from .selectors import selecionar_relatorio_operacional
 
+CRITERIOS = [
+    ('Unidades', 'Campos _kg em kg; sacas de 60 kg; _hectares em ha; _alqueires em alqueires paulistas (2,42 ha); valores financeiros em R$.'),
+    ('Produção', 'Colheitas registradas e seus rateios; transferências de terceiros não somam produção ou produtividade.'),
+    ('Estoque', 'Saldos refletem os movimentos de estoque, inclusive transferências, entregas, ajustes e estornos.'),
+    ('Totais', 'Totais da consulta filtrada; linhas de detalhe abrangem todas as páginas exportadas.'),
+]
+
 
 def tipo_valor(chave, valor):
     campo = chave.rsplit(".", 1)[-1]
@@ -49,6 +56,7 @@ class RelatorioExcelView(NoStoreResponseMixin, APIView):
                 raise serializers.ValidationError("Mais de 100.000 resultados. Reduza o período ou os filtros para exportar todas as linhas.")
             planilha = PlanilhaExportacao(f"Relatório {dados['secao']}: todos os resultados dos filtros aplicados.")
             planilha.adicionar("Filtros", ["Campo", "Valor"], dados["filtros"].items())
+            planilha.adicionar('Critérios e unidades', ['Item','Descrição'], CRITERIOS)
             itens = [achatar(item) for item in dados["dados"]["resultados"]]
             colunas = list(dict.fromkeys(chave for item in itens for chave in item)) or ["Resultado"]
             planilha.adicionar("Resultados", colunas, ([item.get(c) for c in colunas] for item in itens))

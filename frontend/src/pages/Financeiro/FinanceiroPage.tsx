@@ -1,3 +1,4 @@
+import { diferencaLiquidacao, diasAte } from "../../utils/conferenciaConsultas";
 import AbasModulo from "../../components/AbasModulo";
 import { abaDosFiltros, filtrosDaAba } from "./abasFinanceiro";
 import AnexosLancamento from "../../components/AnexosLancamento";
@@ -174,7 +175,7 @@ export default function FinanceiroPage(_props: Props) {
     if (travaMutacao.current) return;
     const data = window.prompt("Data da liquidação (AAAA-MM-DD):", hoje);
     if (!data) return;
-    const valor = window.prompt("Valor liquidado:", item.valor);
+    const valor = window.prompt(`Valor liquidado (lançamento: ${moeda(item.valor)}). A liquidação encerra este lançamento; confira diferenças antes de confirmar:`, item.valor);
     if (!valor) return;
     travaMutacao.current = true; setSalvando(true); setErro(""); setSucesso("");
     try {
@@ -282,7 +283,7 @@ export default function FinanceiroPage(_props: Props) {
                   <span className="kicker">{item.status === "liquidado" ? (item.tipo === "pagar" ? "Pago" : "Recebido") : (item.tipo === "pagar" ? "A pagar" : "A receber")} · {item.status}</span>
                   <h3>{item.descricao}</h3>
                   <p>{item.recebedor_nome || item.parceiro_nome || "Recebedor não informado"}{item.total_boletos ? ` · boleto ${item.parcela_numero} de ${item.total_boletos}` : item.parcela_numero ? ` · parcela ${item.parcela_numero}` : ""} · vence {formatarData(item.data_vencimento)}</p>
-                  {item.data_liquidacao && <p>{item.tipo === "pagar" ? "Pago" : "Recebido"} em {formatarData(item.data_liquidacao)}</p>}
+                  {item.status==="pendente"&&<p><strong>{item.atrasado?"Vencido":diasAte(item.data_vencimento,new Date().toLocaleDateString("sv-SE"))<=7?"Vence nos próximos 7 dias":"A vencer"}</strong></p>}{item.status==="liquidado"&&diferencaLiquidacao(item.valor,item.valor_liquidado)!==0&&<p className="erro" role="status">Valor do lançamento {moeda(item.valor)} · liquidado {moeda(item.valor_liquidado??0)} · diferença {moeda(diferencaLiquidacao(item.valor,item.valor_liquidado))}. Confira: o lançamento está encerrado; a diferença não é saldo pendente automático.</p>}{item.data_liquidacao && <p>{item.tipo === "pagar" ? "Pago" : "Recebido"} em {formatarData(item.data_liquidacao)}</p>}
                   <AnexosLancamento entidade="financeiro" registro={item.id} />
                   {item.codigo_barras && <details><summary>Código de barras</summary><code style={{ overflowWrap: "anywhere" }}>{item.codigo_barras}</code></details>}
                 </div>

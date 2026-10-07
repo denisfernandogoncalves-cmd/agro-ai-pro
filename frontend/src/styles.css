@@ -532,7 +532,7 @@ dialog.editor-venda::backdrop { background: #102f2480; }
     letter-spacing: -.06em;
   }
   .pagina > header .kicker { color: #d3e9d8; letter-spacing: .14em; }
-  .pagina > header h1 { color: #fff; font-size: clamp(1.5rem, 2.4vw, 2.25rem); letter-spacing: -.035em; line-height: 1.15; margin: .25rem 0 0; }
+  .pagina > header h1 { color: #fff; font-size: clamp(1.2rem, 1.7vw, 1.65rem); letter-spacing: -.035em; line-height: 1.15; margin: .25rem 0 0; }
   .cabecalho-acoes { flex-wrap: wrap; justify-content: flex-end; }
   .pagina > header button { background: rgb(255 255 255 / 12%); border: 1px solid rgb(255 255 255 / 30%); color: #fff; }
   .pagina > header button:hover:not(:disabled) { background: rgb(255 255 255 / 22%); }
@@ -981,6 +981,12 @@ dialog.editor-venda::backdrop { background: #102f2480; }
 
 /* Consulta compacta: resultados limitados por página, detalhes sob demanda. */
 .localizador-romaneios { display:grid; gap:12px; margin:0; padding:18px; }
+.conferencia-pesagem { padding:12px; border:1px solid #708579; border-radius:6px; grid-column:1/-1; white-space:normal; }
+.resumo-terceiros { border-top:1px solid #ccd8d0; margin-top:20px; padding-top:16px; }
+.tabela-resumo-terceiros { max-width:100%; overflow-x:auto; }
+.tabela-resumo-terceiros table { width:100%; border-collapse:collapse; }
+.tabela-resumo-terceiros :is(th,td) { text-align:left; padding:10px; border-bottom:1px solid #ccd8d0; }
+.tabela-resumo-terceiros small { display:block; }
 .localizador-romaneios header { display:flex; flex-wrap:wrap; align-items:start; justify-content:space-between; gap:10px; }
 .localizador-romaneios header h3 { margin:0 0 4px; }
 .localizador-romaneios header p { margin:0; color:#52665c; font-size:.9rem; }

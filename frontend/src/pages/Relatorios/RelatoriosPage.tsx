@@ -1,6 +1,6 @@
 import { baixarArquivo, erroArquivo } from "../../api/arquivos";
 import { BotaoAcao } from "../../components/AcoesContext";
-import { useEntradaPainel } from "../../components/AcoesContext";
+import { useEntradaPainel, useDestinoConsulta } from "../../components/AcoesContext";
 import FiltrosFavoritos from "../../components/FiltrosFavoritos";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { formatarData } from "../../utils/datas";
@@ -156,6 +156,7 @@ export default function RelatoriosPage({ propriedades }: { propriedades: Proprie
   const ultimaConsulta = useRef(0);
   const [exportando,setExportando]=useState(false);
   const travaExcel=useRef(false);
+  async function exportarPdf(){if(travaExcel.current||!dados)return;travaExcel.current=true;setExportando(true);setErro("");try{await baixarArquivo("/relatorios/operacionais/pdf/",`relatorio-${dados.secao}.pdf`,{...aplicados});}catch(f){setErro(await erroArquivo(f,"Não foi possível gerar o PDF."));}finally{travaExcel.current=false;setExportando(false);}}
   async function exportarExcel(){if(travaExcel.current||!dados)return;travaExcel.current=true;setExportando(true);setErro("");try{await baixarArquivo("/relatorios/operacionais/exportar/",`relatorio-${dados.secao}.xlsx`,{...aplicados});}catch(falha){setErro(await erroArquivo(falha,"Não foi possível exportar o relatório."));}finally{travaExcel.current=false;setExportando(false);}}
   const { selecionadas: colunasProducao, setSelecionadas: setColunasProducao } = useColunasImpressao(
     CHAVE_COLUNAS_PRODUCAO,
@@ -173,6 +174,7 @@ export default function RelatoriosPage({ propriedades }: { propriedades: Proprie
     finally { if (consulta === ultimaConsulta.current) setCarregando(false); }
   }
   useEffect(() => { void obterOpcoesRelatorio().then(setOpcoes).catch(() => setErro("Não foi possível carregar as opções dos relatórios.")); if (!entradaPainel) void carregar(vazio); }, []);
+  useDestinoConsulta("relatorios",valores=>{const proximos={...vazio,...Object.fromEntries(Object.entries(valores).filter(([,v])=>v!==""))} as FiltrosRelatorio;setFiltros(proximos);void carregar(proximos);});
   function alterar(campo: keyof FiltrosRelatorio, valor: string | number) { setFiltros((atual) => ({ ...atual, [campo]: valor || undefined, pagina: 1 })); }
   function trocarSecao(secao: SecaoRelatorio) { const proximos = { ...filtros, secao, pagina: 1, por_pagina: secao === "producao_propriedade" ? 100 : 25 }; setFiltros(proximos); void carregar(proximos); }
   function paginar(pagina: number) { const proximos = { ...filtros, pagina }; setFiltros(proximos); void carregar(proximos); }
@@ -180,7 +182,7 @@ export default function RelatoriosPage({ propriedades }: { propriedades: Proprie
       <style>{`@media print { @page relatorio {size: A4 ${orientacao==="retrato"?"portrait":"landscape"};} ${densidade==="compacta"?".tabela-relatorio td, .tabela-relatorio th {padding: 3px !important; font-size: 9px !important;}":""} }`}</style>
       <div className="card favoritos-campos nao-imprimir"><label>Orientação da impressão<select value={orientacao} onChange={e=>setOrientacao(e.target.value as "retrato"|"paisagem")}><option value="paisagem">Paisagem</option><option value="retrato">Retrato</option></select></label><label>Espaçamento<select value={densidade} onChange={e=>setDensidade(e.target.value as "normal"|"compacta")}><option value="normal">Normal</option><option value="compacta">Compacto</option></select></label><small>Salve um favorito para reutilizar filtros, colunas de produção e impressão.</small></div>
       <FiltrosFavoritos contexto="relatorios" configuracao={{colunas:colunasProducao,orientacao,densidade}} aplicarConfiguracao={config=>{setColunasProducao(config.colunas?.filter((c):c is ColunaProducao=>COLUNAS_PADRAO.includes(c as ColunaProducao))||COLUNAS_PADRAO);setOrientacao(config.orientacao==="paisagem"?"paisagem":"retrato");setDensidade(config.densidade==="compacta"?"compacta":"normal");}} filtros={filtros} aplicar={valores => {const proximos = {...vazio, ...valores}; setFiltros(proximos); void carregar(proximos);}} />
-    <div className="card cabecalho-relatorio"><div><span className="kicker">Central oficial somente leitura</span><h2>Todos os relatórios</h2><p>Gestão rural, produção, comercial, financeiro, estoque, operações, máquinas, clima, mercado e auditoria em uma única aba.</p></div><div><span className="selo-leitura">Somente leitura</span><BotaoAcao acao="imprimir" type="button" disabled={carregando||exportando||!dados} onClick={()=>void exportarExcel()}>{exportando?"Gerando Excel…":"Exportar resultados em Excel"}</BotaoAcao><small>Todos os resultados dos filtros aplicados, incluindo outras páginas.</small></div></div>
+    <div className="card cabecalho-relatorio"><div><span className="kicker">Central oficial somente leitura</span><h2>Todos os relatórios</h2><p>Gestão rural, produção, comercial, financeiro, estoque, operações, máquinas, clima, mercado e auditoria em uma única aba.</p></div><div><span className="selo-leitura">Somente leitura</span><BotaoAcao acao="imprimir" type="button" disabled={carregando||exportando||!dados} onClick={()=>void exportarExcel()}>{exportando?"Gerando Excel…":"Exportar resultados em Excel"}</BotaoAcao><BotaoAcao acao="imprimir" type="button" disabled={carregando||exportando||!dados} onClick={()=>void exportarPdf()}>Baixar PDF</BotaoAcao><small>Excel inclui todos os resultados; PDF detalhado até 1.000 registros. Ambos usam os filtros aplicados.</small></div></div>
     <form className="card filtros-operacionais" onSubmit={(e: FormEvent) => { e.preventDefault(); void carregar({ ...filtros, pagina: 1 }); }}>
       <label>Proprietário<select value={filtros.proprietario ?? ""} onChange={(e) => alterar("proprietario", e.target.value)}><option value="">Todos</option>{opcoes?.proprietarios.map((item) => <option key={item}>{item}</option>)}</select></label>
       <label>CAD/PRO<select value={filtros.cad_pro ?? ""} onChange={(e) => alterar("cad_pro", e.target.value)}><option value="">Todos</option>{opcoes?.cadpros.map((item) => <option key={item.id} value={item.id}>{item.codigo} — {item.descricao}</option>)}</select></label>
@@ -201,7 +203,7 @@ export default function RelatoriosPage({ propriedades }: { propriedades: Proprie
     </form>
     {erro && <p className="erro card" role="alert">{erro}</p>}
     {carregando && <div className="card vazio" role="status">Carregando relatórios operacionais...</div>}
-    {dados && <div className="resumo-consulta" aria-label="Resumo dos filtros aplicados"><strong>{SECOES.find(item => item.id === dados.secao)?.nome} · {dados.dados.total} registros</strong>
+    {dados && <div className="resumo-consulta" aria-label="Resumo dos filtros aplicados"><small>Unidades: kg, sacas de 60 kg, área em alqueires paulistas (2,42 ha) e valores em R$. Produção soma colheitas; saldos incluem entradas e saídas do estoque.</small><strong>{SECOES.find(item => item.id === dados.secao)?.nome} · {dados.dados.total} registros</strong>
       <span>Período: {aplicados.data_inicio ? formatarData(aplicados.data_inicio) : "sem início"} a {aplicados.data_fim ? formatarData(aplicados.data_fim) : "sem fim"}</span>
       <span>{[
         aplicados.proprietario && `Proprietário: ${aplicados.proprietario}`,

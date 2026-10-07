@@ -6,7 +6,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     ports:
-      - "${POSTGRES_PORT_EXPOSED:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT_EXPOSED:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
@@ -18,7 +18,7 @@ services:
   redis:
     image: redis:7-alpine
     ports:
-      - "${REDIS_PORT_EXPOSED:-6379}:6379"
+      - "127.0.0.1:${REDIS_PORT_EXPOSED:-6379}:6379"
     volumes:
       - redis_data:/data
     healthcheck:

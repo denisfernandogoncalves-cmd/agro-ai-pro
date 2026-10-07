@@ -3,10 +3,25 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+import zipfile
 from unittest.mock import patch
-from verificar_backup import verificar
+from verificar_backup import verificar, restaurar_uploads
 
 class VerificacaoBackupTests(unittest.TestCase):
+    def test_uploads_recuperados_e_referencia_ausente(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);arquivo=root/'uploads.zip';destino=root/'isolado';destino.mkdir()
+            with zipfile.ZipFile(arquivo,'w') as z:z.writestr('kml/campo.kml','<kml/>')
+            self.assertEqual(restaurar_uploads(arquivo,destino,['kml/campo.kml']),1)
+            self.assertEqual((destino/'kml/campo.kml').read_text(),'<kml/>')
+            with self.assertRaisesRegex(ValueError,'não foi recuperado'):restaurar_uploads(arquivo,destino,['ausente.kml'])
+
+    def test_uploads_nao_escapam_da_area_isolada(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root=Path(folder);arquivo=root/'uploads.zip';destino=root/'isolado';destino.mkdir()
+            with zipfile.ZipFile(arquivo,'w') as z:z.writestr('../fora.txt','inseguro')
+            with self.assertRaisesRegex(ValueError,'inseguro'):restaurar_uploads(arquivo,destino,[])
+            self.assertFalse((root/'fora.txt').exists())
     def manifesto(self, root, arquivos):
         (root / "manifesto.json").write_text(json.dumps({"arquivos":arquivos}),encoding="utf-8")
     @patch("verificar_backup.run")

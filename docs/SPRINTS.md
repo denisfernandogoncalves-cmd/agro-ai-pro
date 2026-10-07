@@ -1,5 +1,76 @@
 # Sprints — AGRO-AI-PRO
 
+## Incremento — Conferência das outras abas (07/10/2026)
+
+**Status:** `[x]` — melhorias implementadas e testes aprovados.
+Atalhos de indicadores, descontos por parcela, composição do estoque, origem e
+destino, restante de vendas, diferenças financeiras, validade de lotes, áreas
+divergentes e relatórios PDF/Excel. 30 PostgreSQL, frontend/TypeScript/build e
+migrations consistentes. Escopo e limites:
+`docs/decisoes/2026-10-07-melhorias-outras-abas.md`.
+
+## Incremento — Clareza das transferências de terceiros (07/10/2026)
+
+**Status:** `[x]` — seis melhorias implementadas e testes aprovados.
+Botão com motivo de bloqueio, status, filtros no servidor, prévia de saldos,
+comprovantes PDF/Excel e recebimentos separados da produção. 11 PostgreSQL,
+frontend, TypeScript e build aprovados; sem migration. Evidências e limites:
+`docs/decisoes/2026-10-07-usabilidade-transferencias-terceiros.md`.
+
+## Incremento agendado — Conciliação e transferências externas (07/10/2026)
+
+**Status:** `[x]` — implementado e validado localmente.
+Vínculo manual de recebimentos, conciliação de estoque, proteção do ledger em
+períodos fechados, histórico comparável, revisão de duplicidades, busca/páginas
+no servidor e painel com prioridade/prazo opcional. Transferência de terceiros
+para outro CAD/PRO preserva estoque e não soma produção, área ou produtividade.
+339 testes PostgreSQL (334 aprovados, cinco skips), 23 finais e oito revalidados;
+frontend/testes/TypeScript/build aprovados. Backups restaurados em isolamento,
+sem nova migration nem dados fictícios operacionais. Evidências e limites:
+`docs/decisoes/2026-10-07-melhorias-agendadas-cadpro.md`.
+
+## Auditoria — Romaneios, terceiros e fechamentos (07/10/2026)
+
+**Status:** `[x]` — revisão e correções autorizadas implementadas e validadas.
+Cinco falhas reproduzidas com dados sintéticos em SQLite em memória. Frontend,
+Django check, migrations e verificador de backup aprovados; serviços saudáveis.
+Prioridades, evidências e limitações:
+`docs/decisoes/2026-10-07-auditoria-romaneios-terceiros.md`.
+Correções, testes PostgreSQL, backups e limites:
+`docs/decisoes/2026-10-07-correcoes-auditoria.md`.
+
+## Incremento — Download de romaneios de entrada (07/10/2026)
+
+**Status:** `[x]` — PDF e Excel (.xlsx) disponíveis para cargas próprias,
+compartilhadas e recebimentos de terceiros. Botões separados no comprovante
+e na consulta de romaneios. PDF A4 com duas vias, pesos, descontos, qualidade,
+propriedades/CAD/PRO, motorista e assinaturas; download exige impressão.
+Testes de exportação e permissão, frontend e build aprovados. PDF da carga
+compartilhada #57 renderizado e conferido visualmente. Backups privados
+verificados antes das alterações. Detalhes no documento de decisões abaixo.
+
+## Incremento — Cadastro, fechamentos e fila de conferência (07/10/2026)
+
+**Status:** `[x]` — telas integradas, identidade explícita nos extratos/resumos,
+fechamentos, fila auditável e comprovantes de retirada implementados.
+44 testes finais relacionados aprovados em PostgreSQL, incluindo concorrência.
+Validação ampla anterior: 346 testes, cinco skips, sem falhas.
+Ensaio conjunto de recuperação do banco e uploads já verificado; automação
+semanal existente atualizada, mantendo o horário de domingo às 06h.
+Referência: `docs/decisoes/2026-10-07-cadastro-fechamento-pendencias.md`.
+
+## Incremento — Extrato de terceiros, conferência física e backup (07/10/2026)
+
+**Status:** `[x]` — cinco melhorias autorizadas implementadas e validadas localmente.
+
+Extrato cronológico com saldo acumulado, aviso de duplicidade, filtros de
+romaneios por produto/terceiro/período, contagem física auditável sem ajuste
+automático e situação administrativa de backup completo. Migration graos0020
+aditiva aplicada após backup restaurado em isolamento. 64 testes PostgreSQL
+aprovados, frontend/TypeScript/build/Docker e verificação visual autenticada
+aprovados. Escopo, comandos, backups e limites:
+`docs/decisoes/2026-10-07-extrato-conferencia-backup.md`. Sem commit/push/merge.
+
 Este documento detalha o índice operacional de `documentos/SPRINTS.md`. Uma
 Sprint somente é concluída quando seus critérios de aceite e validações
 aplicáveis estão atendidos.

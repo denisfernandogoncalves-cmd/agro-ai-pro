@@ -9,20 +9,70 @@ from django.utils import timezone
 
 from apps.propriedades.models import Propriedade
 from apps.talhoes.models import Talhao
+from apps.core.models import HistoricoImutavelQuerySet
 
 
 ZERO = Decimal("0.000")
 
 
+class TerceiroCadastro(models.Model):
+    codigo = models.CharField(max_length=40, unique=True)
+    nome = models.CharField(max_length=160)
+    ativo = models.BooleanField(default=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("nome", "id")
+
+
+class FechamentoPeriodo(models.Model):
+    armazem = models.ForeignKey("ArmazemGraos", on_delete=models.PROTECT)
+    cultura = models.CharField(max_length=50)
+    safra = models.CharField(max_length=20)
+    inicio = models.DateField()
+    fim = models.DateField()
+    saldo_proprio_kg = models.DecimalField(max_digits=16, decimal_places=3)
+    saldo_terceiros_kg = models.DecimalField(max_digits=16, decimal_places=3)
+    assinatura = models.CharField(max_length=64)
+    justificativa = models.TextField()
+    chave_idempotencia = models.UUIDField(unique=True)
+    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    objects = HistoricoImutavelQuerySet.as_manager()
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValidationError("Fechamentos são imutáveis; registre outra conferência.")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError("Fechamentos são imutáveis.")
+
+
+class PendenciaConferencia(models.Model):
+    referencia = models.CharField(max_length=100, unique=True)
+    tipo = models.CharField(max_length=20)
+    titulo = models.CharField(max_length=200)
+    detalhes = models.JSONField(default=dict)
+    responsavel = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    situacao = models.CharField(max_length=12, choices=(("aberta", "Aberta"), ("em_analise", "Em análise"), ("resolvida", "Resolvida")), default="aberta")
+    versao = models.PositiveIntegerField(default=1)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+
 class EntradaProducaoTerceiro(models.Model):
     """Depósito independente, sem vínculo com a produção das propriedades."""
     versao = models.PositiveIntegerField(default=1)
+    terceiro = models.ForeignKey(TerceiroCadastro, null=True, blank=True, on_delete=models.PROTECT)
     depositante = models.CharField(max_length=160)
     propriedade_origem = models.CharField(max_length=160, blank=True)
     cad_pro = models.CharField(max_length=80, blank=True)
     cultura = models.CharField(max_length=50)
     safra = models.CharField(max_length=20)
     armazem = models.ForeignKey("ArmazemGraos", on_delete=models.PROTECT)
+    peso_total_kg = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
+    tara_kg = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
     peso_bruto_kg = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
     umidade_percentual = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
     impureza_percentual = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
@@ -47,6 +97,32 @@ class EntradaProducaoTerceiro(models.Model):
             models.CheckConstraint(condition=models.Q(peso_liquido_kg__gt=0), name="terceiro_entrada_peso_positivo"),
             models.CheckConstraint(condition=models.Q(saldo_kg__gte=0, saldo_kg__lte=models.F("peso_liquido_kg")), name="terceiro_entrada_saldo_valido"),
         ]
+
+
+class ConferenciaEstoque(models.Model):
+    objects = HistoricoImutavelQuerySet.as_manager()
+    armazem = models.ForeignKey("ArmazemGraos", on_delete=models.PROTECT)
+    cultura = models.CharField(max_length=50)
+    safra = models.CharField(max_length=20)
+    data_contagem = models.DateField()
+    contado_kg = models.DecimalField(max_digits=16, decimal_places=3)
+    saldo_proprio_kg = models.DecimalField(max_digits=16, decimal_places=3)
+    saldo_terceiros_kg = models.DecimalField(max_digits=16, decimal_places=3)
+    justificativa = models.TextField()
+    chave_idempotencia = models.UUIDField(unique=True)
+    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.CheckConstraint(condition=models.Q(contado_kg__gte=0), name="conferencia_estoque_contagem_positiva")]
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValidationError("Conferências de estoque são imutáveis.")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError("Conferências de estoque são imutáveis.")
 
 
 class MovimentoProducaoTerceiroQuerySet(models.QuerySet):
@@ -508,6 +584,8 @@ class CargaColhida(models.Model):
     data_colheita = models.DateField(default=timezone.localdate)
     placa = models.CharField(max_length=7, blank=True, default="")
     motorista = models.CharField(max_length=120, blank=True, default="")
+    peso_total_kg = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
+    tara_kg = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
     peso_bruto_kg = models.DecimalField(
         max_digits=16,
         decimal_places=3,

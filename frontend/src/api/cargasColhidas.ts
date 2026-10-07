@@ -35,6 +35,8 @@ export type CargaColhida = {
   data_colheita: string;
   placa: string;
   motorista: string;
+  peso_total_kg?: string | null;
+  tara_kg?: string | null;
   peso_bruto_kg: string;
   umidade_percentual: string;
   impureza_percentual: string;
@@ -69,6 +71,8 @@ export type CargaColhidaInput = {
   data_colheita: string;
   placa: string;
   motorista: string;
+  peso_total_kg?: string | null;
+  tara_kg?: string | null;
   peso_bruto_kg: string;
   umidade_percentual: string;
   impureza_percentual: string;

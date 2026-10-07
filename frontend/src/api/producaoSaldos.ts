@@ -53,6 +53,8 @@ export type ConsolidadoCADPro = {
 };
 
 export type PainelSaldos = {
+  composicao?: {operacao:string;origem_externa:boolean;fisico_kg:string;comprometido_kg:string}[];
+  recebimentos_terceiros?: {posicao:number;quantidade_kg:string}[];
   resumo: {
     propriedades: number;
     cadpros: number;

@@ -8,6 +8,24 @@ import subprocess
 import time
 import uuid
 import zipfile
+import tempfile
+
+
+def restaurar_uploads(arquivo, destino, referencias):
+    """Extrai somente para área isolada, validando os caminhos referidos pelo banco."""
+    destino=destino.resolve()
+    with zipfile.ZipFile(arquivo) as uploads:
+        for item in uploads.infolist():
+            alvo=(destino/item.filename).resolve()
+            if not alvo.is_relative_to(destino) or ":" in item.filename or "\\" in item.filename or (item.external_attr >> 16) & 0o170000 == 0o120000:
+                raise ValueError("Caminho inseguro no backup de uploads.")
+        uploads.extractall(destino)
+        arquivos=sum(not item.is_dir() for item in uploads.infolist())
+    for referencia in referencias:
+        alvo=(destino/referencia).resolve()
+        if not alvo.is_relative_to(destino) or not alvo.is_file():
+            raise ValueError("Upload referenciado pelo banco não foi recuperado.")
+    return arquivos
 
 ROOT=Path(__file__).resolve().parent.parent
 LABEL="agro.backup.validation"
@@ -47,7 +65,14 @@ def verificar(dest):
             run(["docker","exec","-i",nome,"pg_restore","--exit-on-error","--no-owner","--no-privileges","-U","postgres","-d","postgres"],stdin=source,capture_output=True)
         resultado=run(["docker","exec",nome,"psql","-U","postgres","-d","postgres","-At","-c","SELECT count(*) FROM information_schema.tables WHERE table_schema='public'; SELECT count(*) FROM django_migrations;"],capture_output=True,text=True).stdout.splitlines()
         if len(resultado)!=2 or int(resultado[0])<10 or int(resultado[1])<1:raise RuntimeError("Restauração incompleta.")
+        consulta="SELECT coalesce(json_agg(arquivo_kml),'[]'::json) FROM (SELECT arquivo_kml FROM propriedades_propriedade WHERE arquivo_kml IS NOT NULL AND arquivo_kml <> '' UNION SELECT arquivo_kml FROM talhoes_talhao WHERE arquivo_kml IS NOT NULL AND arquivo_kml <> '') arquivos;"
+        referencias=json.loads(run(["docker","exec",nome,"psql","-U","postgres","-d","postgres","-At","-c",consulta],capture_output=True,text=True).stdout)
+        if "uploads.zip" not in manifesto["arquivos"]:
+            raise ValueError("Backup de uploads ausente do manifesto.")
+        with tempfile.TemporaryDirectory(prefix="ensaio-uploads-",dir=dest) as area:
+            recuperados=restaurar_uploads(dest/"uploads.zip",Path(area),referencias)
         prova={"data":datetime.datetime.now().astimezone().isoformat(),"backup":str(dest),"hashes":True,"zip_crc":True,"restauracao_isolada":True,"postgres":"17","rede":"none","volume":"tmpfs efêmero","tabelas":int(resultado[0]),"migrations":int(resultado[1])}
+        prova.update(uploads_restaurados=recuperados, referencias_uploads_verificadas=len(referencias), recuperacao_conjunta=True)
         arquivo=dest/("verificacao-restauracao-"+datetime.datetime.now().strftime("%Y%m%d-%H%M%S-%f")+".json")
         arquivo.write_text(json.dumps(prova,ensure_ascii=False,indent=2),encoding="utf-8")
         print("Restauração isolada aprovada:",arquivo)

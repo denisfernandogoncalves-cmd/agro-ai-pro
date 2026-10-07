@@ -1,3 +1,4 @@
+import {useOperacaoConferida} from "../../components/OperacaoConferida";
 import { useRascunhoAutomatico } from "../../components/RascunhoAutomatico";
 import { useAlteracoesNaoSalvas } from "../../components/AlteracoesNaoSalvas";
 import ConferenciaSaldo from "../../components/ConferenciaSaldo";
@@ -5,6 +6,9 @@ import { useEntradaPainel } from "../../components/AcoesContext";
 import FiltrosFavoritos from "../../components/FiltrosFavoritos";
 import { BotaoAcao } from "../../components/AcoesContext";
 import axios from "axios";
+import {ConciliacaoEstoque} from "../../components/ConferenciaOperacional";
+import { Fechamentos, PendenciasConferencia } from "../../components/GestaoConferencia";
+import ConferenciaEstoque from "../../components/ConferenciaEstoque";
 import PainelFormulario from "../../components/PainelFormulario";
 import { formatarData } from "../../utils/datas";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
@@ -124,6 +128,7 @@ export function mesmosFiltrosSaldo(a: FiltrosSaldo, b: FiltrosSaldo) {
 }
 
 export default function ProducaoSaldosPage({ propriedades }: Props) {
+  const executarConferido=useOperacaoConferida();
   const [conferencia, setConferencia] = useState<number | null>(null);
   const entradaPainel = useEntradaPainel("producao-saldos");
   const [painel, setPainel] = useState<PainelSaldos | null>(null);
@@ -207,7 +212,7 @@ export default function ProducaoSaldosPage({ propriedades }: Props) {
     try {
       const resultado = await controladorCredito.current.enviar(
         credito,
-        creditarProducao,
+        dados=>executarConferido(()=>creditarProducao(dados)),
       );
       setSucesso(
         resultado.idempotente
@@ -283,13 +288,14 @@ export default function ProducaoSaldosPage({ propriedades }: Props) {
         </section>
       </section>
 
+      <section className="card"><h3>Composição do saldo consultado</h3><p>Somatório de todos os movimentos das posições filtradas. Os estornos aparecem separadamente. Reservas alteram o comprometido; somente colheitas entram nos indicadores de produção.</p><div className="tabela-responsiva"><table><thead><tr><th>Movimento</th><th>Efeito no físico (kg)</th><th>Efeito no comprometido (kg)</th></tr></thead><tbody>{painel?.composicao?.map((c,i)=><tr key={i}><td>{c.origem_externa?"Recebido de terceiros — somente estoque":c.operacao.split("_").join(" ")}</td><td>{kg(c.fisico_kg)}</td><td>{kg(c.comprometido_kg)}</td></tr>)}</tbody></table></div></section><section className="card"><h3>Estoque recebido de terceiros</h3><p>Transferências recebidas e não estornadas, separadas da produção colhida. Quantidade recebida acumulada; retiradas ou vendas posteriores já estão descontadas do saldo geral e não podem ser atribuídas automaticamente a uma origem.</p>{painel?.recebimentos_terceiros?.length?painel.recebimentos_terceiros.map(r=>{const p=painel.posicoes.find(p=>p.id===r.posicao);return <p key={r.posicao}><strong>{p?.propriedade_nome} · CAD/PRO {p?.cad_pro_codigo}</strong> · {p?.cultura} / {p?.safra} · {p?.armazem_nome}: {kg(r.quantidade_kg)} recebidos de terceiros, sem contabilizar produção.</p>;}):<p>Nenhuma transferência recebida nas dimensões filtradas.</p>}</section>
       <section className="card tabela-saldos">
         <h3>Posições por cultura · safra · classificação · armazenagem</h3>
         <div className="tabela-scroll"><table><thead><tr><th>Propriedade produtora</th><th>CAD/PRO</th><th>Cultura</th><th>Safra</th><th>Classificação</th><th>Armazenagem</th><th>Físico</th><th>Comprometido</th><th>Disponível</th><th>Versão</th><th>Conferência</th></tr></thead><tbody>{painel?.posicoes.map((item) => <tr key={item.id}><td>{item.propriedade_nome || "Produção histórica sem propriedade"}</td><td>{item.cad_pro_codigo}</td><td>{item.cultura}</td><td>{item.safra}</td><td>{item.classificacao_codigo}</td><td>{item.armazem_nome}</td><td>{kg(item.saldo_fisico_kg)}</td><td>{kg(item.saldo_comprometido_kg)}</td><td><strong>{kg(item.saldo_disponivel_kg)}</strong></td><td>{item.versao}</td><td><button type="button" className="secundario" onClick={() => setConferencia(item.id)}>Conferir saldo</button></td></tr>)}</tbody></table></div>
       </section>
 
       {conferencia !== null && <><button type="button" className="secundario nao-imprimir" onClick={() => setConferencia(null)}>Fechar conferência</button><ConferenciaSaldo key={conferencia} posicao={conferencia} atualizar={() => void carregar()} /></>}
-      <section className="card rastreabilidade-saldos">
+      <ConciliacaoEstoque armazens={armazens}/><Fechamentos armazens={armazens}/><PendenciasConferencia/><ConferenciaEstoque armazens={armazens}/><section className="card rastreabilidade-saldos">
         <h3>Rastreabilidade recente</h3>
         <div className="lista">{movimentos.length ? movimentos.map((item) => <article className="movimento-saldo" key={item.id}><div><span className="kicker">{formatarData(item.data_movimento)} · {item.operacao.split("_").join(" ")}</span><strong>{item.cad_pro_codigo} · {item.lote_codigo}</strong><small>{item.cultura} {item.safra} · {item.classificacao_codigo} · {item.armazem_nome}</small></div><div><strong>{numero(item.delta_fisico_kg) >= 0 ? "+" : ""}{kg(item.delta_fisico_kg)}</strong><small>{item.referencia_externa || item.origem_chave_idempotencia}</small></div></article>) : <p>Nenhuma movimentação encontrada.</p>}</div>
       </section>

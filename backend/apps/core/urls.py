@@ -6,8 +6,18 @@ from .conferencia import ConferenciaView, EstornoConferidoView, SimularVendaView
 from .excel import BackupExcelView
 from .anexos import AnexosView, AnexoDetailView
 from .duplicidades import DuplicidadesView
+from .backup_status import BackupStatusView
+from apps.graos.conferencia_estoque import ConferenciaEstoqueView
+from apps.graos.fechamentos import FechamentosView
+from apps.graos.pendencias import PendenciasView
 
 urlpatterns = [
+    path("fechamentos/", FechamentosView.as_view(), name="fechamentos"),
+    path("pendencias-conferencia/", PendenciasView.as_view(), name="pendencias-conferencia"),
+    path("pendencias-conferencia/<int:pk>/", PendenciasView.as_view(), name="pendencia-conferencia-detalhe"),
+    path("conferencia-estoque/previa/", ConferenciaEstoqueView.as_view(previa=True), name="conferencia-estoque-previa"),
+    path("conferencia-estoque/", ConferenciaEstoqueView.as_view(), name="conferencia-estoque"),
+    path("backup-status/", BackupStatusView.as_view(), name="backup-status"),
     path("duplicidades/<str:entidade>/", DuplicidadesView.as_view(), name="duplicidades"),
     path("backup-excel/", BackupExcelView.as_view(), name="backup-excel"),
     path("anexos/arquivo/<int:pk>/", AnexoDetailView.as_view(), name="anexo-arquivo"),

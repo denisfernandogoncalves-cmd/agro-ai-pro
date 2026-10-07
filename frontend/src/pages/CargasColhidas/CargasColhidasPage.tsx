@@ -3,11 +3,13 @@ import ListaRomaneiosEntrada from "./ListaRomaneiosEntrada";
 import { DadosComprovante } from "../../components/ComprovanteLancamento";
 import AnexosLancamento from "../../components/AnexosLancamento";
 import ComprovanteLancamento from "../../components/ComprovanteLancamento";
+import { useOperacaoConferida } from "../../components/OperacaoConferida";
+import { EquacaoPesagem, useConferirPesagem } from "../../components/ConferenciaPesagem";
 import ProducaoTerceiros from "./ProducaoTerceiros";
 import FormularioValidado from "../../components/FormularioValidado";
 import ResumoConsulta, { noPeriodo, ordenarConsulta, OrdemConsulta, totalConsulta } from "../../components/ResumoConsulta";
 import { useConferirDuplicidades } from "../../components/ConferirDuplicidades";
-import { formatarPercentual } from "../../utils/numeros";
+import { formatarPercentual, formatarNumero } from "../../utils/numeros";
 import FiltrosFavoritos from "../../components/FiltrosFavoritos";
 import FiltrosRapidos, { correspondeFiltrosRapidos, filtrosRapidosVazios, restaurarConsultaFavorita } from "../../components/FiltrosRapidos";
 import { useAlteracoesNaoSalvas } from "../../components/AlteracoesNaoSalvas";
@@ -32,6 +34,7 @@ import { Propriedade, rotuloPropriedade } from "../../api/propriedades";
 import { Talhao } from "../../api/talhoes";
 import { aplicarGrupoNaCarga, GrupoPropriedades, listarGruposPropriedades } from "../../api/gruposPropriedades";
 import { areaEmAlqueires } from "../../utils/areas";
+import { formatarDataHora } from "../../utils/datas";
 
 
 function dataLocalISO() {
@@ -58,6 +61,8 @@ function novaCarga(): CargaColhidaInput {
     data_colheita: dataLocalISO(),
     placa: "",
     motorista: "",
+    peso_total_kg: null,
+    tara_kg: null,
     peso_bruto_kg: "",
     umidade_percentual: "",
     impureza_percentual: "",
@@ -226,11 +231,12 @@ export function dadosRomaneioCarga(item:CargaColhida):DadosComprovante {
   const qualidade = `Umidade ${formatarPercentual(item.umidade_percentual)} · Impureza ${formatarPercentual(item.impureza_percentual)} · Avariados ${formatarPercentual(item.defeitos_percentual)}`
     + (item.cultura.trim().toLowerCase()==="trigo"?` · PH ${item.ph==null?"Não informado":formatar(numero(item.ph))}`:"");
   return {titulo:`Romaneio de entrada #${item.id}`,modelo:"romaneio",tipoMovimento:"entrada",campos:[
+    ["Romaneio",`#${item.id}`],["Registrado em",formatarDataHora(item.criado_em)],["Responsável pelo registro",item.criado_por_nome||"Não informado"],
     ["Origem","Produção própria"],["Situação",item.status],["Data da entrada",dataPlanilhaCarga(item.data_colheita)],
     ["Propriedades / CAD/PRO",produtores.map(p=>`${p.nome} / ${p.cadpro}`).join("; ")],
     ["Cultura / safra",`${item.cultura} / ${item.safra}`],["Armazenagem",item.armazem_nome],
     ["Placa",item.placa||"Sem placa"],["Motorista",item.motorista||"—"],
-    ["Peso bruto",`${formatar(numero(item.peso_bruto_kg))} kg`],["Tara","Não informada"],
+    ["Peso total",item.peso_total_kg == null ? "Não informado" : `${formatar(numero(item.peso_total_kg))} kg`],["Tara",item.tara_kg == null ? "Não informada" : `${formatar(numero(item.tara_kg))} kg`],["Peso bruto do produto",`${formatar(numero(item.peso_bruto_kg))} kg`],
     ["Peso líquido",`${formatar(numero(item.peso_liquido_kg))} kg`],["Sacas de 60 kg",formatar(numero(item.sacas_60kg))],
     ["Desconto (%)",formatarPercentual(item.desconto_total_percentual)],["Desconto (kg)",`${formatar(numero(item.desconto_total_kg))} kg`],
     ["Qualidade",qualidade],["Movimento",String(item.movimentacao)],["Observações",item.observacoes||"—"],
@@ -268,7 +274,7 @@ export function CartaoCargaColhida({ item, carregando, onEditar, onExcluir }: {
           <div><strong>{formatar(produtor.peso)} kg</strong><span>{formatar(produtor.sacas)} sc</span></div>
         </li>)}</ul>
       </section>}
-      <div className="carga-metricas"><span>Bruto total <strong>{formatar(numero(item.peso_bruto_kg))} kg</strong></span><span>Desconto <strong>{formatarPercentual(item.desconto_total_percentual)}</strong></span><span>Líquido total <strong>{formatar(numero(item.peso_liquido_kg))} kg</strong></span></div>
+      <div className="carga-metricas"><span>Peso total <strong>{item.peso_total_kg == null ? "Não informado" : `${formatar(numero(item.peso_total_kg))} kg`}</strong></span><span>Tara <strong>{item.tara_kg == null ? "Não informada" : `${formatar(numero(item.tara_kg))} kg`}</strong></span><span>Bruto do produto <strong>{formatar(numero(item.peso_bruto_kg))} kg</strong></span><span>Desconto <strong>{formatarPercentual(item.desconto_total_percentual)}</strong></span><span>Líquido total <strong>{formatar(numero(item.peso_liquido_kg))} kg</strong></span></div>
       <details className="detalhes-listagem"><summary>Análises e histórico da carga</summary><div className="carga-analises" aria-label="Análise e rastreabilidade da carga">
         <span>Umidade <strong>{formatarPercentual(item.umidade_percentual)}</strong></span>
         <span>Impureza <strong>{formatarPercentual(item.impureza_percentual)}</strong></span>
@@ -279,7 +285,7 @@ export function CartaoCargaColhida({ item, carregando, onEditar, onExcluir }: {
         {item.substituida_por && <span>Substituída pela carga #{item.substituida_por}</span>}
       </div>{item.observacoes&&<p>{item.observacoes}</p>}</details>
       <AnexosLancamento entidade="carga" registro={item.id} />
-      <ComprovanteLancamento duasVias dados={dadosRomaneioCarga(item)}/>
+      <ComprovanteLancamento duasVias downloadRomaneio={{cargaId:item.id}} dados={dadosRomaneioCarga(item)}/>
       {item.status !== "ativa" && item.motivo_cancelamento && <small>Motivo: {item.motivo_cancelamento}</small>}
       {item.status === "ativa" && <div className="acoes carga-item-acoes"><BotaoAcao acao="editar" disabled={carregando} className="secundario" type="button" onClick={() => onEditar(item)}>Editar</BotaoAcao><BotaoAcao acao="excluir" disabled={carregando} className="perigo" type="button" onClick={() => onExcluir(item)}>Excluir</BotaoAcao></div>}
     </article>
@@ -338,7 +344,7 @@ export function resumoCalculado(carga: CargaColhidaInput) {
   const descontoKg = arredondar(umidadeKg + classificacaoKg + arredondar(bruto * arredondar(descontoPh) / 100));
   const percentual = bruto > 0 ? arredondar(descontoKg * 100 / bruto) : 0;
   const liquido = Math.max(0, arredondar(bruto - descontoKg));
-  return { percentual, liquido, sacas: arredondar(liquido / 60) };
+  return { percentual, liquido, sacas: arredondar(liquido / 60), umidadeKg, classificacaoKg, phKg:arredondar(bruto * arredondar(descontoPh) / 100) };
 }
 
 type Props = { propriedades: Propriedade[] };
@@ -514,6 +520,8 @@ export default function CargasColhidasPage({ propriedades }: Props) {
       data_colheita: item.data_colheita,
       placa: item.placa,
       motorista: item.motorista,
+      peso_total_kg: item.peso_total_kg ?? null,
+      tara_kg: item.tara_kg ?? null,
       peso_bruto_kg: item.peso_bruto_kg,
       umidade_percentual: item.umidade_percentual,
       impureza_percentual: item.impureza_percentual,
@@ -532,6 +540,8 @@ export default function CargasColhidasPage({ propriedades }: Props) {
   }
 
   const conferirDuplicidades = useConferirDuplicidades();
+  const conferirPesagem = useConferirPesagem();
+  const executarConferido=useOperacaoConferida();
   async function salvarCarga(evento: FormEvent) {
     evento.preventDefault();
     if (travaCarga.current) return;
@@ -560,10 +570,11 @@ export default function CargasColhidasPage({ propriedades }: Props) {
     travaCarga.current = true; setSalvando(true);
     setCarregando(true);
     try {
+      if (!(await conferirPesagem({...carga,origem:"propria",propriedade:Number(carga.propriedade),armazem:Number(carga.armazem),...(edicaoId?{excluir_id:edicaoId}:{})}))) {setCarregando(false);return;}
       if (!(await conferirDuplicidades("carga", {data:carga.data_colheita,quantidade:Number(carga.peso_bruto_kg.replace(",",".")),propriedade:Number(carga.propriedade),cultura:carga.cultura,safra:carga.safra,placa:carga.placa,...(edicaoId?{excluir_id:edicaoId}:{})}))) {setCarregando(false);return;}
       const salva = edicaoId
-        ? await atualizarCargaColhida(edicaoId, carga)
-        : await criarCargaColhida(carga);
+        ? await executarConferido(()=>atualizarCargaColhida(edicaoId!, carga))
+        : await executarConferido(()=>criarCargaColhida(carga));
       setSucesso(
         edicaoId
           ? `Carga retificada com sucesso. A versão corrigida é a carga #${salva.id}.`
@@ -593,10 +604,10 @@ export default function CargasColhidasPage({ propriedades }: Props) {
     travaCarga.current = true; setSalvando(true);
     setCarregando(true);
     try {
-      await excluirCargaColhida(
+      await executarConferido(()=>excluirCargaColhida(
         item.id,
-        exclusao.motivo.trim(),
-      );
+        exclusao!.motivo.trim(),
+      ));
       if (edicaoId === item.id) cancelarEdicao();
       setExclusao(null);
       setSucesso(`Carga #${item.id} cancelada e saldo estornado.`);
@@ -682,7 +693,9 @@ export default function CargasColhidasPage({ propriedades }: Props) {
           </div>
           <label>Nome do motorista<input maxLength={120} placeholder="Obrigatório quando não houver placa" value={carga.motorista} onChange={(e) => setCarga({ ...carga, motorista: e.target.value })} /></label>
           <label>Local de colheita<input placeholder="Talhão, gleba ou ponto de origem" value={carga.local_colheita} onChange={(e) => setCarga({ ...carga, local_colheita: e.target.value })} /></label>
-          <label>Peso bruto (kg)<input required min="0.001" step="0.001" type="number" value={carga.peso_bruto_kg} onChange={(e) => setCarga({ ...carga, peso_bruto_kg: e.target.value })} /></label>
+          <label>Peso total (kg)<input min="0.001" step="0.001" type="number" value={carga.peso_total_kg ?? ""} onChange={e=>{const total=e.target.value;setCarga({...carga,peso_total_kg:total||null,peso_bruto_kg:total&&carga.tara_kg!=null?(Number(total)-Number(carga.tara_kg)).toFixed(3):carga.peso_bruto_kg});}} /></label>
+          <label>Tara (kg)<input min="0" step="0.001" type="number" value={carga.tara_kg ?? ""} onChange={e=>{const tara=e.target.value;setCarga({...carga,tara_kg:tara||null,peso_bruto_kg:tara&&carga.peso_total_kg!=null?(Number(carga.peso_total_kg)-Number(tara)).toFixed(3):carga.peso_bruto_kg});}} /></label>
+          <label>Peso bruto do produto (kg)<input required min="0.001" step="0.001" type="number" readOnly={carga.peso_total_kg!=null||carga.tara_kg!=null} value={carga.peso_bruto_kg} onChange={(e) => setCarga({ ...carga, peso_bruto_kg: e.target.value })} /></label>
           <div className="linha">
             <label>Umidade (%)<input required min="11.5" max="30" step="0.5" type="number" value={carga.umidade_percentual} onChange={(e) => setCarga({ ...carga, umidade_percentual: e.target.value })} /></label>
             <label>Impureza (%)<input required min="0" max="100" step="0.01" type="number" value={carga.impureza_percentual} onChange={(e) => setCarga({ ...carga, impureza_percentual: e.target.value })} /></label>
@@ -703,8 +716,9 @@ export default function CargasColhidasPage({ propriedades }: Props) {
           </details>
           <label>Observações<textarea value={carga.observacoes} onChange={(e) => setCarga({ ...carga, observacoes: e.target.value })} /></label>
           {edicaoId && <label>Motivo da correção<input required maxLength={500} placeholder="Ex.: correção do peso informado" value={carga.motivo_correcao ?? ""} onChange={(e) => setCarga({ ...carga, motivo_correcao: e.target.value })} /></label>}
+          <EquacaoPesagem dados={{...carga,peso_liquido_kg:String(calculo.liquido),desconto_total_kg:String(Math.round((numero(carga.peso_bruto_kg)-calculo.liquido)*1000)/1000)}}/>
           <div className="resumo-peso" aria-live="polite">
-            <span>Desconto estimado <strong>{formatarPercentual(calculo.percentual)}</strong></span>
+            <span>Umidade <strong>{formatarNumero(calculo.umidadeKg)} kg</strong></span><span>Impureza + avariados <strong>{formatarNumero(calculo.classificacaoKg)} kg</strong></span>{calculo.phKg>0&&<span>PH <strong>{formatarNumero(calculo.phKg)} kg</strong></span>}<span>Desconto estimado <strong>{formatarPercentual(calculo.percentual)}</strong></span>
             <span>Peso líquido estimado <strong>{calculo.liquido.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} kg</strong></span>
             <span>Conversão estimada <strong>{calculo.sacas.toLocaleString("pt-BR", { maximumFractionDigits: 3 })} sacas</strong></span>
           </div>

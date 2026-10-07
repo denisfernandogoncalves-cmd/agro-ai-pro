@@ -627,6 +627,15 @@ def _criar_movimento(
     snapshot_posterior=None,
 ):
     quantidade = max(abs(delta_fisico), abs(delta_comprometido))
+    # Reutiliza o contexto auditável da API; a exceção reverte a operação atômica.
+    from apps.core.auditoria import requisicao_atual
+    from .fechamentos import verificar_periodo
+    from types import SimpleNamespace
+    request = requisicao_atual.get()
+    if request is not None and getattr(request.user, 'is_authenticated', False):
+        contexto = SimpleNamespace(armazem=posicao.armazem, cultura=posicao.cultura,
+            safra=posicao.safra, data_entrada=estorno_de.data_movimento if estorno_de else None)
+        verificar_periodo(request, contexto, data_movimento or timezone.localdate())
     tipo = (
         MovimentacaoGraos.Tipo.ENTRADA
         if delta_fisico > 0 or (delta_fisico == 0 and delta_comprometido > 0)
@@ -1390,7 +1399,9 @@ def saldo_lote(lote):
 def saldo_armazem(armazem):
     if PosicaoSaldoGraos.objects.filter(armazem=armazem).exists():
         return _ocupacao_armazem_bloqueada(armazem.pk)
-    return max(ZERO, _saldo_agregado(MovimentacaoGraos.objects.filter(lote__armazem=armazem)))
+    from .models import EntradaProducaoTerceiro
+    terceiros = EntradaProducaoTerceiro.objects.filter(armazem=armazem).aggregate(v=Sum('saldo_kg'))['v'] or ZERO
+    return max(ZERO, _saldo_agregado(MovimentacaoGraos.objects.filter(lote__armazem=armazem))) + terceiros
 
 
 @transaction.atomic

@@ -1,3 +1,4 @@
+import {useOperacaoConferida} from "../../components/OperacaoConferida";
 import AnexosLancamento from "../../components/AnexosLancamento";
 import ComprovanteLancamento from "../../components/ComprovanteLancamento";
 import FormularioValidado from "../../components/FormularioValidado";
@@ -170,6 +171,7 @@ function mensagem(falha: unknown) {
 }
 
 export default function TransferenciasSaldoPage() {
+  const executarConferido=useOperacaoConferida();
   const confirmar = useConfirmacaoCompacta();
   const pode = useAcoes();
   const editorRef = useRef<HTMLFormElement>(null);
@@ -231,8 +233,8 @@ export default function TransferenciasSaldoPage() {
       const payload = { posicao_origem: origem.id, ...(destino.id ? { posicao_destino: destino.id } : { propriedade_destino: destino.propriedade_id!, cad_pro_destino: destino.cad_pro }), quantidade_kg: quantidade, data_movimento: form.data_movimento, referencia_externa: form.referencia_externa, observacoes: form.observacoes };
       const assinatura = JSON.stringify([editando?.saida?.id, motivo, payload]);
       if (tentativa.current?.assinatura !== assinatura) tentativa.current = { assinatura, chave: `transferencia-ui:${crypto.randomUUID()}` };
-      if (editando?.saida) await alterarTransferenciaSaldo(editando.saida.id, { ...payload, motivo: motivo.trim(), chave_idempotencia: tentativa.current.chave });
-      else await transferirSaldo({ ...payload, chave_idempotencia: tentativa.current.chave });
+      if (editando?.saida) await executarConferido(()=>alterarTransferenciaSaldo(editando!.saida!.id, { ...payload, motivo: motivo.trim(), chave_idempotencia: tentativa.current!.chave }));
+      else await executarConferido(()=>transferirSaldo({ ...payload, chave_idempotencia: tentativa.current!.chave }));
       tentativa.current = null; setForm(vazio); setEditando(null); setMotivo(""); protecao.marcarSalvo({form:vazio,motivo:""}); setSucesso(editando ? "Transferência corrigida nas duas posições. O original foi preservado no histórico." : "Transferência registrada nas duas posições oficiais. O saldo total foi preservado.");
       await carregar();
     } catch (falha) { setErro(mensagem(falha)); }
@@ -256,7 +258,7 @@ export default function TransferenciasSaldoPage() {
     trava.current = true; setOcupado(true); setErro(""); setSucesso("");
     const assinatura = JSON.stringify(["excluir", excluindo.saida.id, motivo.trim()]);
     if (tentativa.current?.assinatura !== assinatura) tentativa.current = { assinatura, chave: `transferencia-ui:${crypto.randomUUID()}` };
-    try { await excluirTransferenciaSaldo(excluindo.saida.id, motivo.trim(), tentativa.current.chave); cancelarCorrecao(); setSucesso("Transferência excluída. O saldo voltou à origem; o registro original permanece no histórico."); await carregar(); }
+    try { await executarConferido(()=>excluirTransferenciaSaldo(excluindo!.saida!.id, motivo.trim(), tentativa.current!.chave)); cancelarCorrecao(); setSucesso("Transferência excluída. O saldo voltou à origem; o registro original permanece no histórico."); await carregar(); }
     catch (falha) { setErro(mensagem(falha)); }
     finally { trava.current = false; setOcupado(false); }
   }
@@ -294,7 +296,7 @@ export default function TransferenciasSaldoPage() {
       <div className="linha"><label>Cultura<select required value={form.cultura} onChange={e => setForm({ ...form, cultura: e.target.value, safra: "", posicao_origem: 0, posicao_destino: "" })}><option value="">Selecione a cultura</option>{culturas.map(cultura => <option key={cultura} value={cultura}>{cultura}</option>)}</select></label><label>Ano / safra<select required disabled={!form.cultura} value={form.safra} onChange={e => setForm({ ...form, safra: e.target.value, posicao_origem: 0, posicao_destino: "" })}><option value="">{form.cultura ? "Selecione o ano / safra" : "Selecione primeiro a cultura"}</option>{safras.map(safra => <option key={safra} value={safra}>{safra}</option>)}</select></label></div>
       <div className="linha"><label>Propriedade / CAD/PRO de origem / Proprietário<select required disabled={!form.safra} value={form.posicao_origem || ""} onChange={e => setForm({ ...form, posicao_origem: Number(e.target.value), posicao_destino: "" })}><option value="">{form.safra ? "Selecione a propriedade e o CAD/PRO" : "Selecione primeiro a cultura e o ano / safra"}</option>{origens.map(opcao => <option key={opcao.chave} value={opcao.chave}>{opcao.rotulo}</option>)}</select></label><label>Propriedade / CAD/PRO de destino / Proprietário<select required disabled={!origem} value={form.posicao_destino || ""} onChange={e => setForm({ ...form, posicao_destino: e.target.value })}><option value="">{origem ? "Selecione a propriedade e o CAD/PRO" : "Selecione primeiro a origem"}</option>{destinos.map(opcao => <option key={opcao.chave} value={opcao.chave}>{opcao.rotulo}</option>)}</select></label></div>
       {origem && !destinos.length && <p role="status">Não há outra propriedade com CAD/PRO ativo vinculado para receber o saldo.</p>}
-      <div className="linha"><p>Disponível na origem: <strong>{kg(origem?.saldo_disponivel_kg || "0")}</strong></p><p>Físico no destino: <strong>{kg(destino?.saldo_fisico_kg || "0")}</strong></p></div>
+      <div className="linha"><section className="card"><h4>Origem</h4><p>{origem?.propriedade_nome||"Selecione a origem"} · CAD/PRO {origem?.cad_pro_codigo||"—"}</p><p>Disponível na origem: <strong>{kg(origem?.saldo_disponivel_kg || "0")}</strong></p></section><section className="card"><h4>Destino</h4><p>{destino?.propriedade_nome||"Selecione o destino"} · CAD/PRO {destino?.cad_pro_codigo||"—"}</p><p>Físico no destino: <strong>{kg(destino?.saldo_fisico_kg || "0")}</strong></p></section></div>
       <div className="linha"><label>Quantidade (kg)<input required inputMode="decimal" placeholder="Ex.: 1.000,500" value={form.quantidade_kg} onChange={e => setForm({ ...form, quantidade_kg: e.target.value })} /></label><label>Data<input required type="date" value={form.data_movimento} onChange={e => setForm({ ...form, data_movimento: e.target.value })} /></label></div>
       {editando && <div className="comparacao-edicao"><span>Quantidade atual <strong>{kg(editando.saida?.quantidade_kg || 0)}</strong></span><span>Nova quantidade <strong>{kg(quantidadePrevia)}</strong></span></div>}
       {!!previaSaldos.length && <div className="previa-edicao"><h4>Saldos antes e depois · prévia sem lançamento</h4>{previaSaldos.map((p,i) => <div className="comparacao-edicao" key={i}><span>{p.posicao.propriedade_nome || "Posição histórica"} · CAD/PRO {p.posicao.cad_pro_codigo}<strong>Atual: {kg(p.anterior)}</strong></span><span>Após confirmar<strong>{kg(p.posterior)}</strong><small>Disponível: {kg(p.disponivel)}</small></span></div>)}<small>O servidor confere novamente os saldos, reservas e compatibilidade ao confirmar.</small></div>}

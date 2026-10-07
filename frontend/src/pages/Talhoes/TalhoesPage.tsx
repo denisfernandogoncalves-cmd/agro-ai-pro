@@ -345,7 +345,7 @@ export default function TalhoesPage() {
                   Área declarada: {areaEmAlqueires(selecionado.area_hectares)} alq. · Área
                   geodésica calculada: {areaEmAlqueires(selecionado.area_calculada_hectares)} alq.
                   {selecionado.divergencia_area_percentual &&
-                    ` · Diferença: ${selecionado.divergencia_area_percentual}%`}
+                    ` · Diferença: ${selecionado.divergencia_area_percentual}%`}{Number(selecionado.divergencia_area_percentual)!==0&&<strong> · Conferir divergência entre cadastro e mapa. Nenhuma área foi alterada automaticamente.</strong>}
                 </p>
               )}
               {selecionado.geometria_geojson &&
