@@ -1,14 +1,24 @@
+import { BotaoAcao } from "../../components/AcoesContext";
+import PainelFormulario from "../../components/PainelFormulario";
 import axios from "axios";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { carregarContratos, ContratoComercial, DadosContrato, excluirContrato, reativarContrato, salvarContrato } from "../../api/contratosComerciais";
 
-const vazio: DadosContrato = { empresa: "", numero: "", quantidade_kg: "", produto: "" };
+const vazio: DadosContrato = { empresa: "", numero: "", quantidade_kg: "", produto: "", preco_venda: "", unidade_preco: "kg" };
 
 export function quantidadeContrato(valor: string) {
   const limpo = valor.trim();
   if (!/^\d+(?:\.\d{3})*(?:,\d{1,3})?$/.test(limpo)) throw new Error("Use ponto para milhares e vírgula para decimais. Exemplo: 35.000,500.");
   const normalizado = limpo.replace(/\./g, "").replace(",", ".");
   if (Number(normalizado) <= 0) throw new Error("A quantidade deve ser maior que zero.");
+  return normalizado;
+}
+
+export function precoContrato(valor: string) {
+  const limpo = valor.trim();
+  if (!/^\d+(?:\.\d{3})*(?:,\d{1,2})?$/.test(limpo)) throw new Error("Use ponto para milhares e vírgula para centavos. Exemplo: 125,50.");
+  const normalizado = limpo.replace(/\./g, "").replace(",", ".");
+  if (Number(normalizado) <= 0) throw new Error("O valor vendido deve ser maior que zero.");
   return normalizado;
 }
 
@@ -37,20 +47,24 @@ export default function ContratosComerciais() {
   }
   function salvar(e: FormEvent) {
     e.preventDefault();
-    void executar(() => salvarContrato({ ...form, quantidade_kg: quantidadeContrato(form.quantidade_kg) }, edicao), "Contrato salvo.");
+    void executar(() => salvarContrato({ ...form, quantidade_kg: quantidadeContrato(form.quantidade_kg), preco_venda: form.preco_venda?.trim() ? precoContrato(form.preco_venda) : null }, edicao), "Contrato salvo.");
   }
   return <section className="card" aria-label="Cadastro de contratos">
     <h3>Contratos</h3><p>Cadastre empresa, número, quantidade e produto para selecionar o contrato em Vendas. Este cadastro não movimenta estoque.</p>
     {erro && <p className="erro" role="alert">{erro}</p>}{sucesso && <p className="sucesso" role="status">{sucesso}</p>}
+    <PainelFormulario titulo={edicao ? "Editar contrato comercial" : "Novo contrato comercial"} edicao={edicao}>
     <form className="conteudo" onSubmit={salvar}>
       <label>Empresa<input required maxLength={160} value={form.empresa} onChange={e => setForm({ ...form, empresa: e.target.value })} /></label>
       <label>Nº do contrato<input required maxLength={80} value={form.numero} onChange={e => setForm({ ...form, numero: e.target.value })} /></label>
       <label>Quantidade (kg)<input required inputMode="decimal" placeholder="Ex.: 35.000,500" value={form.quantidade_kg} onChange={e => setForm({ ...form, quantidade_kg: e.target.value })} /></label>
       <label>Produto<input required maxLength={80} list="produtos-contrato" placeholder="Ex.: Soja" value={form.produto} onChange={e => setForm({ ...form, produto: e.target.value })} /></label>
+      <label>Valor vendido<input inputMode="decimal" placeholder="Ex.: 125,50" value={form.preco_venda || ""} onChange={e => setForm({ ...form, preco_venda: e.target.value })} /></label>
+      <label>Valor por<select value={form.unidade_preco} onChange={e => setForm({ ...form, unidade_preco: e.target.value as DadosContrato["unidade_preco"] })}><option value="kg">kg</option><option value="sc">saca de 60 kg</option></select></label>
       <datalist id="produtos-contrato"><option value="Soja" /><option value="Milho" /><option value="Trigo" /></datalist>
       <div className="acoes"><button disabled={ocupado} type="submit">{edicao ? "Salvar contrato" : "Cadastrar contrato"}</button>{edicao && <button type="button" className="secundario" disabled={ocupado} onClick={() => { setForm(vazio); setEdicao(undefined); }}>Cancelar edição</button>}</div>
     </form>
-    <label className="nao-imprimir"><input type="checkbox" checked={historico} onChange={e => setHistorico(e.target.checked)} /> Mostrar contratos excluídos</label>
-    <div className="lista">{itens.filter(i => historico || i.ativo).map(item => <article className="item" key={item.id}><div><h4>{item.empresa} · {item.numero}</h4><p>{item.produto || "Produto não informado"} · {item.quantidade_kg === null ? "Quantidade não informada" : `${Number(item.quantidade_kg).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} kg`}</p><small>{item.ativo ? "Ativo" : "Excluído da seleção; histórico preservado"}</small><div className="acoes"><button type="button" className="secundario" disabled={ocupado} onClick={() => { setEdicao(item.id); setForm({ empresa: item.empresa, numero: item.numero, produto: item.produto, quantidade_kg: item.quantidade_kg === null ? "" : Number(item.quantidade_kg).toLocaleString("pt-BR", { maximumFractionDigits: 3 }) }); }}>Editar</button>{item.ativo ? <button type="button" className="perigo" disabled={ocupado} onClick={() => { if (window.confirm(`Excluir contrato ${item.numero} / ${item.empresa} da seleção de novas vendas? O histórico será preservado.`)) void executar(() => excluirContrato(item.id), "Contrato excluído da seleção."); }}>Excluir</button> : <button type="button" disabled={ocupado} onClick={() => void executar(() => reativarContrato(item.id), "Contrato reativado.")}>Reativar</button>}</div></div></article>)}{!itens.some(i => historico || i.ativo) && <p>{carregando ? "Carregando contratos..." : "Nenhum contrato cadastrado."}</p>}</div>
+    </PainelFormulario>
+    <label className="nao-imprimir cadastro-checkbox"><input type="checkbox" checked={historico} onChange={e => setHistorico(e.target.checked)} /> Mostrar contratos excluídos</label>
+    <div className="lista">{itens.filter(i => historico || i.ativo).map(item => <article className="item" key={item.id}><div><h4>{item.empresa} · {item.numero}</h4><p>{item.produto || "Produto não informado"} · {item.quantidade_kg === null ? "Quantidade não informada" : `${Number(item.quantidade_kg).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} kg`}{item.preco_venda ? ` · R$ ${Number(item.preco_venda).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/${item.unidade_preco === "sc" ? "saca" : "kg"}` : ""}</p><small>{item.ativo ? "Ativo" : "Excluído da seleção; histórico preservado"}</small><div className="acoes"><BotaoAcao acao="editar" type="button" className="secundario" disabled={ocupado} onClick={() => { setEdicao(item.id); setForm({ empresa: item.empresa, numero: item.numero, produto: item.produto, quantidade_kg: item.quantidade_kg === null ? "" : Number(item.quantidade_kg).toLocaleString("pt-BR", { maximumFractionDigits: 3 }), preco_venda: item.preco_venda === null ? "" : Number(item.preco_venda).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }), unidade_preco: item.unidade_preco || "kg" }); }}>Editar</BotaoAcao>{item.ativo ? <BotaoAcao acao="excluir" type="button" className="perigo" disabled={ocupado} onClick={() => { if (window.confirm(`Excluir contrato ${item.numero} / ${item.empresa} da seleção de novas vendas? O histórico será preservado.`)) void executar(() => excluirContrato(item.id), "Contrato excluído da seleção."); }}>Excluir</BotaoAcao> : <BotaoAcao acao="editar" type="button" disabled={ocupado} onClick={() => void executar(() => reativarContrato(item.id), "Contrato reativado.")}>Reativar</BotaoAcao>}</div></div></article>)}{!itens.some(i => historico || i.ativo) && <p>{carregando ? "Carregando contratos..." : "Nenhum contrato cadastrado."}</p>}</div>
   </section>;
 }

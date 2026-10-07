@@ -1,4 +1,5 @@
 from django.db.models.deletion import ProtectedError
+from django.db import transaction
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -71,6 +72,12 @@ def _filtros_posicao(query_params):
 def _executar_operacao(request, serializer_class, servico, *, dados=None):
     serializer = serializer_class(data=request.data if dados is None else dados)
     serializer.is_valid(raise_exception=True)
+    movimento = serializer.validated_data.get("movimentacao")
+    if serializer_class is EstornoMovimentacaoSerializer and movimento and movimento.operacao in {"transferencia_saida", "transferencia_entrada"}:
+        from apps.accounts.access import pode
+        from rest_framework.exceptions import PermissionDenied
+        if not pode(request.user, "transferencias", "excluir"):
+            raise PermissionDenied("Seu usuário não pode excluir transferências.")
     try:
         resultado = servico(
             usuario=request.user,
@@ -206,11 +213,14 @@ class CargaColhidaViewSet(
             status=status.HTTP_400_BAD_REQUEST,
         )
 
+    @transaction.atomic
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         try:
             carga = serializer.save()
+            from .pendencias import pendencias_pesagem
+            pendencias_pesagem(carga,request.user)
         except (CargaColhidaError, SaldoGraosError) as exc:
             return self._resposta_erro(exc)
         return Response(
@@ -218,6 +228,7 @@ class CargaColhidaViewSet(
             status=status.HTTP_201_CREATED,
         )
 
+    @transaction.atomic
     def update(self, request, *args, **kwargs):
         parcial = kwargs.pop("partial", False)
         instancia = self.get_object()
@@ -229,15 +240,23 @@ class CargaColhidaViewSet(
         serializer.is_valid(raise_exception=True)
         try:
             carga = serializer.save()
+            from .pendencias import pendencias_pesagem
+            pendencias_pesagem(carga,request.user)
         except (CargaColhidaError, SaldoGraosError) as exc:
             return self._resposta_erro(exc)
         return Response(self.get_serializer(carga).data)
+
+    @action(detail=True, methods=["get"], url_path="previa-exclusao")
+    def previa_exclusao(self, request, *args, **kwargs):
+        from .cargas_previas import previa_cancelamento_carga
+        return Response(previa_cancelamento_carga(self.get_object()))
 
     def destroy(self, request, *args, **kwargs):
         carga = self.get_object()
         try:
             cancelar_carga_colhida(
                 usuario=request.user,
+                request=request,
                 carga=carga,
                 motivo=str(request.data.get("motivo", "") or "").strip()
                 or "Exclusão solicitada pelo usuário.",

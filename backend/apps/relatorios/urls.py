@@ -1,4 +1,6 @@
 from django.urls import path
+from .excel import RelatorioExcelView
+from .pdf import RelatorioPdfView
 
 from .views import (
     DashboardGerencialView,
@@ -7,6 +9,8 @@ from .views import (
 )
 
 urlpatterns = [
+    path('operacionais/pdf/',RelatorioPdfView.as_view(),name='relatorio-pdf'),
+    path("operacionais/exportar/", RelatorioExcelView.as_view(), name="relatorio-excel"),
     path("dashboard/", DashboardGerencialView.as_view(), name="dashboard"),
     path("operacionais/", RelatorioOperacionalView.as_view(), name="operacionais"),
     path(

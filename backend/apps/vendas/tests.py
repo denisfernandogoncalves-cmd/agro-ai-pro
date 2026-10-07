@@ -582,3 +582,28 @@ class VendaGraosConcorrenciaTests(ContextoVendaMixin, TransactionTestCase):
             self.venda_a.quantidade_devolvida_kg,
             (Decimal("10.000"), Decimal("20.000")),
         )
+
+
+class PesagemVendaTests(ContextoVendaMixin, TestCase):
+    def setUp(self):
+        self.criar_contexto()
+
+    def test_peso_liquido_bruto_menos_tara_sem_desconto_qualidade(self):
+        from .serializers import EntregaMovimentoVendaSerializer
+        dados = EntregaMovimentoVendaSerializer(data={"quantidade_kg":"999", "peso_bruto_kg":"700", "tara_kg":"100", "umidade_percentual":"20", "avariados_percentual":"3", "quebrados_percentual":"4", "ph":"72"})
+        self.assertTrue(dados.is_valid(), dados.errors)
+        self.assertEqual(dados.validated_data["quantidade_kg"], Decimal("600"))
+        venda = confirmar_venda(usuario=self.usuario, venda=self.rascunho(), chave_idempotencia="confirmar-pesagem")
+        entrega = registrar_entrega_venda(usuario=self.usuario, venda=venda, chave_idempotencia="entrega-pesagem", **dados.validated_data)
+        self.assertEqual(entrega.quantidade_kg, Decimal("600"))
+        self.assertEqual(entrega.peso_bruto_kg, Decimal("700"))
+        self.assertEqual(entrega.tara_kg, Decimal("100"))
+        self.assertEqual(entrega.avariados_percentual, Decimal("3"))
+        self.posicao.refresh_from_db()
+        self.assertEqual(self.posicao.saldo_fisico_kg, Decimal("400"))
+
+    def test_pesagem_invalida_e_qualidade_fora_limites(self):
+        from .serializers import EntregaMovimentoVendaSerializer
+        for extras in ({"peso_bruto_kg":"100"}, {"peso_bruto_kg":"100","tara_kg":"100"}, {"peso_bruto_kg":"100","tara_kg":"-1"}, {"umidade_percentual":"101"}, {"quebrados_percentual":"-1"}):
+            serializer = EntregaMovimentoVendaSerializer(data={"quantidade_kg":"50", **extras})
+            self.assertFalse(serializer.is_valid())

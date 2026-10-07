@@ -1,4 +1,16 @@
+import {useOperacaoConferida} from "../../components/OperacaoConferida";
+import { useRascunhoAutomatico } from "../../components/RascunhoAutomatico";
+import { useAlteracoesNaoSalvas } from "../../components/AlteracoesNaoSalvas";
+import ConferenciaSaldo from "../../components/ConferenciaSaldo";
+import { useEntradaPainel } from "../../components/AcoesContext";
+import FiltrosFavoritos from "../../components/FiltrosFavoritos";
+import { BotaoAcao } from "../../components/AcoesContext";
 import axios from "axios";
+import {ConciliacaoEstoque} from "../../components/ConferenciaOperacional";
+import { Fechamentos, PendenciasConferencia } from "../../components/GestaoConferencia";
+import ConferenciaEstoque from "../../components/ConferenciaEstoque";
+import PainelFormulario from "../../components/PainelFormulario";
+import { formatarData } from "../../utils/datas";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { Propriedade, rotuloPropriedade } from "../../api/propriedades";
@@ -107,8 +119,8 @@ export function filtrarLotesProducao(lotes: LoteGraos[], filtros: FiltrosSaldo =
   );
 }
 
-export function BotaoCreditarProducao({ desabilitado }: { desabilitado: boolean }) {
-  return <button disabled={desabilitado} type="submit">Creditar produção</button>;
+export function BotaoCreditarProducao({ desabilitado, motivoBloqueio }: { desabilitado: boolean; motivoBloqueio?: string }) {
+  return <BotaoAcao acao="cadastrar" disabled={desabilitado} motivoBloqueio={motivoBloqueio} type="submit">Creditar produção</BotaoAcao>;
 }
 
 export function mesmosFiltrosSaldo(a: FiltrosSaldo, b: FiltrosSaldo) {
@@ -116,6 +128,9 @@ export function mesmosFiltrosSaldo(a: FiltrosSaldo, b: FiltrosSaldo) {
 }
 
 export default function ProducaoSaldosPage({ propriedades }: Props) {
+  const executarConferido=useOperacaoConferida();
+  const [conferencia, setConferencia] = useState<number | null>(null);
+  const entradaPainel = useEntradaPainel("producao-saldos");
   const [painel, setPainel] = useState<PainelSaldos | null>(null);
   const [movimentos, setMovimentos] = useState<MovimentacaoSaldo[]>([]);
   const [cadpros, setCadpros] = useState<CADPro[]>([]);
@@ -125,12 +140,14 @@ export default function ProducaoSaldosPage({ propriedades }: Props) {
   const [filtrosAplicados, setFiltrosAplicados] = useState<FiltrosSaldo>(filtrosVazios);
   const ultimaConsulta = useRef(0);
   const [credito, setCredito] = useState(creditoVazio);
+  const protecao = useAlteracoesNaoSalvas(credito, "Crédito de produção");
   const [carregando, setCarregando] = useState(false);
   const [creditando, setCreditando] = useState(false);
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
   const controladorCredito = useRef(criarControladorCreditoProducao());
 
+  const rascunho = useRascunhoAutomatico("producao-saldos", {credito}, salvo => setCredito({...creditoVazio,...salvo.credito}));
   async function carregar(filtrosAtuais = filtros) {
     const consulta = ++ultimaConsulta.current;
     setCarregando(true);
@@ -155,7 +172,7 @@ export default function ProducaoSaldosPage({ propriedades }: Props) {
     }
   }
 
-  useEffect(() => { void carregar(filtrosVazios); }, []);
+  useEffect(() => { if (!entradaPainel) void carregar(filtrosVazios); }, []);
 
   const cadprosFiltrados = useMemo(
     () => cadpros.filter((item) =>
@@ -195,14 +212,16 @@ export default function ProducaoSaldosPage({ propriedades }: Props) {
     try {
       const resultado = await controladorCredito.current.enviar(
         credito,
-        creditarProducao,
+        dados=>executarConferido(()=>creditarProducao(dados)),
       );
       setSucesso(
         resultado.idempotente
           ? "Produção já registrada anteriormente."
           : "Produção registrada no ledger oficial.",
       );
+      rascunho.limpar({credito:creditoVazio});
       setCredito(creditoVazio);
+      protecao.marcarSalvo(creditoVazio);
       await carregar();
     } catch (falha) {
       setErro(mensagemErro(falha));
@@ -213,13 +232,14 @@ export default function ProducaoSaldosPage({ propriedades }: Props) {
 
   return (
     <section className="modulo-producao-saldos">
+      <FiltrosFavoritos contexto="producao-saldos" filtros={filtros} aplicar={valores => {const proximos = {...filtrosVazios, ...valores}; setFiltros(proximos); void carregar(proximos);}} />
       <div>
         <span className="kicker">Ledger oficial por CAD/PRO</span>
         <h2>Produção e saldos</h2>
         <p>Consulte físico, comprometido e disponível por cultura, safra, classificação e armazenagem.</p>
       </div>
       {erro && <p className="erro card" role="alert">{erro}</p>}
-      {sucesso && <p className="sucesso card">{sucesso}</p>}
+      {sucesso && <p className="sucesso card" role="status">{sucesso}</p>}
 
       <section className="card controle-planilha controle-planilha-impressao controle-planilha-producao somente-impressao" hidden={carregando || filtrosPendentes}>
         <h2 className="somente-impressao titulo-impressao-planilha">Produção e saldos</h2>
@@ -248,6 +268,8 @@ export default function ProducaoSaldosPage({ propriedades }: Props) {
       </section>
 
       <section className="grade producao-saldos-grade">
+        <PainelFormulario titulo="Registrar produção">
+        {rascunho.aviso}
         <form className="card formulario" onSubmit={registrarProducao}>
           <h3>Registrar produção</h3>
           <p>Selecione um lote compatível com os filtros da consulta para registrar a produção.</p>
@@ -256,23 +278,26 @@ export default function ProducaoSaldosPage({ propriedades }: Props) {
           <label>Data do movimento<input required type="date" value={credito.data_movimento} onChange={(e) => setCredito({ ...credito, data_movimento: e.target.value })} /></label>
           <label>Referência externa<input maxLength={160} placeholder="Romaneio, ticket ou documento" value={credito.referencia_externa} onChange={(e) => setCredito({ ...credito, referencia_externa: e.target.value })} /></label>
           <label>Observações<textarea value={credito.observacoes} onChange={(e) => setCredito({ ...credito, observacoes: e.target.value })} /></label>
-          <BotaoCreditarProducao desabilitado={carregando || creditando || !loteCreditoValido} />
+          <BotaoCreditarProducao desabilitado={carregando || creditando || !loteCreditoValido} motivoBloqueio={carregando ? "Aguarde o carregamento." : creditando ? "Aguarde o processamento." : "Selecione um lote compatível com os filtros."} />
         </form>
 
+        </PainelFormulario>
         <section className="conteudo saldo-consolidado">
           <h3>{propriedadeSelecionada ? `Produção de ${propriedadeSelecionada.nome}` : "Consolidado por propriedade"}</h3>
           <div className="lista">{painel?.consolidado_propriedade?.length ? painel.consolidado_propriedade.map((item) => <article className="card item saldo-cadpro" key={item.propriedade ?? "historico"}><div><span className="kicker">CAD/PRO {item.cadpros.map(c => c.codigo).join(" · ")}</span><h3>{item.propriedade_nome}</h3><p>{item.posicoes} posição(ões) nas dimensões filtradas</p></div><div className="metricas-saldo"><span>Físico <strong>{kg(item.saldo_fisico_kg)}</strong></span><span>Comprometido <strong>{kg(item.saldo_comprometido_kg)}</strong></span><span>Disponível <strong>{kg(item.saldo_disponivel_kg)}</strong></span></div></article>) : <div className="card vazio">Nenhum saldo encontrado.</div>}</div>
         </section>
       </section>
 
+      <section className="card"><h3>Composição do saldo consultado</h3><p>Somatório de todos os movimentos das posições filtradas. Os estornos aparecem separadamente. Reservas alteram o comprometido; somente colheitas entram nos indicadores de produção.</p><div className="tabela-responsiva"><table><thead><tr><th>Movimento</th><th>Efeito no físico (kg)</th><th>Efeito no comprometido (kg)</th></tr></thead><tbody>{painel?.composicao?.map((c,i)=><tr key={i}><td>{c.origem_externa?"Recebido de terceiros — somente estoque":c.operacao.split("_").join(" ")}</td><td>{kg(c.fisico_kg)}</td><td>{kg(c.comprometido_kg)}</td></tr>)}</tbody></table></div></section><section className="card"><h3>Estoque recebido de terceiros</h3><p>Transferências recebidas e não estornadas, separadas da produção colhida. Quantidade recebida acumulada; retiradas ou vendas posteriores já estão descontadas do saldo geral e não podem ser atribuídas automaticamente a uma origem.</p>{painel?.recebimentos_terceiros?.length?painel.recebimentos_terceiros.map(r=>{const p=painel.posicoes.find(p=>p.id===r.posicao);return <p key={r.posicao}><strong>{p?.propriedade_nome} · CAD/PRO {p?.cad_pro_codigo}</strong> · {p?.cultura} / {p?.safra} · {p?.armazem_nome}: {kg(r.quantidade_kg)} recebidos de terceiros, sem contabilizar produção.</p>;}):<p>Nenhuma transferência recebida nas dimensões filtradas.</p>}</section>
       <section className="card tabela-saldos">
         <h3>Posições por cultura · safra · classificação · armazenagem</h3>
-        <div className="tabela-scroll"><table><thead><tr><th>Propriedade produtora</th><th>CAD/PRO</th><th>Cultura</th><th>Safra</th><th>Classificação</th><th>Armazenagem</th><th>Físico</th><th>Comprometido</th><th>Disponível</th><th>Versão</th></tr></thead><tbody>{painel?.posicoes.map((item) => <tr key={item.id}><td>{item.propriedade_nome || "Produção histórica sem propriedade"}</td><td>{item.cad_pro_codigo}</td><td>{item.cultura}</td><td>{item.safra}</td><td>{item.classificacao_codigo}</td><td>{item.armazem_nome}</td><td>{kg(item.saldo_fisico_kg)}</td><td>{kg(item.saldo_comprometido_kg)}</td><td><strong>{kg(item.saldo_disponivel_kg)}</strong></td><td>{item.versao}</td></tr>)}</tbody></table></div>
+        <div className="tabela-scroll"><table><thead><tr><th>Propriedade produtora</th><th>CAD/PRO</th><th>Cultura</th><th>Safra</th><th>Classificação</th><th>Armazenagem</th><th>Físico</th><th>Comprometido</th><th>Disponível</th><th>Versão</th><th>Conferência</th></tr></thead><tbody>{painel?.posicoes.map((item) => <tr key={item.id}><td>{item.propriedade_nome || "Produção histórica sem propriedade"}</td><td>{item.cad_pro_codigo}</td><td>{item.cultura}</td><td>{item.safra}</td><td>{item.classificacao_codigo}</td><td>{item.armazem_nome}</td><td>{kg(item.saldo_fisico_kg)}</td><td>{kg(item.saldo_comprometido_kg)}</td><td><strong>{kg(item.saldo_disponivel_kg)}</strong></td><td>{item.versao}</td><td><button type="button" className="secundario" onClick={() => setConferencia(item.id)}>Conferir saldo</button></td></tr>)}</tbody></table></div>
       </section>
 
-      <section className="card rastreabilidade-saldos">
+      {conferencia !== null && <><button type="button" className="secundario nao-imprimir" onClick={() => setConferencia(null)}>Fechar conferência</button><ConferenciaSaldo key={conferencia} posicao={conferencia} atualizar={() => void carregar()} /></>}
+      <ConciliacaoEstoque armazens={armazens}/><Fechamentos armazens={armazens}/><PendenciasConferencia/><ConferenciaEstoque armazens={armazens}/><section className="card rastreabilidade-saldos">
         <h3>Rastreabilidade recente</h3>
-        <div className="lista">{movimentos.length ? movimentos.map((item) => <article className="movimento-saldo" key={item.id}><div><span className="kicker">{item.data_movimento} · {item.operacao.split("_").join(" ")}</span><strong>{item.cad_pro_codigo} · {item.lote_codigo}</strong><small>{item.cultura} {item.safra} · {item.classificacao_codigo} · {item.armazem_nome}</small></div><div><strong>{numero(item.delta_fisico_kg) >= 0 ? "+" : ""}{kg(item.delta_fisico_kg)}</strong><small>{item.referencia_externa || item.origem_chave_idempotencia}</small></div></article>) : <p>Nenhuma movimentação encontrada.</p>}</div>
+        <div className="lista">{movimentos.length ? movimentos.map((item) => <article className="movimento-saldo" key={item.id}><div><span className="kicker">{formatarData(item.data_movimento)} · {item.operacao.split("_").join(" ")}</span><strong>{item.cad_pro_codigo} · {item.lote_codigo}</strong><small>{item.cultura} {item.safra} · {item.classificacao_codigo} · {item.armazem_nome}</small></div><div><strong>{numero(item.delta_fisico_kg) >= 0 ? "+" : ""}{kg(item.delta_fisico_kg)}</strong><small>{item.referencia_externa || item.origem_chave_idempotencia}</small></div></article>) : <p>Nenhuma movimentação encontrada.</p>}</div>
       </section>
       </div>
     </section>

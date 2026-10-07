@@ -94,6 +94,7 @@ def selecionar_movimentacoes_saldo() -> QuerySet:
         "estorno_de__rateio_carga_colhida__propriedade",
         "estorno_de__rateio_carga_colhida__cad_pro",
         "movimento_estorno",
+        "origem__correcao_transferencia__criado_por",
         "criado_por",
         "carga_colhida",
         "carga_colhida__propriedade",

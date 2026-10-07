@@ -287,6 +287,8 @@ class CargaColhidaSerializer(serializers.ModelSerializer):
             "data_colheita",
             "placa",
             "motorista",
+            "peso_total_kg",
+            "tara_kg",
             "peso_bruto_kg",
             "umidade_percentual",
             "impureza_percentual",
@@ -359,6 +361,7 @@ class CargaColhidaSerializer(serializers.ModelSerializer):
         validated_data.pop("motivo_correcao", None)
         return registrar_carga_colhida(
             usuario=self.context["request"].user,
+            request=self.context['request'],
             **validated_data,
         )
 
@@ -429,6 +432,8 @@ class CargaColhidaSerializer(serializers.ModelSerializer):
             "data_colheita",
             "placa",
             "motorista",
+            "peso_total_kg",
+            "tara_kg",
             "peso_bruto_kg",
             "umidade_percentual",
             "impureza_percentual",
@@ -448,6 +453,7 @@ class CargaColhidaSerializer(serializers.ModelSerializer):
         dados["cadpros_por_propriedade"] = cadpros_por_propriedade
         return corrigir_carga_colhida(
             usuario=self.context["request"].user,
+            request=self.context['request'],
             carga=instance,
             motivo=motivo,
             **dados,
@@ -560,6 +566,21 @@ class LoteGraosSerializer(serializers.ModelSerializer):
 
 
 class MovimentacaoGraosSerializer(serializers.ModelSerializer):
+    estornado = serializers.SerializerMethodField()
+    correcao_transferencia = serializers.SerializerMethodField()
+
+    def get_estornado(self, obj):
+        return hasattr(obj, "movimento_estorno")
+
+    def get_correcao_transferencia(self, obj):
+        correcao = getattr(obj.origem, "correcao_transferencia", None)
+        if not correcao:
+            return None
+        return {"acao": correcao.acao, "motivo": correcao.motivo,
+                "origem_nova": correcao.origem_nova_id,
+                "criado_em": correcao.criado_em.isoformat(),
+                "criado_por_nome": correcao.criado_por.username}
+
     lote_codigo = serializers.CharField(source="lote.codigo", read_only=True)
     cultura = serializers.CharField(source="posicao.cultura", read_only=True)
     safra = serializers.CharField(source="posicao.safra", read_only=True)
@@ -621,6 +642,8 @@ class MovimentacaoGraosSerializer(serializers.ModelSerializer):
             "origem_chave_idempotencia",
             "reserva",
             "estorno_de",
+            "estornado",
+            "correcao_transferencia",
             "data_movimento",
             "referencia_externa",
             "chave_idempotencia",
@@ -815,6 +838,8 @@ class EstornoMovimentacaoSerializer(serializers.Serializer):
 
 
 class TransferirSaldoFisicoSerializer(serializers.Serializer):
+    propriedade_destino = serializers.PrimaryKeyRelatedField(queryset=Propriedade.objects.all(), required=False)
+    cad_pro_destino = serializers.PrimaryKeyRelatedField(queryset=CADPro.objects.all(), required=False)
     posicao_origem = serializers.PrimaryKeyRelatedField(
         queryset=PosicaoSaldoGraos.objects.select_related("armazem", "cad_pro", "propriedade"),
         required=False,
@@ -864,6 +889,18 @@ class TransferirSaldoFisicoSerializer(serializers.Serializer):
         )
 
     def validate(self, attrs):
+        if "propriedade_destino" in attrs or "cad_pro_destino" in attrs:
+            if ("propriedade_destino" not in attrs or "cad_pro_destino" not in attrs
+                    or "posicao_origem" not in attrs
+                    or any(campo in attrs for campo in ("posicao_destino", "lote_origem", "lote_destino"))):
+                raise serializers.ValidationError(
+                    "Informe somente posição de origem, propriedade e CAD/PRO de destino."
+                )
+            lote = self._lote_adaptador(attrs.pop("posicao_origem"))
+            if not lote:
+                raise serializers.ValidationError("A origem não possui um adaptador operacional ativo.")
+            attrs["lote_origem"] = lote
+            return attrs
         informou_posicao = "posicao_origem" in attrs or "posicao_destino" in attrs
         informou_lote = "lote_origem" in attrs or "lote_destino" in attrs
         if informou_posicao and informou_lote:
@@ -930,6 +967,16 @@ def serializar_resultado(resultado: ResultadoOperacaoSaldo):
 
 
 def serializar_painel_saldos(resultado):
+    from django.db.models import Sum
+    from .models import MovimentoProducaoTerceiro
+    recebidos = list(MovimentoProducaoTerceiro.objects.filter(
+        tipo='transferencia', estorno__isnull=True,
+        movimentacao_saldo__posicao__in=resultado['posicoes'],
+    ).values('movimentacao_saldo__posicao_id').annotate(quantidade=Sum('quantidade_kg')))
+    from .models import MovimentacaoGraos
+    composicao = list(MovimentacaoGraos.objects.filter(posicao__in=resultado['posicoes']).values(
+        'operacao','origem__metadados__tipo',
+    ).annotate(fisico=Sum('delta_fisico_kg'),comprometido=Sum('delta_comprometido_kg')))
     campos_saldo = (
         "saldo_fisico_kg",
         "saldo_comprometido_kg",
@@ -951,6 +998,8 @@ def serializar_painel_saldos(resultado):
             propriedade[campo] = _decimal_api(propriedade[campo])
         propriedades.append(propriedade)
     return {
+        'recebimentos_terceiros': [{'posicao':r['movimentacao_saldo__posicao_id'],'quantidade_kg':_decimal_api(r['quantidade'])} for r in recebidos],
+        'composicao': [{'operacao':r['operacao'],'origem_externa':r['origem__metadados__tipo']=='transferencia_terceiro','fisico_kg':_decimal_api(r['fisico']),'comprometido_kg':_decimal_api(r['comprometido'])} for r in composicao],
         "resumo": resumo,
         "consolidado_cadpro": consolidados,
         "consolidado_propriedade": propriedades,

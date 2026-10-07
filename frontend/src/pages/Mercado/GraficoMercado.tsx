@@ -1,3 +1,4 @@
+import { formatarData } from "../../utils/datas";
 import { CotacaoMercado } from "../../api/mercado";
 
 
@@ -38,7 +39,7 @@ export default function GraficoMercado({ cotacoes }: Props) {
         <polyline fill="none" points={pontos} stroke="#237447" strokeWidth="4" />
       </svg>
       <figcaption>
-        {cotacoes[0].data} a {cotacoes[cotacoes.length - 1].data} · mínimo {minimo.toFixed(2)} ·
+        {formatarData(cotacoes[0].data)} a {formatarData(cotacoes[cotacoes.length - 1].data)} · mínimo {minimo.toFixed(2)} ·
         máximo {maximo.toFixed(2)}
       </figcaption>
     </figure>

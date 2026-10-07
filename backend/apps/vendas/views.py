@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError
+from django.http import HttpResponse
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -7,7 +8,7 @@ from rest_framework.response import Response
 
 from apps.graos.services import SaldoGraosError
 
-from .models import ContratoComercial, VendaGraos
+from .models import ContratoComercial, EntregaVendaGraos, VendaGraos
 from .alteracoes_services import alterar_movimento, editar_venda, excluir_venda
 from .selectors import selecionar_vendas
 from .serializers import (
@@ -20,6 +21,7 @@ from .serializers import (
     EdicaoVendaSerializer,
     ContratoComercialSerializer,
     SaidaVendaSerializer,
+    PreviaParticularSerializer,
 )
 from .services import (
     VendaGraosConflitoError,
@@ -136,6 +138,31 @@ class VendaGraosViewSet(viewsets.ReadOnlyModelViewSet):
             detalhe = str(exc)
         return Response({"detail": detalhe, "codigo": codigo}, status=http)
 
+    @action(
+        detail=True,
+        methods=["get"],
+        url_path=r"entregas/(?P<movimento_id>\d+)/(?P<formato>pdf|excel)",
+    )
+    def baixar_romaneio(self, request, pk=None, movimento_id=None, formato=None):
+        venda = self.get_object()
+        try:
+            saida = venda.entregas.get(pk=movimento_id)
+        except EntregaVendaGraos.DoesNotExist:
+            return Response({"detail": "A saída não pertence a esta venda."}, status=status.HTTP_404_NOT_FOUND)
+        from .romaneios import gerar_excel, gerar_pdf
+
+        if formato == "pdf":
+            conteudo = gerar_pdf(venda, saida)
+            tipo = "application/pdf"
+            extensao = "pdf"
+        else:
+            conteudo = gerar_excel(venda, saida)
+            tipo = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            extensao = "xlsx"
+        resposta = HttpResponse(conteudo, content_type=tipo)
+        resposta["Content-Disposition"] = f'attachment; filename="romaneio-venda-{venda.pk}-saida-{saida.pk}.{extensao}"'
+        return resposta
+
     def create(self, request, *args, **kwargs):
         entrada = VendaGraosCriacaoSerializer(data=request.data)
         entrada.is_valid(raise_exception=True)
@@ -157,11 +184,26 @@ class VendaGraosViewSet(viewsets.ReadOnlyModelViewSet):
         entrada = SaidaVendaSerializer(data=request.data)
         entrada.is_valid(raise_exception=True)
         try:
-            venda = registrar_venda_com_saida(usuario=request.user,
+            from .particular_services import registrar_particular
+            servico = registrar_particular if entrada.validated_data.get("contexto_particular") else registrar_venda_com_saida
+            venda = servico(usuario=request.user,
                 chave_idempotencia=self._chave(request), dados=entrada.validated_data)
             return Response(VendaGraosSerializer(selecionar_vendas().get(pk=venda.pk)).data,
                 status=status.HTTP_201_CREATED)
         except (VendaGraosError, SaldoGraosError, ValidationError, IntegrityError) as exc:
+            return self._erro(exc)
+
+    @action(detail=False, methods=["post"], url_path="previa-particular")
+    def previa_particular(self, request):
+        from .particular_services import previa_particular
+        entrada = PreviaParticularSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        try:
+            return Response(previa_particular(
+                contexto=entrada.validated_data["contexto_particular"],
+                quantidade_kg=entrada.validated_data["quantidade_kg"],
+            ))
+        except VendaGraosError as exc:
             return self._erro(exc)
 
     @action(detail=True, methods=["post"])

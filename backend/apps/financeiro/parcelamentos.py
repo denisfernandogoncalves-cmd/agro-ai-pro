@@ -101,7 +101,10 @@ def registrar_boleto(dados):
             raise
         if grupo.assinatura != assinatura:
             raise ParcelamentoConflitante("Esta solicitação já foi salva com outros dados. Confira a lista antes de salvar novamente.")
-        return grupo.parcelas.get(), True
+        boleto = grupo.parcelas.first()
+        if boleto is None:
+            raise ParcelamentoConflitante("Este boleto foi excluído. Inicie um novo lançamento para registrar outro boleto.")
+        return boleto, True
 
 
 def criar_parcelamento(dados):
@@ -127,4 +130,6 @@ def criar_parcelamento(dados):
             raise
         if grupo.assinatura != assinatura:
             raise ParcelamentoConflitante("Esta solicitação já foi salva com outros dados. Atualize a lista antes de cadastrar novamente.")
+        if grupo.parcelas.count() != dados["quantidade"]:
+            raise ParcelamentoConflitante("Este parcelamento possui lançamentos excluídos. Confira a lista antes de cadastrar novamente.")
         return grupo, True

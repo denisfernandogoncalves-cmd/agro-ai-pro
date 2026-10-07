@@ -183,6 +183,12 @@ def calcular_peso_liquido(
             "desconto_percentual": str(desconto),
         }
 
+    # PH se aplica somente ao trigo; medições antigas permanecem nos registros.
+    if cultura.lower() != "trigo":
+        ph = None
+        ph_minimo = Decimal("0")
+        desconto_ph_por_ponto = Decimal("0")
+
     taxa_ph = desconto_ph_por_ponto
     if ph in (None, ""):
         if taxa_ph > 0:
@@ -615,7 +621,15 @@ def registrar_carga_colhida(
     cadpros_por_propriedade=None,
     correcao_de_id=None,
     chave_registro="",
+    peso_total_kg=None,
+    tara_kg=None,
+    request=None,
 ):
+    from .pesagem import peso_produto
+    try:
+        peso_bruto_kg = peso_produto(peso_bruto_kg, peso_total_kg, tara_kg)
+    except ValueError as exc:
+        raise CargaColhidaError(str(exc)) from exc
     propriedade, cad_pro, grupo = _resolver_contexto_principal(
         propriedade=propriedade,
         cad_pro=cad_pro,
@@ -645,6 +659,8 @@ def registrar_carga_colhida(
         cadpros_por_propriedade=cadpros_por_propriedade,
     )
     contexto_colheita.update(cultura=cultura, safra=safra)
+    if cultura.lower() != "trigo":
+        ph = None
 
     placa_normalizada = normalizar_placa(placa)
     motorista_normalizado = " ".join(str(motorista or "").strip().split())
@@ -713,6 +729,9 @@ def registrar_carga_colhida(
         cad_pro_ids=(item["cad_pro_id"] for item in contexto_colheita["rateio_producao"]),
         armazem_ids=(armazem.pk,),
     )
+    from .fechamentos import verificar_periodo
+    from types import SimpleNamespace
+    verificar_periodo(request,SimpleNamespace(armazem=armazem,cultura=cultura,safra=safra,data_colheita=data_colheita))
     creditos = []
     for parcela in contexto_colheita["rateio_producao"]:
         propriedade_rateio = Propriedade.objects.get(pk=parcela["propriedade_id"])
@@ -762,6 +781,8 @@ def registrar_carga_colhida(
         data_colheita=data_colheita,
         placa=placa_normalizada,
         motorista=motorista_normalizado,
+        peso_total_kg=peso_total_kg,
+        tara_kg=tara_kg,
         peso_bruto_kg=_decimal(peso_bruto_kg),
         umidade_percentual=umidade_percentual,
         impureza_percentual=impureza_percentual,
@@ -805,7 +826,7 @@ def registrar_carga_colhida(
 
 
 @transaction.atomic
-def cancelar_carga_colhida(*, usuario, carga, motivo="Exclusão solicitada pelo usuário."):
+def cancelar_carga_colhida(*, usuario, carga, motivo="Exclusão solicitada pelo usuário.", request=None):
     carga_id = getattr(carga, "pk", carga)
     carga = CargaColhida.objects.select_for_update().get(pk=carga_id)
     if carga.status == CargaColhida.Status.CANCELADA:
@@ -824,6 +845,8 @@ def cancelar_carga_colhida(*, usuario, carga, motivo="Exclusão solicitada pelo 
         armazem_ids=(item.posicao.armazem_id for item in movimentos),
     )
     estornos = []
+    from .fechamentos import verificar_periodo
+    verificar_periodo(request,carga,timezone.localdate())
     for indice, movimento_rateio in enumerate(movimentos):
         estorno_existente = (
             MovimentacaoGraos.objects.filter(estorno_de_id=movimento_rateio.pk)
@@ -857,7 +880,7 @@ def cancelar_carga_colhida(*, usuario, carga, motivo="Exclusão solicitada pelo 
 
 
 @transaction.atomic
-def corrigir_carga_colhida(*, usuario, carga, motivo="Correção solicitada pelo usuário.", **dados):
+def corrigir_carga_colhida(*, usuario, carga, motivo="Correção solicitada pelo usuário.", request=None, **dados):
     carga_id = getattr(carga, "pk", carga)
     original = CargaColhida.objects.select_for_update().get(pk=carga_id)
     if original.status != CargaColhida.Status.ATIVA:
@@ -906,6 +929,8 @@ def corrigir_carga_colhida(*, usuario, carga, motivo="Correção solicitada pelo
             armazem_destino.pk,
         ],
     )
+    from .fechamentos import verificar_periodo
+    verificar_periodo(request,original,timezone.localdate(),dados)
     for indice, movimento_rateio in enumerate(movimentos_originais):
         estornar_movimentacao(
             usuario=usuario,
@@ -920,6 +945,7 @@ def corrigir_carga_colhida(*, usuario, carga, motivo="Correção solicitada pelo
     substituta = registrar_carga_colhida(
         usuario=usuario,
         correcao_de_id=original.pk,
+        request=request,
         **dados,
     )
     original._registrar_encerramento(

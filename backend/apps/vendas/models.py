@@ -11,10 +11,26 @@ ZERO = Decimal("0.000")
 
 
 class ContratoComercial(models.Model):
+    class UnidadePreco(models.TextChoices):
+        KG = "kg", "kg"
+        SACA = "sc", "saca"
+
     numero = models.CharField(max_length=80)
     empresa = models.CharField(max_length=160)
     quantidade_kg = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True, validators=[MinValueValidator(Decimal("0.001"))])
     produto = models.CharField(max_length=80, blank=True)
+    preco_venda = models.DecimalField(
+        max_digits=16,
+        decimal_places=2,
+        null=True,
+        blank=True,
+        validators=[MinValueValidator(Decimal("0.01"))],
+    )
+    unidade_preco = models.CharField(
+        max_length=2,
+        choices=UnidadePreco.choices,
+        default=UnidadePreco.KG,
+    )
     ativo = models.BooleanField(default=True)
     criado_em = models.DateTimeField(auto_now_add=True)
 
@@ -24,6 +40,14 @@ class ContratoComercial(models.Model):
 
     def __str__(self):
         return f"{self.numero} · {self.empresa}"
+
+
+class RateioVendaParticular(models.Model):
+    chave_idempotencia = models.CharField(max_length=120, unique=True)
+    hash_requisicao = models.CharField(max_length=64)
+    snapshot = models.JSONField(default=dict)
+    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    criado_em = models.DateTimeField(auto_now_add=True)
 
 
 class VendaGraos(models.Model):
@@ -39,6 +63,10 @@ class VendaGraos(models.Model):
     versao = models.PositiveIntegerField(default=1)
     excluida_em = models.DateTimeField(null=True, blank=True)
     cliente_nome = models.CharField(max_length=160)
+    rateio_particular = models.ForeignKey(
+        RateioVendaParticular, on_delete=models.PROTECT, null=True, blank=True,
+        related_name="parcelas",
+    )
     posicao = models.ForeignKey(
         "graos.PosicaoSaldoGraos",
         on_delete=models.PROTECT,
@@ -168,6 +196,12 @@ class EntregaVendaGraos(models.Model):
     venda = models.ForeignKey(
         VendaGraos, on_delete=models.PROTECT, related_name="entregas"
     )
+    peso_bruto_kg = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
+    tara_kg = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
+    umidade_percentual = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
+    avariados_percentual = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
+    quebrados_percentual = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
+    ph = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
     quantidade_kg = models.DecimalField(max_digits=16, decimal_places=3)
     data_entrega = models.DateField(default=timezone.localdate)
     referencia_externa = models.CharField(max_length=120, blank=True)

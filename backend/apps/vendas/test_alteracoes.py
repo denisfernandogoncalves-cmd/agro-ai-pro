@@ -1,4 +1,5 @@
 from decimal import Decimal
+from io import BytesIO
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 
@@ -6,11 +7,13 @@ from django.db import close_old_connections, connection
 from django.test import TransactionTestCase
 
 from rest_framework.test import APITestCase
+from openpyxl import load_workbook
+from apps.accounts.access import acao_da_requisicao
 
 from apps.graos.models import MovimentacaoGraos
 from apps.graos.services import creditar_producao, estornar_movimentacao, SaldoGraosError
 from .alteracoes_services import editar_venda
-from .services import confirmar_venda, VendaGraosConflitoError
+from .services import confirmar_venda, registrar_entrega_venda, VendaGraosConflitoError
 from .models import AlteracaoVendaGraos, ContratoComercial
 from .tests import ContextoVendaMixin
 
@@ -44,8 +47,10 @@ class AlteracoesVendaTests(ContextoVendaMixin, APITestCase):
 
     def test_contrato_cadastrado_reutilizavel_e_desativacao_preserva_historico(self):
         url = "/api/comercial/contratos/"
-        resposta = self.client.post(url, {"numero": "123", "empresa": "Empresa", "quantidade_kg": "1000", "produto": "Soja"}, format="json")
+        resposta = self.client.post(url, {"numero": "123", "empresa": "Empresa", "quantidade_kg": "1000", "produto": "Soja", "preco_venda": "125.50", "unidade_preco": "sc"}, format="json")
         self.assertEqual(resposta.status_code, 201, resposta.data)
+        self.assertEqual(resposta.data["preco_venda"], "125.50")
+        self.assertEqual(resposta.data["unidade_preco"], "sc")
         contrato = resposta.data["id"]
         for chave in ("primeira", "segunda"):
             resposta = self.client.post("/api/comercial/vendas/", {
@@ -55,6 +60,8 @@ class AlteracoesVendaTests(ContextoVendaMixin, APITestCase):
             self.assertEqual(resposta.status_code, 201, resposta.data)
             self.assertEqual(resposta.data["numero_contrato"], "123")
             self.assertEqual(resposta.data["cliente_nome"], "Empresa")
+            self.assertEqual(resposta.data["contrato_preco_venda"], "125.50")
+            self.assertEqual(resposta.data["contrato_unidade_preco"], "sc")
         self.assertEqual(self.client.delete(f"{url}{contrato}/").status_code, 204)
         self.assertFalse(ContratoComercial.objects.get(pk=contrato).ativo)
         resposta = self.client.post("/api/comercial/vendas/", {
@@ -71,6 +78,7 @@ class AlteracoesVendaTests(ContextoVendaMixin, APITestCase):
         self.assertEqual(resposta.data["quantidade_cancelada_kg"], "400.000")
         self.assertEqual(MovimentacaoGraos.objects.count(), antes)
         self.saldo("1000", "0")
+
 
     def test_editar_confirmada_permite_reserva_acima_do_fisico(self):
         self.requisitar("post", "confirmar/")
@@ -227,3 +235,66 @@ class AlteracaoVendaConcorrenciaTests(ContextoVendaMixin, TransactionTestCase):
         self.assertEqual(AlteracaoVendaGraos.objects.count(), 1)
         self.posicao.refresh_from_db()
         self.assertIn(self.posicao.saldo_comprometido_kg, (Decimal("700"), Decimal("800")))
+
+
+class DownloadRomaneioTests(ContextoVendaMixin, APITestCase):
+    def setUp(self):
+        self.criar_contexto()
+        self.client.force_authenticate(self.usuario)
+        contrato = ContratoComercial.objects.create(
+            numero="CTR-PDF", empresa="Cliente do teste", preco_venda="1.20", unidade_preco="kg"
+        )
+        self.venda = self.rascunho(numero=contrato.numero, quantidade="900")
+        self.venda.contrato = contrato
+        self.venda.save(update_fields=("contrato",))
+        confirmar_venda(usuario=self.usuario, venda=self.venda, chave_idempotencia="confirma-romaneio")
+        self.saida = registrar_entrega_venda(
+            usuario=self.usuario,
+            venda=self.venda,
+            quantidade_kg="850",
+            peso_bruto_kg="4080",
+            tara_kg="3230",
+            chave_idempotencia="saida-romaneio",
+            destino="Cliente do teste",
+        )
+        self.url = f"/api/comercial/vendas/{self.venda.pk}/entregas/{self.saida.pk}"
+
+    def test_baixar_pdf_a4_com_duas_vias(self):
+        resposta = self.client.get(f"{self.url}/pdf/")
+        self.assertEqual(resposta.status_code, 200)
+        self.assertEqual(resposta["Content-Type"], "application/pdf")
+        self.assertTrue(resposta.content.startswith(b"%PDF-"))
+        self.assertIn(b"/Count 1", resposta.content)
+        self.assertIn(b"VIA DO CLIENTE", resposta.content)
+        self.assertIn(b"VIA DO ARQUIVO", resposta.content)
+        self.assertIn(b"R$ 1.020,00", resposta.content)
+        self.assertLess(resposta.content.index(b"MOTORISTA"), resposta.content.index(b"PLACA"))
+
+    def test_baixar_excel_com_cliente_sem_preco_e_arquivo_com_total(self):
+        resposta = self.client.get(f"{self.url}/excel/")
+        self.assertEqual(resposta.status_code, 200)
+        self.assertIn("spreadsheetml", resposta["Content-Type"])
+        livro = load_workbook(BytesIO(resposta.content), data_only=True)
+        valores = [celula.value for linha in livro.active.iter_rows() for celula in linha if celula.value]
+        indice_arquivo = next(i for i, valor in enumerate(valores) if "VIA DO ARQUIVO" in str(valor))
+        self.assertTrue(any("VIA CLIENTE" in str(valor) for valor in valores))
+        self.assertFalse(any("VALOR NEGOCIADO" in str(valor) for valor in valores[:indice_arquivo]))
+        self.assertIn("R$ 1.020,00", valores[indice_arquivo:])
+        self.assertEqual(livro.active.page_setup.fitToHeight, 1)
+        self.assertLess(valores.index("MOTORISTA"), valores.index("PLACA"))
+
+    def test_preco_por_saca_e_download_usa_acao_imprimir(self):
+        self.venda.contrato.unidade_preco = "sc"
+        self.venda.contrato.preco_venda = "120.00"
+        self.venda.contrato.save(update_fields=("unidade_preco", "preco_venda"))
+        resposta = self.client.get(f"{self.url}/excel/")
+        livro = load_workbook(BytesIO(resposta.content), data_only=True)
+        valores = [celula.value for linha in livro.active.iter_rows() for celula in linha if celula.value]
+        self.assertIn("R$ 1.700,00", valores)
+        self.assertEqual(acao_da_requisicao(f"/api/comercial/vendas/{self.venda.pk}/entregas/{self.saida.pk}/pdf/", "GET"), "imprimir")
+        self.assertEqual(acao_da_requisicao(f"/api/comercial/vendas/{self.venda.pk}/entregas/{self.saida.pk}/excel/", "GET"), "imprimir")
+
+    def test_nao_baixa_saida_de_outra_venda(self):
+        outra = self.rascunho(numero="OUTRA")
+        resposta = self.client.get(f"/api/comercial/vendas/{outra.pk}/entregas/{self.saida.pk}/pdf/")
+        self.assertEqual(resposta.status_code, 404)

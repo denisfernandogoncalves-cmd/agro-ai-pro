@@ -1,5 +1,76 @@
 # Sprints — AGRO-AI-PRO
 
+## Incremento — Conferência das outras abas (07/10/2026)
+
+**Status:** `[x]` — melhorias implementadas e testes aprovados.
+Atalhos de indicadores, descontos por parcela, composição do estoque, origem e
+destino, restante de vendas, diferenças financeiras, validade de lotes, áreas
+divergentes e relatórios PDF/Excel. 30 PostgreSQL, frontend/TypeScript/build e
+migrations consistentes. Escopo e limites:
+`docs/decisoes/2026-10-07-melhorias-outras-abas.md`.
+
+## Incremento — Clareza das transferências de terceiros (07/10/2026)
+
+**Status:** `[x]` — seis melhorias implementadas e testes aprovados.
+Botão com motivo de bloqueio, status, filtros no servidor, prévia de saldos,
+comprovantes PDF/Excel e recebimentos separados da produção. 11 PostgreSQL,
+frontend, TypeScript e build aprovados; sem migration. Evidências e limites:
+`docs/decisoes/2026-10-07-usabilidade-transferencias-terceiros.md`.
+
+## Incremento agendado — Conciliação e transferências externas (07/10/2026)
+
+**Status:** `[x]` — implementado e validado localmente.
+Vínculo manual de recebimentos, conciliação de estoque, proteção do ledger em
+períodos fechados, histórico comparável, revisão de duplicidades, busca/páginas
+no servidor e painel com prioridade/prazo opcional. Transferência de terceiros
+para outro CAD/PRO preserva estoque e não soma produção, área ou produtividade.
+339 testes PostgreSQL (334 aprovados, cinco skips), 23 finais e oito revalidados;
+frontend/testes/TypeScript/build aprovados. Backups restaurados em isolamento,
+sem nova migration nem dados fictícios operacionais. Evidências e limites:
+`docs/decisoes/2026-10-07-melhorias-agendadas-cadpro.md`.
+
+## Auditoria — Romaneios, terceiros e fechamentos (07/10/2026)
+
+**Status:** `[x]` — revisão e correções autorizadas implementadas e validadas.
+Cinco falhas reproduzidas com dados sintéticos em SQLite em memória. Frontend,
+Django check, migrations e verificador de backup aprovados; serviços saudáveis.
+Prioridades, evidências e limitações:
+`docs/decisoes/2026-10-07-auditoria-romaneios-terceiros.md`.
+Correções, testes PostgreSQL, backups e limites:
+`docs/decisoes/2026-10-07-correcoes-auditoria.md`.
+
+## Incremento — Download de romaneios de entrada (07/10/2026)
+
+**Status:** `[x]` — PDF e Excel (.xlsx) disponíveis para cargas próprias,
+compartilhadas e recebimentos de terceiros. Botões separados no comprovante
+e na consulta de romaneios. PDF A4 com duas vias, pesos, descontos, qualidade,
+propriedades/CAD/PRO, motorista e assinaturas; download exige impressão.
+Testes de exportação e permissão, frontend e build aprovados. PDF da carga
+compartilhada #57 renderizado e conferido visualmente. Backups privados
+verificados antes das alterações. Detalhes no documento de decisões abaixo.
+
+## Incremento — Cadastro, fechamentos e fila de conferência (07/10/2026)
+
+**Status:** `[x]` — telas integradas, identidade explícita nos extratos/resumos,
+fechamentos, fila auditável e comprovantes de retirada implementados.
+44 testes finais relacionados aprovados em PostgreSQL, incluindo concorrência.
+Validação ampla anterior: 346 testes, cinco skips, sem falhas.
+Ensaio conjunto de recuperação do banco e uploads já verificado; automação
+semanal existente atualizada, mantendo o horário de domingo às 06h.
+Referência: `docs/decisoes/2026-10-07-cadastro-fechamento-pendencias.md`.
+
+## Incremento — Extrato de terceiros, conferência física e backup (07/10/2026)
+
+**Status:** `[x]` — cinco melhorias autorizadas implementadas e validadas localmente.
+
+Extrato cronológico com saldo acumulado, aviso de duplicidade, filtros de
+romaneios por produto/terceiro/período, contagem física auditável sem ajuste
+automático e situação administrativa de backup completo. Migration graos0020
+aditiva aplicada após backup restaurado em isolamento. 64 testes PostgreSQL
+aprovados, frontend/TypeScript/build/Docker e verificação visual autenticada
+aprovados. Escopo, comandos, backups e limites:
+`docs/decisoes/2026-10-07-extrato-conferencia-backup.md`. Sem commit/push/merge.
+
 Este documento detalha o índice operacional de `documentos/SPRINTS.md`. Uma
 Sprint somente é concluída quando seus critérios de aceite e validações
 aplicáveis estão atendidos.
@@ -133,3 +204,138 @@ Quando uma tarefa não indicar Sprint específica, o agente deve:
 - Preço médio ponderado pela quantidade, com filtros e resumo por fornecedor.
 - Sem alterações históricas; lotes com várias datas explicitados sem presumir consumo.
 - Evidências: `docs/decisoes/2026-09-19-estoque-disponibilidade.md`.
+
+## Incremento — Edição, exclusão e acessos de usuários
+
+**Status:** `[x]` — escopo validado em 01/10/2026.
+
+- Administração de contas e seleção dos 17 módulos, com autorização central nas APIs.
+- Exclusão lógica preservando históricos, bloqueio do próprio usuário e proteção de administradores.
+- Migration aditiva aplicada; 41 testes direcionados no PostgreSQL, testes do frontend e build aprovados.
+- Suíte completa apresentou quatro falhas fora desse escopo; detalhes, arquivos e limitações em `docs/decisoes/2026-10-01-usuarios-edicao-exclusao-acessos.md`.
+
+## Auditoria — Telas, autenticação e usuários
+
+**Status:** `[x]` — auditoria e correções confirmadas em 01/10/2026; recomendações de reformulação implementadas no incremento seguinte após autorização.
+
+- Navegação autenticada pelos 17 módulos e Usuários; revisão de legibilidade, organização e adaptação ao celular.
+- Corrigidos renovação de sessão em consultas de acessos, administrador revogado durante requisição, mensagens acessíveis e grades que ultrapassavam a tela.
+- As quatro falhas anteriores foram resolvidas: suíte SQLite com 462 aprovações e 39 testes ignorados; 67 testes direcionados no PostgreSQL e revalidação final de accounts/core com 42 aprovações.
+- Frontend, 14 cenários de autenticação e build aprovados. Evidências, backup, prioridades e limites em `docs/decisoes/2026-10-01-auditoria-telas-usuarios.md`.
+
+
+## Incremento — Organização e legibilidade das telas
+
+**Status:** `[x]` — melhorias autorizadas após auditoria, validadas e aplicadas localmente em 02/10/2026.
+
+- Menu em seis áreas, cadastros recolhíveis, filtros avançados e resumo dos filtros aplicados.
+- Datas brasileiras, textos secundários maiores, avisos de processamento e proteção contra cliques repetidos nos fluxos ajustados.
+- Busca de usuários e seleção de permissões individual, por área ou de todos os módulos.
+- Testes do frontend e 14 cenários de autenticação, build, checks Django e 23 testes direcionados de acesso aprovados; nenhuma migration neste incremento.
+- Conferência autenticada nas larguras 360/768/1366 px; código, banco e uploads respaldados. Evidências, arquivos, comandos e limites em `docs/decisoes/2026-10-01-melhorias-telas.md`.
+
+
+## Incremento — Painel, alertas, ações, histórico e favoritos
+
+**Status:** `[x]` — melhorias autorizadas, retomadas às 12h15 e aplicadas localmente em 02/10/2026.
+
+- Painel por módulos consultáveis, alertas de conferência, consultas por atalho e adaptação à tela.
+- Ações por módulo na API/interface, histórico administrativo com diferenças persistidas e favoritos privados por conta.
+- Carregamento de páginas e mapa sob demanda; aproximadamente 210 KB de JavaScript inicial.
+- Embalagens automáticas arredondadas para cima e editáveis: 14,4 l / galão de 5 l = 3, com recálculo e preservação manual conferidos.
+- Migrations aditivas aplicadas; suíte PostgreSQL de 515 testes, SQLite final de 516 testes, 53 testes finais direcionados, frontend e build aprovados; ignorados explicitados no relatório.
+- Backup completo verificado, alterações anteriores preservadas, sem commit/push/merge. Evidências, arquivos, comandos e limites em `docs/decisoes/2026-10-02-painel-alertas-acoes-historico.md`.
+
+## Incremento validado — 03/10/2026
+
+Conferência de saldos, simulação, estorno com motivo, conciliação manual, rascunhos privados, preferências de relatórios e backup semanal verificado concluídos nos limites documentados. Editar/excluir transferências CAD/PRO, prévia de exclusão de cargas e Cultura em Nova venda concluídos. Validação: 540 casos backend (500 aprovados, 40 skips), 34 PostgreSQL, frontend/TypeScript/build aprovados, migrations consistentes e revisão visual responsiva. Referências: docs/decisoes/2026-10-02-conferencia-simulacao-conciliacao.md e docs/decisoes/2026-10-02-transferencias-editar-excluir.md. GitHub autorizado; merge e produção dependem de autorização específica.
+
+## Incremento — Busca, filtros e confirmações compactas
+
+**Status:** implementação e testes aprovados em 03/10/2026; conferência visual final do aviso de saída e telas menores pendente por bloqueio do navegador integrado.
+
+Seis melhorias autorizadas implementadas: busca numérica, filtros rápidos, comparação de edição, proteção contra perda de alterações, motivos de bloqueio e confirmações compactas. Frontend/TypeScript/build aprovados; serviço local atualizado. Escopo e limitações: `docs/decisoes/2026-10-03-busca-filtros-confirmacoes.md`.
+
+## Incremento — Documentos, exportação e backup Excel
+
+**Status:** `[x]` — aplicado localmente em 03/10/2026 nos limites documentados.
+
+Backup Excel administrativo, relatórios Excel filtrados, documentos privados auditados, avisos de duplicidades, histórico filtrável, percentuais brasileiros e renovação antecipada implementados. Migration core0003 aditiva; dados existentes preservados. Backend completo: 552 casos (512 aprovados, 40 skips), 21 PostgreSQL; frontend, TypeScript e build aprovados. Conferência visual de backup e renovação; responsividade 360/768/1366 px. Aviso compacto de saída validado em 360 px, encerrando a pendência visual anterior desse aviso. Referência: `docs/decisoes/2026-10-03-documentos-excel.md` e `docs/api/DOCUMENTOS_EXCEL.md`. Excel é consulta, não restauração; download em disco do navegador integrado não confirmado. Merge/produção não autorizados.
+
+## Incremento — Favoritos completos de consultas
+
+**Status:** implementação aplicada localmente e testes aprovados em 05/10/2026; conferência visual autenticada pendente por ausência de sessão válida no navegador.
+
+Cargas e transferências salvam busca, histórico, cultura, safra e propriedade nos favoritos privados. Favoritos antigos preservados; exclusão com confirmação compacta; percentual da simulação em pt-BR. 42 testes core PostgreSQL, frontend/TypeScript/build e consistência de migrations aprovados. Sem migration ou mudança de registros operacionais. Detalhes: `docs/decisoes/2026-10-05-favoritos-consultas.md`.
+
+
+## Incremento — Resumos e comprovantes individuais
+
+**Status:** aplicado localmente em 05/10/2026; testes e conferência autenticada aprovados nos limites registrados.
+
+Cargas, vendas e transferências recebem filtros por período, totais ativos, ordenação, detalhes recolhíveis, validação acessível e comprovantes individuais HTML/imprimíveis. Frontend/TypeScript/build, 42 core PostgreSQL e migrations consistentes. Responsividade conferida em 360/768/1366 px. Download final e diálogo nativo de impressão não confirmados; sem alteração de dados operacionais. Detalhes: docs/decisoes/2026-10-05-resumos-comprovantes.md.
+
+
+## Incremento — Romaneio de venda e produção de terceiros
+
+**Status:** aplicado e validado localmente em 05/10/2026 nos limites documentados.
+
+Romaneio por saída de venda e recebimentos/retiradas de terceiros separados do ledger próprio e das médias das propriedades. Estoque físico/capacidade incluem terceiros; painel distingue saldos. Migration graos0015 aditiva aplicada após backup com restauração verificada. Suíte PostgreSQL 560 casos (555 aprovados, 5 skips), 105 direcionados, frontend/TypeScript/build e migrations consistentes. Conferência autenticada de formulários/romaneio; persistência de terceiros testada em banco isolado. Impressão nativa/download final não confirmados. Referência: docs/decisoes/2026-10-05-romaneio-terceiros.md.
+
+
+## Incremento — Descontos de terceiros e pesagem de vendas
+
+**Status:** implementado e validado localmente em 05/10/2026.
+
+Terceiros identificados pelo nome, com descontos iguais às cargas próprias e prévia sem movimentação; estoque separado e médias preservadas. Vendas com bruto, tara e líquido calculado, qualidade apenas informativa no romaneio e rascunho. Filtros recolhíveis e formulários responsivos. Migrations graos0016 e vendas0009 aditivas aplicadas após backups restaurados em isolamento. Suíte PostgreSQL 563 casos (558 aprovados e 5 skips), mais 21 de ajustes finais; frontend/test/TypeScript/build aprovados. Detalhes em docs/decisoes/2026-10-05-romaneio-terceiros.md.
+
+
+## Incremento — Edição de terceiros, PH por cultura e duas vias
+
+**Status:** `[x]` — aplicado e validado localmente em 05/10/2026 nos limites documentados.
+
+Nova venda no início; edição/exclusão por estorno de terceiros com motivo, versão, permissões e snapshots; PH somente trigo. Migration graos0017 aplicada, suíte PostgreSQL com 567 casos (562 aprovados, 5 skips), frontend/TypeScript/build aprovados. Entradas próprias/compartilhadas/terceiros e vendas imprimem duas vias na mesma folha A4, com fonte adaptável e bloqueio de transbordamento. Dados completos e escape HTML testados; conferência DOM/visual, sem impressão física. Backups restaurados em isolamento, sem modificar registros reais nos testes. Detalhes: docs/decisoes/2026-10-05-terceiros-edicao-ph.md e docs/decisoes/2026-10-05-impressao-duas-vias.md.
+
+
+Refinamento visual de 05/10/2026: cabeçalho, rótulos, pesos destacados e fonte maior nas duas vias, com formato compacto adaptável para conteúdo extenso. Frontend/TypeScript/build e DOM validados; sem alteração de dados ou migrations. Referência: docs/decisoes/2026-10-05-impressao-duas-vias.md.
+
+Correção de 05/10/2026: comprovante geral de vendas também em duas vias na mesma folha A4; prévia no topo e impressão sem margem superior do diálogo. Frontend/TypeScript/build aprovados, sem migration ou alteração operacional. Evidências em docs/decisoes/2026-10-05-impressao-duas-vias.md.
+
+Incremento de 05/10/2026: Nova venda e documentos em duas colunas no desktop, com romaneio no topo do detalhe; uma coluna em telas menores. Frontend/TypeScript/build aprovados e conferência autenticada 360/768/1366 px sem transbordamento. Sem migration/dados alterados. Referência: docs/decisoes/2026-10-05-vendas-duas-colunas.md.
+
+
+## Incremento — Localizador compacto de romaneios
+
+**Status:** `[x]` — aplicado e validado localmente em 05/10/2026 nos limites documentados.
+
+Consulta independente da venda selecionada, busca e período da saída, histórico e detalhes recolhidos, impressão individual de saídas anteriores. Lista compacta com cinco por página (opções dez/vinte), teste de 1.000 registros e limites de paginação. Frontend/TypeScript/build aprovados; conferência autenticada de romaneio anterior e responsividade 360/768/1366 px. Duas vias em uma folha A4 preservadas; sem migration ou alteração operacional. Referência: docs/decisoes/2026-10-05-localizar-romaneios.md.
+
+
+Refinamento adicional dos impressos: estilos internos isolados do diálogo, grade de três colunas e distribuição vertical aproveitando cada metade da folha. Romaneio #48 validado em fonte 16 px e duas vias sem transbordamento; frontend/TypeScript/build aprovados. Sem migration ou dado operacional alterado. Referência: docs/decisoes/2026-10-05-impressao-duas-vias.md.
+
+
+### Incremento autorizado — abas internas e espaçamento (05/10/2026)
+
+- [x] Sete módulos com abas acessíveis, preservação de formulários/filtros e permissões; catálogo de entradas próprias/terceiros paginado.
+- [x] Financeiro e Máquinas conferidos; Nova venda restrita ao cadastro; legendas e espaçamento de Cargas/Vendas corrigidos.
+- [x] Testes frontend, TypeScript/Vite no Docker, backup verificado e validação visual responsiva aprovados. Impressão física/PDF nativo não realizada; duas vias A4 preservadas no DOM.
+
+Referência: docs/decisoes/2026-10-05-abas-modulos.md. Sem alteração de dados, backend ou migrations.
+
+### Incremento — preço negociado e modelo do romaneio de venda (05/10/2026)
+
+**Status:** `[x]` — implementado e validado localmente.
+
+Cadastros agrícolas agora aceitam preço opcional por kg ou saca de 60 kg. O total negociado é calculado pela quantidade líquida da saída: peso em kg × preço/kg, ou peso ÷ 60 × preço/saca; ele aparece somente na segunda via do romaneio, destinada ao arquivo. A primeira via permanece destinada ao cliente. O romaneio passou a usar a grade de conferência solicitada: Peso bruto, Tara e Peso líquido, com Sacas/60 no bloco de pesagem e qualidade na lateral; classificação padrão e nota da empresa foram removidas. Migration `vendas.0010` aditiva aplicada após backup verificado. Backend de vendas, frontend, TypeScript/Vite e testes de duas vias aprovados; detalhes em `docs/decisoes/2026-10-05-preco-romaneio.md`.
+
+Continuação: romaneios individuais podem ser baixados em PDF ou Excel (`.xlsx`) com duas vias, PDF A4 de uma página e total restrito ao arquivo; tema da interface passou para texto preto em fundo branco. Os 83 testes de vendas (9 skips), quatro testes específicos de download, frontend, TypeScript sem incremental, build Vite e consistência de migrations passaram. Conferência visual autenticada pendente; a base persistente de testes PostgreSQL apresentou usuário duplicado e foi preservada. Detalhes em `docs/decisoes/2026-10-05-preco-romaneio.md`.
+
+### Incremento — romaneios de entrada, tema e transferência de terceiros (06/10/2026)
+
+**Status:** `[x]` — implementado, validado e aplicado localmente nos limites documentados.
+
+Entradas próprias/compartilhadas/terceiros usam a grade dos romaneios de venda, com descontos e sem reais; duas vias completas na mesma folha A4, cliente primeiro. Cadastro/CAD/PRO sem peso rateado ao lado; motorista antes da placa, também em PDF/Excel de vendas. Paleta escolhida: azul petróleo, branco e cinza claro.
+
+Terceiros podem transferir líquido para a propriedade/CAD/PRO no mesmo armazém, debitando saldo separado e creditando o ledger sem produção colhida ou mudança nas médias. Histórico imutável, versão, reenvio, permissões de ambas as áreas, bloqueios e estorno atômico com saldo livre. Migration graos0018 aditiva aplicada após backup com restauração isolada aprovada.
+
+82 testes PostgreSQL isolado aprovados, incluindo concorrência; reforço final de reenvio/permissões aprovado em SQLite. Frontend, TypeScript/Vite/Docker, Django check, consistência de migrations e diff aprovados. Conferência autenticada de entradas e responsividade 360/768/1366 px; formulário de transferência conferido com dados fictícios sem banco real. Sem alterações operacionais reais nos testes. Impressão física e download final em disco não executados. Referências: `docs/decisoes/2026-10-06-romaneios-entrada-tema.md` e `docs/api/TRANSFERENCIAS_CORRECOES.md`. Atualização autorizada da PR 29; sem merge/produção.

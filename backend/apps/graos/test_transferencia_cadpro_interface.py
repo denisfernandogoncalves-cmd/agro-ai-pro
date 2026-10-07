@@ -102,3 +102,71 @@ class TransferenciaCADProInterfaceTests(GraosSaldoBase, APITestCase):
         }, format="json")
         self.assertEqual(resposta.status_code, 400, resposta.data)
         self.assertIn("posição oficial de destino", str(resposta.data))
+
+
+class TransferenciaSemColheitaTests(TransferenciaCADProInterfaceTests):
+    def setUp(self):
+        super().setUp()
+        self.nova_propriedade = Propriedade.objects.create(nome="Sem colheita", municipio="Teste", area_hectares="10")
+        self.vinculo = CADProPropriedade.objects.create(cad_pro=self.destinatario, propriedade=self.nova_propriedade)
+        self.payload = {
+            "posicao_origem": PosicaoSaldoGraos.objects.get(cad_pro=self.cad_pro).pk,
+            "propriedade_destino": self.nova_propriedade.pk,
+            "cad_pro_destino": str(self.destinatario.pk),
+            "quantidade_kg": "300", "chave_idempotencia": "sem-colheita",
+            "data_movimento": "2026-09-30",
+        }
+
+    def enviar_cadastro(self, **alteracoes):
+        return self.client.post("/api/graos/saldos/transferir/", {**self.payload, **alteracoes}, format="json")
+
+    def test_cria_destino_sem_colheita_e_reenvio_nao_duplica(self):
+        self.assertFalse(LoteGraos.objects.filter(propriedade=self.nova_propriedade).exists())
+        for esperado in (201, 200):
+            resposta = self.enviar_cadastro()
+            self.assertEqual(resposta.status_code, esperado, resposta.data)
+        destino = PosicaoSaldoGraos.objects.get(propriedade=self.nova_propriedade)
+        self.assertEqual(destino.saldo_fisico_kg, Decimal("300"))
+        self.assertEqual(destino.saldo_comprometido_kg, Decimal("0"))
+        self.assertEqual((destino.cultura, destino.safra, destino.classificacao_codigo, destino.armazem_id),
+                         (self.lote.cultura, self.lote.safra, self.lote.classificacao_codigo, self.lote.armazem_id))
+        self.assertEqual(LoteGraos.objects.filter(propriedade=self.nova_propriedade).count(), 1)
+        movimentos = MovimentacaoGraos.objects.filter(operacao__startswith="transferencia_")
+        self.assertEqual(movimentos.count(), 2)
+        self.assertEqual(movimentos.values("origem_id").distinct().count(), 1)
+        self.assertFalse(MovimentacaoGraos.objects.filter(lote__propriedade=self.nova_propriedade, operacao="credito_producao").exists())
+        self.assertEqual(sum(p.saldo_fisico_kg for p in PosicaoSaldoGraos.objects.all()), Decimal("1000"))
+        resposta = self.enviar_cadastro(chave_idempotencia="segunda")
+        self.assertEqual(resposta.status_code, 201, resposta.data)
+        self.assertEqual(LoteGraos.objects.filter(propriedade=self.nova_propriedade).count(), 1)
+
+    def test_saldo_insuficiente_reverte_criacao_destino(self):
+        resposta = self.enviar_cadastro(quantidade_kg="901")
+        self.assertEqual(resposta.status_code, 409, resposta.data)
+        self.assertFalse(LoteGraos.objects.filter(propriedade=self.nova_propriedade).exists())
+        self.assertFalse(PosicaoSaldoGraos.objects.filter(propriedade=self.nova_propriedade).exists())
+        self.assertFalse(MovimentacaoGraos.objects.filter(operacao__startswith="transferencia_").exists())
+
+    def test_rejeita_vinculo_inativo(self):
+        self.vinculo.ativo = False
+        self.vinculo.save()
+        resposta = self.enviar_cadastro()
+        self.assertEqual(resposta.status_code, 409, resposta.data)
+        self.assertFalse(LoteGraos.objects.filter(propriedade=self.nova_propriedade).exists())
+
+    def test_rejeita_cadpro_inativo(self):
+        self.destinatario.ativo = False
+        self.destinatario.save()
+        resposta = self.enviar_cadastro()
+        self.assertEqual(resposta.status_code, 409, resposta.data)
+
+    def test_rejeita_mesmo_destino_e_chave_com_conteudo_diferente(self):
+        resposta = self.enviar_cadastro(propriedade_destino=self.propriedade.pk, cad_pro_destino=str(self.cad_pro.pk))
+        self.assertEqual(resposta.status_code, 409, resposta.data)
+        self.assertEqual(self.enviar_cadastro().status_code, 201)
+        resposta = self.enviar_cadastro(quantidade_kg="301")
+        self.assertEqual(resposta.status_code, 409, resposta.data)
+
+    def test_rejeita_destinos_ambiguos(self):
+        resposta = self.enviar_cadastro(posicao_destino=self.payload["posicao_origem"])
+        self.assertEqual(resposta.status_code, 400, resposta.data)

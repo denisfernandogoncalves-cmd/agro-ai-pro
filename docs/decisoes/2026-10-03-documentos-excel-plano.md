@@ -1,0 +1,7 @@
+# Documentos, Excel e conferência — plano autorizado
+
+Objetivo: seis melhorias autorizadas e opção de backup em Excel. Branch: codex/melhorias-gestao-transferencias-20261003. Backup inicial completo: backups/agro-ai-pro-2026-10-03-084453-515315, integridade e restauração isolada verificadas.
+
+Critérios: administrador baixa dados de negócio em XLSX organizado por tabelas sem credenciais ou arquivos binários; relatório exporta todos os resultados dos filtros aplicados; anexos PDF/PNG/JPEG privados vinculados a lançamentos, com validação e permissões do módulo; possíveis duplicidades avisadas antes de confirmar, sem impedir lançamentos legítimos; histórico da posição reúne entradas, saídas, reservas, transferências e estornos; números brasileiros consistentes; renovação antecipada da sessão conserva os formulários e respeita logout.
+
+Arquitetura: serviços e endpoints em core/relatorios, reutilizando openpyxl já instalado no backend; componentes/API compartilhados no frontend. Excel não permite restaurar o banco nem contém os documentos: backup completo permanece separado. Anexos serão armazenados no banco, abrangidos pelos backups verificados, sem URL pública. Migration aditiva; nada será excluído para teste. Favoritos e rascunhos privados não entram no backup em Excel. Testes de autorização, fórmulas maliciosas como texto, exportação completa, uploads inválidos, duplicidades, histórico e renovação/concor­rência de sessão.

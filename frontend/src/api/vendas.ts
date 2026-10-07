@@ -5,7 +5,16 @@ import { ArmazemGraos, CADPro } from "./cargasColhidas";
 
 export type StatusVenda = "rascunho" | "confirmada" | "parcial" | "entregue" | "cancelada";
 
-export type MovimentoVenda = {
+export type DadosPesagemVenda = {
+  peso_bruto_kg?: string | null;
+  tara_kg?: string | null;
+  umidade_percentual?: string | null;
+  avariados_percentual?: string | null;
+  quebrados_percentual?: string | null;
+  ph?: string | null;
+};
+
+export type MovimentoVenda = DadosPesagemVenda & {
   id: number;
   cancelado_em: string | null;
   observacoes: string;
@@ -21,7 +30,7 @@ export type MovimentoVenda = {
   movimentacao_id: number;
 };
 
-export type DadosEntrega = {
+export type DadosEntrega = DadosPesagemVenda & {
   quantidade_kg: string;
   data_movimento: string;
   destino: string;
@@ -32,6 +41,8 @@ export type DadosEntrega = {
 };
 
 export type VendaGraos = {
+  rateio_particular_id?: number | null;
+  rateio_particular_snapshot?: PreviaParticular;
   id: number;
   contrato: number | null;
   versao: number;
@@ -49,6 +60,8 @@ export type VendaGraos = {
   cultura: string;
   safra: string;
   classificacao_codigo: string;
+  contrato_preco_venda: string | null;
+  contrato_unidade_preco: "kg" | "sc" | null;
   armazem_nome: string;
   propriedade: number | null;
   propriedade_nome: string | null;
@@ -66,6 +79,8 @@ export type VendaGraos = {
 };
 
 export type FiltrosVenda = {
+  data_inicio?:string;
+  data_fim?:string;
   mostrar_excluidas?: string;
   propriedade?: string;
   search?: string;
@@ -89,7 +104,18 @@ export type NovaVenda = {
 };
 
 export type DadosNovaPosicao = { propriedade: number; cad_pro: string; cultura: string; safra: string; classificacao_codigo: string; armazem: number };
-export type RegistroVenda = Omit<NovaVenda, "posicao"> & { posicao?: number; nova_posicao?: DadosNovaPosicao };
+export type ContextoParticular = Omit<DadosNovaPosicao, "propriedade" | "cad_pro">;
+export type PreviaParticular = {
+  hash_previa: string;
+  quantidade_total_kg: string;
+  area_total_hectares: string;
+  parcelas: { propriedade: number; propriedade_nome: string; cad_pro_codigo: string; area_hectares: string; quantidade_kg: string; saldo_anterior_kg?:string; saldo_posterior_kg?:string; venda_id?: number }[];
+};
+export type RegistroVenda = Omit<NovaVenda, "posicao"> & { posicao?: number; nova_posicao?: DadosNovaPosicao; contexto_particular?: ContextoParticular; hash_previa?: string };
+
+export async function carregarPreviaParticular(contexto_particular: ContextoParticular, quantidade_kg: string) {
+  return (await api.post<PreviaParticular>("/comercial/vendas/previa-particular/", { contexto_particular, quantidade_kg })).data;
+}
 
 const cabecalho = (chave: string) => ({ headers: { "Idempotency-Key": chave } });
 

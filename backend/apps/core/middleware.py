@@ -2,7 +2,12 @@ from django.utils.cache import patch_cache_control, patch_vary_headers
 
 
 PRIVATE_API_PREFIXES = (
+    "/api/core/",
     "/api/accounts/",
+    "/api/auth/",
+    "/api/graos/",
+    "/api/comercial/",
+    "/api/cadpros/",
     "/api/ai/",
     "/api/clima/",
     "/api/estoque/",

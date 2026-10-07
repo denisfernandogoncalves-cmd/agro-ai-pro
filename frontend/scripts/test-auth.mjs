@@ -239,7 +239,7 @@ const server = createServer((request, response) => {
       return;
     }
 
-    if (request.method === "GET" && url.pathname === "/api/propriedades/") {
+    if (request.method === "GET" && ["/api/propriedades/", "/api/auth/me/", "/api/auth/users/"].includes(url.pathname)) {
       serverState.privateCount += 1;
       const authorization = request.headers.authorization;
       if (authorization !== `Bearer ${serverState.validAccess}`) {
@@ -280,6 +280,17 @@ async function freshScenario() {
 }
 
 try {
+  await test("consultas de acessos e usuários renovam token expirado", async () => {
+    for (const caminho of ["/auth/me/", "/auth/users/"]) {
+      const { coordinator, api } = await freshScenario();
+      coordinator.registrarLoginExplicito(coordinator.obterGeracaoSessao(), "access-expired", "refresh-valid");
+      const response = await api.api.get(caminho);
+      assert.equal(response.status, 200);
+      assert.equal(serverState.refreshCount, 1);
+      assert.equal(serverState.privateCount, 2);
+      assert.equal(coordinator.estaAutenticado(), true);
+    }
+  });
   await test("access expirado permite refresh legítimo", async () => {
     const { coordinator, api } = await freshScenario();
     assert.equal(
@@ -492,6 +503,30 @@ try {
     assert.equal(serverState.refreshCount, 1);
     assert.equal(serverState.privateCount, 4);
   });
+  await test("renovação antecipada compartilha refresh com consultas e não muda geração", async () => {
+    const {coordinator,api}=await freshScenario();
+    coordinator.registrarLoginExplicito(coordinator.obterGeracaoSessao(), "access-expired", "refresh-valid");
+    const generation=coordinator.obterGeracaoSessao();
+    serverState.refreshStarted=deferred();serverState.refreshGate=deferred();
+    const manual=api.renovarSessaoAgora();
+    await serverState.refreshStarted.promise;
+    const outra=api.renovarSessaoAgora();const consulta=api.listarPropriedades();
+    serverState.refreshGate.resolve();
+    await Promise.all([manual,outra,consulta]);
+    assert.equal(serverState.refreshCount,1);
+    assert.equal(coordinator.obterGeracaoSessao(),generation);
+    assert.equal(coordinator.estaAutenticado(),true);
+  });
+  await test("renovação antecipada não revive sessão encerrada", async () => {
+    const {coordinator,api}=await freshScenario();
+    coordinator.registrarLoginExplicito(coordinator.obterGeracaoSessao(), "access-expired", "refresh-valid");
+    serverState.refreshStarted=deferred();serverState.refreshGate=deferred();
+    const manual=api.renovarSessaoAgora();
+    await serverState.refreshStarted.promise;await api.sair();serverState.refreshGate.resolve();
+    await assert.rejects(manual);await assert.rejects(api.renovarSessaoAgora());
+    assert.equal(coordinator.estaAutenticado(),false);
+    assert.equal(serverState.refreshCount,1);
+  });
 } finally {
   await new Promise((resolve, reject) => {
     server.close((error) => (error ? reject(error) : resolve()));
@@ -499,9 +534,18 @@ try {
 }
 
 async function renderAppStates() {
+  async function componenteUrl(nome, dependencias = {}) {
+    const arquivo = await readFile(new URL(`../src/components/${nome}.tsx`, import.meta.url), "utf8");
+    let fonte = arquivo.replace('from "react";', `from "${reactUrl}";`);
+    for (const [caminho,url] of Object.entries(dependencias)) fonte = fonte.replace(`from "${caminho}";`, `from "${url}";`);
+    return moduleDataUrl((await transpile(fonte, true)).replaceAll('"react/jsx-runtime"', `"${reactJsxRuntimeUrl}"`), nome);
+  }
+  const confirmacaoUrl = await componenteUrl("ConfirmacaoCompacta");
+  const protecaoUrl = await componenteUrl("AlteracoesNaoSalvas", {"./ConfirmacaoCompacta":confirmacaoUrl});
   const React = await import(reactUrl);
   const { renderToString } = await import(reactDomServerUrl);
   globalThis.__APP_API__ = {
+    api: { get: async () => ({ data: { is_staff: false } }) },
     atualizarPropriedade: async () => ({}),
     criarPropriedade: async () => ({}),
     excluirPropriedade: async () => undefined,
@@ -514,12 +558,18 @@ async function renderAppStates() {
       }),
   });
 
+  globalThis.__APP_ACTIONS__ = { AcoesContext: React.createContext(null), autorizado: () => true, BotaoAcao: globalThis.__PRIVATE_COMPONENTS__.BotaoAcao, useDestinoConsulta: () => {} };
   let source = appSource
+    .replace('from "./components/AlteracoesNaoSalvas";', `from "${protecaoUrl}";`)
+    .replace('from "./components/ConfirmacaoCompacta";', `from "${confirmacaoUrl}";`)
+    .replace(/import \{[^}]+\} from "\.\/components\/AcoesContext";/, "const { AcoesContext, autorizado, BotaoAcao, useDestinoConsulta } = globalThis.__APP_ACTIONS__;")
+    .replace(/import \{ nomeModulo \} from "\.\/components\/gruposModulos";/, "const nomeModulo = id => id;")
+    .replace(/const (\w+) = lazy\(\(\) => import\("[^"]+"\)\);/g, "const $1 = globalThis.__PRIVATE_COMPONENTS__.$1;")
     .replace('from "react";', `from "${reactUrl}";`)
     .replace('from "axios";', `from "${axiosUrl}";`)
     .replace(
-      /import \{\s*atualizarPropriedade[\s\S]*?\} from "\.\/api\/propriedades";/,
-      "const { atualizarPropriedade, criarPropriedade, "
+      /import \{\s*api,\s*atualizarPropriedade[\s\S]*?\} from "\.\/api\/propriedades";/,
+      "const { api, atualizarPropriedade, criarPropriedade, "
         + "excluirPropriedade, listarPropriedades } = globalThis.__APP_API__;\n"
         + "type Propriedade = any;\ntype PropriedadeInput = any;",
     )

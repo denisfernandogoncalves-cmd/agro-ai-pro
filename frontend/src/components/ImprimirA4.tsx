@@ -1,8 +1,11 @@
+import { useAcoes } from "./AcoesContext";
 import { useEffect } from "react";
 import "../print.css";
 
 /** A mesma preparação atende o botão e o atalho de impressão do navegador. */
 export default function ImprimirA4() {
+  const pode = useAcoes();
+  const permitido = pode("imprimir");
   useEffect(() => {
     let restaurar: (() => void)[] = [];
     const limpar = () => {
@@ -11,6 +14,7 @@ export default function ImprimirA4() {
     };
     const preparar = () => {
       limpar();
+      if (!permitido) { document.body.classList.add("impressao-bloqueada"); restaurar.push(() => document.body.classList.remove("impressao-bloqueada")); return; }
       const pagina = document.querySelector("main.pagina");
       if (!pagina) return;
       const nota = document.createElement("p");
@@ -56,8 +60,9 @@ export default function ImprimirA4() {
       window.removeEventListener("beforeprint", preparar);
       window.removeEventListener("afterprint", limpar);
     };
-  }, []);
+  }, [permitido]);
 
+  if (!permitido) return null;
   return <button type="button" className="secundario" onClick={() => window.print()}
     title="Imprimir os dados desta aba em A4 retrato.">
     Imprimir A4

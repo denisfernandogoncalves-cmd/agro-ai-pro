@@ -1,7 +1,8 @@
 import { api } from "./propriedades";
 
-export type ContratoComercial = { id: number; empresa: string; numero: string; quantidade_kg: string | null; produto: string; ativo: boolean };
-export type DadosContrato = { empresa: string; numero: string; quantidade_kg: string; produto: string };
+export type UnidadePrecoContrato = "kg" | "sc";
+export type ContratoComercial = { id: number; empresa: string; numero: string; quantidade_kg: string | null; produto: string; preco_venda: string | null; unidade_preco: UnidadePrecoContrato; ativo: boolean };
+export type DadosContrato = { empresa: string; numero: string; quantidade_kg: string; produto: string; preco_venda: string | null; unidade_preco: UnidadePrecoContrato };
 
 export async function carregarContratos() {
   return (await api.get<ContratoComercial[]>("/comercial/contratos/")).data;

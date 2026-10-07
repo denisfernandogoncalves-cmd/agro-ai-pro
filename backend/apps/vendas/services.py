@@ -287,6 +287,7 @@ def registrar_entrega_venda(
     *, usuario, venda, quantidade_kg, chave_idempotencia,
     data_entrega=None, referencia_externa="", observacoes="", destino="",
     placa="", motorista="", nota_produtor="", nota_empresa="",
+    peso_bruto_kg=None, tara_kg=None, umidade_percentual=None, avariados_percentual=None, quebrados_percentual=None, ph=None,
 ):
     from apps.graos.models import normalizar_placa
 
@@ -308,6 +309,13 @@ def registrar_entrega_venda(
         "nota_produtor": str(nota_produtor or "").strip(),
         "nota_empresa": str(nota_empresa or "").strip(),
     }
+    if venda.posicao.cultura.lower() != "trigo":
+        ph = None
+    pesagem = {"peso_bruto_kg": peso_bruto_kg, "tara_kg": tara_kg, "umidade_percentual": umidade_percentual, "avariados_percentual": avariados_percentual, "quebrados_percentual": quebrados_percentual, "ph": ph}
+    if peso_bruto_kg is not None or tara_kg is not None:
+        if peso_bruto_kg is None or tara_kg is None or Decimal(str(tara_kg)) < 0 or Decimal(str(peso_bruto_kg)) - Decimal(str(tara_kg)) != quantidade:
+            raise VendaGraosConflitoError("Confira a pesagem: líquido deve ser peso bruto menos tara.")
+    payload.update({k: v for k, v in pesagem.items() if v is not None})
     # Ausência de motorista mantém o hash de requisições legadas.
     if str(motorista or "").strip():
         payload["motorista"] = str(motorista).strip()
@@ -365,6 +373,7 @@ def registrar_entrega_venda(
         origem=origem,
         movimentacao=movimento,
         criado_por=usuario,
+        **pesagem,
     )
     venda.quantidade_entregue_kg += quantidade
     venda.status = (
@@ -384,7 +393,7 @@ def registrar_venda_com_saida(*, usuario, chave_idempotencia, dados):
     campos_venda = ("contrato", "numero_contrato", "cliente_nome", "posicao", "nova_posicao",
                     "quantidade_kg", "data_contrato", "data_limite_entrega", "observacoes")
     campos_entrega = ("quantidade_kg", "destino", "placa", "motorista",
-                      "nota_produtor", "nota_empresa", "referencia_externa", "observacoes")
+                      "nota_produtor", "nota_empresa", "referencia_externa", "observacoes", "peso_bruto_kg", "tara_kg", "umidade_percentual", "avariados_percentual", "quebrados_percentual", "ph")
     venda = criar_rascunho(usuario=usuario, chave_idempotencia=f"sv:{token}:criar",
         **{campo: dados[campo] for campo in campos_venda if campo in dados})
     venda = confirmar_venda(usuario=usuario, venda=venda, chave_idempotencia=f"sv:{token}:res")

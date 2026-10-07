@@ -9,9 +9,167 @@ from django.utils import timezone
 
 from apps.propriedades.models import Propriedade
 from apps.talhoes.models import Talhao
+from apps.core.models import HistoricoImutavelQuerySet
 
 
 ZERO = Decimal("0.000")
+
+
+class TerceiroCadastro(models.Model):
+    codigo = models.CharField(max_length=40, unique=True)
+    nome = models.CharField(max_length=160)
+    ativo = models.BooleanField(default=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("nome", "id")
+
+
+class FechamentoPeriodo(models.Model):
+    armazem = models.ForeignKey("ArmazemGraos", on_delete=models.PROTECT)
+    cultura = models.CharField(max_length=50)
+    safra = models.CharField(max_length=20)
+    inicio = models.DateField()
+    fim = models.DateField()
+    saldo_proprio_kg = models.DecimalField(max_digits=16, decimal_places=3)
+    saldo_terceiros_kg = models.DecimalField(max_digits=16, decimal_places=3)
+    assinatura = models.CharField(max_length=64)
+    justificativa = models.TextField()
+    chave_idempotencia = models.UUIDField(unique=True)
+    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    objects = HistoricoImutavelQuerySet.as_manager()
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValidationError("Fechamentos são imutáveis; registre outra conferência.")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError("Fechamentos são imutáveis.")
+
+
+class PendenciaConferencia(models.Model):
+    referencia = models.CharField(max_length=100, unique=True)
+    tipo = models.CharField(max_length=20)
+    titulo = models.CharField(max_length=200)
+    detalhes = models.JSONField(default=dict)
+    responsavel = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    situacao = models.CharField(max_length=12, choices=(("aberta", "Aberta"), ("em_analise", "Em análise"), ("resolvida", "Resolvida")), default="aberta")
+    versao = models.PositiveIntegerField(default=1)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+
+class EntradaProducaoTerceiro(models.Model):
+    """Depósito independente, sem vínculo com a produção das propriedades."""
+    versao = models.PositiveIntegerField(default=1)
+    terceiro = models.ForeignKey(TerceiroCadastro, null=True, blank=True, on_delete=models.PROTECT)
+    depositante = models.CharField(max_length=160)
+    propriedade_origem = models.CharField(max_length=160, blank=True)
+    cad_pro = models.CharField(max_length=80, blank=True)
+    cultura = models.CharField(max_length=50)
+    safra = models.CharField(max_length=20)
+    armazem = models.ForeignKey("ArmazemGraos", on_delete=models.PROTECT)
+    peso_total_kg = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
+    tara_kg = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
+    peso_bruto_kg = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
+    umidade_percentual = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
+    impureza_percentual = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
+    defeitos_percentual = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
+    ph = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
+    desconto_total_percentual = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
+    desconto_total_kg = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
+    regra_desconto_aplicada = models.JSONField(default=dict, blank=True)
+    peso_liquido_kg = models.DecimalField(max_digits=16, decimal_places=3)
+    saldo_kg = models.DecimalField(max_digits=16, decimal_places=3)
+    data_entrada = models.DateField(default=timezone.localdate)
+    placa = models.CharField(max_length=7, blank=True)
+    motorista = models.CharField(max_length=120, blank=True)
+    documento = models.CharField(max_length=120, blank=True)
+    observacoes = models.TextField(blank=True)
+    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-data_entrada", "-id")
+        constraints = [
+            models.CheckConstraint(condition=models.Q(peso_liquido_kg__gt=0), name="terceiro_entrada_peso_positivo"),
+            models.CheckConstraint(condition=models.Q(saldo_kg__gte=0, saldo_kg__lte=models.F("peso_liquido_kg")), name="terceiro_entrada_saldo_valido"),
+        ]
+
+
+class ConferenciaEstoque(models.Model):
+    objects = HistoricoImutavelQuerySet.as_manager()
+    armazem = models.ForeignKey("ArmazemGraos", on_delete=models.PROTECT)
+    cultura = models.CharField(max_length=50)
+    safra = models.CharField(max_length=20)
+    data_contagem = models.DateField()
+    contado_kg = models.DecimalField(max_digits=16, decimal_places=3)
+    saldo_proprio_kg = models.DecimalField(max_digits=16, decimal_places=3)
+    saldo_terceiros_kg = models.DecimalField(max_digits=16, decimal_places=3)
+    justificativa = models.TextField()
+    chave_idempotencia = models.UUIDField(unique=True)
+    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [models.CheckConstraint(condition=models.Q(contado_kg__gte=0), name="conferencia_estoque_contagem_positiva")]
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValidationError("Conferências de estoque são imutáveis.")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError("Conferências de estoque são imutáveis.")
+
+
+class MovimentoProducaoTerceiroQuerySet(models.QuerySet):
+    def update(self, **kwargs):
+        raise ValidationError("Movimentos de terceiros são imutáveis.")
+
+    def delete(self):
+        raise ValidationError("Movimentos de terceiros são imutáveis.")
+
+    def bulk_update(self, *args, **kwargs):
+        raise ValidationError("Movimentos de terceiros são imutáveis.")
+
+
+class MovimentoProducaoTerceiro(models.Model):
+    entrada = models.ForeignKey(EntradaProducaoTerceiro, on_delete=models.PROTECT, related_name="movimentos")
+    tipo = models.CharField(max_length=13, choices=(("entrada", "Entrada"), ("saida", "Saída"), ("estorno", "Estorno"), ("edicao", "Edição"), ("transferencia", "Transferência para CAD/PRO")))
+    movimentacao_saldo = models.OneToOneField("MovimentacaoGraos", null=True, blank=True, on_delete=models.PROTECT, related_name="movimento_terceiro")
+    quantidade_kg = models.DecimalField(max_digits=16, decimal_places=3)
+    delta_kg = models.DecimalField(max_digits=16, decimal_places=3)
+    saldo_anterior_kg = models.DecimalField(max_digits=16, decimal_places=3)
+    saldo_posterior_kg = models.DecimalField(max_digits=16, decimal_places=3)
+    data_movimento = models.DateField(default=timezone.localdate)
+    destino = models.CharField(max_length=160, blank=True)
+    documento = models.CharField(max_length=120, blank=True)
+    placa = models.CharField(max_length=7, blank=True)
+    motorista = models.CharField(max_length=120, blank=True)
+    observacoes = models.TextField(blank=True)
+    snapshot_antes = models.JSONField(default=dict, blank=True)
+    snapshot_depois = models.JSONField(default=dict, blank=True)
+    estorno_de = models.OneToOneField("self", null=True, blank=True, on_delete=models.PROTECT, related_name="estorno")
+    chave_idempotencia = models.CharField(max_length=160, unique=True)
+    hash_requisicao = models.CharField(max_length=64)
+    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    objects = MovimentoProducaoTerceiroQuerySet.as_manager()
+
+    class Meta:
+        ordering = ("-criado_em", "-id")
+        constraints = [models.CheckConstraint(condition=models.Q(quantidade_kg__gt=0), name="terceiro_mov_peso_positivo")]
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValidationError("Movimentos de terceiros são imutáveis.")
+        return super().save(*args, **kwargs)
+
+    def delete(self, *args, **kwargs):
+        raise ValidationError("Movimentos de terceiros são imutáveis.")
 
 
 def normalizar_placa(placa):
@@ -426,6 +584,8 @@ class CargaColhida(models.Model):
     data_colheita = models.DateField(default=timezone.localdate)
     placa = models.CharField(max_length=7, blank=True, default="")
     motorista = models.CharField(max_length=120, blank=True, default="")
+    peso_total_kg = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
+    tara_kg = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True)
     peso_bruto_kg = models.DecimalField(
         max_digits=16,
         decimal_places=3,
@@ -955,3 +1115,33 @@ class MovimentacaoGraos(models.Model):
 
     def __str__(self):
         return f"{self.get_operacao_display()} - {self.lote} - {self.quantidade_kg} kg"
+
+
+class CorrecoesTransferenciaQuerySet(models.QuerySet):
+    def update(self,**kwargs):
+        raise ValidationError("A correção de transferência é imutável.")
+    def delete(self):
+        raise ValidationError("A correção de transferência é imutável.")
+
+
+class CorrecaoTransferenciaSaldo(models.Model):
+    objects = CorrecoesTransferenciaQuerySet.as_manager()
+    origem_original = models.OneToOneField(OrigemSaldoGraos, on_delete=models.PROTECT, related_name="correcao_transferencia")
+    origem_nova = models.OneToOneField(OrigemSaldoGraos, on_delete=models.PROTECT, related_name="correcao_anterior", null=True, blank=True)
+    acao = models.CharField(max_length=8, choices=(("editar","Editar"),("excluir","Excluir")))
+    motivo = models.CharField(max_length=500)
+    chave_idempotencia = models.CharField(max_length=160, unique=True)
+    hash_requisicao = models.CharField(max_length=64)
+    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-criado_em", "-id")
+        verbose_name = "correção de transferência de saldo"
+
+    def save(self,*args,**kwargs):
+        if self.pk: raise ValidationError("A correção de transferência é imutável.")
+        return super().save(*args,**kwargs)
+
+    def delete(self,*args,**kwargs):
+        raise ValidationError("A correção de transferência é imutável.")

@@ -6,11 +6,30 @@ from django.db.models import Case, DecimalField, F, Q, Sum, Value, When
 from django.db.models.functions import Coalesce
 from django.utils import timezone
 
-from .models import LoteEstoque, MovimentacaoEstoque, ProdutoEstoque
+from .models import CompraEstoque, LoteEstoque, MovimentacaoEstoque, ProdutoEstoque
 
 
 class EstoqueInsuficienteError(ValueError):
     pass
+
+
+@transaction.atomic
+def excluir_movimentacao(movimento):
+    # Usa o mesmo bloqueio das entradas/saídas para impedir corrida sobre o saldo.
+    lote = LoteEstoque.objects.select_for_update().get(pk=movimento.lote_id)
+    movimento = MovimentacaoEstoque.objects.select_for_update().get(pk=movimento.pk)
+    if movimento.tipo == MovimentacaoEstoque.Tipo.ENTRADA:
+        saldo = Decimal("0")
+        restantes = lote.movimentacoes.exclude(pk=movimento.pk).order_by("data_movimento", "id")
+        for item in restantes:
+            saldo += item.quantidade if item.tipo == MovimentacaoEstoque.Tipo.ENTRADA else -item.quantidade
+            if saldo < 0:
+                raise EstoqueInsuficienteError(
+                    "Esta entrada já possui consumo. Excluí-la deixaria o saldo do lote negativo."
+                )
+    # Compra e entrada são removidas juntas; outros vínculos PROTECT revertem tudo.
+    CompraEstoque.objects.filter(movimento=movimento).delete()
+    movimento.delete()
 
 
 def saldo_lote(lote):

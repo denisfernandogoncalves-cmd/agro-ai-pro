@@ -128,12 +128,12 @@ export default function ClimaPage({ propriedades }: Props) {
       </section>
 
       {propriedade && (!propriedade.latitude || !propriedade.longitude) && (
-        <p className="erro card">
+        <p className="erro card" role="alert">
           Esta propriedade precisa de latitude e longitude. Envie um KML ou
           informe as coordenadas no cadastro.
         </p>
       )}
-      {erro && <p className="erro card">{erro}</p>}
+      {erro && <p className="erro card" role="alert">{erro}</p>}
 
       {previsoes.length === 0 ? (
         <section className="card vazio">

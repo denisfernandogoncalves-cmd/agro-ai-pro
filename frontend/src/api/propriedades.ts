@@ -16,6 +16,7 @@ import { GeometriaGeoJSON } from "../utils/geometria";
 
 
 export type Propriedade = {
+  bp_cvale?: string;
   id: number;
   nome: string;
   proprietario: string;
@@ -35,6 +36,7 @@ export type Propriedade = {
 };
 
 export type PropriedadeInput = {
+  bp_cvale?: string;
   nome: string;
   proprietario: string;
   municipio: string;
@@ -128,6 +130,22 @@ async function renovarAccessToken(
   return response.data.access;
 }
 
+export async function renovarSessaoAgora() {
+  const {generation,refresh,logoutActive} = capturarSessao();
+  if (!refresh || logoutActive || !geracaoSessaoValida(generation)) throw new Error("Sessão encerrada.");
+  return obterRenovacao(generation,refresh);
+}
+
+function obterRenovacao(generation: string, refresh: string) {
+  if (!renovacaoEmAndamento || renovacaoEmAndamento.generation !== generation) {
+    const promise = renovarAccessToken(generation, refresh).finally(() => {
+      if (renovacaoEmAndamento?.promise === promise) renovacaoEmAndamento = null;
+    });
+    renovacaoEmAndamento = {generation,promise};
+  }
+  return renovacaoEmAndamento.promise;
+}
+
 api.interceptors.response.use(
   (response) => {
     const request = response.config as RequisicaoComRetry;
@@ -143,7 +161,7 @@ api.interceptors.response.use(
   },
   async (erro: AxiosError) => {
     const requisicao = erro.config as RequisicaoComRetry | undefined;
-    const endpointAutenticacao = requisicao?.url?.includes("/auth/");
+    const endpointAutenticacao = ["/auth/token/", "/auth/token/refresh/", "/auth/logout/"].includes(requisicao?.url?.split("?")[0] ?? "");
     if (
       erro.response?.status !== 401
       || !requisicao
@@ -158,24 +176,19 @@ api.interceptors.response.use(
 
     requisicao._retry = true;
     const generation = requisicao._sessionGeneration;
+    const accessAtual = obterAccessToken();
+    if (accessAtual && requisicao.headers.Authorization !== `Bearer ${accessAtual}`) {
+      // Uma renovação manual ou concorrente terminou enquanto a resposta 401 chegava.
+      requisicao.headers.Authorization = `Bearer ${accessAtual}`;
+      return api.request(requisicao);
+    }
     const refresh = obterRefreshToken();
     if (!refresh) {
       return Promise.reject(erro);
     }
 
     try {
-      if (
-        !renovacaoEmAndamento
-        || renovacaoEmAndamento.generation !== generation
-      ) {
-        const promise = renovarAccessToken(generation, refresh).finally(() => {
-          if (renovacaoEmAndamento?.promise === promise) {
-            renovacaoEmAndamento = null;
-          }
-        });
-        renovacaoEmAndamento = { generation, promise };
-      }
-      const token = await renovacaoEmAndamento.promise;
+      const token = await obterRenovacao(generation, refresh);
       if (!geracaoSessaoValida(generation)) {
         throw new Error("Sessão encerrada antes da repetição.");
       }
@@ -247,10 +260,10 @@ export async function listarPropriedades(search = "") {
   return response.data;
 }
 
-function montarFormulario(dados: PropriedadeInput) {
+export function montarFormulario(dados: PropriedadeInput) {
   const formulario = new FormData();
   Object.entries(dados).forEach(([campo, valor]) => {
-    if (valor !== null && valor !== "") {
+    if (valor !== null && (valor !== "" || campo === "bp_cvale")) {
       formulario.append(campo, campo === "area_hectares" ? hectaresDeAlqueires(String(valor)) : valor);
     }
   });

@@ -1,7 +1,14 @@
 from django.db import models
+from django.core.validators import RegexValidator
 
 
 class Propriedade(models.Model):
+
+    bp_cvale = models.CharField(
+        max_length=40, blank=True, default="",
+        validators=[RegexValidator(r"^[0-9]*\Z", "Informe somente números no BP da C.Vale.")],
+        help_text="BP/BEP da propriedade, utilizado exclusivamente no faturamento C.Vale.",
+    )
 
     nome = models.CharField(
         max_length=100
