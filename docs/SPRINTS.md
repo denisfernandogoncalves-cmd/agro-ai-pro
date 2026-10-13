@@ -85,3 +85,13 @@ Quando uma tarefa não indicar Sprint específica, o agente deve:
 4. implementar uma entrega testável e compatível com o escopo;
 5. atualizar os documentos somente com evidências;
 6. nunca fazer commit, push ou merge sem a autorização aplicável.
+
+
+## Incremento — auditoria técnica da versão operacional (13/10/2026)
+
+- [x] Auditoria com 18 recomendações e 16 entregas técnicas implementadas na branch operacional `codex/modernizacao-visual-runtime`.
+- [x] Testes PostgreSQL, frontend/build e migrations validados; backups privados verificados.
+- [ ] Integração da versão operacional na branch principal; sem merge nem produção.
+
+Evidências e limites: [melhorias da auditoria](MELHORIAS-AUDITORIA-20261013.md).
+O checkpoint desta árvore permanece separado; suas limitações não são aprovação de build/migrations.
