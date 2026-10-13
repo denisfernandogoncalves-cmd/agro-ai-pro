@@ -16,6 +16,9 @@ import { GeometriaGeoJSON } from "../utils/geometria";
 
 
 export type Propriedade = {
+  formato_coordenadas?: "decimal" | "gms";
+  latitude_gms?: string;
+  longitude_gms?: string;
   bp_cvale?: string;
   id: number;
   nome: string;
@@ -36,6 +39,10 @@ export type Propriedade = {
 };
 
 export type PropriedadeInput = {
+  formato_coordenadas?: "decimal" | "gms";
+  latitude_gms?: string;
+  longitude_gms?: string;
+  converter_coordenadas?: "true" | "false";
   bp_cvale?: string;
   nome: string;
   proprietario: string;
@@ -263,7 +270,7 @@ export async function listarPropriedades(search = "") {
 export function montarFormulario(dados: PropriedadeInput) {
   const formulario = new FormData();
   Object.entries(dados).forEach(([campo, valor]) => {
-    if (valor !== null && (valor !== "" || campo === "bp_cvale")) {
+    if (valor !== undefined && valor !== null && (valor !== "" || ["bp_cvale", "latitude_gms", "longitude_gms"].includes(campo))) {
       formulario.append(campo, campo === "area_hectares" ? hectaresDeAlqueires(String(valor)) : valor);
     }
   });

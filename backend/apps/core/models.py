@@ -58,6 +58,19 @@ class RascunhoFormulario(models.Model):
         constraints = [models.UniqueConstraint(fields=("usuario", "contexto"), name="core_rascunho_usuario_contexto")]
 
 
+class ChecklistSafra(models.Model):
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    safra = models.CharField(max_length=20)
+    etapas = models.JSONField(default=list)
+    observacoes = models.TextField(blank=True)
+    versao = models.PositiveIntegerField(default=1)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=("usuario", "safra"), name="core_checklist_usuario_safra")]
+
+
 class AnexoLancamento(models.Model):
     entidade = models.CharField(max_length=30)
     registro_id = models.CharField(max_length=36)

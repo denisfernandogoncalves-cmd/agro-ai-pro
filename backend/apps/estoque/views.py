@@ -3,6 +3,8 @@ from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from apps.core.pagination import PaginacaoOpcional
+from apps.core.query_params import validar_filtros
 
 from .models import (
     LocalEstoque,
@@ -20,6 +22,7 @@ from .services import EstoqueInsuficienteError, excluir_movimentacao, posicao_es
 
 
 class CadastroEstoqueMixin:
+    pagination_class = PaginacaoOpcional
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     ordering = ("nome",)
@@ -41,6 +44,7 @@ class ProdutoEstoqueViewSet(CadastroEstoqueMixin, viewsets.ModelViewSet):
     ordering_fields = ("nome", "categoria", "estoque_minimo", "criado_em")
 
     def get_queryset(self):
+        validar_filtros(self.request.query_params, ids=('produto', 'local', 'fornecedor', 'lote', 'propriedade'))
         queryset = super().get_queryset()
         categoria = self.request.query_params.get("categoria", "").strip()
         ativo = self.request.query_params.get("ativo", "").strip()
@@ -66,6 +70,7 @@ class LoteEstoqueViewSet(CadastroEstoqueMixin, viewsets.ModelViewSet):
     ordering = ("data_validade", "codigo")
 
     def get_queryset(self):
+        validar_filtros(self.request.query_params, ids=('produto', 'local', 'fornecedor', 'lote', 'propriedade'))
         queryset = super().get_queryset()
         for parametro, campo in (
             ("produto", "produto_id"),
@@ -100,6 +105,7 @@ class MovimentacaoEstoqueViewSet(
         "criado_por",
     )
     serializer_class = MovimentacaoEstoqueSerializer
+    pagination_class = PaginacaoOpcional
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = (
@@ -123,6 +129,7 @@ class MovimentacaoEstoqueViewSet(
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     def get_queryset(self):
+        validar_filtros(self.request.query_params, ids=('produto', 'local', 'fornecedor', 'lote', 'propriedade'))
         queryset = super().get_queryset()
         for parametro, campo in (
             ("tipo", "tipo"),

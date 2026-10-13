@@ -49,7 +49,7 @@ class RelatorioExcelView(NoStoreResponseMixin, APIView):
             raise PermissionDenied()
         serializer = FiltrosRelatorioOperacionalSerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
-        filtros = {**serializer.validated_data, "pagina": 1, "por_pagina": 100000}
+        filtros = {**serializer.validated_data, "pagina": 1, "pagina_agrupamento":1, "por_pagina": 100000}
         with consulta_consistente():
             dados = selecionar_relatorio_operacional(**filtros)
             if dados["dados"]["total"] > 100000:
@@ -61,6 +61,10 @@ class RelatorioExcelView(NoStoreResponseMixin, APIView):
             colunas = list(dict.fromkeys(chave for item in itens for chave in item)) or ["Resultado"]
             planilha.adicionar("Resultados", colunas, ([item.get(c) for c in colunas] for item in itens))
             planilha.adicionar("Totais", ["Indicador", "Valor"], ((c, tipo_valor(c, v)) for c,v in dados["totais"].items()))
+            if dados.get("vencimentos_financeiros"):
+                planilha.adicionar("Vencimentos a pagar", ["Faixa","Quantidade","Valor","Data base"], ([r["descricao"],r["quantidade"],Decimal(r["valor"]),dados["vencimentos_financeiros"]["data_base"]] for r in dados["vencimentos_financeiros"]["faixas"]))
+            if dados.get("agrupamento_financeiro"):
+                planilha.adicionar("Agrupamento completo", ["Referência","Tipo","Pendente","Realizado","Cancelado"], ([r["referencia"],r["tipo"],Decimal(r["pendente"]),Decimal(r["realizado"]),Decimal(r["cancelado"])] for r in dados["agrupamento_financeiro"]["resultados"]))
             if dados["secao"] == "producao_propriedade":
                 planilha.adicionar("Totais de produção", ["Indicador", "Valor"], ((c, tipo_valor(c, v)) for c,v in dados["totais_producao_propriedade"].items()))
         return planilha.resposta("agro-relatorio")

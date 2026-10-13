@@ -1,6 +1,7 @@
 import { api } from "./propriedades";
 
 export const MODULOS = [
+  ["transportes", "Transportes"],
   ["propriedades", "Propriedades"], ["talhoes", "Talhões"],
   ["cadastros-agricolas", "Cadastros agrícolas"], ["cargas", "Cargas colhidas"],
   ["producao-saldos", "Produção e saldos"], ["transferencias", "Transferência de saldo"],

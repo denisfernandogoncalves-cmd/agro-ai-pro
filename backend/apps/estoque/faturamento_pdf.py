@@ -52,7 +52,10 @@ def gerar_pdf_faturamento(faturamento):
     larguras += [27, 32, 47]
     linhas = [[p(t, cabecalho) for t in titulos]]
     for item in resumo["itens"]:
-        linha = [p(item["propriedade_nome"], celula), p(item["produtor"], celula), p(item["cad_pro"], celula)]
+        lat = item.get('latitude_gms') if item.get('formato_coordenadas')=='gms' else item.get('latitude')
+        lon = item.get('longitude_gms') if item.get('formato_coordenadas')=='gms' else item.get('longitude')
+        posicao = f'Latitude: {lat}\nLongitude: {lon}' if lat is not None and lon is not None and lat!='' and lon!='' else 'Coordenadas não informadas'
+        linha = [p(item["propriedade_nome"]+'\n'+posicao, celula), p(item["produtor"], celula), p(item["cad_pro"], celula)]
         if usa_bep:
             linha.append(p(item.get("bep", ""), celula))
         linha += [p(numero(item[campo]), numerica) for campo in ("area_alqueires", "quantidade_embalagens", "quantidade")]

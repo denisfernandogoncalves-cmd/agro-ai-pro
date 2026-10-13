@@ -14,6 +14,7 @@ from .serializers import (
     TokenRefreshRequestSerializer,
 )
 from .services import RefreshTokenInvalido, revogar_refresh_token
+from .throttles import AutenticacaoThrottle, LoginContaThrottle, RefreshThrottle
 
 
 class NoStoreResponseMixin:
@@ -25,6 +26,7 @@ class NoStoreResponseMixin:
 
 
 class LoginView(NoStoreResponseMixin, TokenObtainPairView):
+    throttle_classes = (AutenticacaoThrottle, LoginContaThrottle)
     @swagger_auto_schema(
         operation_description=(
             "Autentica usuário ativo e emite access de 15 minutos e refresh "
@@ -42,6 +44,7 @@ class LoginView(NoStoreResponseMixin, TokenObtainPairView):
 
 
 class RefreshView(NoStoreResponseMixin, TokenRefreshView):
+    throttle_classes = (RefreshThrottle,)
     @swagger_auto_schema(
         operation_description=(
             "Emite novo access e novo refresh. O refresh apresentado é "

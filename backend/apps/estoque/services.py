@@ -173,6 +173,7 @@ def resumo_estoque(queryset=None, *, propriedade=None, safra=""):
         "lotes_vencendo": sum(
             1 for item in posicoes if item["saldo"] > 0 and item["vence_em_30_dias"]
         ),
+        "criterio_estoque_minimo": "Comparação por lote; consolidação por produto ainda não definida.",
         "itens_abaixo_minimo": sum(
             1 for item in posicoes if item["abaixo_minimo"]
         ),

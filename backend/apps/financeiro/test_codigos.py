@@ -183,5 +183,6 @@ class LeituraCodigoAPITests(APITestCase):
         self.assertEqual(resposta.status_code, 201, resposta.data)
         self.assertEqual(resposta.data["codigo_barras"], "")
         url = f"/api/financeiro/lancamentos/{resposta.data['id']}/"
-        self.assertEqual(self.client.patch(url, {"codigo_barras": LINHA}).status_code, 200)
-        self.assertEqual(self.client.patch(url, {"descricao": "Conferido"}).data["codigo_barras"], BOLETO)
+        resposta = self.client.patch(url, {"codigo_barras": LINHA, "atualizado_em_original": resposta.data["atualizado_em"]})
+        self.assertEqual(resposta.status_code, 200)
+        self.assertEqual(self.client.patch(url, {"descricao": "Conferido", "atualizado_em_original": resposta.data["atualizado_em"]}).data["codigo_barras"], BOLETO)

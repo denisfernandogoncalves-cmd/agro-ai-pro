@@ -11,6 +11,7 @@ export type CotacaoMercado = {
   valor: string;
   unidade: string;
   fonte: string;
+  atualizado_em?: string;
 };
 
 export type ResumoMercado = {
@@ -34,6 +35,7 @@ export type ClimaCornBelt = {
   precipitacao_mm: string;
   alerta: string;
   fonte: string;
+  atualizado_em?: string;
 };
 
 export type NoticiaMercado = {
@@ -73,4 +75,38 @@ export async function atualizarCotacoes() {
 
 export async function atualizarCornBelt() {
   await api.post("/mercado/corn-belt/atualizar/", {});
+}
+
+
+export type CotacaoCBOT = {
+  id:number;
+  produto:"soja"|"milho"|"trigo";
+  produto_nome:string;
+  simbolo:string;
+  contrato:string;
+  contrato_completo:boolean;
+  cotado_em:string;
+  valor_usd_bushel:string;
+  valor_centavos_bushel:string;
+  fonte:string;
+  unidade:string;
+  aviso:string;
+  criado_em:string;
+};
+
+export async function listarCBOT() {
+  return (await api.get<CotacaoCBOT[]>("/mercado/cbot/")).data;
+}
+export async function atualizarCBOT() {
+  return (await api.post<CotacaoCBOT[]>("/mercado/cbot/atualizar/",{})).data;
+}
+
+
+export type ReferenciaInvesting = {
+  produto:string; nome:string; simbolo?:string; fonte?:string; url?:string;
+  valor?:string; valor_original?:string; unidade?:string; cotado_em?:string;
+  consultado_em?:string; derivado?:boolean; atraso_provedor?:boolean; mercado_aberto?:boolean; erro:string;
+};
+export async function consultarInvesting() {
+  return (await api.get<{cotacoes:ReferenciaInvesting[];intervalo_segundos:number;aviso:string}>("/mercado/investing/", {timeout:20000})).data;
 }

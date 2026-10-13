@@ -1,3 +1,4 @@
+from apps.core.excel import consulta_consistente
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import filters, status, viewsets
@@ -60,6 +61,32 @@ class LoteImportacaoViewSet(viewsets.ReadOnlyModelViewSet):
         if status_parametro:
             queryset = queryset.filter(status=status_parametro)
         return queryset
+
+    @action(detail=True, methods=["get"], url_path="conferencia-excel")
+    @consulta_consistente()
+    def conferencia_excel(self, request, pk=None):
+        from apps.accounts.access import pode
+        from apps.core.excel import PlanilhaExportacao
+        from django.utils import timezone
+        from rest_framework.exceptions import PermissionDenied
+        from rest_framework import serializers
+        import json
+        if not pode(request.user,"importacoes","consultar") or not pode(request.user,"importacoes","imprimir"):
+            raise PermissionDenied()
+        lote=self.get_object()
+        filtro=request.query_params.get("status_linha","")
+        if filtro and filtro not in LinhaImportacao.Status.values:
+            raise serializers.ValidationError("Situação da linha inválida.")
+        linhas=lote.linhas.order_by("sequencia","id")
+        if filtro: linhas=linhas.filter(status=filtro)
+        if linhas.count()>100000:
+            raise serializers.ValidationError("Mais de 100.000 linhas; aplique um filtro de situação.")
+        planilha=PlanilhaExportacao("Conferência da importação; exportação somente leitura, sem confirmar movimentações.")
+        planilha.adicionar("Base",["Campo","Valor"],[("Arquivo",lote.arquivo_nome),("SHA-256",lote.arquivo_sha256),("Lote",str(lote.pk)),("Situação do lote",lote.status),("Filtro de linhas",filtro or "Todas"),("Gerado em",timezone.now().isoformat()),("Confirmação",str(lote.confirmado_em or "Não confirmado")),("Critério","Status da linha representa validação. A confirmação operacional depende da situação do lote; não atribuir sucesso isolado a linhas de lote não confirmado.")])
+        planilha.adicionar("Linhas",["Planilha","Linha original","Tipo","Validação","Erros","Advertências","Dados originais","Dados normalizados"],([r.planilha,r.linha_origem,r.tipo,r.status,"; ".join(r.erros),"; ".join(r.advertencias),json.dumps(r.dados_originais,ensure_ascii=False),json.dumps(r.dados_normalizados,ensure_ascii=False)] for r in linhas.iterator(chunk_size=1000)))
+        resposta=planilha.resposta("conferencia-importacao")
+        resposta["Cache-Control"]="private, no-store"
+        return resposta
 
     @swagger_auto_schema(
         method="post",

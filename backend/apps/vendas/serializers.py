@@ -9,7 +9,13 @@ from apps.graos.models import ArmazemGraos, PosicaoSaldoGraos
 from .models import ContratoComercial, DevolucaoVendaGraos, EntregaVendaGraos, VendaGraos
 
 
+from .gestao_contratos import validar_configuracao
+
+
 class ContratoComercialSerializer(serializers.ModelSerializer):
+    def validate(self, attrs):
+        return validar_configuracao(attrs, self.instance)
+
     quantidade_kg = serializers.DecimalField(max_digits=16, decimal_places=3, min_value=Decimal("0.001"))
     produto = serializers.CharField(max_length=80, allow_blank=False)
     preco_venda = serializers.DecimalField(
@@ -26,7 +32,8 @@ class ContratoComercialSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ContratoComercial
-        fields = ("id", "numero", "empresa", "quantidade_kg", "produto", "preco_venda", "unidade_preco", "ativo")
+        fields = ("id", "numero", "empresa", "quantidade_kg", "produto", "preco_venda", "unidade_preco", "ativo", "versao", "alerta_restante_kg", "cotas_cadpro", "calendario_entregas")
+        read_only_fields = ("versao",)
 
 
 class NovaPosicaoVendaSerializer(serializers.Serializer):

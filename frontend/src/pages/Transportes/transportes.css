@@ -1,0 +1,47 @@
+.modulo-transportes { display: grid; gap: 16px; min-width: 0; }
+.modulo-transportes .aba-modulo-painel:not([hidden]) { display: grid; gap: 16px; }
+.transporte-filtros, .transporte-campos { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 210px), 1fr)); gap: 14px; align-items: end; }
+.transporte-indicadores { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 14px; }
+.transporte-indicadores article { display: flex; flex-direction: column; gap: 10px; }
+.transporte-indicadores strong { font-size: 1.4rem; }
+.transporte-tabela { overflow-x: auto; max-width: 100%; }
+.transporte-tabela table { width: 100%; border-collapse: collapse; }
+.transporte-tabela th, .transporte-tabela td { padding: 12px; text-align: left; border-bottom: 1px solid #dce3e0; }
+.transporte-tabela small { display: block; }
+.transporte-contexto { margin: 0; }
+.transporte-barras { display: grid; grid-template-columns: 80px 1fr; gap: 12px; margin: 16px 0; }
+.transporte-barra { height: 12px; border-radius: 4px; margin: 8px 0 4px; }
+.transporte-barra.receita { background: #257649; }
+.transporte-barra.despesa { background: #b75d26; }
+.transporte-legenda { display: flex; flex-wrap: wrap; gap: 20px; }
+.transporte-legenda span:first-child { color: #257649; }
+.transporte-legenda span:last-child { color: #b75d26; }
+@page transportes { size: A4 landscape; margin: 10mm; }
+@media print {
+  .modulo-transportes { page: transportes; display: block; font-size: 11pt; line-height: 1.2; }
+  .modulo-transportes .aba-modulo-painel:not([hidden]) { display: block; }
+  .modulo-transportes .card { break-inside: auto; padding: 0; margin-bottom: 3mm; border: 0; box-shadow: none; }
+  .modulo-transportes h2 { font-size: 14pt; margin: 0 0 2mm; }
+  .modulo-transportes .transporte-tabela { overflow: visible; max-width: none; }
+  .modulo-transportes .transporte-tabela table { width: 100%; table-layout: auto; font-size: 10.5pt; }
+  .modulo-transportes .transporte-tabela th,
+  .modulo-transportes .transporte-tabela td { padding: 0.8mm 1.5mm; font-size: 10.5pt; line-height: 1.15; vertical-align: top; word-break: normal; overflow-wrap: normal; }
+  .modulo-transportes .transporte-tabela thead { display: table-header-group; }
+  .modulo-transportes .transporte-tabela tr { break-inside: avoid; }
+  .modulo-transportes .transporte-lancamentos th:first-child,
+  .modulo-transportes .transporte-lancamentos td:first-child,
+  .modulo-transportes .transporte-lancamentos th:nth-child(n+7),
+  .modulo-transportes .transporte-lancamentos td:nth-child(n+7) { white-space: nowrap; }
+  .modulo-transportes .transporte-lancamentos th:nth-child(2),
+  .modulo-transportes .transporte-lancamentos td:nth-child(2) { min-width: 52mm; width: 22%; }
+  .modulo-transportes .transporte-tabela small { font-size: 9.5pt; }
+  .modulo-transportes .transporte-motorista { display: block; font-size: 9.5pt; line-height: 1.1; }
+  .modulo-transportes .transporte-origem-planilha { display: none; }
+  .modulo-transportes .transporte-indicadores { grid-template-columns: repeat(3, 1fr); }
+  .modulo-transportes .transporte-barras { break-inside: avoid; }
+  .modulo-transportes .transporte-ajuda { display: none; }
+}
+
+
+/* Os formulários acompanham a rolagem sem cobrir os dados da consulta. */
+.modulo-transportes .formulario { position: static; top: auto; min-width: 0; }

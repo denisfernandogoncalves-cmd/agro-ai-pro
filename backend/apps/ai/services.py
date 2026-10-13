@@ -67,8 +67,8 @@ def gerar_insights(*, propriedade=None, safra=""):
         adicionar(
             "estoque_minimo",
             "atencao",
-            "Estoque abaixo do mínimo",
-            f"{estoque['itens_abaixo_minimo']} item(ns) estão abaixo do limite configurado.",
+            "Lotes abaixo do mínimo configurado",
+            f"{estoque['itens_abaixo_minimo']} lote(s) estão abaixo do limite configurado; não representa o saldo consolidado do produto.",
             "Revisar o planejamento de compras antes das próximas operações.",
             "estoque",
         )

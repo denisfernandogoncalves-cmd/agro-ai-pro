@@ -1,5 +1,6 @@
 from django.core.exceptions import ValidationError
-from django.db import IntegrityError
+from django.db import IntegrityError, transaction
+from apps.core.models import RegistroAlteracao
 from django.http import HttpResponse
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
@@ -35,7 +36,10 @@ from .services import (
 )
 
 
-class ContratoComercialViewSet(viewsets.ModelViewSet):
+from .gestao_contratos import GestaoContratoMixin
+
+
+class ContratoComercialViewSet(GestaoContratoMixin, viewsets.ModelViewSet):
     queryset = ContratoComercial.objects.all()
     serializer_class = ContratoComercialSerializer
     permission_classes = [IsAuthenticated]
@@ -43,13 +47,25 @@ class ContratoComercialViewSet(viewsets.ModelViewSet):
     search_fields = ("numero", "empresa")
 
     def destroy(self, request, *args, **kwargs):
-        contrato = self.get_object()
-        contrato.ativo = False
-        contrato.save(update_fields=("ativo",))
+        with transaction.atomic():
+            contrato = ContratoComercial.objects.select_for_update().get(pk=self.get_object().pk)
+            if str(request.data.get("versao", "")) != str(contrato.versao):
+                return Response({"detail":"O contrato mudou. Recarregue antes de inativar."},status=409)
+            motivo=str(request.data.get("justificativa", "")).strip()
+            if not motivo or len(motivo)>2000:
+                return Response({"justificativa":"Informe uma justificativa de até 2.000 caracteres."},status=400)
+            anterior=contrato.ativo
+            contrato.ativo=False
+            contrato.versao+=1
+            contrato.save(update_fields=("ativo","versao"))
+            RegistroAlteracao.objects.create(usuario=request.user,usuario_nome=request.user.get_username(),modulo="cadastros-agricolas",entidade="ContratoComercial",registro_id=str(contrato.pk),acao="inativar",alteracoes={"ativo":{"antes":anterior,"depois":False},"justificativa":motivo})
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class VendaGraosViewSet(viewsets.ReadOnlyModelViewSet):
+from .conferencia_comprador import ConferenciaCompradorMixin
+
+
+class VendaGraosViewSet(ConferenciaCompradorMixin, viewsets.ReadOnlyModelViewSet):
     queryset = selecionar_vendas()
     serializer_class = VendaGraosSerializer
     permission_classes = [IsAuthenticated]

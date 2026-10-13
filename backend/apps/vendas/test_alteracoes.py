@@ -62,7 +62,7 @@ class AlteracoesVendaTests(ContextoVendaMixin, APITestCase):
             self.assertEqual(resposta.data["cliente_nome"], "Empresa")
             self.assertEqual(resposta.data["contrato_preco_venda"], "125.50")
             self.assertEqual(resposta.data["contrato_unidade_preco"], "sc")
-        self.assertEqual(self.client.delete(f"{url}{contrato}/").status_code, 204)
+        self.assertEqual(self.client.delete(f"{url}{contrato}/", {"versao":1,"justificativa":"Contrato encerrado"},format="json").status_code, 204)
         self.assertFalse(ContratoComercial.objects.get(pk=contrato).ativo)
         resposta = self.client.post("/api/comercial/vendas/", {
             "contrato": contrato, "posicao": self.posicao.pk, "quantidade_kg": "100",
@@ -180,7 +180,7 @@ class AlteracoesVendaTests(ContextoVendaMixin, APITestCase):
         resposta = self.client.post(url, dados)
         self.assertEqual(resposta.status_code, 201, resposta.data)
         self.assertEqual(resposta.data["quantidade_kg"], "35000.500")
-        resposta = self.client.patch(f"{url}{resposta.data['id']}/", {"produto": "Soja", "quantidade_kg": "20000.250"})
+        resposta = self.client.patch(f"{url}{resposta.data['id']}/", {"produto": "Soja", "quantidade_kg": "20000.250", "versao": resposta.data["versao"], "justificativa": "Correção conferida"})
         self.assertEqual(resposta.status_code, 200, resposta.data)
         self.assertEqual(resposta.data["produto"], "Soja")
         self.assertEqual(resposta.data["quantidade_kg"], "20000.250")

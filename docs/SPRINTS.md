@@ -1,5 +1,50 @@
 # Sprints — AGRO-AI-PRO
 
+## Incremento — Transportes por caminhão e motorista (12/10/2026)
+
+**Status:** `[x]` — implementado e validado na versão web local.
+
+- Nova aba em Operações, com vários caminhões, receitas/despesas, salário e comissão
+  manuais por mês, relatórios por data/motorista/placa e ranking de faturamento.
+- Importação revisável e idempotente; 405 lançamentos e nove remunerações reais
+  carregados após backup verificado, preservando datas e o arquivo original.
+- 53 testes iniciais de Transportes/accounts e 17 finais de Transportes aprovados
+  em PostgreSQL isolado; frontend, TypeScript/Vite, Django/migrations e navegador
+  autenticado/móvel aprovados. Migration aditiva aplicada; frontend 5174 saudável.
+- Duas receitas em FEV são datadas de 31/01 na fonte: aparecem em janeiro nos
+  relatórios por data. Remuneração contabilizada no último dia da competência.
+
+Evidências, backups, critérios e limites: `docs/decisoes/2026-10-12-transportes.md`.
+Sem commit, push, merge ou produção.
+
+## Incremento — Segunda etapa de gestão sem EXE (07/10/2026)
+
+**Status:** `[x]` — sete melhorias implementadas e validadas localmente.
+
+Estados reais dos documentos; checklist persistente por usuário/safra com histórico;
+comprovantes financeiros vinculados; extrato por propriedade/CAD-PRO; comparação
+de safras sem somar transferências externas à produção; abertura da origem exata
+de pendências; adaptação dos controles ao celular.
+
+138 testes PostgreSQL isolados, frontend/TypeScript/Vite/Docker, Django check e
+consistência de migrations aprovados. Migration aditiva do checklist aplicada,
+backups verificados e aplicação local atualizada. Critérios e limites:
+`docs/decisoes/2026-10-07-gestao-segunda-etapa.md`.
+
+## Incremento — Central de gestão sem EXE (07/10/2026)
+
+**Status:** `[x]` — implementado e validado localmente nos limites documentados.
+
+Central de documentos com busca/paginação no servidor e PDF/Excel; diagnóstico
+autenticado e backup administrativo; checklist temporário com atalho para fechamento;
+conferência de liquidações a menor/a maior; filtros de revisão da importação;
+ajuda contextual e guia de rede local. Sem executável, migrations ou ajustes automáticos.
+
+44 testes PostgreSQL isolado, frontend, TypeScript/Vite/Docker, Django check e
+consistência de migrations aprovados. Conferência autenticada e atualização local
+na porta 5174 concluídas. Acesso por outro computador e gravação final dos downloads
+em disco não confirmados. Referência: `docs/decisoes/2026-10-07-central-gestao-sem-exe.md`.
+
 ## Incremento — Conferência das outras abas (07/10/2026)
 
 **Status:** `[x]` — melhorias implementadas e testes aprovados.
@@ -339,3 +384,120 @@ Entradas próprias/compartilhadas/terceiros usam a grade dos romaneios de venda,
 Terceiros podem transferir líquido para a propriedade/CAD/PRO no mesmo armazém, debitando saldo separado e creditando o ledger sem produção colhida ou mudança nas médias. Histórico imutável, versão, reenvio, permissões de ambas as áreas, bloqueios e estorno atômico com saldo livre. Migration graos0018 aditiva aplicada após backup com restauração isolada aprovada.
 
 82 testes PostgreSQL isolado aprovados, incluindo concorrência; reforço final de reenvio/permissões aprovado em SQLite. Frontend, TypeScript/Vite/Docker, Django check, consistência de migrations e diff aprovados. Conferência autenticada de entradas e responsividade 360/768/1366 px; formulário de transferência conferido com dados fictícios sem banco real. Sem alterações operacionais reais nos testes. Impressão física e download final em disco não executados. Referências: `docs/decisoes/2026-10-06-romaneios-entrada-tema.md` e `docs/api/TRANSFERENCIAS_CORRECOES.md`. Atualização autorizada da PR 29; sem merge/produção.
+
+
+### Incremento — Relatório de contas a pagar (07/10/2026)
+
+- [x] Seção Contas a pagar em Relatórios, filtro de tipo no servidor, período por vencimento, propriedade/safra, paginação e reutilização PDF/Excel.
+- [x] Teste específico e 17 testes existentes de relatórios aprovados; frontend/test/TypeScript/build aprovados. Sem migration ou alteração de lançamentos.
+
+Referência: docs/decisoes/2026-10-07-contas-pagar.md.
+
+
+### Auditoria técnica geral — 07/10/2026
+
+- [x] Revisão de módulos, permissões, integridade, consultas, dependências e amostragem visual; 673 casos PostgreSQL isolado (668 aprovados, 5 skips), frontend/build aprovados, migrations consistentes e npm audit sem vulnerabilidades reportadas.
+- [ ] Correções e melhorias identificadas: validação numérica em ações, upload coerente, paginação no banco, versões nas edições e filtros aplicáveis. Não tratadas como implementadas.
+
+Evidências, prioridades, propostas por módulo e limites: docs/decisoes/2026-10-07-auditoria-geral.md.
+
+
+### Incremento auditado — retomada de 08/10/2026
+
+- [x] Cobertura contratual com reserva própria separada, reservas alheias, entregas parciais, cancelamento e permissões: 13 testes aprovados.
+- [x] Validação numérica, referência bissexta, inativação versionada e referências antigas de CAD/PRO; relatórios financeiros/máquinas/insumos/operações com consultas paginadas; filtros financeiros aplicáveis; exportação de conferência e matriz de permissões salvas.
+- [x] Fonte/data/idade de clima e mercado e proteção da troca de propriedade: frontend/test/TypeScript/build aprovados.
+- [x] Backend integral: 688 casos (683 aprovados, 5 skips); Django/migrations consistentes; backups com restauração isolada.
+- [x] Aplicação local saudável; dashboard/mercado/clima/contas a pagar conferidos; Clima distingue janela atual e histórico. Mercado e Clima sem extravasamento em 360 px.
+- [ ] Restante das melhorias autorizadas. Escopo geral não concluído.
+
+Evidências e limites: docs/decisoes/2026-10-08-retomada-auditoria.md.
+
+
+### Incremento — CBOT em US$/bushel (08/10/2026)
+
+- [x] Backend e interface de soja, milho e trigo com fonte, contrato, horário, conversão de US¢/bushel e atualização manual autorizada; histórico mensal separado.
+- [x] 51 testes PostgreSQL, frontend e build aprovados; migration aditiva consistente, backups verificados e cotações reais carregadas; aplicação local atualizada.
+- [ ] Conferência visual autenticada desktop/celular e atualização pelo botão: sessão expirada no navegador.
+
+Evidências e limites: docs/decisoes/2026-10-08-cbot-bushel.md.
+
+
+### Incremento — Investing e dólar (08/10/2026)
+
+- [x] Fonte principal Investing para referências de soja, milho e trigo em US$/bushel e USD/BRL em R$/US$; horário original e identificação de dados derivados.
+- [x] Consulta automática em tela visível a cada 60 segundos, cache limitado, falhas com preservação e controle de consultas, acesso por permissão de consulta.
+- [x] 58 testes de mercado/relatórios e sete testes finais de integração aprovados; frontend/TypeScript/build final aprovados, consulta real dos quatro instrumentos validada e backup verificado. Sem migration adicional.
+- [ ] Conferência visual autenticada: navegador com sessão expirada.
+
+Evidências e limitações: docs/decisoes/2026-10-08-investing-dolar.md.
+
+### Incremento — integrações sem serviços pagos (10/10/2026)
+
+- [x] IA generativa local de leitura, isolada da internet, com contexto permitido e evidência oficial; resposta real conferida.
+- [x] Satélite e NDVI regional NASA/MODIS com data do catálogo e legenda oficiais, sem média fictícia por talhão.
+- [x] Entradas, saídas e saldos financeiros no Resumo Executivo, respeitando permissões e filtros, sem tratar caixa como lucro.
+- [x] 28 testes PostgreSQL isolado, frontend/test/TypeScript/build, Django/migrations e diff aprovados; backups verificados e aplicativo local atualizado.
+- [ ] Radar com fonte gratuita autorizada para ERP, rentabilidade com base suficiente e média NDVI por talhão. Não declarar essas ampliações implementadas.
+
+Evidências, limites e carregamento inicial da IA: docs/decisoes/2026-10-10-integracoes-sem-custos.md. Sem commit, push ou merge.
+
+### Incremento — abas da versão web (10/10/2026)
+
+- [x] Contadores em Cargas/Vendas/Financeiro, abrangência explícita de filtros e totais, paginação parcial identificada e rolagem móvel das abas.
+- [x] Preservação de filtros/formulários, proteção de saída no Financeiro e respostas antigas de Vendas descartadas.
+- [x] 54 testes financeiros PostgreSQL isolado, frontend/TypeScript/Vite, Django/migrations e revisão de diff aprovados; conferência autenticada e móvel, frontend 5174 atualizado.
+
+Evidências, arquivos, backups e limites: docs/decisoes/2026-10-10-abas-web.md. Sem migrations, alterações operacionais ou operações Git.
+
+### Incremento — melhorias após auditoria de romaneios web (10/10/2026)
+
+- [x] Consultas paginadas no banco para romaneios de entrada/saída, contagem e peso ativo de todos os resultados filtrados, sem mudar os endpoints dos demais fluxos.
+- [x] Atualização conjunta de entradas próprias/terceiros; carregamento, falha, período inválido e resultado vazio separados; filtros ativos e horário da consulta.
+- [x] Abas ocultas sem consultas, cancelamento e descarte de respostas antigas, filtros preservados e documentos existentes reutilizados.
+- [x] Sete novos testes PostgreSQL, frontend/TypeScript/Vite, Django/migrations e conferência autenticada/móvel aprovados. Suíte ampliada de 347 casos com cinco skips e dois erros de fixtures antigas; corrigidos os dois testes de migrations e reteste aprovado, sem mudança de modelos/migrations.
+- [x] Backup verificado, frontend local 5174 saudável e revisão do diff concluída. Sem dados operacionais alterados, commit, push, merge ou produção.
+
+Evidências, arquivos, comandos e limites: docs/decisoes/2026-10-10-auditoria-romaneios-web.md.
+
+### Incremento — comissão percentual de Transportes (12/10/2026)
+
+- [x] Comissão manual em %, cálculo sobre receitas menos AREIA/PEDRA, base negativa zerada.
+- [x] Prévia sem gravação, tabela com percentual/base/valor, relatórios e CSV recalculados.
+- [x] Nove percentuais recuperados da planilha, valores históricos preservados, migrations aditivas.
+- [x] 19 testes de Transportes em PostgreSQL isolado, frontend/TypeScript/Vite e Django aprovados.
+
+Evidências e backups: docs/decisoes/2026-10-12-transportes.md. Sem operações Git ou produção.
+
+### Incremento — telas de Transportes por motorista ou placa (12/10/2026)
+
+- [x] Formulários com rolagem livre, inserção separada da consulta de dados.
+- [x] Consulta de remunerações com filtros e agrupamento por motorista ou placa.
+- [x] Frontend/TypeScript/Vite aprovados, backup verificado; sem migrations.
+
+Evidências: docs/decisoes/2026-10-12-transportes.md.
+
+### Incremento — impressão de Transportes (12/10/2026)
+
+- [x] Fonte 11pt nas tabelas, A4 paisagem e proteção contra quebra de datas/valores.
+- [x] Frontend/TypeScript/Vite e diff aprovados; impressão física não verificada.
+
+Evidências: docs/decisoes/2026-10-12-transportes.md.
+
+### Incremento — compactar impressão de Transportes (12/10/2026)
+
+- [x] Menor espaçamento/entrelinha, coluna do motorista ampliada e fonte 10,5pt.
+- [x] Testes frontend, TypeScript/Vite e revisão de diff aprovados.
+
+Evidências e limites: docs/decisoes/2026-10-12-transportes.md.
+
+
+## Incremento — melhorias da auditoria geral (13/10/2026)
+
+- [x] Dezesseis entregas técnicas implementadas e validadas nos limites documentados.
+- [x] 762 casos gerais (seis skips), 103 pertinentes finais (um skip), frontend/TypeScript/Vite e migrations aprovados.
+- [x] Migration transportes.0004 aplicada após backup; acessos e regra de mínimo preservados.
+- [ ] HTTPS/CSP efetiva, cobertura de auditoria em operações em lote e demais ampliações explicitadas.
+
+Evidências, backups, arquivos e sincronização: docs/MELHORIAS-AUDITORIA-20261013.md.
+Sem merge nem produção.

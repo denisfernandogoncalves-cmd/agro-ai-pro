@@ -6,7 +6,9 @@ function formatarPreco(valor: string | number) {
   return Number(valor).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
-function valorNegociadoDaSaida(venda: VendaGraos, saida: MovimentoVenda): [string, string][] {
+export type VendaDoRomaneio = Pick<VendaGraos,"id"|"numero_contrato"|"cliente_nome"|"excluida_em"|"propriedade_nome"|"cad_pro_codigo"|"cultura"|"safra"|"armazem_nome"|"observacoes"|"contrato_preco_venda"|"contrato_unidade_preco">;
+
+function valorNegociadoDaSaida(venda: VendaDoRomaneio, saida: MovimentoVenda): [string, string][] {
   const preco = Number(venda.contrato_preco_venda);
   const pesoLiquido = Number(saida.quantidade_kg);
   if (!Number.isFinite(preco) || preco <= 0 || !Number.isFinite(pesoLiquido) || pesoLiquido < 0) return [];
@@ -14,9 +16,9 @@ function valorNegociadoDaSaida(venda: VendaGraos, saida: MovimentoVenda): [strin
   return [["Valor negociado", `R$ ${formatarPreco(quantidadeNegociada * preco)}`]];
 }
 
-export function dadosRomaneioVenda(venda: VendaGraos, saida: MovimentoVenda): DadosComprovante {
+export function dadosRomaneioVenda(venda: VendaDoRomaneio, saida: MovimentoVenda): DadosComprovante {
   return {
-    titulo: `Romaneio de saída #${saida.id} · Venda #${venda.id}`,
+    titulo: `Romaneio de saída ${saida.id} · Venda #${venda.id}`,
     modelo: "romaneio",
     campos: [
       ["Situação", venda.excluida_em || saida.cancelado_em ? "Cancelada/excluída — histórico" : "Saída registrada"],

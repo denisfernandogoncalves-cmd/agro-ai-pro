@@ -39,6 +39,7 @@ export type CentroCusto = {
 };
 
 export type LancamentoFinanceiro = {
+  atualizado_em: string;
   recebedor_nome: string;
   parcela_numero: number | null;
   total_boletos: number | null;
@@ -66,6 +67,7 @@ export type LancamentoFinanceiro = {
 };
 
 export type ResumoFinanceiro = {
+  contagens_abas?: Record<"todos" | "pagar" | "receber" | "liquidados", number>;
   a_pagar: string;
   a_receber: string;
   saldo_previsto: string;
@@ -257,8 +259,8 @@ export type EdicaoLancamento = Pick<LancamentoFinanceiro,
   "descricao" | "recebedor_nome" | "valor" | "data_emissao" | "data_vencimento" | "observacoes" | "codigo_barras"
 >;
 
-export async function atualizarLancamento(id: number, dados: EdicaoLancamento) {
-  return (await api.patch<LancamentoFinanceiro>(`/financeiro/lancamentos/${id}/`, dados)).data;
+export async function atualizarLancamento(id: number, dados: EdicaoLancamento, atualizadoEm: string) {
+  return (await api.patch<LancamentoFinanceiro>(`/financeiro/lancamentos/${id}/`, {...dados, atualizado_em_original: atualizadoEm})).data;
 }
 
 export async function excluirLancamento(id: number) {

@@ -25,7 +25,7 @@ class RelatorioPdfView(NoStoreResponseMixin, APIView):
         serializer=FiltrosRelatorioOperacionalSerializer(data=request.query_params)
         serializer.is_valid(raise_exception=True)
         with consulta_consistente():
-            dados=selecionar_relatorio_operacional(**{**serializer.validated_data,'pagina':1,'por_pagina':1000})
+            dados=selecionar_relatorio_operacional(**{**serializer.validated_data,'pagina':1,'pagina_agrupamento':1,'por_pagina':1000})
             if dados['dados']['total']>1000:
                 raise serializers.ValidationError('PDF limitado a 1.000 registros. Reduza os filtros ou exporte em Excel; nenhum resultado foi omitido.')
             buffer=BytesIO();styles=getSampleStyleSheet();story=[]
@@ -38,6 +38,15 @@ class RelatorioPdfView(NoStoreResponseMixin, APIView):
             for chave,valor in achatar(dados['totais']).items():texto('Total '+chave,valor)
             if dados['secao']=='producao_propriedade':
                 for chave,valor in achatar(dados['totais_producao_propriedade']).items():texto('Total de produção '+chave,valor)
+            if dados.get('vencimentos_financeiros'):
+                texto('Vencimentos a pagar',dados['vencimentos_financeiros']['base']+' Data-base: '+dados['vencimentos_financeiros']['data_base'])
+                for row in dados['vencimentos_financeiros']['faixas']:
+                    texto(row['descricao'],str(row['quantidade'])+' títulos · R$ '+row['valor'])
+            if dados.get('agrupamento_financeiro'):
+                texto('Base do agrupamento',dados['agrupamento_financeiro']['base'])
+                for row in dados['agrupamento_financeiro']['resultados']:
+                    texto('Grupo',row['referencia'])
+                    for chave,valor in row.items():texto(chave,valor)
             for n,item in enumerate(dados['dados']['resultados'],1):
                 texto('Registro',n)
                 for chave,valor in achatar(item).items():texto(chave,valor if valor is not None else '—')

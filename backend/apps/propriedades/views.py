@@ -2,6 +2,7 @@ from django.db.models.deletion import ProtectedError
 from rest_framework import filters, status, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from apps.core.pagination import PaginacaoOpcional
 
 from .models import Propriedade
 from .serializers import PropriedadeSerializer
@@ -12,6 +13,7 @@ class PropriedadeViewSet(viewsets.ModelViewSet):
         "vinculos_cadpro__cad_pro",
     ).order_by("nome", "id")
     serializer_class = PropriedadeSerializer
+    pagination_class = PaginacaoOpcional
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ["nome", "proprietario", "municipio", "uf"]

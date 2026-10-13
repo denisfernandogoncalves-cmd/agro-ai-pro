@@ -98,6 +98,11 @@ def construir_painel(user, propriedade=None, safra=""):
         pendentes = lancamentos.filter(status="pendente")
         resumo["a_pagar"] = total(pendentes.filter(tipo="pagar"), "valor")
         resumo["a_receber"] = total(pendentes.filter(tipo="receber"), "valor")
+        from apps.financeiro.services import resumo_financeiro
+        financeiro = resumo_financeiro(lancamentos)
+        for campo in ("entradas_realizadas", "saidas_realizadas", "saldo_realizado", "saldo_previsto"):
+            resumo[campo] = str(financeiro[campo])
+        resumo["liquidacoes_sem_valor"] = lancamentos.filter(status="liquidado", valor_liquidado__isnull=True).count()
         resumo["contas_7_dias"] = pendentes.filter(data_vencimento__range=(hoje, hoje+timedelta(days=7))).count()
         for item in pendentes.filter(data_vencimento__lte=hoje+timedelta(days=7)).order_by("data_vencimento", "id")[:50]:
             vencido = item.data_vencimento < hoje

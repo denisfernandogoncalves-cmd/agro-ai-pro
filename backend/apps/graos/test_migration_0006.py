@@ -13,7 +13,9 @@ class GrupoColheitaMigration0006Tests(TransactionTestCase):
         executor = MigrationExecutor(connection)
         try:
             executor.migrate([self.migrate_from])
-            apps = executor.loader.project_state([self.migrate_from, ("propriedades", "0004_bp_cvale")]).apps
+            # Outros apps permanecem em suas migrations aplicadas durante o recuo de grãos.
+            loader = MigrationExecutor(connection).loader
+            apps = loader.project_state(list(loader.applied_migrations)).apps
             Usuario = apps.get_model(*settings.AUTH_USER_MODEL.split("."))
             Propriedade = apps.get_model("propriedades", "Propriedade")
             CADPro = apps.get_model("cadpro", "CADPro")

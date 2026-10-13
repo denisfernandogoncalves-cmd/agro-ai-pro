@@ -34,8 +34,10 @@ from .romaneios_cargas import RomaneioCargaView
 from .cadastro_terceiros import CadastroTerceirosView
 from .romaneios_retiradas import RomaneioRetiradaView
 from .conferencia_operacional import ConciliacaoEstoqueView, VinculoTerceiroView
+from .consulta_romaneios import ConsultaRomaneiosEntradaView
 
 urlpatterns = [
+    path("cargas-colhidas/romaneios/", ConsultaRomaneiosEntradaView.as_view(), name="consulta-romaneios-entrada"),
     path('terceiros/transferencias/<int:pk>/pdf/',RomaneioRetiradaView.as_view(tipo='transferencia')),
     path('terceiros/transferencias/<int:pk>/excel/',RomaneioRetiradaView.as_view(tipo='transferencia',excel=True)),
     path('conciliacao-estoque/', ConciliacaoEstoqueView.as_view()),

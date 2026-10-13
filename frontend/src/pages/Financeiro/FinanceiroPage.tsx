@@ -1,4 +1,5 @@
 import { diferencaLiquidacao, diasAte } from "../../utils/conferenciaConsultas";
+import { useAlteracoesNaoSalvas } from "../../components/AlteracoesNaoSalvas";
 import AbasModulo from "../../components/AbasModulo";
 import { abaDosFiltros, filtrosDaAba } from "./abasFinanceiro";
 import AnexosLancamento from "../../components/AnexosLancamento";
@@ -89,6 +90,7 @@ export default function FinanceiroPage(_props: Props) {
   const travaMutacao = useRef(false);
   const [salvando, setSalvando] = useState(false);
 
+  const protecao = useAlteracoesNaoSalvas({formulario, quantidade, numeroBoleto, recebedor}, "Novo lançamento financeiro");
   async function excluir(item: LancamentoFinanceiro) {
     if (travaExclusao.current || travaMutacao.current) return;
     if (!window.confirm(`Excluir definitivamente "${item.descricao}" (${moeda(item.valor)})? O lançamento será removido dos totais financeiros. Esta ação não pode ser desfeita.`)) return;
@@ -160,6 +162,7 @@ export default function FinanceiroPage(_props: Props) {
         observacoes: formulario.observacoes, codigo_barras: formulario.codigo_barras || "",
       });
       chave.current = null;
+      protecao.marcarSalvo({formulario:vazio, quantidade:"1", numeroBoleto:"1", recebedor:""});
       setFormulario(vazio);
       setLeituraAplicada(null);
       setQuantidade("1"); setNumeroBoleto("1"); setRecebedor("");
@@ -216,9 +219,10 @@ export default function FinanceiroPage(_props: Props) {
         </section>
       )}
 
-      <AbasModulo modulo="financeiro" ativa={aba} desabilitado={carregando || salvando || excluindo} alterar={id => {const proximos=filtrosDaAba(id,filtros);setFiltros(proximos);void carregar(proximos);}} abas={[{id:"todos",titulo:"Todos"},{id:"pagar",titulo:"A pagar"},{id:"receber",titulo:"A receber"},{id:"liquidados",titulo:"Liquidados"}]} />
+      <AbasModulo modulo="financeiro" ativa={aba} desabilitado={carregando || salvando || excluindo} alterar={id => {const proximos=filtrosDaAba(id,filtros);setFiltros(proximos);void carregar(proximos);}} abas={[{id:"todos",titulo:"Todos" + (!carregando && !erro && resumo?.contagens_abas ? ` (${resumo.contagens_abas.todos})` : "")},{id:"pagar",titulo:"A pagar" + (!carregando && !erro && resumo?.contagens_abas ? ` (${resumo.contagens_abas.pagar})` : "")},{id:"receber",titulo:"A receber" + (!carregando && !erro && resumo?.contagens_abas ? ` (${resumo.contagens_abas.receber})` : "")},{id:"liquidados",titulo:"Liquidados" + (!carregando && !erro && resumo?.contagens_abas ? ` (${resumo.contagens_abas.liquidados})` : "")}]} />
+      <p className="abrangencia-abas nao-imprimir">Contadores por busca, período e parceiro aplicados. Cada aba define seu tipo e situação. Os valores acima correspondem à consulta selecionada.</p>
       {["todos","pagar","receber","liquidados"].filter(id=>id!==aba).map(id=><section key={id} role="tabpanel" id={`financeiro-painel-${id}`} aria-labelledby={`financeiro-aba-${id}`} hidden className="aba-modulo-painel"/>)}
-      <section role="tabpanel" id={`financeiro-painel-${aba}`} aria-labelledby={`financeiro-aba-${aba}`} tabIndex={0} className="aba-modulo-painel">
+      <section role="tabpanel" id={`financeiro-painel-${aba}`} aria-labelledby={`financeiro-aba-${aba}`} tabIndex={0} className="aba-modulo-painel" aria-busy={carregando}>
       <section className="grade financeiro-grade">
       <PainelFormulario titulo="Novo lançamento financeiro">
       <LeitorCodigoFinanceiro desabilitado={carregando || excluindo || salvando} aplicar={(leitura, vencimento) => {
@@ -275,7 +279,7 @@ export default function FinanceiroPage(_props: Props) {
               <button disabled={carregando || excluindo || salvando} type="button" className="secundario" onClick={() => { setFiltros(filtrosVazios); void carregar(filtrosVazios); }}>Limpar filtros</button>
             </div>
           </form>
-          <div className="resumo-consulta" role="status"><strong>Resultado da consulta</strong><span>{salvando || excluindo ? "Processando lançamento..." : carregando ? "Atualizando lançamentos..." : `${lancamentos.length} lançamento(s) · ${filtrosImpressao}`}</span></div>
+          <div className="resumo-consulta" role="status"><strong>Resultado da consulta</strong><span>{salvando || excluindo ? "Processando lançamento..." : carregando ? "Atualizando lançamentos..." : `${lancamentos.length} lançamento(s) na consulta completa · ${filtrosImpressao}`}</span></div>
           <div className="lista">
             {lancamentos.map((item) => (
               <article className={`card item lancamento ${item.atrasado ? "atrasado" : ""}`} key={item.id}>
@@ -284,7 +288,7 @@ export default function FinanceiroPage(_props: Props) {
                   <h3>{item.descricao}</h3>
                   <p>{item.recebedor_nome || item.parceiro_nome || "Recebedor não informado"}{item.total_boletos ? ` · boleto ${item.parcela_numero} de ${item.total_boletos}` : item.parcela_numero ? ` · parcela ${item.parcela_numero}` : ""} · vence {formatarData(item.data_vencimento)}</p>
                   {item.status==="pendente"&&<p><strong>{item.atrasado?"Vencido":diasAte(item.data_vencimento,new Date().toLocaleDateString("sv-SE"))<=7?"Vence nos próximos 7 dias":"A vencer"}</strong></p>}{item.status==="liquidado"&&diferencaLiquidacao(item.valor,item.valor_liquidado)!==0&&<p className="erro" role="status">Valor do lançamento {moeda(item.valor)} · liquidado {moeda(item.valor_liquidado??0)} · diferença {moeda(diferencaLiquidacao(item.valor,item.valor_liquidado))}. Confira: o lançamento está encerrado; a diferença não é saldo pendente automático.</p>}{item.data_liquidacao && <p>{item.tipo === "pagar" ? "Pago" : "Recebido"} em {formatarData(item.data_liquidacao)}</p>}
-                  <AnexosLancamento entidade="financeiro" registro={item.id} />
+                  <AnexosLancamento entidade="financeiro" registro={item.id} titulo={item.tipo==="pagar"?"Boleto e comprovantes de pagamento":"Comprovantes de recebimento"} />
                   {item.codigo_barras && <details><summary>Código de barras</summary><code style={{ overflowWrap: "anywhere" }}>{item.codigo_barras}</code></details>}
                 </div>
                 <div>

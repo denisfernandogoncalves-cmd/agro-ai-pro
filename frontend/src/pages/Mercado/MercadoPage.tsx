@@ -1,4 +1,5 @@
-import { formatarData } from "../../utils/datas";
+import QuadroCBOT from "../../components/QuadroCBOT";
+import { formatarData, formatarDataHora, idadeDoDado } from "../../utils/datas";
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 
@@ -69,7 +70,7 @@ export default function MercadoPage() {
       }
       await carregar();
     } catch (falha) {
-      setErro(mensagemErro(falha));
+      setErro(`${mensagemErro(falha)} Última tentativa nesta sessão: ${new Date().toLocaleString("pt-BR")}. Os dados exibidos permanecem na última consulta concluída.`);
       setCarregando(false);
     }
   }
@@ -91,7 +92,7 @@ export default function MercadoPage() {
       <section className="card mercado-controles">
         <div>
           <h2>Mercado agrícola</h2>
-          <p>Cotações mensais globais e clima de sete dias no Corn Belt.</p>
+          <p>Referências dos futuros de Chicago em US$/bushel e dólar USD/BRL pelo Investing, indicadores mensais globais e previsões armazenadas do Corn Belt.</p>
         </div>
         <div className="acoes">
           <button disabled={carregando} onClick={() => void atualizar("cotacoes")}>
@@ -109,8 +110,12 @@ export default function MercadoPage() {
 
       {erro && <p className="erro card" role="alert">{erro}</p>}
 
-      <section className="resumos-mercado" aria-label="Resumo das cotações">
-        {resumos.map((resumo) => (
+      <section className="card"><h2>Chicago e dólar — Investing</h2><QuadroCBOT /></section>
+      <h2>Indicadores mensais FRED/FMI</h2>
+      <section className="resumos-mercado" aria-label="Resumo dos indicadores mensais FRED/FMI">
+        {resumos.map((resumo) => {
+          const registro = cotacoes.find(item => item.produto === resumo.produto && item.data === resumo.data);
+          return (
           <article className="card" key={resumo.produto}>
             <span className="kicker">{resumo.produto_nome}</span>
             <h3>{Number(resumo.valor).toFixed(2)}</h3>
@@ -123,8 +128,10 @@ export default function MercadoPage() {
               {resumo.variacao_percentual ?? "—"}%
             </p>
             <small>{resumo.tendencia}</small>
+            <p><small>Fonte: {registro?.fonte || "Não informada"} · Registro: {formatarDataHora(registro?.atualizado_em)} · {idadeDoDado(registro?.atualizado_em)}</small></p>
+            {resumo.aviso && <p className="aviso">{resumo.aviso}</p>}
           </article>
-        ))}
+        );})}
       </section>
 
       <section>
@@ -155,7 +162,9 @@ export default function MercadoPage() {
             return (
               <article className="card" key={proxima.regiao}>
                 <h3>{proxima.regiao_nome}</h3>
-                <p>Precipitação em 7 dias: <strong>{chuva.toFixed(1)} mm</strong></p>
+                <p><small>Fonte: {proxima.fonte} · Registro: {formatarDataHora(proxima.atualizado_em)} · {idadeDoDado(proxima.atualizado_em)}</small></p>
+                <p>Período registrado: {formatarData(proxima.data)} a {formatarData(previsoes[previsoes.length-1].data)} · {previsoes.length} dia(s).</p>
+                <p>Precipitação no período: <strong>{chuva.toFixed(1)} mm</strong></p>
                 <p>
                   {proxima.temperatura_min} °C a {proxima.temperatura_max} °C no
                   primeiro dia
@@ -195,6 +204,7 @@ export default function MercadoPage() {
         Dados de referência para apoio gerencial. Não constituem recomendação
         financeira, de compra ou de venda.
       </p>
+      <section className="card"><h2>Mercado físico e B3</h2><p className="executivo-nota">Comparativo indisponível: o sistema não possui um feed conectado de preços locais e contratos B3. As cotações CBOT, dólar, Brent e séries históricas acima mantêm suas fontes e unidades originais.</p></section>
     </section>
   );
 }

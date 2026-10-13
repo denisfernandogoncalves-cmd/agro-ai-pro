@@ -180,6 +180,9 @@ def alterar_movimento(*, usuario, venda, movimento_id, natureza, excluir,
     devolvida = venda.quantidade_devolvida_kg + (quantidade_nova - item.quantidade_kg if natureza == "devolucao" else ZERO)
     if not ZERO <= devolvida <= entregue <= venda.quantidade_kg:
         raise VendaGraosConflitoError("A alteração conflita com o total contratado, entregue ou devolvido. Corrija primeiro os lançamentos dependentes.")
+    if natureza == "entrega" and quantidade_nova > item.quantidade_kg:
+        from .gestao_contratos import validar_entrega_contrato
+        validar_entrega_contrato(venda, quantidade_nova-item.quantidade_kg)
     token = _hash({"chave": chave_idempotencia})
     status_original = venda.status
     _bloquear(venda)

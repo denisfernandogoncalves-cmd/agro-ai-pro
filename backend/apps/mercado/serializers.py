@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import ClimaCornBelt, CotacaoMercado, NoticiaMercado
+from .models import CotacaoCBOT, ClimaCornBelt, CotacaoMercado, NoticiaMercado
 
 
 class CotacaoMercadoSerializer(serializers.ModelSerializer):
@@ -31,3 +31,25 @@ class NoticiaMercadoSerializer(serializers.ModelSerializer):
         if not value.startswith("https://"):
             raise serializers.ValidationError("Use um endereço HTTPS.")
         return value
+
+
+class CotacaoCBOTSerializer(serializers.ModelSerializer):
+    produto_nome = serializers.CharField(source="get_produto_display", read_only=True)
+    unidade = serializers.SerializerMethodField()
+    contrato_completo = serializers.SerializerMethodField()
+    aviso = serializers.SerializerMethodField()
+
+    class Meta:
+        model = CotacaoCBOT
+        fields = "__all__"
+        read_only_fields = tuple(field.name for field in CotacaoCBOT._meta.fields)
+
+    def get_unidade(self, obj):
+        return "US$/bushel"
+
+    def get_contrato_completo(self, obj):
+        import re
+        return bool(re.search(r"-\d{4}$",obj.contrato))
+
+    def get_aviso(self, obj):
+        return "Cotação com atraso do provedor; não é tempo real nem preço de ajuste oficial. Contrato de referência selecionado pelo provedor, sujeito a mudança de vencimento."

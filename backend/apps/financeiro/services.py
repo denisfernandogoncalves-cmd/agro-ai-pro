@@ -1,5 +1,7 @@
 from datetime import date
 from decimal import Decimal
+from apps.core.valores import validar_decimal
+from django.core.exceptions import ValidationError as DjangoValidationError
 
 from django.db import transaction
 from django.db.models import Q, Sum
@@ -21,7 +23,7 @@ def liquidar_lancamento(lancamento, *, data_liquidacao, valor_liquidado):
     if not isinstance(data_liquidacao, date):
         raise OperacaoFinanceiraError("Informe uma data de liquidação válida.")
     try:
-        valor = Decimal(str(valor_liquidado))
+        valor = validar_decimal(valor_liquidado,max_digits=14,decimal_places=2,minimo=Decimal("0.01"))
     except Exception as exc:
         raise OperacaoFinanceiraError("Informe um valor de liquidação válido.") from exc
     if valor <= 0:
@@ -29,7 +31,10 @@ def liquidar_lancamento(lancamento, *, data_liquidacao, valor_liquidado):
     lancamento.status = LancamentoFinanceiro.Status.LIQUIDADO
     lancamento.data_liquidacao = data_liquidacao
     lancamento.valor_liquidado = valor
-    lancamento.full_clean()
+    try:
+        lancamento.full_clean()
+    except DjangoValidationError as exc:
+        raise OperacaoFinanceiraError("Dados de liquidação inválidos para este lançamento.") from exc
     lancamento.save(
         update_fields=(
             "status",

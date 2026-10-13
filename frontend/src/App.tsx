@@ -1,3 +1,8 @@
+import CoordenadasInput from "./components/CoordenadasInput";
+import MarcaAgro from "./components/MarcaAgro";
+import IdentidadeModulo, { tituloModulo } from "./components/IdentidadeModulo";
+import ExportacaoConferenciaImportacoes from "./components/ExportacaoConferenciaImportacoes";
+import MatrizPermissoes from "./components/MatrizPermissoes";
 import { AcoesContext, autorizado, BotaoAcao, DestinoConsulta, useDestinoConsulta } from "./components/AcoesContext";
 import { nomeModulo } from "./components/gruposModulos";
 import { FormEvent, lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
@@ -22,10 +27,12 @@ import { useAuth } from "./auth/AuthContext";
 import AplicativoStatus from "./components/AplicativoStatus";
 
 import "./styles.css";
+import "./premium.css";
 import ImprimirA4 from "./components/ImprimirA4";
 import PropriedadesImpressao from "./components/PropriedadesImpressao";
 
 const PainelPage = lazy(() => import("./pages/Painel/PainelPage"));
+
 const HistoricoPage = lazy(() => import("./pages/Historico/HistoricoPage"));
 const BackupPage = lazy(() => import("./pages/Backup/BackupPage"));
 const UsuariosPage = lazy(() => import("./pages/Usuarios/UsuariosPage"));
@@ -40,9 +47,11 @@ const EstoquePage = lazy(() => import("./pages/Estoque/EstoquePage"));
 const FaturamentoInsumos = lazy(() => import("./pages/Estoque/FaturamentoInsumos"));
 const FinanceiroPage = lazy(() => import("./pages/Financeiro/FinanceiroPage"));
 const MercadoPage = lazy(() => import("./pages/Mercado/MercadoPage"));
+const TransportesPage = lazy(() => import("./pages/Transportes/TransportesPage"));
 const MaquinasPage = lazy(() => import("./pages/Maquinas/MaquinasPage"));
 const OperacoesPage = lazy(() => import("./pages/Operacoes/OperacoesPage"));
 const RelatoriosPage = lazy(() => import("./pages/Relatorios/RelatoriosPage"));
+const AjudaModulo = lazy(() => import("./components/AjudaModulo"));
 const ImportacoesPage = lazy(() => import("./pages/Importacoes/ImportacoesPage"));
 const InsightsPage = lazy(() => import("./pages/Insights/InsightsPage"));
 const TalhoesPage = lazy(() => import("./pages/Talhoes/TalhoesPage"));
@@ -54,6 +63,7 @@ const valorAlqueiresParaFormulario = (valor: string | number | null | undefined)
 
 
 const formularioVazio: PropriedadeInput = {
+  formato_coordenadas: "decimal", latitude_gms: "", longitude_gms: "", converter_coordenadas: "false",
   bp_cvale: "",
   nome: "",
   proprietario: "",
@@ -107,13 +117,19 @@ function Login({ authenticate }: LoginProps) {
   }
 
   return (
-    <main className="login">
+    <main className="login login-premium">
+      <section className="login-institucional" aria-label="Apresentação do AGRO AI PRO">
+        <MarcaAgro />
+        <div className="login-manifesto"><span className="kicker">Gestão agrícola inteligente</span><h2>Do campo ao mercado.<br />Cada decisão, mais clara.</h2><p>Inteligência que impulsiona o agro</p><div className="login-pilares"><span>Produção</span><span>Gestão</span><span>Inteligência</span></div></div>
+        <small>AGRO AI PRO · Tecnologia a serviço da sua operação</small>
+      </section>
       <form className="card" onSubmit={submitLogin}>
-        <h1>AGRO-AI-PRO</h1>
-        <p>Acesse o módulo de propriedades.</p>
+        <MarcaAgro />
+        <div><span className="kicker">Bem-vindo à sua gestão</span><h1>Acesse sua conta</h1><p>Entre para acompanhar sua operação agrícola.</p></div>
         <label>
           Usuário
           <input
+            autoComplete="username"
             value={credentials.username}
             onChange={(event) =>
               setCredentials({
@@ -128,6 +144,7 @@ function Login({ authenticate }: LoginProps) {
           Senha
           <input
             type="password"
+            autoComplete="current-password"
             value={credentials.password}
             onChange={(event) =>
               setCredentials({
@@ -238,6 +255,8 @@ function PrivateArea({ sair }: PrivateAreaProps) {
       municipio: item.municipio,
       uf: item.uf,
       area_hectares: valorAlqueiresParaFormulario(item.area_hectares),
+      formato_coordenadas: item.formato_coordenadas ?? "decimal",
+      latitude_gms: item.latitude_gms ?? "", longitude_gms: item.longitude_gms ?? "", converter_coordenadas: "false",
       latitude: item.latitude ?? "",
       longitude: item.longitude ?? "",
       observacoes: item.observacoes,
@@ -276,15 +295,17 @@ function PrivateArea({ sair }: PrivateAreaProps) {
 
   return (
     <AcoesContext.Provider value={{acesso, modulo, destino}}><Suspense fallback={<main className="pagina"><section className="card" role="status">Carregando tela...</section></main>}>
-    <main className="pagina">
+    <main className="pagina agro-premium" data-modulo={modulo} id="conteudo-principal">
+      <a className="agro-skip nao-imprimir" href="#modulo-atual">Ir para o conteúdo</a>
       <header>
         <div className="cabecalho-identidade">
           <span className="marca-aplicativo" aria-hidden="true">AG</span>
           <div>
             <span className="kicker">AGRO-AI-PRO · Gestão rural</span>
             <h1>
-            {modulo === "inicio" ? "Painel inicial" : modulo === "backup" ? "Backup em Excel" : modulo === "historico" ? "Histórico de alterações" : modulo === "usuarios" ? "Usuários" : nomeModulo(modulo)}
+            {tituloModulo(modulo)}
             </h1>
+            <IdentidadeModulo modulo={modulo} />
           </div>
         </div>
         <div className="cabecalho-acoes">
@@ -297,13 +318,15 @@ function PrivateArea({ sair }: PrivateAreaProps) {
       <DestinoPropriedade destino={destino} aplicar={(termo, id) => {setBusca(termo); void carregar(termo); if (id) setSelecionada(propriedades.find(item => item.id === id) ?? null);}} />
       <NavegacaoModulos acesso={acesso} modulo={modulo} onSelecionar={async id => {if (id !== modulo && !(await confirmarSaida())) return; if (id !== modulo && modulo === "propriedades") {setFormulario(formularioVazio); setEdicaoId(null);} setDestino(undefined); setModulo(id);}} />
       <AvisoSessao />
+      <div id="modulo-atual" tabIndex={-1} />
+      {acesso && autorizado(acesso, modulo, "consultar") && <AjudaModulo modulo={modulo} />}
 
       {!acesso ? (
         <section className="card"><p role={erroAcesso ? "alert" : "status"}>{erroAcesso ? "Não foi possível verificar seus acessos." : "Carregando acessos..."}</p>{erroAcesso && <button onClick={() => void atualizarAcesso()}>Tentar novamente</button>}</section>
       ) : !autorizado(acesso, modulo, "consultar") ? (
         <section className="card"><p>Nenhum item permitido. Solicite acesso ao administrador.</p></section>
       ) : modulo === "inicio" ? (
-        <PainelPage propriedades={propriedades} abrir={async alvo => {if (!(await confirmarSaida())) return; setDestino({...alvo, chave:Date.now()}); setModulo(alvo.modulo);}} />
+        <div className="inicio-dashboard"><PainelPage propriedades={propriedades} abrir={async alvo => {if (!(await confirmarSaida())) return; setDestino({...alvo, chave:Date.now()}); setModulo(alvo.modulo);}} /></div>
       ) : modulo === "historico" ? (
         <HistoricoPage />
       ) : modulo === "backup" ? (
@@ -311,7 +334,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
       ) : modulo === "faturamento-insumos" ? (
         <FaturamentoInsumos />
       ) : modulo === "usuarios" ? (
-        <UsuariosPage usuarioAtualId={acesso.id} onAtualizado={() => void atualizarAcesso()} />
+        <><MatrizPermissoes /><UsuariosPage usuarioAtualId={acesso.id} onAtualizado={() => void atualizarAcesso()} /></>
       ) : modulo === "talhoes" ? (
         <TalhoesPage />
       ) : modulo === "cadastros-agricolas" ? (
@@ -334,12 +357,14 @@ function PrivateArea({ sair }: PrivateAreaProps) {
         <EstoquePage propriedades={propriedades} />
       ) : modulo === "operacoes" ? (
         <OperacoesPage />
+      ) : modulo === "transportes" ? (
+        <TransportesPage />
       ) : modulo === "maquinas" ? (
         <MaquinasPage propriedades={propriedades} />
       ) : modulo === "importacoes" ? (
-        <ImportacoesPage />
+        <><ExportacaoConferenciaImportacoes /><ImportacoesPage /></>
       ) : modulo === "relatorios" ? (
-        <RelatoriosPage propriedades={propriedades} />
+        <RelatoriosPage propriedades={propriedades} abrir={(alvo,filtros={})=>{void confirmarSaida().then(ok=>{if(!ok)return;setDestino({modulo:alvo,filtros,chave:Date.now()});setModulo(alvo);});}} />
       ) : modulo === "insights" ? (
         <InsightsPage propriedades={propriedades} />
       ) : (
@@ -362,8 +387,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
           <label>Área (alqueires paulistas)<input required min="0.01" step="0.01" type="number" value={formulario.area_hectares} onChange={(e) => setFormulario({ ...formulario, area_hectares: e.target.value })} /></label>
           <label>Número CAD/PRO<input placeholder="Ex.: 123.456-7" value={formulario.cad_pro_numero} onChange={(e) => setFormulario({ ...formulario, cad_pro_numero: e.target.value })} /></label>
           <div className="linha">
-            <label>Latitude<input step="any" type="number" value={formulario.latitude} onChange={(e) => setFormulario({ ...formulario, latitude: e.target.value })} /></label>
-            <label>Longitude<input step="any" type="number" value={formulario.longitude} onChange={(e) => setFormulario({ ...formulario, longitude: e.target.value })} /></label>
+            <CoordenadasInput dados={formulario} alterar={setFormulario} />
           </div>
           <label>KML (até 5 MB)<input accept=".kml" type="file" onChange={(e) => setFormulario({ ...formulario, arquivo_kml: e.target.files?.[0] ?? null })} /></label>
           <label>Observações<textarea value={formulario.observacoes} onChange={(e) => setFormulario({ ...formulario, observacoes: e.target.value })} /></label>
@@ -410,7 +434,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
             </div>
           )}
 
-          {selecionada?.latitude && selecionada.longitude && (
+          {selecionada?.latitude !== null && selecionada?.latitude !== undefined && selecionada.longitude !== null && (
             <MapaPropriedade
               latitude={Number(selecionada.latitude)}
               longitude={Number(selecionada.longitude)}

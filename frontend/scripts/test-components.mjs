@@ -14,6 +14,37 @@ const servidor = await createServer({
 });
 
 try {
+  const { indicadorExecutivo, default: ResumoExecutivo } = await servidor.ssrLoadModule("/src/pages/Painel/ResumoExecutivo.tsx");
+  assert.equal(indicadorExecutivo({}, "saldo_disponivel_kg"), "Indisponível", "Dado ausente não pode virar saldo zero");
+  assert.equal(indicadorExecutivo({saldo_disponivel_kg: "0"}, "saldo_disponivel_kg"), "0 kg");
+  assert.equal(indicadorExecutivo({saldo_disponivel_kg: "inválido"}, "saldo_disponivel_kg"), "Indisponível");
+  const executivo = renderToStaticMarkup(React.createElement(ResumoExecutivo,{resumo:{producao_kg:"1234",a_receber:"500"}}));
+  assert.match(executivo,/1\.234 kg/); assert.match(executivo,/Indisponível/); assert.match(executivo,/não faturamento/);
+  const { filtrarInsights } = await servidor.ssrLoadModule("/src/pages/Insights/InsightsPage.tsx");
+  const evidencias = [{codigo:"e",modulo:"estoque",titulo:"Saldo baixo",evidencia:"Estoque real",recomendacao:"Conferir",nivel:"atencao"},{codigo:"c",modulo:"clima",titulo:"Chuva",evidencia:"Previsão registrada",recomendacao:"Consultar",nivel:"informativo"}];
+  assert.deepEqual(filtrarInsights(evidencias,"Há risco climático?"),[evidencias[1]]);
+  assert.deepEqual(filtrarInsights(evidencias,"Como está meu estoque?"),[evidencias[0]]);
+  assert.deepEqual(filtrarInsights(evidencias,"Pergunta sem assunto disponível"),[]);
+  const {precoCBOT,default:QuadroCBOT}=await servidor.ssrLoadModule("/src/components/QuadroCBOT.tsx");
+  assert.equal(precoCBOT("12.975000"),"12,9750");
+  const cbotVazio=renderToStaticMarkup(React.createElement(QuadroCBOT));
+  assert.match(cbotVazio,/US\$\/bushel/);assert.match(cbotVazio,/Cotação não disponível/);assert.match(cbotVazio,/Investing/);
+  assert.match(cbotVazio,/Dólar USD\/BRL/);assert.match(cbotVazio,/60 segundos/);assert.match(cbotVazio,/Atualizar cotações/);
+  const {seriesMercado} = await servidor.ssrLoadModule('/src/pages/Mercado/GraficoMercado.tsx');
+  const cotacaoBase = {produto:'soja',produto_nome:'Soja',unidade:'R$/sc',fonte:'Fonte A'};
+  const seriesSeparadas = seriesMercado([
+    {...cotacaoBase,id:2,data:'2026-10-02',valor:'130'},
+    {...cotacaoBase,id:1,data:'2026-10-01',valor:'120'},
+    {...cotacaoBase,id:3,data:'2026-10-01',valor:'450',unidade:'US$/t'},
+    {...cotacaoBase,id:4,data:'2026-10-01',valor:'125',fonte:'Fonte B'},
+    {...cotacaoBase,id:5,data:'2026-10-01',valor:'inválido'},
+  ]);
+  assert.equal(seriesSeparadas.length,3,'Unidades e fontes distintas não devem compartilhar a curva');
+  assert.deepEqual(seriesSeparadas[0].map(c=>c.id),[1,2]);
+  const {ordenarAlertas} = await servidor.ssrLoadModule('/src/pages/Painel/PainelPage.tsx');
+  const avisosOriginais = [{id:1,nivel:'atenção'},{id:2,nivel:'urgente'},{id:3,nivel:'urgente'},{id:4,nivel:'atenção'}];
+  assert.deepEqual(ordenarAlertas(avisosOriginais).map(a=>a.id),[2,3,1,4]);
+  assert.deepEqual(avisosOriginais.map(a=>a.id),[1,2,3,4]);
   const {DadosHistoricos}=await servidor.ssrLoadModule('/src/components/ConferenciaOperacional.tsx');
   const historia=renderToStaticMarkup(React.createElement(DadosHistoricos,{antes:{depositante:'Pessoa <A>',peso_liquido_kg:'100',cultura:'Soja'},depois:{depositante:'Pessoa B',peso_liquido_kg:'110',cultura:'Soja'}}));
   assert.match(historia,/Pessoa &lt;A&gt;/);assert.match(historia,/Pessoa B/);assert.match(historia,/100/);assert.match(historia,/110/);assert.doesNotMatch(historia,/Soja/);
@@ -64,6 +95,14 @@ try {
     aceitarPesagem=true;
     assert.equal(await conferirPesagem({ph:""}),true);
   } finally {apiPesagem.post=postPesagemOriginal;globalThis.window=janelaPesagemOriginal;}
+  const {idadeDoDado} = await servidor.ssrLoadModule("/src/utils/datas.ts");
+  const agoraDado = Date.parse("2026-10-08T12:00:00Z");
+  assert.equal(idadeDoDado(null, agoraDado), "Atualização não informada");
+  assert.equal(idadeDoDado("inválido", agoraDado), "Atualização não informada");
+  assert.equal(idadeDoDado("2026-10-08T12:01:00Z", agoraDado), "Data de atualização posterior ao horário atual");
+  assert.equal(idadeDoDado("2026-10-08T11:01:00Z", agoraDado), "Atualizado há 59 min");
+  assert.equal(idadeDoDado("2026-10-08T11:00:00Z", agoraDado), "Atualizado há 1 h");
+  assert.equal(idadeDoDado("2026-10-07T12:00:00Z", agoraDado), "Atualizado há 1 dia(s)");
   const {formatarDataHora} = await servidor.ssrLoadModule("/src/utils/datas.ts");
   assert.match(formatarDataHora("2026-10-07T11:00:00Z"),/07\/10\/2026.*08:00/);
   assert.equal(formatarDataHora("inválido"),"Não informado");
@@ -75,8 +114,10 @@ try {
   assert.equal(filtrarUsuarios(usuariosBusca, "").length, 2);
   const htmlUsuarios = renderToStaticMarkup(React.createElement(UsuariosPage));
   for (const texto of ["Novo usuário", "Itens permitidos", "Marcar todos", "Desmarcar todos", "Usuário ativo"]) assert.ok(htmlUsuarios.includes(texto), texto);
-  assert.equal((htmlUsuarios.match(/type="checkbox"/g) || []).length, 103);
-  const { default: NavegacaoModulos } = await servidor.ssrLoadModule("/src/components/NavegacaoModulos.tsx");
+  const { MODULOS: catalogoModulos, ACOES: catalogoAcoes } = await servidor.ssrLoadModule("/src/api/usuarios.ts");
+  assert.equal((htmlUsuarios.match(/type="checkbox"/g) || []).length, 1 + catalogoModulos.length * (1 + catalogoAcoes.length));
+  const { default: NavegacaoModulos, correspondeBuscaModulo } = await servidor.ssrLoadModule("/src/components/NavegacaoModulos.tsx");
+  for (const [nome, busca, esperado] of [["Talhões", "talhoes", true], ["Máquinas", "  MAQUINAS  ", true], ["Usuários", "usuarios", true], ["Clima", "", true], ["Clima", "vendas", false]]) assert.equal(correspondeBuscaModulo(nome, busca), esperado);
   const { MODULOS } = await servidor.ssrLoadModule("/src/api/usuarios.ts");
   const nav = (acesso, modulo = "cargas") => renderToStaticMarkup(React.createElement(NavegacaoModulos, { acesso, modulo, onSelecionar() {} }));
   const usuarioRestrito = { id: 1, username: "operador", is_staff: false, modulos: ["cargas", "vendas"] };
@@ -518,7 +559,9 @@ try {
     }),
   );
   assert.match(htmlGrafico, /Evolução histórica/);
-  assert.match(htmlGrafico, /400.00/);
+  assert.match(htmlGrafico, /400,00/);
+  assert.match(htmlGrafico, /Variação no período/);
+  assert.match(htmlGrafico, /5,00%/);
 
   const htmlFinanceiro = renderToStaticMarkup(
     React.createElement(FinanceiroPage, { propriedades: [propriedade] }),
@@ -575,7 +618,8 @@ try {
   assert.doesNotMatch(htmlCargas, /Propriedade consultada/);
   assert.doesNotMatch(htmlCargas, /Parcela da propriedade/);
   assert.doesNotMatch(htmlCargas, /<th>Peso bruto<\/th>/);
-  assert.match(htmlCargas, /Nenhuma carga colhida ativa/);
+  assert.match(htmlCargas, /Carregando cargas colhidas/);
+  assert.doesNotMatch(htmlCargas, /Nenhuma carga colhida ativa|Cargas próprias \(0\)/, "Consulta inicial não deve simular ausência de registros antes da resposta");
   assert.doesNotMatch(htmlCargas, /Grupo de colheita/);
   const estilosTela = await readFile(new URL("../src/styles.css", import.meta.url), "utf8");
   assert.match(estilosTela, /\.cargas-grade\s*\{\s*grid-template-columns:\s*1fr/);

@@ -1,3 +1,4 @@
+from apps.core.edicao_concorrente import EdicaoConcorrenteMixin
 from datetime import date
 
 from django.core.exceptions import ValidationError as DjangoValidationError
@@ -5,6 +6,8 @@ from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from apps.core.pagination import PaginacaoOpcional
+from apps.core.query_params import validar_filtros
 
 from .models import InsumoOperacao, OperacaoAgricola
 from .serializers import InsumoOperacaoSerializer, OperacaoAgricolaSerializer
@@ -16,11 +19,12 @@ from .services import (
 )
 
 
-class OperacaoAgricolaViewSet(viewsets.ModelViewSet):
+class OperacaoAgricolaViewSet(EdicaoConcorrenteMixin, viewsets.ModelViewSet):
     queryset = OperacaoAgricola.objects.select_related(
         "talhao__propriedade", "criado_por"
     ).prefetch_related("insumos__lote__produto", "insumos__lote__local")
     serializer_class = OperacaoAgricolaSerializer
+    pagination_class = PaginacaoOpcional
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ("descricao", "responsavel", "talhao__nome", "observacoes")
@@ -28,6 +32,7 @@ class OperacaoAgricolaViewSet(viewsets.ModelViewSet):
     ordering = ("data_planejada", "id")
 
     def get_queryset(self):
+        validar_filtros(self.request.query_params, ids=('talhao', 'propriedade', 'operacao', 'lote'))
         queryset = super().get_queryset()
         for parametro, campo in (
             ("status", "status"),
@@ -96,12 +101,14 @@ class InsumoOperacaoViewSet(viewsets.ModelViewSet):
         "operacao", "lote__produto", "lote__local"
     )
     serializer_class = InsumoOperacaoSerializer
+    pagination_class = PaginacaoOpcional
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ("lote__produto__nome", "lote__codigo", "operacao__descricao")
     ordering_fields = ("quantidade_planejada", "criado_em")
 
     def get_queryset(self):
+        validar_filtros(self.request.query_params, ids=('talhao', 'propriedade', 'operacao', 'lote'))
         queryset = super().get_queryset()
         operacao = self.request.query_params.get("operacao", "").strip()
         return queryset.filter(operacao_id=operacao) if operacao else queryset

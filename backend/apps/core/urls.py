@@ -7,11 +7,24 @@ from .excel import BackupExcelView
 from .anexos import AnexosView, AnexoDetailView
 from .duplicidades import DuplicidadesView
 from .backup_status import BackupStatusView
+from .central_gestao import DiagnosticoView, DocumentosView, ConferenciaFinanceiraView
+from .revisao_gestao import ChecklistSafraView, ExtratoCadproView, ComparacaoSafrasView
+from .origem_pendencia import OrigemPendenciaView
 from apps.graos.conferencia_estoque import ConferenciaEstoqueView
 from apps.graos.fechamentos import FechamentosView
 from apps.graos.pendencias import PendenciasView
 
+from .conferencia_diaria import ConferenciaDiariaView
+
 urlpatterns = [
+    path("conferencia-diaria/", ConferenciaDiariaView.as_view(), name="conferencia-diaria"),
+    path("pendencias-conferencia/<int:pk>/origem/", OrigemPendenciaView.as_view(), name="origem-pendencia"),
+    path("checklist-safra/", ChecklistSafraView.as_view(), name="checklist-safra"),
+    path("extrato-cadpro/", ExtratoCadproView.as_view(), name="extrato-cadpro"),
+    path("comparacao-safras/", ComparacaoSafrasView.as_view(), name="comparacao-safras"),
+    path("diagnostico/", DiagnosticoView.as_view(), name="diagnostico"),
+    path("documentos/", DocumentosView.as_view(), name="central-documentos"),
+    path("conferencia-financeira/", ConferenciaFinanceiraView.as_view(), name="conferencia-financeira"),
     path("fechamentos/", FechamentosView.as_view(), name="fechamentos"),
     path("pendencias-conferencia/", PendenciasView.as_view(), name="pendencias-conferencia"),
     path("pendencias-conferencia/<int:pk>/", PendenciasView.as_view(), name="pendencia-conferencia-detalhe"),

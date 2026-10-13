@@ -13,7 +13,7 @@ import { formatarPercentual, formatarNumero } from "../../utils/numeros";
 import FiltrosFavoritos from "../../components/FiltrosFavoritos";
 import FiltrosRapidos, { correspondeFiltrosRapidos, filtrosRapidosVazios, restaurarConsultaFavorita } from "../../components/FiltrosRapidos";
 import { useAlteracoesNaoSalvas } from "../../components/AlteracoesNaoSalvas";
-import { BotaoAcao } from "../../components/AcoesContext";
+import { BotaoAcao, useDestinoConsulta } from "../../components/AcoesContext";
 import axios from "axios";
 import { Fragment, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import PainelFormulario from "../../components/PainelFormulario";
@@ -230,8 +230,8 @@ export function dadosRomaneioCarga(item:CargaColhida):DadosComprovante {
   const formatar = (valor:number)=>valor.toLocaleString("pt-BR",{maximumFractionDigits:3});
   const qualidade = `Umidade ${formatarPercentual(item.umidade_percentual)} · Impureza ${formatarPercentual(item.impureza_percentual)} · Avariados ${formatarPercentual(item.defeitos_percentual)}`
     + (item.cultura.trim().toLowerCase()==="trigo"?` · PH ${item.ph==null?"Não informado":formatar(numero(item.ph))}`:"");
-  return {titulo:`Romaneio de entrada #${item.id}`,modelo:"romaneio",tipoMovimento:"entrada",campos:[
-    ["Romaneio",`#${item.id}`],["Registrado em",formatarDataHora(item.criado_em)],["Responsável pelo registro",item.criado_por_nome||"Não informado"],
+  return {titulo:`Romaneio de entrada ${item.id}`,modelo:"romaneio",tipoMovimento:"entrada",campos:[
+    ["Romaneio",`${item.id}`],["Registrado em",formatarDataHora(item.criado_em)],["Responsável pelo registro",item.criado_por_nome||"Não informado"],
     ["Origem","Produção própria"],["Situação",item.status],["Data da entrada",dataPlanilhaCarga(item.data_colheita)],
     ["Propriedades / CAD/PRO",produtores.map(p=>`${p.nome} / ${p.cadpro}`).join("; ")],
     ["Cultura / safra",`${item.cultura} / ${item.safra}`],["Armazenagem",item.armazem_nome],
@@ -351,6 +351,11 @@ type Props = { propriedades: Propriedade[] };
 
 export default function CargasColhidasPage({ propriedades }: Props) {
   const [aba, setAba] = useState("proprias");
+  const [contagemTerceiros, setContagemTerceiros] = useState<string | undefined>();
+  const [contagemRomaneios, setContagemRomaneios] = useState<string | undefined>();
+  useDestinoConsulta("cargas", filtros => {
+    if (["proprias", "terceiros", "romaneios"].includes(String(filtros.aba))) setAba(String(filtros.aba));
+  });
   const [exclusao, setExclusao] = useState<{ item: CargaColhida; previa?: PreviaExclusaoCarga; erro: string; motivo: string; carregando: boolean } | null>(null);
 
   const [grupos, setGrupos] = useState<GrupoPropriedades[]>([]);
@@ -373,7 +378,7 @@ export default function CargasColhidasPage({ propriedades }: Props) {
   const [mostrarHistorico, setMostrarHistorico] = useState(false);
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
-  const [carregando, setCarregando] = useState(false);
+  const [carregando, setCarregando] = useState(true);
   const travaCarga = useRef(false);
   const [salvando, setSalvando] = useState(false);
 
@@ -636,7 +641,7 @@ export default function CargasColhidasPage({ propriedades }: Props) {
         <span className="kicker">{aba === "proprias" ? (mostrarHistorico ? "Exibindo ativas e histórico" : "Exibindo cargas ativas") : aba === "terceiros" ? "Entradas e saldo de terceiros" : "Romaneios de entrada"}</span>
       </div>
 
-<AbasModulo modulo="cargas" ativa={aba} alterar={setAba} desabilitado={salvando} abas={[{id:"proprias",titulo:"Cargas próprias"},{id:"terceiros",titulo:"Terceiros"},{id:"romaneios",titulo:"Romaneios"}]} /><PainelAba modulo="cargas" aba="proprias" ativa={aba}>
+<AbasModulo modulo="cargas" ativa={aba} alterar={setAba} desabilitado={salvando} abas={[{id:"proprias",titulo:"Cargas próprias" + (!carregando && !erro ? ` (${cargasFiltradas.length})` : "")},{id:"terceiros",titulo:"Terceiros" + (contagemTerceiros !== undefined ? ` (${contagemTerceiros})` : "")},{id:"romaneios",titulo:"Romaneios" + (contagemRomaneios !== undefined ? ` (${contagemRomaneios})` : "")}]} /><p className="abrangencia-abas nao-imprimir">Cada aba mantém seus filtros. Contadores aparecem após a consulta; + indica registros carregados de uma consulta parcial.</p><PainelAba modulo="cargas" aba="proprias" ativa={aba}>
       <section className="card controle-planilha controle-planilha-impressao controle-planilha-cargas somente-impressao" hidden={carregando}>
         <h2 className="somente-impressao titulo-impressao-planilha">Cargas colhidas</h2>
         <div className="controle-planilha-titulo"><div><span className="kicker">Controle de entrada de produção</span><h3>{propriedadesImpressao.join(" · ") || "Todas as propriedades"}</h3><p>CAD/PRO {cadprosImpressao.join(", ") || "—"} · {culturasImpressao.join(", ") || "todas as culturas"} · safra {safrasImpressao.join(", ") || "todas"}</p></div><div className="controle-planilha-total"><span>Entrada líquida</span><strong>{numeroPlanilhaCarga(pesoLiquidoImpressao)} kg</strong><small>{numeroPlanilhaCarga(pesoLiquidoImpressao / 60)} sacas de 60 kg</small></div></div>
@@ -757,9 +762,9 @@ export default function CargasColhidasPage({ propriedades }: Props) {
       </section>
 
 </PainelAba><PainelAba modulo="cargas" aba="terceiros" ativa={aba}>
-<ProducaoTerceiros propriedades={propriedades} cadpros={cadpros} armazens={armazens} atualizarArmazens={carregar} inicialmenteAberto ativo={aba === "terceiros"} />
+<ProducaoTerceiros onContagem={setContagemTerceiros} propriedades={propriedades} cadpros={cadpros} armazens={armazens} atualizarArmazens={carregar} inicialmenteAberto ativo={aba === "terceiros"} />
 </PainelAba><PainelAba modulo="cargas" aba="romaneios" ativa={aba}>
-<ListaRomaneiosEntrada cargas={cargas.map(item=>({id:item.id,origem:"propria" as const,cadpros:produtoresDaCarga(item).map(p=>p.cadpro),data:item.data_colheita,nome:produtoresDaCarga(item).map(p=>`${p.nome} / ${p.cadpro}`).join(" · "),cultura:item.cultura,safra:item.safra,placa:item.placa,peso:item.peso_liquido_kg,historico:item.status!=="ativa",dados:dadosRomaneioCarga(item)}))} ativo={aba === "romaneios"} atualizarCargas={carregar}/>
+<ListaRomaneiosEntrada onContagem={setContagemRomaneios} revisao={cargas} montarCarga={item=>({id:item.id,origem:"propria" as const,cadpros:produtoresDaCarga(item).map(p=>p.cadpro),data:item.data_colheita,nome:produtoresDaCarga(item).map(p=>`${p.nome} / ${p.cadpro}`).join(" · "),cultura:item.cultura,safra:item.safra,placa:item.placa,peso:item.peso_liquido_kg,historico:item.status!=="ativa",dados:dadosRomaneioCarga(item)})} ativo={aba === "romaneios"}/>
 </PainelAba>    </section>
   );
 }

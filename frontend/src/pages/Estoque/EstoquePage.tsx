@@ -168,7 +168,7 @@ export default function EstoquePage({ propriedades }: Props) {
           <article className="card"><span>Lotes com saldo</span><strong>{resumo.lotes_com_saldo}</strong></article>
           <article className="card alerta-estoque"><span>Vencidos</span><strong>{resumo.lotes_vencidos}</strong></article>
           <article className="card"><span>Vencem em 30 dias</span><strong>{resumo.lotes_vencendo}</strong></article>
-          <article className="card alerta-estoque"><span>Abaixo do mínimo</span><strong>{resumo.itens_abaixo_minimo}</strong></article>
+          <article className="card alerta-estoque"><span>Lotes abaixo do mínimo</span><strong>{resumo.itens_abaixo_minimo}</strong></article>
         </section>
       )}
 

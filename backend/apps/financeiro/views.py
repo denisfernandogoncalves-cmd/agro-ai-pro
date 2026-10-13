@@ -1,12 +1,15 @@
 from datetime import date
+from apps.core.edicao_concorrente import EdicaoConcorrenteMixin
 
 from django.db.models.deletion import ProtectedError
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from apps.core.pagination import PaginacaoOpcional
+from apps.core.query_params import validar_filtros
 from rest_framework.exceptions import ValidationError
-from django.db.models import Q
+from django.db.models import Count, Q
 from django.db import transaction
 from .codigos import CodigoPagamentoInvalido, ler_codigo_pagamento
 from .parcelamentos import ParcelamentoSerializer, ParcelamentoConflitante, criar_parcelamento
@@ -33,6 +36,7 @@ from .services import (
 
 
 class CadastroFinanceiroMixin:
+    pagination_class = PaginacaoOpcional
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     ordering = ("nome",)
@@ -66,7 +70,7 @@ class CentroCustoViewSet(CadastroFinanceiroMixin, viewsets.ModelViewSet):
     search_fields = ("nome", "safra", "propriedade__nome")
 
 
-class LancamentoFinanceiroViewSet(viewsets.ModelViewSet):
+class LancamentoFinanceiroViewSet(EdicaoConcorrenteMixin, viewsets.ModelViewSet):
     def destroy(self, request, *args, **kwargs):
         lancamento = self.get_object()
         try:
@@ -123,13 +127,15 @@ class LancamentoFinanceiroViewSet(viewsets.ModelViewSet):
         "propriedade",
     )
     serializer_class = LancamentoFinanceiroSerializer
+    pagination_class = PaginacaoOpcional
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ("descricao", "recebedor_nome", "parceiro__nome", "observacoes", "safra")
     ordering_fields = ("data_vencimento", "valor", "descricao", "status", "tipo")
     ordering = ("data_vencimento", "id")
 
-    def get_queryset(self):
+    def get_queryset(self, ignorar_aba=False):
+        validar_filtros(self.request.query_params, ids=('categoria', 'parceiro', 'centro_custo', 'propriedade'))
         queryset = super().get_queryset()
         for parametro, campo in (
             ("tipo", "tipo"),
@@ -140,6 +146,8 @@ class LancamentoFinanceiroViewSet(viewsets.ModelViewSet):
             ("propriedade", "propriedade_id"),
             ("safra", "safra"),
         ):
+            if ignorar_aba and parametro in ("tipo", "status"):
+                continue
             valor = self.request.query_params.get(parametro, "").strip()
             if valor:
                 queryset = queryset.filter(**{campo: valor})
@@ -193,4 +201,11 @@ class LancamentoFinanceiroViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["get"])
     def resumo(self, request):
-        return Response(resumo_financeiro(self.filter_queryset(self.get_queryset())))
+        dados = resumo_financeiro(self.filter_queryset(self.get_queryset()))
+        dados["contagens_abas"] = self.filter_queryset(self.get_queryset(ignorar_aba=True)).aggregate(
+            todos=Count("pk"),
+            pagar=Count("pk", filter=Q(tipo="pagar", status="pendente")),
+            receber=Count("pk", filter=Q(tipo="receber", status="pendente")),
+            liquidados=Count("pk", filter=Q(status="liquidado")),
+        )
+        return Response(dados)

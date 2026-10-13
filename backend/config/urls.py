@@ -9,6 +9,7 @@ from drf_yasg.views import get_schema_view
 from rest_framework.permissions import AllowAny
 
 from apps.accounts.views import LoginView, RefreshView
+from apps.core.health import readiness_view
 
 
 schema_view = get_schema_view(
@@ -30,6 +31,8 @@ def health_view(request):
 
 
 urlpatterns = [
+    path("api/ready/", readiness_view, name="readiness"),
+    path("api/transportes/", include("apps.transportes.urls")),
 
     path(
         "dashboard/",

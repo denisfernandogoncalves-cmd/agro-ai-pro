@@ -1,5 +1,6 @@
 from django.urls import path
 
 from .views import InsightsView
+from .chat_local import ChatLocalView
 
-urlpatterns = [path("insights/", InsightsView.as_view(), name="insights")]
+urlpatterns = [path("conversar/", ChatLocalView.as_view(), name="chat-local"), path("insights/", InsightsView.as_view(), name="insights")]

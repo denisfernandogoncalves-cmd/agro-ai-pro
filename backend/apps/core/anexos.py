@@ -19,6 +19,7 @@ from .models import AnexoLancamento, RegistroAlteracao
 ALVOS = {
     "carga": ("cargas", "graos.CargaColhida"),
     "venda": ("vendas", "vendas.VendaGraos"),
+    "entrega": ("vendas", "vendas.EntregaVendaGraos"),
     "transferencia": ("transferencias", "graos.MovimentacaoGraos"),
     "financeiro": ("financeiro", "financeiro.LancamentoFinanceiro"),
     "compra": ("estoque", "estoque.CompraEstoque"),

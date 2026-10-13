@@ -2,6 +2,7 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 MODULOS = {
+    "transportes": "Transportes",
     "propriedades": "Propriedades", "talhoes": "Talhões",
     "cadastros-agricolas": "Cadastros agrícolas", "cargas": "Cargas colhidas",
     "producao-saldos": "Produção e saldos", "transferencias": "Transferência de saldo",
@@ -25,6 +26,7 @@ def modulos_do_usuario(user):
 # Catálogos de consulta são compartilhados pelos módulos que dependem deles.
 # A permissão de consultar um catálogo nunca autoriza sua alteração.
 REGRAS = (
+    ("transportes/", {"transportes"}, {"transportes"}),
     ("estoque/faturamentos/", {"faturamento-insumos"}, {"faturamento-insumos"}),
     ("estoque/produtos/", {"estoque", "cadastros-agricolas", "faturamento-insumos", "operacoes"}, {"cadastros-agricolas", "estoque"}),
     ("estoque/locais/", {"estoque", "cadastros-agricolas", "faturamento-insumos"}, {"cadastros-agricolas", "estoque"}),
@@ -84,7 +86,7 @@ def acao_da_requisicao(path, method):
     if method in {"PATCH", "PUT"}:
         return "editar"
     ultimo = recurso.rsplit("/", 1)[-1]
-    if ultimo in {"ler-codigo", "previa-particular", "simular", "previa"}:
+    if ultimo in {"ler-codigo", "previa-particular", "simular", "previa"} or recurso == "ai/conversar":
         return "consultar"
     if ultimo in {"cancelar", "estornar", "estornar-movimentacao", "excluir"}:
         return "excluir"

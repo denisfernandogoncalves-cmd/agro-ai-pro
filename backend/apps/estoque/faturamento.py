@@ -97,6 +97,10 @@ def preparar_resumo(dados):
         itens.append({
             "propriedade": propriedade.pk, "propriedade_nome": propriedade.nome,
             "produtor": propriedade.proprietario, "cad_pro": codigo,
+            "formato_coordenadas": propriedade.formato_coordenadas,
+            "latitude": str(propriedade.latitude) if propriedade.latitude is not None else None,
+            "longitude": str(propriedade.longitude) if propriedade.longitude is not None else None,
+            "latitude_gms": propriedade.latitude_gms, "longitude_gms": propriedade.longitude_gms,
             "bep": (item["bep"] or propriedade.bp_cvale) if fornecedor_usa_bep(fornecedor.nome) else "",
             "area_alqueires": str(item["area_alqueires"]),
             "quantidade_sugerida": str((item["area_alqueires"] * dados["dosagem_alqueire"]).quantize(Decimal("0.001"), rounding=ROUND_HALF_UP)),

@@ -20,7 +20,7 @@ def campos_romaneio(entrada):
         return "Não informado" if valor is None else f"{_numero(valor)} kg"
 
     campos = [
-        ("Romaneio", f"#{entrada.pk}"),
+        ("Romaneio", f"{entrada.pk}"),
         ("Registrado em", timezone.localtime(entrada.criado_em).strftime("%d/%m/%Y %H:%M")),
         ("Responsável pelo registro", entrada.criado_por.username),
         ("Terceiro", entrada.depositante),
@@ -65,7 +65,7 @@ def gerar_pdf(entrada, *, campos=None, titulo=None):
         story=[]
         for via in ('Via do cliente','Via do arquivo'):
             if story:story.append(PageBreak())
-            story.extend([Paragraph(escape(titulo or f'ENTRADA DE TERCEIROS #{entrada.pk}'),estilo),Paragraph(via,estilo),Spacer(1,10)])
+            story.extend([Paragraph(escape(titulo or f'ENTRADA DE TERCEIROS {entrada.pk}'),estilo),Paragraph(via,estilo),Spacer(1,10)])
             longa=Table(linhas,colWidths=[145,largura-201],splitInRow=1)
             longa.setStyle(TableStyle([('GRID',(0,0),(-1,-1),.4,'#222222'),('VALIGN',(0,0),(-1,-1),'TOP')]))
             story.extend([longa,Spacer(1,20),Paragraph('Assinatura motorista: __________________    Responsável: __________________',estilo)])
@@ -75,7 +75,7 @@ def gerar_pdf(entrada, *, campos=None, titulo=None):
         return completo.getvalue()
     for topo, via in ((altura - 25, "Via do cliente"), (altura / 2 - 25, "Via do arquivo")):
         pagina.setFont("Helvetica-Bold", 10)
-        pagina.drawString(28, topo, titulo or f"ENTRADA DE TERCEIROS #{entrada.pk}")
+        pagina.drawString(28, topo, titulo or f"ENTRADA DE TERCEIROS {entrada.pk}")
         pagina.setFont("Helvetica", 9)
         pagina.drawRightString(largura - 28, topo, via)
         pagina.setFont("Helvetica", 7)
@@ -142,7 +142,7 @@ def gerar_excel(entrada, *, campos=None, titulo=None):
     folha.title = "Romaneio"
     borda = Border(*(Side(style="thin", color="222222") for _ in range(4)))
     for via in ("Via do cliente", "Via do arquivo"):
-        folha.append([f"{titulo or f'ENTRADA DE TERCEIROS #{entrada.pk}'} - {via}"])
+        folha.append([f"{titulo or f'ENTRADA DE TERCEIROS {entrada.pk}'} - {via}"])
         folha.append(["AGRO-AI-PRO - Resumo para conferência. Não substitui documento fiscal."])
         for rotulo, valor in (campos if campos is not None else campos_romaneio(entrada)):
             folha.append([rotulo, str(valor)])

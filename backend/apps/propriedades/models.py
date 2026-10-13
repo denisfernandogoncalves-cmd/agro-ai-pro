@@ -3,6 +3,9 @@ from django.core.validators import RegexValidator
 
 
 class Propriedade(models.Model):
+    formato_coordenadas = models.CharField(max_length=7, choices=[('decimal', 'Graus decimais'), ('gms', 'Graus, minutos e segundos')], default='decimal')
+    latitude_gms = models.CharField(max_length=60, blank=True, default='')
+    longitude_gms = models.CharField(max_length=60, blank=True, default='')
 
     bp_cvale = models.CharField(
         max_length=40, blank=True, default="",

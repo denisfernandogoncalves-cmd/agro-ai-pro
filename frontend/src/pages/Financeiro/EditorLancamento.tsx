@@ -26,7 +26,7 @@ export default function EditorLancamento({ item, onFechar, onSalvo }: Props) {
     if (trava.current) return;
     trava.current = true; setOcupado(true); setErro("");
     try {
-      await atualizarLancamento(item.id, dados);
+      await atualizarLancamento(item.id, dados, item.atualizado_em);
       onSalvo();
     } catch (falha) {
       const resposta = axios.isAxiosError(falha) ? falha.response?.data : null;

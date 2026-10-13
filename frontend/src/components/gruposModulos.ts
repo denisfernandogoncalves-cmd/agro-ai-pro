@@ -5,7 +5,7 @@ export const AREAS_MODULOS: { nome: string; modulos: Modulo[] }[] = [
   { nome: "Produção", modulos: ["cargas", "producao-saldos", "transferencias", "clima"] },
   { nome: "Comercial", modulos: ["vendas", "mercado", "faturamento-insumos"] },
   { nome: "Financeiro e estoque", modulos: ["financeiro", "estoque"] },
-  { nome: "Operações", modulos: ["operacoes", "maquinas"] },
+  { nome: "Operações", modulos: ["operacoes", "maquinas", "transportes"] },
   { nome: "Gestão", modulos: ["relatorios", "importacoes", "insights"] },
 ];
 

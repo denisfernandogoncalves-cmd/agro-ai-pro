@@ -454,8 +454,8 @@ try {
 
   await test("logout desmonta estado privado e módulo Talhões", async () => {
     const rendered = await renderAppStates();
-    assert.match(rendered.privateHtml, /class="pagina"/);
-    assert.doesNotMatch(rendered.loggedOutHtml, /class="pagina"/);
+    assert.match(rendered.privateHtml, /class="pagina(?: [^"]*)?"/);
+    assert.doesNotMatch(rendered.loggedOutHtml, /class="pagina(?: [^"]*)?"/);
     assert.doesNotMatch(rendered.loggedOutHtml, /data-private-component/);
     assert.doesNotMatch(rendered.loggedOutHtml, /Talhões/);
   });
@@ -541,6 +541,7 @@ async function renderAppStates() {
     return moduleDataUrl((await transpile(fonte, true)).replaceAll('"react/jsx-runtime"', `"${reactJsxRuntimeUrl}"`), nome);
   }
   const confirmacaoUrl = await componenteUrl("ConfirmacaoCompacta");
+  const marcaUrl = await componenteUrl("MarcaAgro");
   const protecaoUrl = await componenteUrl("AlteracoesNaoSalvas", {"./ConfirmacaoCompacta":confirmacaoUrl});
   const React = await import(reactUrl);
   const { renderToString } = await import(reactDomServerUrl);
@@ -560,10 +561,12 @@ async function renderAppStates() {
 
   globalThis.__APP_ACTIONS__ = { AcoesContext: React.createContext(null), autorizado: () => true, BotaoAcao: globalThis.__PRIVATE_COMPONENTS__.BotaoAcao, useDestinoConsulta: () => {} };
   let source = appSource
+    .replace('from "./components/MarcaAgro";', `from "${marcaUrl}";`)
     .replace('from "./components/AlteracoesNaoSalvas";', `from "${protecaoUrl}";`)
     .replace('from "./components/ConfirmacaoCompacta";', `from "${confirmacaoUrl}";`)
     .replace(/import \{[^}]+\} from "\.\/components\/AcoesContext";/, "const { AcoesContext, autorizado, BotaoAcao, useDestinoConsulta } = globalThis.__APP_ACTIONS__;")
     .replace(/import \{ nomeModulo \} from "\.\/components\/gruposModulos";/, "const nomeModulo = id => id;")
+    .replace(/import IdentidadeModulo, \{ tituloModulo \} from "\.\/components\/IdentidadeModulo";/, "const IdentidadeModulo = globalThis.__PRIVATE_COMPONENTS__.IdentidadeModulo; const tituloModulo = id => id;")
     .replace(/const (\w+) = lazy\(\(\) => import\("[^"]+"\)\);/g, "const $1 = globalThis.__PRIVATE_COMPONENTS__.$1;")
     .replace('from "react";', `from "${reactUrl}";`)
     .replace('from "axios";', `from "${axiosUrl}";`)
@@ -581,7 +584,7 @@ async function renderAppStates() {
       /import (\w+) from "\.\/(?:components|pages)\/[^"]+";/g,
       "const $1 = globalThis.__PRIVATE_COMPONENTS__.$1;",
     )
-    .replace(/import "\.\/styles\.css";/, "");
+    .replace(/import "\.\/[^\"]+\.css";/g, "");
   source = (await transpile(source, true))
     .replace('"react/jsx-runtime"', `"${reactJsxRuntimeUrl}"`);
   const app = await import(moduleDataUrl(source, "app"));

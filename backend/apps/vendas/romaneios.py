@@ -90,7 +90,7 @@ def gerar_pdf(venda, saida):
         ytop = altura - top
         margem = 28
         direita = largura - margem
-        texto(margem, ytop - 17, f"ROMANEIO DE SAÍDA #{saida.pk} · VENDA #{venda.pk}", 13, True)
+        texto(margem, ytop - 17, f"ROMANEIO DE SAÍDA {saida.pk} · VENDA #{venda.pk}", 13, True)
         pagina.setFont("Helvetica-Bold", 9)
         pagina.drawRightString(direita, ytop - 17, nome.upper())
         texto(margem, ytop - 31, "AGRO-AI-PRO · Resumo para conferência. Não substitui documento fiscal.", 7)
@@ -151,7 +151,7 @@ def gerar_excel(venda, saida):
     linha = 1
     for via, dados in (("VIA CLIENTE", campos_cliente), ("VIA DO ARQUIVO", campos)):
         folha.merge_cells(start_row=linha, start_column=1, end_row=linha, end_column=2)
-        titulo = folha.cell(linha, 1, f"ROMANEIO DE SAÍDA #{saida.pk} · VENDA #{venda.pk} — {via}")
+        titulo = folha.cell(linha, 1, f"ROMANEIO DE SAÍDA {saida.pk} · VENDA #{venda.pk} — {via}")
         titulo.font = Font(bold=True, size=14, color="000000")
         linha += 1
         folha.cell(linha, 1, "AGRO-AI-PRO · Resumo para conferência. Não substitui documento fiscal.")

@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     "apps.importacoes",
     "apps.cadpro",
     "apps.maquinas",
+    "apps.transportes",
     "apps.relatorios",
     "apps.ai",
     "apps.mercado",
@@ -89,6 +90,7 @@ DATABASES = {
         "PASSWORD": os.getenv("POSTGRES_PASSWORD", "postgres"),
         "HOST": os.getenv("POSTGRES_HOST", "localhost"),
         "PORT": os.getenv("POSTGRES_PORT", "5432"),
+        "OPTIONS": {"connect_timeout": 3},
     }
 }
 
@@ -135,3 +137,15 @@ MEDIA_URL = "/media/"
 MEDIA_ROOT = str(BASE_DIR / "media")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+AUTH_LOGIN_RATE = os.getenv("AUTH_LOGIN_RATE", "30/min")
+AUTH_ACCOUNT_RATE = os.getenv("AUTH_ACCOUNT_RATE", "10/min")
+AUTH_REFRESH_RATE = os.getenv("AUTH_REFRESH_RATE", "120/min")
+AUTH_TRUSTED_PROXY_NETWORKS = tuple(filter(None, os.getenv("AUTH_TRUSTED_PROXY_NETWORKS", "").split(",")))
+
+if os.getenv("DJANGO_CACHE_URL"):
+    CACHES = {"default": {
+        "BACKEND": "django.core.cache.backends.redis.RedisCache",
+        "LOCATION": os.environ["DJANGO_CACHE_URL"],
+        "OPTIONS": {"socket_connect_timeout": 2, "socket_timeout": 2},
+    }}

@@ -1,0 +1,150 @@
+import { FormEvent, useCallback, useEffect, useState } from "react";
+import axios from "axios";
+import AbasModulo, { PainelAba } from "../../components/AbasModulo";
+import { BotaoAcao, useAcoes } from "../../components/AcoesContext";
+import { useAlteracoesNaoSalvas } from "../../components/AlteracoesNaoSalvas";
+import { formatarData } from "../../utils/datas";
+import { Caminhao, Filtros, Grupo, Lancamento, Pagina, Previa, Relatorio, Remuneracao, calcularComissao, consultarRelatorio, exportarRelatorio, importarPlanilha, listarCaminhoes, listarLancamentos, listarRemuneracoes, previaPlanilha, salvarCaminhao, salvarLancamento, salvarRemuneracao } from "../../api/transportes";
+import "./transportes.css";
+
+const moeda = (v: string | number) => Number(v).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const hoje = () => new Date().toLocaleDateString("en-CA", { timeZone: "America/Sao_Paulo" });
+const filtroVazio: Filtros = { data_inicio: "", data_fim: "", caminhao: "", motorista: "" };
+const novoCaminhao = { placa: "", veiculo: "", motorista: "", ativo: true };
+const novoLancamento = () => ({ caminhao: 0, motorista: "", data: hoje(), tipo: "receita" as "receita" | "despesa", descricao: "", local: "", nota: "", unidade: "", quantidade: "1", valor_unitario: "" });
+const novaRemuneracao = () => ({ caminhao: 0, motorista: "", competencia: hoje().slice(0, 7) + "-01", salario: "", comissao_percentual: "", observacoes: "" });
+function mensagem(erro: unknown) {
+  if (axios.isAxiosError(erro) && erro.response?.data) {
+    const dados = erro.response.data;
+    if (typeof dados === "string") return dados;
+    return Object.entries(dados).map(([k, v]) => `${/^\d+$/.test(k) || k === "detail" ? "" : k + ": "}${Array.isArray(v) ? v.join(" ") : v}`).join(" ");
+  }
+  return "Não foi possível concluir a operação. Verifique a conexão e tente novamente.";
+}
+function TabelaResumo({ titulo, grupos }: { titulo: string; grupos: Grupo[] }) {
+  return <section className="card"><h2>{titulo}</h2>{!grupos.length ? <p>Nenhum registro no período.</p> : <div className="transporte-tabela"><table><thead><tr><th>Posição / identificação</th><th>Faturamento</th><th>Despesas operacionais</th><th>Salário</th><th>Comissão</th><th>Saldo</th><th>Margem</th></tr></thead><tbody>{grupos.map((g, i) => <tr key={g.nome}><td>{titulo.includes("Ranking") ? `${i + 1}º · ` : ""}{g.nome}</td><td>{moeda(g.receita)}</td><td>{moeda(g.despesas_operacionais)}</td><td>{moeda(g.salario)}</td><td>{moeda(g.comissao)}</td><td className={Number(g.saldo) < 0 ? "erro" : ""}>{moeda(g.saldo)}</td><td>{g.margem === null ? "—" : `${Number(g.margem).toLocaleString("pt-BR")}%`}</td></tr>)}</tbody></table></div>}</section>;
+}
+function Paginador({ pagina, total, alterar, ocupado }: { pagina: number; total: number; alterar: (p: number) => void; ocupado: boolean }) {
+  return <div className="acoes nao-imprimir"><button className="secundario" disabled={ocupado || pagina === 1} onClick={() => alterar(pagina - 1)}>Anterior</button><span>Página {pagina} de {Math.max(1, Math.ceil(total / 30))} · {total} registros</span><button className="secundario" disabled={ocupado || pagina * 30 >= total} onClick={() => alterar(pagina + 1)}>Próxima</button></div>;
+}
+
+export default function TransportesPage() {
+  const pode = useAcoes();
+  const [aba, setAba] = useState("relatorios");
+  const [caminhoes, setCaminhoes] = useState<Caminhao[]>([]);
+  const [filtros, setFiltros] = useState(filtroVazio), [aplicados, setAplicados] = useState(filtroVazio);
+  const [pagina, setPagina] = useState(1), [paginaRem, setPaginaRem] = useState(1);
+  const [registros, setRegistros] = useState<Pagina<Lancamento>>({ count: 0, results: [] });
+  const [caminhaoRem, setCaminhaoRem] = useState("");
+  const [agrupamentoRem, setAgrupamentoRem] = useState<"motorista" | "placa">("motorista");
+  const [motoristaRem, setMotoristaRem] = useState("");
+  const [remuneracoes, setRemuneracoes] = useState<Pagina<Remuneracao>>({ count: 0, results: [] });
+  const [relatorio, setRelatorio] = useState<Relatorio | null>(null);
+  const [revisao, setRevisao] = useState(0), [carregando, setCarregando] = useState(false), [ocupado, setOcupado] = useState(false);
+  const [erro, setErro] = useState(""), [sucesso, setSucesso] = useState("");
+  const [caminhao, setCaminhao] = useState(novoCaminhao), [idCaminhao, setIdCaminhao] = useState<number | null>(null);
+  const [lancamento, setLancamento] = useState(novoLancamento), [idLancamento, setIdLancamento] = useState<number | null>(null);
+  const [remuneracao, setRemuneracao] = useState(novaRemuneracao), [idRemuneracao, setIdRemuneracao] = useState<number | null>(null);
+  const [calculo, setCalculo] = useState<{ base_comissao: string; comissao: string } | null>(null);
+  const [erroCalculo, setErroCalculo] = useState("");
+  const [arquivo, setArquivo] = useState<File | null>(null), [previa, setPrevia] = useState<Previa | null>(null);
+  const protecaoCaminhao = useAlteracoesNaoSalvas(caminhao, "cadastro do caminhão", idCaminhao);
+  const protecaoLancamento = useAlteracoesNaoSalvas(lancamento, "lançamento de transporte", idLancamento);
+  const protecaoRemuneracao = useAlteracoesNaoSalvas(remuneracao, "salário e comissão", idRemuneracao);
+  const atualizar = useCallback(() => setRevisao(r => r + 1), []);
+  useEffect(() => { let ativo = true; void listarCaminhoes().then(d => { if (ativo) setCaminhoes(d); }).catch(e => { if (ativo) setErro(mensagem(e)); }); return () => { ativo = false; }; }, [revisao]);
+  useEffect(() => {
+    if (aba !== "relatorios" && aba !== "lancamentos" && aba !== "historico_remuneracao") return;
+    const controle = new AbortController(); setCarregando(true); setErro("");
+    const consultar = async () => {
+      try {
+        if (aba === "relatorios") { setRelatorio(null); setRelatorio(await consultarRelatorio(aplicados, controle.signal)); }
+        else if (aba === "lancamentos") { setRegistros({ count: 0, results: [] }); setRegistros(await listarLancamentos(aplicados, pagina, controle.signal)); }
+        else { setRemuneracoes({ count: 0, results: [] }); setRemuneracoes(await listarRemuneracoes(paginaRem, controle.signal, motoristaRem, caminhaoRem)); }
+      } catch (e) { if (!controle.signal.aborted) setErro(mensagem(e)); }
+      finally { if (!controle.signal.aborted) setCarregando(false); }
+    };
+    void consultar(); return () => controle.abort();
+  }, [aba, aplicados, pagina, paginaRem, motoristaRem, caminhaoRem, revisao]);
+  async function executar(acao: () => Promise<void>) {
+    if (ocupado) return;
+    setOcupado(true); setErro(""); setSucesso("");
+    try { await acao(); } catch (e) { setErro(mensagem(e)); } finally { setOcupado(false); }
+  }
+  function filtrar(evento: FormEvent) {
+    evento.preventDefault();
+    const dados = new FormData(evento.currentTarget as HTMLFormElement);
+    const valores = Object.fromEntries(Object.keys(filtroVazio).map(k => [k, String(dados.get(k) ?? "")])) as Filtros;
+    if (valores.data_inicio && valores.data_fim && valores.data_inicio > valores.data_fim) { setErro("A data inicial deve ser anterior ou igual à final."); return; }
+    setFiltros(valores); setPagina(1); setAplicados(valores);
+  }
+  const selecionarCaminhao = (id: string, destino: "lancamento" | "remuneracao") => {
+    const c = caminhoes.find(c => c.id === Number(id));
+    if (destino === "lancamento") setLancamento(l => ({ ...l, caminhao: Number(id), motorista: c?.motorista ?? "" }));
+    else setRemuneracao(r => ({ ...r, caminhao: Number(id), motorista: c?.motorista ?? "" }));
+  };
+  useEffect(() => {
+    setCalculo(null); setErroCalculo("");
+    if (aba !== "remuneracao" || !remuneracao.caminhao || !remuneracao.motorista || !remuneracao.competencia || remuneracao.comissao_percentual === "") return;
+    const controle = new AbortController();
+    const timer = setTimeout(() => { void calcularComissao({ caminhao: remuneracao.caminhao, motorista: remuneracao.motorista, competencia: remuneracao.competencia, comissao_percentual: remuneracao.comissao_percentual, id: idRemuneracao }, controle.signal).then(setCalculo).catch(e => { if (!controle.signal.aborted) setErroCalculo(mensagem(e)); }); }, 250);
+    return () => { clearTimeout(timer); controle.abort(); };
+  }, [aba, remuneracao.caminhao, remuneracao.motorista, remuneracao.competencia, remuneracao.comissao_percentual, idRemuneracao, revisao]);
+  const opcaoCaminhoes = <><option value="">Selecione</option>{caminhoes.map(c => <option key={c.id} value={c.id}>{c.placa} · {c.veiculo}{c.ativo ? "" : " (inativo)"}</option>)}</>;
+  const abas = [{ id: "relatorios", titulo: "Relatórios e ranking" }, { id: "novo_lancamento", titulo: "Inserir receita / despesa" }, { id: "lancamentos", titulo: "Receitas e despesas" }, { id: "remuneracao", titulo: "Salário e comissão" }, { id: "historico_remuneracao", titulo: "Dados por motorista / placa" }, { id: "caminhoes", titulo: "Caminhões" }, ...(pode("cadastrar") ? [{ id: "importar", titulo: "Importar planilha" }] : [])];
+  return <section className="modulo-transportes">
+    <AbasModulo modulo="transportes" abas={abas} ativa={aba} alterar={setAba} desabilitado={ocupado} />
+    {erro && <p className="card erro" role="alert">{erro}</p>}{sucesso && <p className="card" role="status">{sucesso}</p>}
+    {(aba === "relatorios" || aba === "lancamentos") && <form className="card transporte-filtros nao-imprimir" onSubmit={filtrar}>
+      <label>Data inicial<input name="data_inicio" type="date" value={filtros.data_inicio} onInput={e => { const valor = e.currentTarget.value; setFiltros(f => ({ ...f, data_inicio: valor })); }} /></label><label>Data final<input name="data_fim" type="date" value={filtros.data_fim} onInput={e => { const valor = e.currentTarget.value; setFiltros(f => ({ ...f, data_fim: valor })); }} /></label>
+      <label>Caminhão / placa<select name="caminhao" value={filtros.caminhao} onChange={e => { const valor = e.target.value; setFiltros(f => ({ ...f, caminhao: valor })); }}><option value="">Todos os caminhões</option>{caminhoes.map(c => <option key={c.id} value={c.id}>{c.placa} · {c.veiculo}</option>)}</select></label>
+      <label>Motorista<input name="motorista" placeholder="Nome completo" value={filtros.motorista} onChange={e => { const valor = e.target.value; setFiltros(f => ({ ...f, motorista: valor })); }} list="motoristas-transporte" /></label><datalist id="motoristas-transporte">{[...new Set(caminhoes.map(c => c.motorista).concat(relatorio?.por_motorista.map(g => g.nome) ?? []))].map(m => <option key={m} value={m} />)}</datalist>
+      <button disabled={carregando || ocupado}>Aplicar filtros</button><button className="secundario" type="button" disabled={carregando || ocupado} onClick={() => { setFiltros(filtroVazio); setAplicados({ ...filtroVazio }); setPagina(1); }}>Limpar</button>
+    </form>}
+    {(aba === "relatorios" || aba === "lancamentos") && <p className="transporte-contexto">Período: {aplicados.data_inicio ? formatarData(aplicados.data_inicio) : "início do histórico"} até {aplicados.data_fim ? formatarData(aplicados.data_fim) : "fim do histórico"} · Placa: {caminhoes.find(c => c.id === Number(aplicados.caminhao))?.placa ?? "todas"} · Motorista: {aplicados.motorista || "todos"}</p>}
+    {carregando && <p role="status">Carregando dados…</p>}
+    <PainelAba modulo="transportes" aba="relatorios" ativa={aba}>
+      {relatorio && !carregando && <>
+        <div className="acoes nao-imprimir"><BotaoAcao acao="imprimir" disabled={ocupado} onClick={() => void executar(async () => { await exportarRelatorio(aplicados); })}>Exportar relatório CSV</BotaoAcao><BotaoAcao acao="imprimir" className="secundario" onClick={() => window.print()}>Imprimir relatório</BotaoAcao><button className="secundario" onClick={atualizar}>Atualizar</button></div>
+        <div className="transporte-indicadores">{[["Faturamento", relatorio.resumo.receita], ["Despesas operacionais", relatorio.resumo.despesas_operacionais], ["Salários", relatorio.resumo.salario], ["Comissões", relatorio.resumo.comissao], ["Saldo após despesas", relatorio.resumo.saldo]].map(([nome, valor]) => <article className="card" key={nome}><span>{nome}</span><strong className={Number(valor) < 0 ? "erro" : ""}>{moeda(valor)}</strong></article>)}</div>
+        <p>{relatorio.criterio_remuneracao} · Margem: {relatorio.resumo.margem === null ? "sem receita no período" : `${Number(relatorio.resumo.margem).toLocaleString("pt-BR")}%`}.</p>
+        {!!relatorio.por_mes.length && <section className="card"><h2>Receita e despesas por mês</h2><div className="transporte-legenda"><span>● Receita</span><span>● Despesas, incluindo salário e comissão</span></div>{relatorio.por_mes.map(g => { const max = Math.max(1, ...relatorio.por_mes.flatMap(i => [Number(i.receita), Number(i.despesas)])); return <div className="transporte-barras" key={g.nome}><strong>{g.nome.slice(5)}/{g.nome.slice(0, 4)}</strong><div><div className="transporte-barra receita" style={{ width: `${Number(g.receita) * 100 / max}%` }} /><span>Receita: {moeda(g.receita)}</span><div className="transporte-barra despesa" style={{ width: `${Number(g.despesas) * 100 / max}%` }} /><span>Despesas: {moeda(g.despesas)}</span></div></div>; })}</section>}
+        <TabelaResumo titulo="Ranking de faturamento por placa" grupos={relatorio.por_placa} /><TabelaResumo titulo="Ranking de faturamento por motorista" grupos={relatorio.por_motorista} /><TabelaResumo titulo="Resultado mensal" grupos={relatorio.por_mes} />
+        <section className="card"><h2>Composição das receitas e despesas operacionais</h2>{relatorio.categorias.length ? <div className="transporte-tabela"><table><thead><tr><th>Tipo / descrição</th><th>Valor</th></tr></thead><tbody>{relatorio.categorias.map(c => <tr key={c.nome}><td>{c.nome}</td><td>{moeda(c.total)}</td></tr>)}</tbody></table></div> : <p>Nenhum lançamento encontrado.</p>}</section>
+      </>}
+    </PainelAba>
+    <PainelAba modulo="transportes" aba="novo_lancamento" ativa={aba}>
+      {(pode("cadastrar") || (idLancamento && pode("editar"))) && <form className="card formulario nao-imprimir" onSubmit={e => { e.preventDefault(); void executar(async () => { await salvarLancamento(idLancamento, lancamento); const vazio = novoLancamento(); setLancamento(vazio); setIdLancamento(null); protecaoLancamento.marcarSalvo(vazio); setSucesso("Lançamento salvo. Consulte os dados em Receitas e despesas."); setAba("lancamentos"); atualizar(); }); }}>
+        <h2>{idLancamento ? "Editar lançamento" : "Novo lançamento"}</h2><div className="transporte-campos">
+          <label>Caminhão / placa<select required value={lancamento.caminhao || ""} onChange={e => selecionarCaminhao(e.target.value, "lancamento")}>{opcaoCaminhoes}</select></label><label>Motorista<input required maxLength={120} value={lancamento.motorista} onChange={e => setLancamento({ ...lancamento, motorista: e.target.value })} /></label><label>Data<input required type="date" value={lancamento.data} onInput={e => { const valor = e.currentTarget.value; setLancamento(l => ({ ...l, data: valor })); }} /></label><label>Tipo<select value={lancamento.tipo} onChange={e => setLancamento({ ...lancamento, tipo: e.target.value as "receita" | "despesa" })}><option value="receita">Receita</option><option value="despesa">Despesa</option></select></label>
+          <label>{lancamento.tipo === "receita" ? "Descrição / carga" : "Serviço executado"}<input required maxLength={200} value={lancamento.descricao} onChange={e => setLancamento({ ...lancamento, descricao: e.target.value })} /></label><label>{lancamento.tipo === "receita" ? "Origem / destino" : "Local"}<input maxLength={220} value={lancamento.local} onChange={e => setLancamento({ ...lancamento, local: e.target.value })} /></label><label>Nota / documento<input maxLength={100} value={lancamento.nota} onChange={e => setLancamento({ ...lancamento, nota: e.target.value })} /></label>
+          <label>Quantidade<input required type="number" step="0.0001" min="0.0001" value={lancamento.quantidade} onChange={e => setLancamento({ ...lancamento, quantidade: e.target.value })} /></label><label>Unidade<select value={lancamento.unidade} onChange={e => setLancamento({ ...lancamento, unidade: e.target.value })}><option value="">Não especificada</option>{["Ton", "m³", "Km", "un", "litros"].map(u => <option key={u}>{u}</option>)}</select></label><label>Valor unitário (R$)<input required type="number" min="0" step="0.0001" value={lancamento.valor_unitario} onChange={e => setLancamento({ ...lancamento, valor_unitario: e.target.value })} /></label>
+        </div><p>Total: <strong>{moeda(Number(lancamento.quantidade) * Number(lancamento.valor_unitario))}</strong></p><div className="acoes"><BotaoAcao acao={idLancamento ? "editar" : "cadastrar"} disabled={ocupado}>Salvar lançamento</BotaoAcao><button type="button" className="secundario" disabled={ocupado} onClick={() => { void protecaoLancamento.confirmarDescarte().then(ok => { if (ok) { const vazio = novoLancamento(); setIdLancamento(null); setLancamento(vazio); protecaoLancamento.marcarSalvo(vazio); } }); }}>Limpar / cancelar</button></div>
+      </form>}
+    </PainelAba>
+    <PainelAba modulo="transportes" aba="lancamentos" ativa={aba}>
+      <section className="card"><h2>Lançamentos do período</h2><p className="transporte-ajuda">Totais e ranking abrangem todos os registros filtrados na aba Relatórios. Esta lista tem 30 registros por página.</p>{!carregando && !registros.count && <p>Nenhum lançamento encontrado.</p>}<div className="transporte-tabela transporte-lancamentos"><table><thead><tr><th>Data</th><th>Placa / motorista</th><th>Tipo</th><th>Descrição</th><th>Origem/destino ou local</th><th>Nota</th><th>Quantidade</th><th>Valor unitário</th><th>Total</th><th className="nao-imprimir">Ações</th></tr></thead><tbody>{registros.results.map(i => <tr key={i.id}><td>{formatarData(i.data)}</td><td>{i.placa}<small className="transporte-motorista">{i.motorista}</small></td><td>{i.tipo}</td><td>{i.descricao}{i.origem && <small className="transporte-origem-planilha">Planilha: {i.origem}</small>}</td><td>{i.local}</td><td>{i.nota}</td><td>{Number(i.quantidade).toLocaleString("pt-BR")} {i.unidade}</td><td>{moeda(i.valor_unitario)}</td><td>{moeda(i.total)}</td><td className="nao-imprimir"><BotaoAcao acao="editar" className="secundario" disabled={ocupado} onClick={() => { void protecaoLancamento.confirmarDescarte().then(ok => { if (ok) { setIdLancamento(i.id); setAba("novo_lancamento"); setLancamento({ caminhao: i.caminhao, motorista: i.motorista, data: i.data, tipo: i.tipo, descricao: i.descricao, local: i.local, nota: i.nota, unidade: i.unidade, quantidade: i.quantidade, valor_unitario: i.valor_unitario }); } }); }}>Editar</BotaoAcao></td></tr>)}</tbody></table></div><Paginador pagina={pagina} total={registros.count} alterar={setPagina} ocupado={carregando || ocupado} /></section>
+    </PainelAba>
+    <PainelAba modulo="transportes" aba="remuneracao" ativa={aba}>
+      {(pode("cadastrar") || (idRemuneracao && pode("editar"))) && <form className="card formulario nao-imprimir" onSubmit={e => { e.preventDefault(); void executar(async () => { await salvarRemuneracao(idRemuneracao, remuneracao); const vazio = novaRemuneracao(); setRemuneracao(vazio); setIdRemuneracao(null); protecaoRemuneracao.marcarSalvo(vazio); setSucesso("Salário e comissão salvos. Consulte os dados por motorista."); setMotoristaRem(remuneracao.motorista); setCaminhaoRem(""); setPaginaRem(1); setAba("historico_remuneracao"); atualizar(); }); }}>
+        <h2>{idRemuneracao ? "Editar remuneração mensal" : "Salário e comissão do mês"}</h2><p>Informe o salário em reais e a comissão em %. Comissão = receitas do mês menos despesas de AREIA e PEDRA, multiplicadas pelo percentual. Base negativa resulta em comissão zero. Uma remuneração por caminhão, motorista e mês. No relatório por data, os valores entram no último dia do mês.</p><div className="transporte-campos"><label>Caminhão / placa<select required value={remuneracao.caminhao || ""} onChange={e => selecionarCaminhao(e.target.value, "remuneracao")}>{opcaoCaminhoes}</select></label><label>Motorista<input required maxLength={120} value={remuneracao.motorista} onChange={e => setRemuneracao({ ...remuneracao, motorista: e.target.value })} /></label><label>Competência<input required type="month" value={remuneracao.competencia.slice(0, 7)} onInput={e => { const valor = e.currentTarget.value; setRemuneracao(r => ({ ...r, competencia: valor + "-01" })); }} /></label><label>Salário (R$)<input required type="number" min="0" step="0.01" value={remuneracao.salario} onChange={e => setRemuneracao({ ...remuneracao, salario: e.target.value })} /></label><label>Comissão manual (%)<input required type="number" min="0" step="0.01" max="100" value={remuneracao.comissao_percentual} onChange={e => setRemuneracao({ ...remuneracao, comissao_percentual: e.target.value })} /></label><label>Observações<input maxLength={220} value={remuneracao.observacoes} onChange={e => setRemuneracao({ ...remuneracao, observacoes: e.target.value })} /></label></div><p>Base da comissão: <strong>{calculo ? moeda(calculo.base_comissao) : "—"}</strong> · Comissão calculada: <strong>{calculo ? moeda(calculo.comissao) : "—"}</strong> · Remuneração total: <strong>{calculo ? moeda(Number(remuneracao.salario) + Number(calculo.comissao)) : "—"}</strong></p>{erroCalculo && <p className="erro" role="alert">{erroCalculo}</p>}<div className="acoes"><BotaoAcao acao={idRemuneracao ? "editar" : "cadastrar"} disabled={ocupado}>Salvar remuneração</BotaoAcao><button className="secundario" type="button" disabled={ocupado} onClick={() => { void protecaoRemuneracao.confirmarDescarte().then(ok => { if (ok) { const vazio = novaRemuneracao(); setIdRemuneracao(null); setRemuneracao(vazio); protecaoRemuneracao.marcarSalvo(vazio); } }); }}>Limpar / cancelar</button></div>
+      </form>}
+      <button type="button" className="secundario" onClick={() => setAba("historico_remuneracao")}>Ver dados por motorista / placa</button>
+    </PainelAba>
+    <PainelAba modulo="transportes" aba="historico_remuneracao" ativa={aba}>
+      <section className="card"><h2>Salários e comissões por motorista ou placa</h2><p>Consulte os valores cadastrados, separados por motorista ou placa. Os formulários ficam nas abas de inserção.</p><div className="transporte-filtros nao-imprimir"><label>Separar dados por<select value={agrupamentoRem} onChange={e => setAgrupamentoRem(e.target.value as "motorista" | "placa")}><option value="motorista">Motorista</option><option value="placa">Placa</option></select></label><label>Filtrar por placa<select value={caminhaoRem} onChange={e => { setCaminhaoRem(e.target.value); setPaginaRem(1); }}><option value="">Todas as placas</option>{caminhoes.map(c => <option key={c.id} value={c.id}>{c.placa} · {c.veiculo}</option>)}</select></label><label>Filtrar por motorista<input placeholder="Nome completo ou vazio para todos" list="motoristas-remuneracao" value={motoristaRem} onChange={e => { setMotoristaRem(e.target.value); setPaginaRem(1); }} /></label><datalist id="motoristas-remuneracao">{[...new Set(caminhoes.map(c => c.motorista).concat(remuneracoes.results.map(r => r.motorista)))].sort().map(m => <option key={m} value={m} />)}</datalist><button type="button" className="secundario" onClick={() => { setMotoristaRem(""); setCaminhaoRem(""); setPaginaRem(1); }}>Limpar filtros</button><button type="button" className="secundario" onClick={() => setAba("remuneracao")}>Inserir salário e comissão</button></div></section>
+      {carregando && <p role="status">Carregando dados...</p>}
+      {[...new Set(remuneracoes.results.map(r => r[agrupamentoRem]))].sort().map(grupo => <section className="card" key={grupo}><h2>{agrupamentoRem === "placa" ? "Placa: " : "Motorista: "}{grupo}</h2><div className="transporte-tabela"><table><thead><tr><th>Mês</th><th>Placa</th><th>Motorista</th><th>Salário</th><th>Comissão (%)</th><th>Base da comissão</th><th>Comissão (R$)</th><th>Total</th><th className="nao-imprimir">Ações</th></tr></thead><tbody>{remuneracoes.results.filter(r => r[agrupamentoRem] === grupo).map(r => <tr key={r.id}><td>{r.competencia.slice(5, 7)}/{r.competencia.slice(0, 4)}</td><td>{r.placa}</td><td>{r.motorista}</td><td>{moeda(r.salario)}</td><td>{r.comissao_percentual === null ? "Histórico sem percentual" : `${Number(r.comissao_percentual).toLocaleString("pt-BR")}%`}</td><td>{moeda(r.base_comissao)}</td><td>{moeda(r.comissao)}</td><td>{moeda(Number(r.salario) + Number(r.comissao))}</td><td className="nao-imprimir"><BotaoAcao acao="editar" className="secundario" disabled={ocupado} onClick={() => { void protecaoRemuneracao.confirmarDescarte().then(ok => { if (ok) { const { id, placa: _, comissao: __, base_comissao: ___, ...resto } = r; const dados = { ...resto, comissao_percentual: resto.comissao_percentual ?? "" }; setIdRemuneracao(id); setRemuneracao(dados); setAba("remuneracao"); } }); }}>Editar</BotaoAcao></td></tr>)}</tbody></table></div></section>)}
+      {!carregando && !remuneracoes.count && <p className="card">Nenhuma remuneração encontrada para os filtros escolhidos.</p>}<Paginador pagina={paginaRem} total={remuneracoes.count} alterar={setPaginaRem} ocupado={carregando || ocupado} />
+    </PainelAba>
+    <PainelAba modulo="transportes" aba="caminhoes" ativa={aba}>
+      {(pode("cadastrar") || (idCaminhao && pode("editar"))) && <form className="card formulario nao-imprimir" onSubmit={e => { e.preventDefault(); void executar(async () => { await salvarCaminhao(idCaminhao, caminhao); setCaminhao(novoCaminhao); setIdCaminhao(null); protecaoCaminhao.marcarSalvo(novoCaminhao); setSucesso("Caminhão salvo. O motorista dos lançamentos anteriores foi preservado."); atualizar(); }); }}><h2>{idCaminhao ? "Editar caminhão" : "Novo caminhão"}</h2><div className="transporte-campos"><label>Placa<input required maxLength={8} value={caminhao.placa} onChange={e => setCaminhao({ ...caminhao, placa: e.target.value.toUpperCase() })} /></label><label>Veículo<input required maxLength={100} value={caminhao.veiculo} onChange={e => setCaminhao({ ...caminhao, veiculo: e.target.value })} /></label><label>Motorista atual<input required maxLength={120} value={caminhao.motorista} onChange={e => setCaminhao({ ...caminhao, motorista: e.target.value })} /></label><label>Situação<select value={String(caminhao.ativo)} onChange={e => setCaminhao({ ...caminhao, ativo: e.target.value === "true" })}><option value="true">Ativo</option><option value="false">Inativo</option></select></label></div><div className="acoes"><BotaoAcao acao={idCaminhao ? "editar" : "cadastrar"} disabled={ocupado}>Salvar caminhão</BotaoAcao><button type="button" className="secundario" disabled={ocupado} onClick={() => { void protecaoCaminhao.confirmarDescarte().then(ok => { if (ok) { setIdCaminhao(null); setCaminhao(novoCaminhao); protecaoCaminhao.marcarSalvo(novoCaminhao); } }); }}>Limpar / cancelar</button></div></form>}
+      <section className="card"><h2>Caminhões · {caminhoes.length}</h2><div className="transporte-tabela"><table><thead><tr><th>Placa</th><th>Veículo</th><th>Motorista atual</th><th>Situação</th><th className="nao-imprimir">Ações</th></tr></thead><tbody>{caminhoes.map(c => <tr key={c.id}><td>{c.placa}</td><td>{c.veiculo}</td><td>{c.motorista}</td><td>{c.ativo ? "Ativo" : "Inativo"}</td><td className="nao-imprimir"><BotaoAcao acao="editar" className="secundario" disabled={ocupado} onClick={() => { void protecaoCaminhao.confirmarDescarte().then(ok => { if (ok) { const { id, ...dados } = c; setIdCaminhao(id); setCaminhao(dados); } }); }}>Editar</BotaoAcao></td></tr>)}</tbody></table></div>{!caminhoes.length && <p>Cadastre um caminhão ou importe a planilha para começar.</p>}</section>
+    </PainelAba>
+    <PainelAba modulo="transportes" aba="importar" ativa={aba}>
+      <section className="card"><h2>Importar receitas, despesas e remuneração</h2><p>Formato da planilha enviada: abas JAN a DEZ, motorista, veículo, placa, salário e valor da comissão. O arquivo original é preservado.</p><label>Planilha Excel (.xlsx, até 10 MB)<input type="file" accept=".xlsx" disabled={ocupado} onChange={e => { setArquivo(e.target.files?.[0] ?? null); setPrevia(null); setSucesso(""); }} /></label><BotaoAcao acao="cadastrar" disabled={!arquivo || ocupado} onClick={() => void executar(async () => { if (arquivo) setPrevia(await previaPlanilha(arquivo)); })}>Conferir planilha</BotaoAcao>
+        {previa && <div><h3>Conferência antes de importar</h3><p>{previa.veiculos.map(c => `${c.placa} · ${c.veiculo} · ${c.motorista}`).join("; ")}</p><p>{previa.quantidade} lançamentos · {previa.duplicados} já importados · {previa.remuneracoes.length} remunerações mensais</p><p>Receitas: {moeda(previa.receitas)} · Despesas operacionais: {moeda(previa.despesas_operacionais)}</p><p>{previa.aviso}</p><div className="transporte-tabela"><table><thead><tr><th>Mês</th><th>Motorista</th><th>Salário</th><th>Comissão salva</th></tr></thead><tbody>{previa.remuneracoes.map(r => <tr key={`${r.placa}-${r.competencia}-${r.motorista}`}><td>{r.competencia.slice(0, 7)}</td><td>{r.motorista}</td><td>{moeda(r.salario)}</td><td>{moeda(r.comissao)}</td></tr>)}</tbody></table></div><BotaoAcao acao="cadastrar" disabled={ocupado || !arquivo} onClick={() => void executar(async () => { if (!arquivo) return; const resultado = await importarPlanilha(arquivo); setSucesso(`Importação concluída: ${resultado.lancamentos_criados} lançamentos e ${resultado.remuneracoes_criadas} remunerações criados; ${resultado.duplicados} lançamentos já existentes preservados.`); setPrevia(null); atualizar(); })}>Confirmar importação</BotaoAcao></div>}
+      </section>
+    </PainelAba>
+  </section>;
+}

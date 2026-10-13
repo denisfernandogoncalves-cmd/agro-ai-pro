@@ -65,7 +65,12 @@ class LancamentoFinanceiroSerializer(serializers.ModelSerializer):
         )
 
     def validate_data_vencimento(self, value):
-        if not self.instance and value < timezone.localdate().replace(year=timezone.localdate().year - 10):
+        hoje = timezone.localdate()
+        try:
+            limite = hoje.replace(year=hoje.year - 10)
+        except ValueError:
+            limite = hoje.replace(year=hoje.year - 10, day=28)
+        if not self.instance and value < limite:
             raise serializers.ValidationError("A data de vencimento é muito antiga.")
         return value
 

@@ -17,8 +17,8 @@ export async function listarLotes(page = 1) {
 export async function consultarLote(id: number) {
   return (await api.get<LoteImportacao>(`${base}lotes/${id}/`)).data;
 }
-export async function listarLinhas(lote: number, page = 1) {
-  return (await api.get<Pagina<LinhaImportacao>>(`${base}linhas/`, { params: { lote, page } })).data;
+export async function listarLinhas(lote: number, page = 1, status = "") {
+  return (await api.get<Pagina<LinhaImportacao>>(`${base}linhas/`, { params: { lote, page, ...(status ? {status} : {}) } })).data;
 }
 export async function previewPlanilha(arquivo: File) {
   const corpo = new FormData();

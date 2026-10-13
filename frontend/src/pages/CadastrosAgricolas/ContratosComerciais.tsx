@@ -1,3 +1,5 @@
+import AcertoContrato from "./AcertoContrato";
+import GestaoContrato from "./GestaoContrato";
 import { BotaoAcao } from "../../components/AcoesContext";
 import PainelFormulario from "../../components/PainelFormulario";
 import axios from "axios";
@@ -25,6 +27,7 @@ export function precoContrato(valor: string) {
 export default function ContratosComerciais() {
   const [itens, setItens] = useState<ContratoComercial[]>([]);
   const [form, setForm] = useState<DadosContrato>(vazio);
+  const [justificativa, setJustificativa] = useState("");
   const [edicao, setEdicao] = useState<number>();
   const [historico, setHistorico] = useState(false);
   const [ocupado, setOcupado] = useState(false);
@@ -47,7 +50,7 @@ export default function ContratosComerciais() {
   }
   function salvar(e: FormEvent) {
     e.preventDefault();
-    void executar(() => salvarContrato({ ...form, quantidade_kg: quantidadeContrato(form.quantidade_kg), preco_venda: form.preco_venda?.trim() ? precoContrato(form.preco_venda) : null }, edicao), "Contrato salvo.");
+    void executar(() => salvarContrato({ ...form, quantidade_kg: quantidadeContrato(form.quantidade_kg), preco_venda: form.preco_venda?.trim() ? precoContrato(form.preco_venda) : null }, edicao, itens.find(i=>i.id===edicao)?.versao, justificativa), "Contrato salvo.");
   }
   return <section className="card" aria-label="Cadastro de contratos">
     <h3>Contratos</h3><p>Cadastre empresa, número, quantidade e produto para selecionar o contrato em Vendas. Este cadastro não movimenta estoque.</p>
@@ -60,11 +63,12 @@ export default function ContratosComerciais() {
       <label>Produto<input required maxLength={80} list="produtos-contrato" placeholder="Ex.: Soja" value={form.produto} onChange={e => setForm({ ...form, produto: e.target.value })} /></label>
       <label>Valor vendido<input inputMode="decimal" placeholder="Ex.: 125,50" value={form.preco_venda || ""} onChange={e => setForm({ ...form, preco_venda: e.target.value })} /></label>
       <label>Valor por<select value={form.unidade_preco} onChange={e => setForm({ ...form, unidade_preco: e.target.value as DadosContrato["unidade_preco"] })}><option value="kg">kg</option><option value="sc">saca de 60 kg</option></select></label>
+      {edicao && <label>Justificativa da alteração<input required maxLength={2000} value={justificativa} onChange={e=>setJustificativa(e.target.value)} /></label>}
       <datalist id="produtos-contrato"><option value="Soja" /><option value="Milho" /><option value="Trigo" /></datalist>
       <div className="acoes"><button disabled={ocupado} type="submit">{edicao ? "Salvar contrato" : "Cadastrar contrato"}</button>{edicao && <button type="button" className="secundario" disabled={ocupado} onClick={() => { setForm(vazio); setEdicao(undefined); }}>Cancelar edição</button>}</div>
     </form>
     </PainelFormulario>
     <label className="nao-imprimir cadastro-checkbox"><input type="checkbox" checked={historico} onChange={e => setHistorico(e.target.checked)} /> Mostrar contratos excluídos</label>
-    <div className="lista">{itens.filter(i => historico || i.ativo).map(item => <article className="item" key={item.id}><div><h4>{item.empresa} · {item.numero}</h4><p>{item.produto || "Produto não informado"} · {item.quantidade_kg === null ? "Quantidade não informada" : `${Number(item.quantidade_kg).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} kg`}{item.preco_venda ? ` · R$ ${Number(item.preco_venda).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/${item.unidade_preco === "sc" ? "saca" : "kg"}` : ""}</p><small>{item.ativo ? "Ativo" : "Excluído da seleção; histórico preservado"}</small><div className="acoes"><BotaoAcao acao="editar" type="button" className="secundario" disabled={ocupado} onClick={() => { setEdicao(item.id); setForm({ empresa: item.empresa, numero: item.numero, produto: item.produto, quantidade_kg: item.quantidade_kg === null ? "" : Number(item.quantidade_kg).toLocaleString("pt-BR", { maximumFractionDigits: 3 }), preco_venda: item.preco_venda === null ? "" : Number(item.preco_venda).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }), unidade_preco: item.unidade_preco || "kg" }); }}>Editar</BotaoAcao>{item.ativo ? <BotaoAcao acao="excluir" type="button" className="perigo" disabled={ocupado} onClick={() => { if (window.confirm(`Excluir contrato ${item.numero} / ${item.empresa} da seleção de novas vendas? O histórico será preservado.`)) void executar(() => excluirContrato(item.id), "Contrato excluído da seleção."); }}>Excluir</BotaoAcao> : <BotaoAcao acao="editar" type="button" disabled={ocupado} onClick={() => void executar(() => reativarContrato(item.id), "Contrato reativado.")}>Reativar</BotaoAcao>}</div></div></article>)}{!itens.some(i => historico || i.ativo) && <p>{carregando ? "Carregando contratos..." : "Nenhum contrato cadastrado."}</p>}</div>
+    <div className="lista">{itens.filter(i => historico || i.ativo).map(item => <article className="item" key={item.id}><div><h4>{item.empresa} · {item.numero}</h4><p>{item.produto || "Produto não informado"} · {item.quantidade_kg === null ? "Quantidade não informada" : `${Number(item.quantidade_kg).toLocaleString("pt-BR", { maximumFractionDigits: 3 })} kg`}{item.preco_venda ? ` · R$ ${Number(item.preco_venda).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/${item.unidade_preco === "sc" ? "saca" : "kg"}` : ""}</p><small>{item.ativo ? "Ativo" : "Excluído da seleção; histórico preservado"}</small><div className="acoes"><BotaoAcao acao="editar" type="button" className="secundario" disabled={ocupado} onClick={() => { setEdicao(item.id); setForm({ empresa: item.empresa, numero: item.numero, produto: item.produto, quantidade_kg: item.quantidade_kg === null ? "" : Number(item.quantidade_kg).toLocaleString("pt-BR", { maximumFractionDigits: 3 }), preco_venda: item.preco_venda === null ? "" : Number(item.preco_venda).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }), unidade_preco: item.unidade_preco || "kg" }); }}>Editar</BotaoAcao>{item.ativo ? <BotaoAcao acao="excluir" type="button" className="perigo" disabled={ocupado} onClick={() => { if (window.confirm(`Excluir contrato ${item.numero} / ${item.empresa} da seleção de novas vendas? O histórico será preservado.`)) void executar(() => excluirContrato(item.id,item.versao), "Contrato excluído da seleção."); }}>Excluir</BotaoAcao> : <BotaoAcao acao="editar" type="button" disabled={ocupado} onClick={() => void executar(() => reativarContrato(item.id,item.versao), "Contrato reativado.")}>Reativar</BotaoAcao>}</div><GestaoContrato contrato={item} onSaved={carregar}/><AcertoContrato contrato={item.id}/></div></article>)}{!itens.some(i => historico || i.ativo) && <p>{carregando ? "Carregando contratos..." : "Nenhum contrato cadastrado."}</p>}</div>
   </section>;
 }

@@ -4,7 +4,7 @@ from apps.accounts.access import pode
 from .models import FavoritoFiltro, RegistroAlteracao
 
 CONTEXTOS = {
-    "relatorios": {"cad_pro", "propriedade", "proprietario", "cultura", "safra", "classificacao_codigo", "armazem", "destinado_semente", "motorista", "placa", "numero_contrato", "comprador", "data_inicio", "data_fim", "secao", "pagina", "por_pagina"},
+    "relatorios": {"agrupamento_financeiro", "pagina_agrupamento", "status_financeiro", "busca_financeiro", "cad_pro", "propriedade", "proprietario", "cultura", "safra", "classificacao_codigo", "armazem", "destinado_semente", "motorista", "placa", "numero_contrato", "comprador", "data_inicio", "data_fim", "secao", "pagina", "por_pagina"},
     "financeiro": {"search", "tipo", "status", "parceiro", "recebedor", "dataReferencia", "inicio", "fim"},
     "cargas": {"search", "mostrarHistorico", "cultura", "safra", "propriedade", "data_inicio", "data_fim"},
     "transferencias": {"search", "mostrarHistorico", "cultura", "safra", "propriedade", "data_inicio", "data_fim"},

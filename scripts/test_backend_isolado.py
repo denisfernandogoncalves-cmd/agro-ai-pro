@@ -12,6 +12,7 @@ django.setup()
 from django.conf import settings
 from django.db import connection
 from django.test.runner import DiscoverRunner
+from django.test import override_settings
 
 
 def main():
@@ -24,9 +25,15 @@ def main():
             raise RuntimeError('Base já existe: execução cancelada, sem recriação.')
     settings.DATABASES['default']['TEST']['NAME']=nome
     print('Base temporária exclusiva:',nome,flush=True)
-    with TemporaryDirectory(prefix='agro-test-media-') as media:
+    with override_settings(CACHES={'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache', 'LOCATION': nome}}, AUTH_LOGIN_RATE='10000/min', AUTH_ACCOUNT_RATE='10000/min', AUTH_REFRESH_RATE='10000/min'), TemporaryDirectory(prefix='agro-test-media-') as media:
         settings.MEDIA_ROOT=media
-        return DiscoverRunner(verbosity=1,interactive=True).run_tests(sys.argv[1:])
+        class RunnerComCobertura(DiscoverRunner):
+            def build_suite(self, *args, **kwargs):
+                suite = super().build_suite(*args, **kwargs)
+                if suite.countTestCases() == 0:
+                    raise RuntimeError("Nenhum teste descoberto: validação cancelada.")
+                return suite
+        return RunnerComCobertura(verbosity=1,interactive=True).run_tests(sys.argv[1:] or ["apps"])
 
 
 if __name__=='__main__':

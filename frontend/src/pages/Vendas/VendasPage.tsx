@@ -1,3 +1,4 @@
+import ConferenciaComprador from "./ConferenciaComprador";
 import AbasModulo, { PainelAba } from "../../components/AbasModulo";
 import CamposPesagemVenda, { payloadPesagem } from "./CamposPesagemVenda";
 import AnexosLancamento from "../../components/AnexosLancamento";
@@ -184,6 +185,9 @@ export default function VendasPage() {
   const pode = useAcoes();
   const [aba, setAba] = useState(pode("cadastrar") ? "nova" : "consulta");
   const entradaPainel = useEntradaPainel("vendas");
+  const [contagemRomaneios, setContagemRomaneios] = useState<string | undefined>();
+  const [carregandoConsulta, setCarregandoConsulta] = useState(true);
+  const sequenciaConsulta = useRef(0);
   const [vendas, setVendas] = useState<VendaGraos[]>([]);
   const [posicoes, setPosicoes] = useState<PosicaoSaldo[]>([]);
   const [propriedades, setPropriedades] = useState<Propriedade[]>([]);
@@ -218,7 +222,11 @@ export default function VendasPage() {
 
   const rascunho = useRascunhoAutomatico("vendas", {formulario,novaSaida,novaPosicao,tipoLancamento,origemSelecionada}, salvo => {setFormulario({...vazio,...salvo.formulario});setNovaSaida({...entregaVazia,...salvo.novaSaida});setNovaPosicao({...novaPosicao,...salvo.novaPosicao});setTipoLancamento(salvo.tipoLancamento||"saida");setOrigemSelecionada(salvo.origemSelecionada||"");});
   async function carregar(atuais = filtros) {
+    const consulta = ++sequenciaConsulta.current;
+    setCarregandoConsulta(true); setErro("");
+    try {
     const dados = await carregarVendas(atuais);
+    if (consulta !== sequenciaConsulta.current) return;
     setVendas(dados.vendas);
     setFiltrosAplicados({...atuais});
     setPosicoes(dados.posicoes);
@@ -228,6 +236,8 @@ export default function VendasPage() {
     setContratos(dados.contratos);
     const visiveis = dados.vendas.filter(item => noPeriodo(item.data_contrato, atuais.data_inicio, atuais.data_fim));
     setSelecionada((atual) => visiveis.find((item) => item.id === atual?.id) ?? visiveis[0] ?? null);
+    } catch (falha) { if (consulta === sequenciaConsulta.current) throw falha; }
+    finally { if (consulta === sequenciaConsulta.current) setCarregandoConsulta(false); }
   }
 
   useEffect(() => { if (!entradaPainel) void carregar(filtrosVazios).catch((falha) => setErro(mensagemErro(falha))); }, []);
@@ -348,7 +358,7 @@ export default function VendasPage() {
       {sucesso && <p className="sucesso card" role="status">{sucesso}</p>}
 
 
-<AbasModulo modulo="vendas" ativa={aba} alterar={setAba} abas={[...(pode("cadastrar") ? [{id:"nova",titulo:"Nova venda"}] : []),{id:"consulta",titulo:"Vendas registradas"},{id:"romaneios",titulo:"Romaneios"}]} /><PainelAba modulo="vendas" aba="nova" ativa={aba}>
+<AbasModulo modulo="vendas" ativa={aba} alterar={setAba} abas={[...(pode("cadastrar") ? [{id:"nova",titulo:"Nova venda"}] : []),{id:"consulta",titulo:"Vendas registradas" + (!carregandoConsulta && !erro ? ` (${vendasConsulta.length})` : "")},{id:"romaneios",titulo:"Romaneios" + (contagemRomaneios !== undefined ? ` (${contagemRomaneios})` : "")}]} /><p className="abrangencia-abas nao-imprimir">Cada aba mantém seus filtros. Vendas registradas considera os filtros aplicados; Romaneios usa sua própria busca e período de saída.</p>{carregandoConsulta && <p role="status">Atualizando vendas…</p>}<PainelAba modulo="vendas" aba="nova" ativa={aba}>
 <div className="vendas-formulario-aba">        <PainelFormulario titulo="Nova venda" inicialmenteAberto>
         {rascunho.aviso}
         <FormularioValidado className="card formulario formulario-venda-horizontal" onSubmit={criar}>
@@ -373,7 +383,7 @@ export default function VendasPage() {
         </FormularioValidado>
         </PainelFormulario></div>
 </PainelAba><PainelAba modulo="vendas" aba="romaneios" ativa={aba}>
-<LocalizadorRomaneios revisao={vendas} />
+<LocalizadorRomaneios onContagem={setContagemRomaneios} revisao={vendas} ativo={aba === "romaneios"} />
 </PainelAba><PainelAba modulo="vendas" aba="consulta" ativa={aba}>
       <details className="card filtros-vendas-painel"><summary>Filtros de vendas</summary><FormularioValidado className="filtros-vendas" onSubmit={(e) => { e.preventDefault(); void carregar().catch(falha => setErro(mensagemErro(falha))); }}>
         <input aria-label="Buscar vendas" placeholder="Contrato ou cliente" value={filtros.search} onChange={(e) => setFiltros({ ...filtros, search: e.target.value })} />
@@ -410,6 +420,7 @@ export default function VendasPage() {
         <ComprovanteLancamento duasVias dados={{titulo:`Venda #${selecionada.id}`,campos:[["Situação",selecionada.excluida_em?"Excluída":selecionada.status],["Data",dataPlanilhaVenda(selecionada.data_contrato)],["Contrato / comprador",`${selecionada.numero_contrato||"Sem contrato"} / ${selecionada.cliente_nome}`],["Propriedade / CAD/PRO",`${selecionada.propriedade_nome||"—"} / ${selecionada.cad_pro_codigo}`],["Produto / safra",`${selecionada.cultura} / ${selecionada.safra}`],["Armazenagem",selecionada.armazem_nome],["Contratado",kg(selecionada.quantidade_kg)],["Reservado",kg(selecionada.quantidade_reservada_kg)],["Entregue",kg(selecionada.quantidade_entregue_kg)],["Devolvido",kg(selecionada.quantidade_devolvida_kg)],["Cancelado",kg(selecionada.quantidade_cancelada_kg)],["Observações",selecionada.observacoes||"—"],...selecionada.entregas.map(m=>[`Entrega #${m.id}`,`${dataPlanilhaVenda(m.data_entrega)} · ${kg(m.quantidade_kg)} · ${m.destino||"—"} · ${m.placa||"Sem placa"} · ${m.cancelado_em?"Cancelada/substituída":"Ativa"}`] as [string,string])]}}/>
         <div className="resumo-venda"><span>Físico da posição <strong>{kg(saldoSelecionado?.saldo_fisico_kg ?? "0")}</strong></span><span>Comprometido da posição <strong>{kg(saldoSelecionado?.saldo_comprometido_kg ?? "0")}</strong></span><span>Disponível da posição <strong>{kg(saldoSelecionado?.saldo_disponivel_kg ?? "0")}</strong></span><span>Reservado nesta venda <strong>{kg(selecionada.quantidade_reservada_kg)}</strong></span><span>Entregue <strong>{kg(selecionada.quantidade_entregue_kg)}</strong></span><span>Devolvido <strong>{kg(selecionada.quantidade_devolvida_kg)}</strong></span><span>Cancelado <strong>{kg(selecionada.quantidade_cancelada_kg)}</strong></span></div>
         <AnexosLancamento entidade="venda" registro={selecionada.id} />
+        {selecionada.entregas.map(e=><ConferenciaComprador key={e.id} venda={selecionada.id} entrega={e.id}/>)}
 
         {aberto && <FormularioValidado className="movimentos-venda formulario-saida" onSubmit={e => { e.preventDefault(); const assinatura = JSON.stringify(["entregar", selecionada.id, dadosEntrega]); void executar(assinatura, (chave) => entregarVenda(selecionada.id, { ...dadosEntrega, ...payloadPesagem(dadosEntrega), quantidade_kg: quantidadeContrato(dadosEntrega.quantidade_kg) }, chave), "Entrega registrada; físico e comprometido foram reduzidos uma única vez.").then(ok => { if (ok) {setDadosEntrega(entregaVazia);protecaoMovimento.marcarSalvo({dadosEntrega:entregaVazia,quantidadeMovimento});} }); }}>
           <label>Data<input required type="date" value={dadosEntrega.data_movimento} onChange={e => setDadosEntrega({ ...dadosEntrega, data_movimento: e.target.value })} /></label>

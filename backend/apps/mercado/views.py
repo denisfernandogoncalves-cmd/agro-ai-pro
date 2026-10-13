@@ -3,8 +3,9 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import ClimaCornBelt, CotacaoMercado, NoticiaMercado
+from .models import CotacaoCBOT, ClimaCornBelt, CotacaoMercado, NoticiaMercado
 from .serializers import (
+    CotacaoCBOTSerializer,
     ClimaCornBeltSerializer,
     CotacaoMercadoSerializer,
     NoticiaMercadoSerializer,
@@ -102,3 +103,30 @@ class NoticiaMercadoViewSet(viewsets.ModelViewSet):
         elif ativa in {"false", "0"}:
             queryset = queryset.filter(ativa=False)
         return queryset
+
+
+class CotacaoCBOTViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = CotacaoCBOT.objects.all()
+    serializer_class = CotacaoCBOTSerializer
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request, *args, **kwargs):
+        from .cbot import ultimas_cotacoes
+        return Response(self.get_serializer(ultimas_cotacoes(), many=True).data)
+
+    @action(detail=False, methods=["post"])
+    def atualizar(self, request):
+        from .cbot import atualizar_cbot
+        try:
+            dados = atualizar_cbot()
+        except ServicoMercadoError as exc:
+            return Response({"detail":str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        return Response(self.get_serializer(dados, many=True).data)
+
+
+class ReferenciasInvestingViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request):
+        from .investing import consultar_referencias
+        return Response(consultar_referencias())

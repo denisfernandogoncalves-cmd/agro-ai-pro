@@ -1,5 +1,10 @@
 # AGRO-AI-PRO
 
+> A versão operacional auditada está na branch `codex/modernizacao-visual-runtime`.
+> Use essa branch para reproduzir o aplicativo local. O checkpoint
+> `codex/modernizacao-visual` foi preservado separadamente.
+> Evidências e limites: [melhorias da auditoria](docs/MELHORIAS-AUDITORIA-20261013.md).
+
 **Versão funcional:** 1.0
 
 Plataforma modular de gestão agrícola com backend Django REST Framework e

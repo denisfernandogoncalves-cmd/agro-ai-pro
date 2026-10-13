@@ -2,6 +2,9 @@ from decimal import Decimal, ROUND_HALF_UP
 from math import ceil
 
 from django.utils import timezone
+from django.db.models import Q
+from apps.financeiro.services import resumo_financeiro
+from .agrupamento_financeiro import agrupar_financeiro, vencimentos_financeiros
 
 from apps.cadpro.selectors import selecionar_cadpros
 from apps.clima.models import PrevisaoClima
@@ -609,17 +612,28 @@ def _estrutura_rural(filtros):
     return resultado
 
 
-def _financeiro(filtros):
+def _financeiro_queryset(filtros):
     queryset = LancamentoFinanceiro.objects.select_related(
         "categoria", "parceiro", "centro_custo", "propriedade"
     )
+    if filtros.get("secao") == "contas_pagar":
+        queryset = queryset.filter(tipo="pagar")
     if filtros.get("propriedade"):
         queryset = queryset.filter(propriedade_id=filtros["propriedade"])
     if filtros.get("proprietario"):
         queryset = queryset.filter(propriedade__proprietario__iexact=filtros["proprietario"])
     if filtros.get("safra"):
         queryset = queryset.filter(safra=filtros["safra"])
-    queryset = _periodo(queryset, "data_vencimento", filtros).order_by("data_vencimento", "id")
+    if filtros.get("status_financeiro"):
+        queryset = queryset.filter(status=filtros["status_financeiro"])
+    if filtros.get("busca_financeiro"):
+        termo=filtros["busca_financeiro"].strip()
+        queryset=queryset.filter(Q(descricao__icontains=termo)|Q(parceiro__nome__icontains=termo)|Q(recebedor_nome__icontains=termo))
+    return _periodo(queryset, "data_vencimento", filtros).order_by("data_vencimento", "id")
+
+
+def _financeiro(filtros, queryset=None):
+    queryset = _financeiro_queryset(filtros) if queryset is None else queryset
     return [{
         "id": item.pk,
         "tipo": item.get_tipo_display(),
@@ -637,14 +651,19 @@ def _financeiro(filtros):
     } for item in queryset]
 
 
-def _estoque_insumos(filtros):
+def _estoque_insumos_queryset(filtros):
     queryset = LoteEstoque.objects.select_related("produto", "local__propriedade").prefetch_related("movimentacoes")
     if filtros.get("propriedade"):
         queryset = queryset.filter(local__propriedade_id=filtros["propriedade"])
     if filtros.get("proprietario"):
         queryset = queryset.filter(local__propriedade__proprietario__iexact=filtros["proprietario"])
+    return queryset.order_by("produto__nome", "local__nome", "codigo", "id")
+
+
+def _estoque_insumos(filtros, queryset=None):
+    queryset = _estoque_insumos_queryset(filtros) if queryset is None else queryset
     resultado = []
-    for lote in queryset.order_by("produto__nome", "local__nome", "codigo", "id"):
+    for lote in queryset:
         movimentos = list(lote.movimentacoes.all())
         if filtros.get("safra"):
             movimentos = [item for item in movimentos if item.safra == filtros["safra"]]
@@ -674,8 +693,8 @@ def _estoque_insumos(filtros):
     return resultado
 
 
-def _operacoes_agricolas(filtros):
-    queryset = OperacaoAgricola.objects.select_related("talhao__propriedade")
+def _operacoes_agricolas_queryset(filtros):
+    queryset = OperacaoAgricola.objects.select_related("talhao__propriedade").prefetch_related("insumos__lote__produto","insumos__movimentacao_estoque")
     if filtros.get("propriedade"):
         queryset = queryset.filter(talhao__propriedade_id=filtros["propriedade"])
     if filtros.get("proprietario"):
@@ -685,7 +704,21 @@ def _operacoes_agricolas(filtros):
     if filtros.get("safra"):
         queryset = queryset.filter(talhao__safra=filtros["safra"])
     queryset = _periodo(queryset, "data_planejada", filtros).order_by("data_planejada", "id")
+    return queryset
+
+
+def _comparacao_operacao(item):
+    insumos=[]
+    for uso in item.insumos.all():
+        movimento=uso.movimentacao_estoque if uso.movimentacao_estoque_id else None
+        insumos.append({"produto":uso.lote.produto.nome,"lote":uso.lote.codigo,"unidade":uso.lote.produto.unidade,"planejada":_texto_decimal(uso.quantidade_planejada),"utilizada":_texto_decimal(movimento.quantidade) if movimento else None,"diferenca":_texto_decimal(movimento.quantidade-uso.quantidade_planejada) if movimento else None,"movimento_id":uso.movimentacao_estoque_id,"documento":movimento.documento_fiscal if movimento else "","custo_registrado":_texto_decimal(movimento.quantidade*movimento.custo_unitario) if movimento and movimento.custo_unitario is not None else None})
+    return {"custo_diferenca":_texto_decimal(item.custo_realizado-item.custo_estimado) if item.custo_realizado is not None else None,"duracao_realizada_dias":(item.data_conclusao-item.data_inicio).days if item.data_inicio and item.data_conclusao else None,"insumos":insumos,"base":"Quantidades realizadas usam a movimentação efetiva de estoque, por produto/lote/unidade. Área realizada separada e duração planejada não são cadastradas neste modelo. Custos dos insumos só aparecem quando registrados na movimentação; não são somados novamente ao custo realizado da operação."}
+
+
+def _operacoes_agricolas(filtros, queryset=None):
+    queryset = _operacoes_agricolas_queryset(filtros) if queryset is None else queryset
     return [{
+        "comparacao": _comparacao_operacao(item),
         "id": item.pk,
         "tipo": item.get_tipo_display(),
         "descricao": item.descricao,
@@ -704,7 +737,7 @@ def _operacoes_agricolas(filtros):
     } for item in queryset]
 
 
-def _maquinas(filtros):
+def _maquinas_queryset(filtros):
     queryset = Maquina.objects.select_related("propriedade").prefetch_related(
         "usos", "abastecimentos", "manutencoes"
     )
@@ -712,8 +745,13 @@ def _maquinas(filtros):
         queryset = queryset.filter(propriedade_id=filtros["propriedade"])
     if filtros.get("proprietario"):
         queryset = queryset.filter(propriedade__proprietario__iexact=filtros["proprietario"])
+    return queryset.order_by("identificacao", "id")
+
+
+def _maquinas(filtros, queryset=None):
+    queryset = _maquinas_queryset(filtros) if queryset is None else queryset
     resultado = []
-    for maquina in queryset.order_by("identificacao"):
+    for maquina in queryset:
         usos = list(maquina.usos.all())
         abastecimentos = list(maquina.abastecimentos.all())
         manutencoes = list(maquina.manutencoes.all())
@@ -727,7 +765,18 @@ def _maquinas(filtros):
             usos = [item for item in usos if item.data <= fim]
             abastecimentos = [item for item in abastecimentos if item.data <= fim]
             manutencoes = [item for item in manutencoes if item.data_prevista <= fim]
+        horas = sum((item.horas_trabalhadas for item in usos), ZERO)
+        combustivel = sum((item.valor_total for item in abastecimentos), ZERO)
+        litros = sum((item.litros for item in abastecimentos), ZERO)
+        concluidas = [item for item in maquina.manutencoes.all() if item.status == item.Status.CONCLUIDA and item.data_conclusao is not None and (not filtros.get("data_inicio") or item.data_conclusao >= filtros["data_inicio"]) and (not filtros.get("data_fim") or item.data_conclusao <= filtros["data_fim"])]
+        realizadas = sum((item.custo for item in concluidas), ZERO)
+        proximas = [item.horimetro_previsto - maquina.horimetro_atual for item in maquina.manutencoes.all() if item.status == item.Status.AGENDADA and item.horimetro_previsto is not None]
         resultado.append({
+            "custo_manutencoes_realizadas": _texto_decimal(realizadas),
+            "custo_por_hora_registrada": _texto_decimal((combustivel+realizadas)/horas) if horas else None,
+            "litros_por_hora_registrada": _texto_decimal(litros/horas) if horas else None,
+            "horas_ate_manutencao": _texto_decimal(min(proximas)) if proximas else None,
+            "base_custos": "Combustível pela data do abastecimento; manutenção pela data de conclusão; dividido pelas horas de uso registradas no período. Não inclui depreciação, mão de obra ou custos ausentes. Horas até manutenção usam todas as agendas atuais, sem filtro de período.",
             "id": maquina.pk,
             "identificacao": maquina.identificacao,
             "tipo": maquina.get_tipo_display(),
@@ -831,6 +880,7 @@ def selecionar_relatorio_operacional(**filtros):
     seletores_gerais = {
         "estrutura": _estrutura_rural,
         "financeiro": _financeiro,
+        "contas_pagar": _financeiro,
         "estoque_insumos": _estoque_insumos,
         "operacoes_agricolas": _operacoes_agricolas,
         "maquinas": _maquinas,
@@ -852,6 +902,19 @@ def selecionar_relatorio_operacional(**filtros):
             "semente_kg": _texto_decimal(ZERO),
         }
         totais_producao = _totais_producao_propriedade([])
+        if secao in {"financeiro","contas_pagar"}:
+            qs = _financeiro_queryset(filtros)
+            total = qs.count()
+            inicio = (pagina-1)*por_pagina
+            dados_pagina = {"pagina":pagina,"por_pagina":por_pagina,"total":total,"total_paginas":ceil(total/por_pagina) if total else 0,"resultados":_financeiro(filtros,qs[inicio:inicio+por_pagina])}
+            zeros.update({chave:str(valor) for chave,valor in resumo_financeiro(qs).items()})
+        elif secao in {"maquinas","operacoes_agricolas","estoque_insumos"}:
+            qs = {"maquinas":_maquinas_queryset,"operacoes_agricolas":_operacoes_agricolas_queryset,"estoque_insumos":_estoque_insumos_queryset}[secao](filtros)
+            total = qs.count()
+            inicio = (pagina-1)*por_pagina
+            dados_pagina = {"pagina":pagina,"por_pagina":por_pagina,"total":total,"total_paginas":ceil(total/por_pagina) if total else 0,"resultados":seletores_gerais[secao](filtros,qs[inicio:inicio+por_pagina])}
+        else:
+            dados_pagina = _pagina(seletores_gerais[secao](filtros),pagina,por_pagina)
         return {
             "gerado_em": timezone.now(),
             "filtros": {
@@ -865,7 +928,9 @@ def selecionar_relatorio_operacional(**filtros):
             "produtividade_por_cad_pro": [],
             "totais_producao_propriedade": totais_producao,
             "secao": secao,
-            "dados": _pagina(seletores_gerais[secao](filtros), pagina, por_pagina),
+            "dados": dados_pagina,
+            "vencimentos_financeiros": vencimentos_financeiros(qs) if secao in {"financeiro","contas_pagar"} else None,
+            "agrupamento_financeiro": agrupar_financeiro(qs,filtros.get("agrupamento_financeiro"),filtros.get("pagina_agrupamento",1),por_pagina) if secao in {"financeiro","contas_pagar"} else None,
         }
     posicoes = list(_filtrar_posicoes(filtros))
     ids = _ids_posicoes(posicoes)
@@ -878,16 +943,16 @@ def selecionar_relatorio_operacional(**filtros):
     motoristas = _motoristas(filtros)
 
     secoes = {
-        "saldos": [_item_posicao(item) for item in posicoes],
-        "producao": _producoes(movimentos),
-        "reservas": [_item_reserva(item) for item in reservas],
-        "vendas": [_item_venda(item) for item in vendas],
-        "entregas": [_item_entrega(item) for item in entregas],
-        "movimentacoes": [_item_movimento(item) for item in movimentos],
-        "rastreabilidade": _rastreabilidade(movimentos),
-        "produtividade": produtividade,
-        "producao_propriedade": producao_propriedade,
-        "motoristas": motoristas,
+        "saldos": lambda: [_item_posicao(item) for item in posicoes],
+        "producao": lambda: _producoes(movimentos),
+        "reservas": lambda: [_item_reserva(item) for item in reservas],
+        "vendas": lambda: [_item_venda(item) for item in vendas],
+        "entregas": lambda: [_item_entrega(item) for item in entregas],
+        "movimentacoes": lambda: [_item_movimento(item) for item in movimentos],
+        "rastreabilidade": lambda: _rastreabilidade(movimentos),
+        "produtividade": lambda: produtividade,
+        "producao_propriedade": lambda: producao_propriedade,
+        "motoristas": lambda: motoristas,
     }
     producao_total = sum(
         (item.quantidade_kg for item in movimentos if _movimento_producao_ativo(item)),
@@ -936,7 +1001,7 @@ def selecionar_relatorio_operacional(**filtros):
         "produtividade_por_cad_pro": _produtividade_por_cad_pro(produtividade),
         "totais_producao_propriedade": _totais_producao_propriedade(producao_propriedade),
         "secao": secao,
-        "dados": _pagina(secoes[secao], pagina, por_pagina),
+        "dados": _pagina(secoes[secao](), pagina, por_pagina),
     }
 
 

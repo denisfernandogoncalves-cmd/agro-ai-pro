@@ -343,6 +343,8 @@ def registrar_entrega_venda(
     venda.lote = LoteGraos.objects.get(pk=venda.lote_id)
     venda.posicao = PosicaoSaldoGraos.objects.get(pk=venda.posicao_id)
     _validar_contexto_venda(venda)
+    from .gestao_contratos import validar_entrega_contrato
+    validar_entrega_contrato(venda, quantidade)
     if quantidade > venda.reserva.saldo_reservado_kg:
         raise VendaGraosConflitoError("A entrega excede a reserva aberta da venda.")
     resultado = confirmar_entrega(

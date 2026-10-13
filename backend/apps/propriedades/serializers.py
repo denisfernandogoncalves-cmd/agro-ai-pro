@@ -3,6 +3,7 @@ from rest_framework import serializers
 
 from .kml_service import KMLInvalidoError, extrair_centroide_kml
 from .models import Propriedade
+from .coordenadas import validar_coordenadas_cadastradas
 from .services import atualizar_coordenadas_kml
 from apps.talhoes.services import comparar_areas
 from apps.cadpro.services import (
@@ -12,6 +13,7 @@ from apps.cadpro.services import (
 
 
 class PropriedadeSerializer(serializers.ModelSerializer):
+    converter_coordenadas = serializers.BooleanField(write_only=True, required=False, default=False)
     diferenca_area_hectares = serializers.SerializerMethodField()
     divergencia_area_percentual = serializers.SerializerMethodField()
     cad_pro_numero = serializers.CharField(
@@ -72,6 +74,7 @@ class PropriedadeSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, attrs):
+        validar_coordenadas_cadastradas(attrs, self.instance)
         latitude = attrs.get("latitude", getattr(self.instance, "latitude", None))
         longitude = attrs.get("longitude", getattr(self.instance, "longitude", None))
         if (latitude is None) != (longitude is None):

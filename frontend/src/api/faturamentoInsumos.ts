@@ -11,7 +11,7 @@ export type ResumoFaturamento = {
   fornecedor_nome: string; produto_nome: string; unidade: string; data_envio: string;
   embalagem: string; conteudo_embalagem: string; dosagem_alqueire: string; observacoes: string;
   total_embalagens: string; quantidade_total: string; saldo_anterior: string; saldo_posterior: string;
-  itens: (ItemFaturamento & { propriedade_nome: string; produtor: string; quantidade: string; quantidade_sugerida: string })[];
+  itens: (ItemFaturamento & { formato_coordenadas?: "decimal" | "gms"; latitude?: string | null; longitude?: string | null; latitude_gms?: string; longitude_gms?: string; propriedade_nome: string; produtor: string; quantidade: string; quantidade_sugerida: string })[];
 };
 export type Faturamento = { id: string; fornecedor: number; produto: number; data_envio: string; criado_em: string; responsavel: string; resumo: ResumoFaturamento };
 export const previaFaturamento = async (dados: EntradaFaturamento) => (await api.post<ResumoFaturamento>("/estoque/faturamentos/previa/", dados)).data;

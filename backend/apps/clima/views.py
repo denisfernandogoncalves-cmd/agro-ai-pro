@@ -9,6 +9,7 @@ from apps.propriedades.models import Propriedade
 from .models import PrevisaoClima
 from .serializers import PrevisaoClimaSerializer
 from .services import ServicoClimaError, atualizar_previsoes
+from apps.core.query_params import validar_filtros
 
 
 class PrevisaoClimaViewSet(viewsets.ReadOnlyModelViewSet):
@@ -20,6 +21,7 @@ class PrevisaoClimaViewSet(viewsets.ReadOnlyModelViewSet):
     ordering = ("data",)
 
     def get_queryset(self):
+        validar_filtros(self.request.query_params, ids=("propriedade",), datas=("data_inicio", "data_fim"))
         queryset = super().get_queryset()
         propriedade = self.request.query_params.get("propriedade", "").strip()
         data_inicio = self.request.query_params.get("data_inicio", "").strip()

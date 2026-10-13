@@ -6,6 +6,7 @@ import {
   Polygon,
   Popup,
   TileLayer,
+  Tooltip,
   useMap,
 } from "react-leaflet";
 
@@ -17,6 +18,7 @@ type Props = {
   longitude: number;
   nome: string;
   geometria?: GeometriaGeoJSON | null;
+  talhoes?: {id:number;nome:string;area_hectares:string;cultura_atual:string;geometria_geojson:GeometriaGeoJSON|null}[];
 };
 
 function AjustarEnquadramento({ geometria }: { geometria: GeometriaGeoJSON }) {
@@ -32,6 +34,7 @@ export default function MapaPropriedade({
   longitude,
   nome,
   geometria,
+  talhoes = [],
 }: Props) {
   return (
     <MapContainer
@@ -57,6 +60,7 @@ export default function MapaPropriedade({
           <AjustarEnquadramento geometria={geometria} />
         </>
       )}
+      {talhoes.filter(t=>t.geometria_geojson).map(t=><Polygon key={t.id} positions={converterGeometria(t.geometria_geojson!)} pathOptions={{color:"#61db68",fillColor:"#168443",fillOpacity:.28,weight:2}}><Tooltip sticky>{t.nome}</Tooltip><Popup><strong>{t.nome}</strong><br/>{Number(t.area_hectares).toLocaleString("pt-BR")} ha · {t.cultura_atual || "Cultura não informada"}</Popup></Polygon>)}
     </MapContainer>
   );
 }

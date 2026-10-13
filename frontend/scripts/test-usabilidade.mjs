@@ -1,10 +1,26 @@
 import assert from "node:assert/strict";
+import "./test-romaneios.mjs";
 import {readFile} from "node:fs/promises";
 import React from "react";
 import {renderToStaticMarkup} from "react-dom/server";
 import {createServer, transformWithOxc} from "vite";
 const servidor = await createServer({appType:"custom",configLoader:"runner",logLevel:"silent",server:{middlewareMode:true}});
 try {
+  const {periodoInvertido}=await servidor.ssrLoadModule('/src/utils/datas.ts');
+  assert.equal(periodoInvertido('2026-10-05','2026-10-01'),true);
+  assert.equal(periodoInvertido('2026-10-05','2026-10-05'),false);
+  assert.equal(periodoInvertido('2026-10-05',''),false);
+  const {default:ListaEntradas}=await servidor.ssrLoadModule('/src/pages/CargasColhidas/ListaRomaneiosEntrada.tsx');
+  const entradaCarregando=renderToStaticMarkup(React.createElement(ListaEntradas,{revisao:[],montarCarga:()=>null,ativo:true}));
+  assert.match(entradaCarregando,/Consultando cargas próprias e entradas de terceiros/);
+  assert.doesNotMatch(entradaCarregando,/Nenhum romaneio encontrado|Entrada líquida ativa|de 0 romaneios/);
+  const {default:ListaSaidas}=await servidor.ssrLoadModule('/src/pages/Vendas/LocalizadorRomaneios.tsx');
+  const saidaCarregando=renderToStaticMarkup(React.createElement(ListaSaidas,{revisao:[],ativo:true}));
+  assert.match(saidaCarregando,/Carregando romaneios/);
+  assert.doesNotMatch(saidaCarregando,/Nenhum romaneio encontrado|Peso das saídas ativas|de 0 romaneios/);
+  const {enderecoRedeLocal}=await servidor.ssrLoadModule('/src/utils/redeLocal.ts');
+  for(const ip of ['192.168.1.176','10.0.0.1','172.16.1.1','172.31.255.1']) assert.equal(enderecoRedeLocal(ip),ip);
+  for(const ip of ['127.0.0.1','8.8.8.8','172.15.1.1','172.32.1.1','192.168.1.999','192.168.1.1;exit','::1','']) assert.equal(enderecoRedeLocal(ip),null);
   const {restanteEntrega,diferencaLiquidacao,diasAte,prioridadeValidade}=await servidor.ssrLoadModule('/src/utils/conferenciaConsultas.ts');
   assert.equal(restanteEntrega('100','30','20'),50);
   assert.equal(restanteEntrega('100','120'),0);

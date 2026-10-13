@@ -1,3 +1,4 @@
+import { coordenadaCadastrada } from "../../utils/coordenadas";
 import AbasModulo, { PainelAba } from "../../components/AbasModulo";
 import AnexosLancamento from "../../components/AnexosLancamento";
 import { BotaoAcao, useAcoes } from "../../components/AcoesContext";
@@ -26,7 +27,7 @@ export function RelatorioFaturamento({ resumo, confirmado }: { resumo: ResumoFat
     <p><strong>{resumo.fornecedor_nome}</strong> · {resumo.data_envio.split("-").reverse().join("/")}</p>
     <p>{resumo.produto_nome} · {resumo.embalagem} de {numero(resumo.conteudo_embalagem)} {resumo.unidade}</p>
     <div className="faturamento-tabela"><table><thead><tr><th>Propriedade</th><th>Produtor</th><th>CAD/PRO</th>{usaBep && <th>BEP</th>}<th>Área (alq.)</th><th>Embalagens</th><th>Quantidade ({resumo.unidade})</th></tr></thead>
-      <tbody>{resumo.itens.map(item => <tr key={item.propriedade}><td>{item.propriedade_nome}</td><td>{item.produtor || "Não informado"}</td><td>{item.cad_pro || "Não informado"}</td>{usaBep && <td>{item.bep || "Não informado"}</td>}<td>{numero(item.area_alqueires)}</td><td>{numero(item.quantidade_embalagens)}</td><td>{numero(item.quantidade)}</td></tr>)}</tbody>
+      <tbody>{resumo.itens.map(item => <tr key={item.propriedade}><td>{item.propriedade_nome}<br /><small>Latitude: {coordenadaCadastrada(item, "latitude")}<br />Longitude: {coordenadaCadastrada(item, "longitude")}</small></td><td>{item.produtor || "Não informado"}</td><td>{item.cad_pro || "Não informado"}</td>{usaBep && <td>{item.bep || "Não informado"}</td>}<td>{numero(item.area_alqueires)}</td><td>{numero(item.quantidade_embalagens)}</td><td>{numero(item.quantidade)}</td></tr>)}</tbody>
       <tfoot><tr><th colSpan={usaBep ? 5 : 4}>Total</th><td>{numero(resumo.total_embalagens)}</td><td>{numero(resumo.quantidade_total)} {resumo.unidade}</td></tr></tfoot>
     </table></div>
     {resumo.observacoes && <p>{resumo.observacoes}</p>}
@@ -191,7 +192,7 @@ export default function FaturamentoInsumos() {
         {!propriedades.length && !carregando && <p>Cadastre as propriedades na aba Propriedades. Cadastre produtos e fornecedores em Estoque.</p>}
         <div className="faturamento-tabela"><table><thead><tr><th>Selecionar / propriedade</th><th>Produtor</th><th>CAD/PRO</th>{usaBep && <th>BEP C.Vale</th>}<th>Área faturada (alq.)</th><th>Sugestão ({produto?.unidade})</th><th>Embalagens a enviar</th></tr></thead>
           <tbody>{visiveis.map(p => { const item = itens[p.id]; return <tr key={p.id}>
-            <td><label className="faturamento-checkbox"><input type="checkbox" checked={Boolean(item)} onChange={e => selecionar(p, e.target.checked)} />{p.nome}</label></td><td>{p.proprietario || "Não informado"}</td>
+            <td><label className="faturamento-checkbox"><input type="checkbox" checked={Boolean(item)} onChange={e => selecionar(p, e.target.checked)} />{p.nome}</label><small>Latitude: {coordenadaCadastrada(p, "latitude")}<br />Longitude: {coordenadaCadastrada(p, "longitude")}</small></td><td>{p.proprietario || "Não informado"}</td>
             <td>{item ? <select aria-label={`CAD/PRO de ${p.nome}`} required={Boolean(p.cad_pro_numeros.length)} value={item.cad_pro} onChange={e => atualizarItem(p.id, "cad_pro", e.target.value)}><option value="">{p.cad_pro_numeros.length ? "Selecione" : "Não informado"}</option>{p.cad_pro_numeros.map(c => <option key={c}>{c}</option>)}</select> : p.cad_pro_numeros.join(", ")}</td>
             {usaBep && <td>{item && <input aria-label={`BEP de ${p.nome}`} type="text" inputMode="numeric" pattern="[0-9]*" maxLength={40} value={item.bep || ""} onChange={e => atualizarItem(p.id, "bep", e.target.value)} />}</td>}
             <td>{item ? <input aria-label={`Área de ${p.nome}`} type="number" required min="0.000001" step="0.000001" value={item.area_alqueires} onChange={e => atualizarItem(p.id, "area_alqueires", e.target.value)} /> : numero(Number(p.area_hectares) / 2.42)}</td>

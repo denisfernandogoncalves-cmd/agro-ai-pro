@@ -23,6 +23,7 @@ export default function ImportacoesPage() {
   const [lote, setLote] = useState<LoteImportacao | null>(null);
   const [linhas, setLinhas] = useState<Pagina<LinhaImportacao> | null>(null);
   const [paginaLinhas, setPaginaLinhas] = useState(1);
+  const [statusLinhas, setStatusLinhas] = useState("");
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [aceite, setAceite] = useState(false);
   const [ocupado, setOcupado] = useState(false);
@@ -39,13 +40,13 @@ export default function ImportacoesPage() {
   useEffect(() => {
     let atual = true;
     setLinhas(null);
-    if (lote) listarLinhas(lote.id, paginaLinhas).then(d => { if (atual) setLinhas(d); })
+    if (lote) listarLinhas(lote.id, paginaLinhas, statusLinhas).then(d => { if (atual) setLinhas(d); })
       .catch(e => { if (atual) setErro(mensagemErro(e)); });
     return () => { atual = false; };
-  }, [lote, paginaLinhas]);
+  }, [lote, paginaLinhas, statusLinhas]);
 
   function selecionar(item: LoteImportacao) {
-    setLote(item); setPaginaLinhas(1); setAceite(false); setErro(""); setSucesso("");
+    setLote(item); setPaginaLinhas(1); setStatusLinhas(""); setAceite(false); setErro(""); setSucesso("");
   }
   async function enviar(confirmacao: boolean) {
     if (enviando.current || (confirmacao && (!lote || !aceite || !loteElegivel(lote))) || (!confirmacao && !arquivo)) return;
@@ -94,6 +95,8 @@ export default function ImportacoesPage() {
     {lote && <>
       <h3>Lote {lote.id} — {lote.arquivo_nome}</h3>
       <p>{lote.total_linhas} linhas · {lote.total_erros} erros · {lote.total_advertencias} advertências · {lote.status}</p>
+      <label>Revisar linhas por validação<select value={statusLinhas} disabled={ocupado} onChange={e=>{setStatusLinhas(e.target.value);setPaginaLinhas(1);setAceite(false);}}><option value="">Todas as linhas</option><option value="erro">Somente erros</option><option value="advertencia">Somente advertências</option><option value="valida">Somente válidas</option></select></label>
+      <p>O filtro consulta todas as linhas do lote no servidor. A contagem geral e a autorização de confirmação continuam considerando o lote inteiro.</p>
       {!linhas ? <p>Carregando linhas…</p> : <>
         <div className="tabela-responsiva"><table><thead><tr><th>Origem</th><th>Propriedade / lote</th><th>Dados</th><th>Validação</th></tr></thead>
           <tbody>{linhas.results.map(linha => <tr key={linha.id}><td>{linha.planilha}!{linha.linha_origem}</td><td>{linha.propriedade_nome || "Sem associação"}<br />{linha.lote_graos_codigo || "Sem lote de grãos"}</td><td><details><summary>Ver dados da linha</summary><pre>{JSON.stringify(linha.dados_normalizados, null, 2)}</pre></details></td><td>{linha.status}<br />{[...linha.erros, ...linha.advertencias].join("; ")}</td></tr>)}</tbody></table></div>

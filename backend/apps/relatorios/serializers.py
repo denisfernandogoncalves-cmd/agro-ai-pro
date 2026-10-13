@@ -34,6 +34,7 @@ class FiltrosRelatorioOperacionalSerializer(serializers.Serializer):
             "motoristas",
             "estrutura",
             "financeiro",
+            "contas_pagar",
             "estoque_insumos",
             "operacoes_agricolas",
             "maquinas",
@@ -42,6 +43,10 @@ class FiltrosRelatorioOperacionalSerializer(serializers.Serializer):
             "importacoes",
         ),
     )
+    agrupamento_financeiro = serializers.ChoiceField(required=False, choices=("fornecedor","dia","semana","mes"))
+    pagina_agrupamento = serializers.IntegerField(required=False, default=1, min_value=1)
+    status_financeiro = serializers.ChoiceField(required=False, choices=("pendente", "liquidado", "cancelado"))
+    busca_financeiro = serializers.CharField(required=False, max_length=200, allow_blank=True)
     pagina = serializers.IntegerField(required=False, default=1, min_value=1)
     por_pagina = serializers.IntegerField(
         required=False, default=25, min_value=1, max_value=100

@@ -26,6 +26,7 @@ class EdicaoExclusaoLancamentoTests(APITestCase):
 
     def test_edita_apenas_boleto_escolhido_e_atualiza_resumo(self):
         resposta = self.client.patch(self.url, {
+            "atualizado_em_original": self.item.atualizado_em.isoformat(),
             "descricao": "Descrição corrigida", "recebedor_nome": "Fornecedor corrigido",
             "valor": "125.50", "data_vencimento": "2026-10-15", "observacoes": "Revisado",
         }, format="json")
@@ -45,7 +46,7 @@ class EdicaoExclusaoLancamentoTests(APITestCase):
         self.item.data_liquidacao = date(2026, 9, 20)
         self.item.valor_liquidado = Decimal("98.00")
         self.item.save()
-        resposta = self.client.patch(self.url, {"descricao": "Corrigido", "valor": "110.00"}, format="json")
+        resposta = self.client.patch(self.url, {"descricao": "Corrigido", "valor": "110.00", "atualizado_em_original": self.item.atualizado_em.isoformat()}, format="json")
         self.assertEqual(resposta.status_code, 200, resposta.data)
         self.item.refresh_from_db()
         self.assertEqual(self.item.valor_liquidado, Decimal("98.00"))
@@ -53,7 +54,7 @@ class EdicaoExclusaoLancamentoTests(APITestCase):
         self.assertEqual(self.item.status, "liquidado")
 
     def test_edicao_invalida_nao_modifica_registro(self):
-        resposta = self.client.patch(self.url, {"valor": "-1", "descricao": "Inválido"}, format="json")
+        resposta = self.client.patch(self.url, {"valor": "-1", "descricao": "Inválido", "atualizado_em_original": self.item.atualizado_em.isoformat()}, format="json")
         self.assertEqual(resposta.status_code, 400)
         self.item.refresh_from_db()
         self.assertEqual(self.item.descricao, "Boleto teste")

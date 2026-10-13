@@ -31,6 +31,10 @@ class ContratoComercial(models.Model):
         choices=UnidadePreco.choices,
         default=UnidadePreco.KG,
     )
+    versao = models.PositiveIntegerField(default=1)
+    alerta_restante_kg = models.DecimalField(max_digits=16, decimal_places=3, null=True, blank=True, validators=[MinValueValidator(Decimal("0.000"))])
+    cotas_cadpro = models.JSONField(default=list, blank=True)
+    calendario_entregas = models.JSONField(default=list, blank=True)
     ativo = models.BooleanField(default=True)
     criado_em = models.DateTimeField(auto_now_add=True)
 
@@ -290,3 +294,29 @@ class AlteracaoVendaGraos(models.Model):
 
     class Meta:
         ordering = ("-id",)
+
+
+class ConferenciaComprador(models.Model):
+    entrega = models.OneToOneField(EntregaVendaGraos, on_delete=models.PROTECT, related_name="conferencia_comprador")
+    peso_recebido_liquido_kg = models.DecimalField(max_digits=16, decimal_places=3)
+    frete_realizado = models.DecimalField(max_digits=16, decimal_places=2, null=True, blank=True)
+    qualidade = models.JSONField(default=dict, blank=True)
+    versao = models.PositiveIntegerField(default=1)
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    justificativa = models.TextField()
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+
+class VinculoAcerto(models.Model):
+    contrato = models.ForeignKey(ContratoComercial, on_delete=models.PROTECT)
+    cad_pro = models.ForeignKey("cadpro.CADPro", on_delete=models.PROTECT)
+    lancamento = models.ForeignKey("financeiro.LancamentoFinanceiro", on_delete=models.PROTECT)
+    valor_vinculado = models.DecimalField(max_digits=14, decimal_places=2)
+    natureza = models.CharField(max_length=10, choices=(("receita","Receita"),("frete","Frete"),("desconto","Desconto"),("custo","Custo")))
+    ativo = models.BooleanField(default=True)
+    versao = models.PositiveIntegerField(default=1)
+    usuario = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    justificativa = models.TextField()
+    criado_em = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=("contrato","cad_pro","lancamento","natureza"),name="vendas_acerto_vinculo_unico"),models.CheckConstraint(condition=models.Q(valor_vinculado__gt=0),name="vendas_acerto_valor_positivo")]

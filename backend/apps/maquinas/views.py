@@ -1,9 +1,12 @@
+from apps.core.edicao_concorrente import EdicaoConcorrenteMixin
 from datetime import date
 
 from rest_framework import filters, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from apps.core.pagination import PaginacaoOpcional
+from apps.core.query_params import validar_filtros
 
 from .models import AbastecimentoMaquina, Maquina, ManutencaoMaquina, UsoMaquina
 from .serializers import (
@@ -15,15 +18,17 @@ from .serializers import (
 from .services import concluir_manutencao
 
 
-class MaquinaViewSet(viewsets.ModelViewSet):
+class MaquinaViewSet(EdicaoConcorrenteMixin, viewsets.ModelViewSet):
     queryset = Maquina.objects.select_related("propriedade")
     serializer_class = MaquinaSerializer
+    pagination_class = PaginacaoOpcional
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ("identificacao", "marca", "modelo")
     ordering_fields = ("identificacao", "tipo", "status", "horimetro_atual")
 
     def get_queryset(self):
+        validar_filtros(self.request.query_params, ids=('propriedade', 'maquina', 'operacao'))
         queryset = super().get_queryset()
         for parametro in ("tipo", "status", "propriedade"):
             valor = self.request.query_params.get(parametro, "").strip()
@@ -33,6 +38,7 @@ class MaquinaViewSet(viewsets.ModelViewSet):
 
 
 class HistoricoMaquinaMixin:
+    pagination_class = PaginacaoOpcional
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
 
@@ -66,6 +72,7 @@ class AbastecimentoMaquinaViewSet(HistoricoMaquinaMixin, viewsets.ModelViewSet):
 class ManutencaoMaquinaViewSet(viewsets.ModelViewSet):
     queryset = ManutencaoMaquina.objects.select_related("maquina")
     serializer_class = ManutencaoMaquinaSerializer
+    pagination_class = PaginacaoOpcional
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ("maquina__identificacao", "descricao", "observacoes")

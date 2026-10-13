@@ -1,0 +1,8 @@
+import {useEffect,useState} from "react";
+import {listarUsuarios,MODULOS,ACOES,type Usuario} from "../api/usuarios";
+export default function MatrizPermissoes(){
+ const [usuarios,setUsuarios]=useState<Usuario[]>([]),[id,setId]=useState(""),[erro,setErro]=useState("");
+ useEffect(()=>{let ativo=true;listarUsuarios().then(r=>{if(ativo)setUsuarios(r);}).catch(()=>{if(ativo)setErro("Não foi possível consultar as permissões.");});return()=>{ativo=false;};},[]);
+ const usuario=usuarios.find(u=>String(u.id)===id);
+ return <details className="card"><summary>Matriz de permissões cadastradas</summary><p>Somente leitura da configuração atual por usuário. Administradores têm todas as ações; a consulta não concede nem amplia acesso.</p>{erro&&<p role="alert" className="erro">{erro}</p>}<label>Usuário para conferir<select value={id} onChange={e=>setId(e.target.value)}><option value="">Selecione</option>{usuarios.map(u=><option key={u.id} value={u.id}>{u.username} · {u.is_staff?"Administrador":"Usuário"}</option>)}</select></label>{usuario&&<><p>{usuario.is_active?"Conta ativa":"Conta inativa: acesso suspenso"}</p><div className="tabela-responsiva"><table><thead><tr><th>Módulo</th>{ACOES.map(a=><th key={a}>{a}</th>)}</tr></thead><tbody>{MODULOS.map(([modulo,nome])=><tr key={modulo}><td>{nome}</td>{ACOES.map(a=><td key={a}>{usuario.is_active&&(usuario.is_staff||(usuario.modulos.includes(modulo)&&(usuario.permissoes?.[modulo]??ACOES).includes("consultar")&&(usuario.permissoes?.[modulo]??ACOES).includes(a)))?"Permitido":"Sem acesso"}</td>)}</tr>)}</tbody></table></div><small>Ações continuam sujeitas às validações e aos períodos fechados do servidor.</small></>}</details>;
+}

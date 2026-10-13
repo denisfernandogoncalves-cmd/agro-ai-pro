@@ -1,0 +1,121 @@
+@layer theme, utilities;
+@import "tailwindcss/theme.css" layer(theme) prefix(tw);
+@import "tailwindcss/utilities.css" layer(utilities) prefix(tw);
+@source "./**/*.{ts,tsx}";
+
+/* Apenas tela: documentos A4 e impressos mantêm seus estilos operacionais. */
+@media screen {
+  :root { --cor-principal:#087f5b; --cor-principal-escura:#06563e; --cor-texto:#193b32; --cor-suave:#5f746d; --cor-borda:#dce7e1; --cor-superficie:#fff; --cor-fundo:#f4f7f5; --cor-foco:#bd944c; font-family:Inter,"Segoe UI",system-ui,sans-serif; background:var(--cor-fundo); color:var(--cor-texto); }
+  body { background:var(--cor-fundo); }
+  .agro-premium { color:var(--cor-texto); min-height:100vh; }
+  .agro-premium>header { padding-bottom:22px; border-bottom:1px solid var(--cor-borda); align-items:center; }
+  .agro-premium h1 { letter-spacing:-.04em; font-size:clamp(24px,2.3vw,34px); line-height:1.2; color:#173f32; }
+  .agro-premium h2 { letter-spacing:-.025em; color:#214b3b; }
+  .agro-premium .kicker { color:#6e8276; letter-spacing:.14em; font-size:11px; }
+  .agro-premium .cabecalho-panorama { color:#5f746d; max-width:680px; line-height:1.6; }
+  .agro-premium .marca-aplicativo { background:#e7f2ec; color:#087f5b; border:1px solid #cddfd2; border-radius:14px; }
+  .agro-premium .card { border:1px solid var(--cor-borda); border-radius:16px; background:#fff; box-shadow:0 3px 18px #153e2810; }
+  .agro-premium button { border-radius:9px; transition:background .16s,box-shadow .16s; }
+  .agro-premium button:where(:not(.secundario):not(.perigo):not(:disabled):not([role="tab"]):not(.alternar-menu-lateral):not(.fundo-menu-lateral):not(.recolher-menu)) { background-color:var(--cor-principal); }
+  .agro-premium button.secundario { background:#eef5f0; color:#1e6247; border-color:#d8e6dd; }
+  .agro-premium button.perigo { background:#fff0ed; color:#a1352c; border:1px solid #eec8c1; }
+  .agro-premium :is(input,select,textarea) { border-radius:9px; border-color:#cddcd4; background:#fbfdfb; color:#193b32; box-shadow:none; min-width:0; }
+  .agro-premium :is(input,select,textarea):focus { border-color:#087f5b; outline:3px solid #087f5b1a; outline-offset:1px; }
+  .agro-premium :is(button,a,summary):focus-visible { outline:3px solid #bd944c; outline-offset:3px; }
+  .agro-premium :is(.erro,.sucesso,.alerta-clima,.aviso-mercado) { border-radius:12px; line-height:1.6; }
+  .agro-premium .erro { background:#fff0ed; color:#922e25; }
+  .agro-premium .vazio { background:#f7faf8; color:#60756a; border:1px dashed #d3e2d8; border-radius:12px; padding:24px; }
+  .agro-premium :is(.tabela-responsiva,.tabela-scroll,.compra-tabela-scroll) { border:1px solid #dce7e1; border-radius:12px; scrollbar-width:thin; }
+  .agro-premium table { font-variant-numeric:tabular-nums; }
+  .agro-premium table th { background:#edf5ef; color:#315443; font-size:12px; font-weight:700; }
+  .agro-premium table td { border-color:#edf2ee; }
+  .agro-premium :is(.resumos-estoque,.resumos-financeiros,.painel-indicadores,.resumos-mercado) strong { letter-spacing:-.025em; font-variant-numeric:tabular-nums; }
+  .agro-premium :is(.painel-filtros,.filtros-relatorio,.controles-insights) { align-items:end; }
+  .agro-premium .mapa { border:1px solid #dce7e1; border-radius:14px; }
+  .agro-premium .grafico-mercado svg { border-radius:10px; background:linear-gradient(#f5faf6,#fff); }
+  .agro-premium>.navegacao-modulos { background:linear-gradient(165deg,#0b3c30,#05291f); scrollbar-width:thin; scrollbar-color:#3a6354 transparent; }
+  .marca-agro { display:inline-flex; align-items:center; gap:10px; font-size:21px; font-weight:800; white-space:nowrap; letter-spacing:-.04em; }
+  .marca-agro svg { width:36px!important; height:36px!important; color:#c4a366; flex:0 0 36px; }
+  .marca-agro b { color:#5acd99; }
+  .marca-agro small { color:inherit; font-size:10px; letter-spacing:.12em; margin-left:2px; }
+  .agro-premium .marca-lateral { padding:0 4px 12px; border-bottom:1px solid #ffffff15; }
+  .agro-premium .menu-lateral-completo h2 { color:#a2bdad; font-size:10px; letter-spacing:.15em; margin-top:18px; }
+  .agro-premium .menu-lateral-completo button { background:transparent!important; color:#e0eee6; border-radius:9px; min-height:43px; }
+  .agro-premium .menu-lateral-completo button:hover { background:#ffffff0d!important; }
+  .agro-premium .menu-lateral-completo [aria-current="page"] { background:#138257!important; box-shadow:inset 3px 0 #d4b371; }
+  .agro-premium .busca-navegacao input { background:#ffffff0b; border-color:#ffffff25; color:#fff; }
+  .agro-premium .busca-navegacao input::placeholder { color:#b9cec2; }
+  .agro-premium .usuario-lateral { padding-top:16px; border-top:1px solid #ffffff15; }
+  .agro-premium .recolher-menu { display:block; background:#ffffff0a; color:#bdd8c9; font-size:11px; padding:8px; }
+  .agro-skip { position:fixed; left:16px; top:-100px; background:#fff; color:#07563d; z-index:1300; padding:12px; border-radius:8px; }
+  .agro-skip:focus { top:12px; }
+  .inicio-dashboard .painel-apresentacao { background:linear-gradient(120deg,#fff,#f3f8f1); border-radius:16px; border-top:3px solid #bca069; }
+  .inicio-dashboard .painel-indicadores article { border-radius:14px; padding:20px; background:#fff; box-shadow:0 3px 18px #153e2810; }
+  .inicio-dashboard .painel-indicadores strong { color:#164734; font-size:clamp(21px,1.6vw,28px); }
+  .inicio-dashboard .painel-quadros>.card { border-radius:16px; }
+  .painel-visoes { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px; }
+  .vista-executiva .painel-indicadores,.vista-executiva .painel-detalhes { display:none; }
+  .painel-visoes button { background:#edf4ef; color:#365c48; border:1px solid #dce7e1; }
+  .painel-visoes button[aria-pressed="true"] { background:#0b684a!important; color:#fff; border-color:#0b684a; }
+  .executivo-grade { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr)); gap:16px; }
+  .executivo-metrica { display:grid; gap:10px; padding:22px; }
+  .executivo-metrica span { font-size:13px; color:#597164; }
+  .executivo-metrica strong { font-size:27px; letter-spacing:-.04em; color:#124b34; overflow-wrap:anywhere; }
+  .executivo-metrica small { color:#617669; font-size:12px; }
+  .executivo-grafico { display:grid; gap:14px; margin:16px 0 0; }
+  .executivo-grafico>div { display:grid; gap:6px; }
+  .executivo-grafico meter { width:100%; height:18px; accent-color:#087f5b; }
+  .executivo-nota { color:#63786d; font-size:13px; line-height:1.6; }
+  .login-premium { grid-template-columns:1.1fr 1fr; padding:0; background:#f5f8f4; min-height:100dvh; }
+  .login-institucional { display:flex; flex-direction:column; justify-content:space-between; align-self:stretch; min-height:100dvh; padding:clamp(28px,5vw,80px); color:#fff; position:relative; isolation:isolate; overflow:hidden; background:radial-gradient(ellipse at 100% 20%,#cfa76240,transparent 50%),linear-gradient(145deg,#0b4535,#041e18); }
+  .login-institucional::after { content:""; position:absolute; inset:58% -25% -30%; background:repeating-linear-gradient(110deg,transparent 0 34px,#7aa98116 35px 37px,transparent 38px 70px); transform:perspective(500px) rotateX(38deg); z-index:-1; }
+  .login-manifesto { margin:80px 0; max-width:570px; }
+  .login-manifesto .kicker { color:#d1b47c; }
+  .login-manifesto h2 { font-size:clamp(32px,4vw,58px); line-height:1.15; letter-spacing:-.04em; color:#fff; margin:20px 0; }
+  .login-manifesto p { color:#c7d9cc; font-size:20px; }
+  .login-pilares { display:flex; gap:10px; flex-wrap:wrap; margin-top:34px; }
+  .login-pilares span { border:1px solid #ffffff25; border-radius:30px; padding:8px 16px; font-size:12px; color:#d9e9de; }
+  .login-institucional>small { color:#b6c9bd; font-size:12px; }
+  .login-premium form.card { max-width:440px; padding:38px; border:1px solid #dce7e1; border-radius:20px; box-shadow:0 20px 80px #153b2710; gap:24px; }
+  .login-premium form .marca-agro { color:#123d2c; }
+  .login-premium form .marca-agro b { color:#0a8358; }
+  .login-premium h1 { font-size:28px; color:#183e2d; letter-spacing:-.04em; margin:10px 0; }
+  .login-premium form p { font-size:14px; color:#637669; margin-bottom:0; }
+  .login-premium label { font-size:13px; color:#3d5748; }
+  .login-premium input { min-height:48px; border-color:#ccdcd1; background:#fbfdfb; }
+  .login-premium button { min-height:48px; background:#087f5b; border-radius:10px; box-shadow:0 4px 14px #087f5b20; }
+  .login-premium input:focus-visible { outline:3px solid #087f5b26; border-color:#087f5b; }
+  .login-premium button:focus-visible { outline:3px solid #bd944c; outline-offset:3px; }
+  .assistente-layout { display:grid; grid-template-columns:minmax(0,1.7fr) minmax(230px,1fr); gap:20px; align-items:start; }
+  .assistente-conversa { display:grid; gap:16px; }
+  .assistente-resposta { background:#f0f7f2; border:1px solid #dce9df; border-radius:14px; padding:22px; }
+  .assistente-pergunta { justify-self:end; max-width:90%; background:#0c7853; color:#fff; border-radius:14px 14px 2px 14px; padding:14px 18px; }
+  .assistente-sugestoes { display:grid; gap:10px; }
+  .assistente-sugestoes button { text-align:left; background:#f0f6f2!important; color:#215540; border:1px solid #dce7e1; padding:14px; }
+  .assistente-conversa .insight { box-shadow:none; }
+}
+@media screen and (min-width:1000px) {
+  .agro-premium { padding:30px 34px 40px; }
+  .agro-premium:has(.estado-menu[data-recolhido="true"]) { margin-left:94px; }
+  .agro-premium>.navegacao-modulos:has(.estado-menu[data-recolhido="true"]) { width:94px; padding:22px 8px; }
+  .navegacao-modulos:has(.estado-menu[data-recolhido="true"]) :is(.busca-navegacao,.usuario-lateral,.menu-lateral-completo h2,.marca-agro>span) { display:none; }
+  .navegacao-modulos:has(.estado-menu[data-recolhido="true"]) .menu-lateral-completo button { font-size:0; justify-content:center; padding:12px; gap:0; }
+  .navegacao-modulos:has(.estado-menu[data-recolhido="true"]) .recolher-menu { font-size:10px; }
+}
+@media screen and (max-width:999px) {
+  .agro-premium .recolher-menu { display:none; }
+  .login-premium { grid-template-columns:1fr; padding:28px 16px; }
+  .login-institucional { display:none; }
+  .assistente-layout { grid-template-columns:1fr; }
+}
+@media screen and (max-width:640px) {
+  .agro-premium { padding:16px; }
+  .agro-premium>header { align-items:flex-start; }
+  .agro-premium .cabecalho-acoes { flex-wrap:wrap; flex-direction:row; align-items:center; }
+  .agro-premium .card { padding:16px; }
+  .agro-premium .acoes { flex-wrap:wrap; }
+  .login-premium form.card { padding:26px; }
+  .inicio-dashboard .painel-indicadores article { padding:14px; }
+  .inicio-dashboard .painel-indicadores strong { font-size:19px; }
+}
+@media (prefers-reduced-motion:reduce) { .agro-premium *, .login-premium * { transition:none!important; animation:none!important; } }

@@ -7,9 +7,12 @@ from django.dispatch import receiver
 from .models import RegistroAlteracao
 
 requisicao_atual = ContextVar("requisicao_auditoria", default=None)
-APPS = {"propriedades", "talhoes", "graos", "vendas", "estoque", "financeiro", "producao", "maquinas", "cadpro", "accounts", "auth"}
+APPS = {"propriedades", "talhoes", "graos", "vendas", "estoque", "financeiro", "producao", "maquinas", "cadpro", "accounts", "auth", "transportes", "importacoes"}
 # Lista permitida: nunca copiar credenciais, arquivos, dados bancários ou observações livres.
 CAMPOS = set("nome username first_name last_name is_active is_staff modulos permissoes proprietario municipio uf area_hectares cultura cultura_atual safra status ativo ativa tipo descricao codigo capacidade_kg peso_bruto_kg peso_liquido_kg umidade_percentual impureza_percentual avariados_percentual placa motorista local_colheita quantidade_kg quantidade_entregue_kg quantidade_devolvida_kg quantidade_cancelada_kg saldo_fisico_kg saldo_comprometido_kg quantidade quantidade_planejada quantidade_utilizada valor valor_liquidado custo_estimado custo_realizado estoque_minimo unidade categoria fabricante data data_colheita data_emissao data_vencimento data_liquidacao data_validade data_planejada data_inicio data_conclusao conteudo_embalagem quantidade_embalagens custo_embalagem valor_total excluido_em excluida_em".split())
+
+
+CAMPOS.update("veiculo local quantidade valor_unitario competencia salario comissao comissao_percentual origem arquivo_nome total_planilhas total_linhas total_validas total_advertencias total_erros confirmado_em".split())
 
 
 def contexto(sender):
@@ -91,3 +94,19 @@ def modulo_da_requisicao(request, app):
     if caminho.startswith("graos/transferencias/") or caminho.endswith("/transferir/"):
         return "transferencias"
     return {"auth": "usuarios", "accounts": "usuarios", "graos": "producao-saldos", "cadpro": "propriedades", "producao": "operacoes"}.get(app, app)
+
+
+from contextlib import contextmanager
+from types import SimpleNamespace
+
+
+@contextmanager
+def contexto_auditoria(usuario, origem):
+    """Scripts podem identificar explicitamente ator e modulo, sem gravar payloads."""
+    if not usuario or not usuario.is_authenticated:
+        raise ValueError("Informe o usuario responsavel pela operacao.")
+    token = requisicao_atual.set(SimpleNamespace(user=usuario, path="/api/" + origem.strip("/") + "/"))
+    try:
+        yield
+    finally:
+        requisicao_atual.reset(token)
