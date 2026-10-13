@@ -16,6 +16,9 @@ import { GeometriaGeoJSON } from "../utils/geometria";
 
 
 export type Propriedade = {
+  formato_coordenadas?: "decimal" | "gms";
+  latitude_gms?: string;
+  longitude_gms?: string;
   id: number;
   nome: string;
   proprietario: string;
@@ -34,6 +37,10 @@ export type Propriedade = {
 };
 
 export type PropriedadeInput = {
+  formato_coordenadas?: "decimal" | "gms";
+  latitude_gms?: string;
+  longitude_gms?: string;
+  converter_coordenadas?: "true" | "false";
   nome: string;
   proprietario: string;
   municipio: string;
@@ -235,7 +242,7 @@ export async function listarPropriedades(search = "") {
 function montarFormulario(dados: PropriedadeInput) {
   const formulario = new FormData();
   Object.entries(dados).forEach(([campo, valor]) => {
-    if (valor !== null && valor !== "") {
+    if (valor !== undefined && valor !== null && (valor !== "" || ["latitude_gms", "longitude_gms"].includes(campo))) {
       formulario.append(campo, valor);
     }
   });

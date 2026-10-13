@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import React from 'react';
+import {renderToStaticMarkup} from 'react-dom/server';
+import {createServer} from 'vite';
+const servidor=await createServer({appType:'custom',configLoader:'runner',logLevel:'silent',ssr:{external:['react','react/jsx-runtime','react/jsx-dev-runtime','react-dom/server']},server:{middlewareMode:true}});
+try {
+  const {gmsParaDecimal,decimalParaGms,coordenadaCadastrada}=await servidor.ssrLoadModule('/src/utils/coordenadas.ts');
+  assert.equal(gmsParaDecimal('24°18\'28,97"S','latitude'),'-24.308047');
+  assert.equal(gmsParaDecimal('51°42\'47,98"O','longitude'),'-51.713328');
+  assert.equal(gmsParaDecimal('0°00\'00"N','latitude'),'0.000000');
+  assert.equal(gmsParaDecimal('180°00\'00"W','longitude'),'-180.000000');
+  assert.throws(()=>gmsParaDecimal('90°00\'01"N','latitude'));
+  assert.throws(()=>gmsParaDecimal('24°60\'00"S','latitude'));
+  assert.throws(()=>gmsParaDecimal('24°00\'60"S','latitude'));
+  assert.throws(()=>gmsParaDecimal('24°00\'00"O','latitude'));
+  assert.throws(()=>decimalParaGms('','latitude'));
+  assert.throws(()=>decimalParaGms('181','longitude'));
+  assert.equal(decimalParaGms('12.99999999','latitude'),'13°00\'0,00"N');
+  assert.equal(coordenadaCadastrada({latitude:'0'},'latitude'),'0');
+  const original={formato_coordenadas:'gms',latitude_gms:'24°18\'28,97"S',longitude_gms:'51°42\'47,98"O',latitude:null,longitude:null};
+  assert.equal(coordenadaCadastrada(original,'latitude'),original.latitude_gms);
+  assert.equal(coordenadaCadastrada({},'latitude'),'Não informada');
+  const {default:CoordenadasInput}=await servidor.ssrLoadModule('/src/components/CoordenadasInput.tsx');
+  let alterou=false;
+  const html=renderToStaticMarkup(React.createElement(CoordenadasInput,{dados:{...original,latitude:'',longitude:''},alterar:()=>{alterou=true;}}));
+  assert.equal(alterou,false,'Renderizar GMS não pode converter automaticamente');
+  assert.match(html,/Converter GMS para decimal/);
+  assert.match(html,/Converter decimal para GMS/);
+  assert.match(html,/24°18/);
+  assert.doesNotMatch(html,/-24\.308/);
+  console.log('Conversões explícitas, limites e exibição original de coordenadas: OK');
+} finally {await servidor.close();}

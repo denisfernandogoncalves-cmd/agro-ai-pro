@@ -1,3 +1,4 @@
+import CoordenadasInput from "./components/CoordenadasInput";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import axios from "axios";
 
@@ -11,7 +12,6 @@ import {
 } from "./api/propriedades";
 import { useAuth } from "./auth/AuthContext";
 import MapaPropriedade from "./components/MapaPropriedade";
-import AplicativoStatus from "./components/AplicativoStatus";
 import ClimaPage from "./pages/Clima/ClimaPage";
 import EstoquePage from "./pages/Estoque/EstoquePage";
 import FinanceiroPage from "./pages/Financeiro/FinanceiroPage";
@@ -22,10 +22,18 @@ import RelatoriosPage from "./pages/Relatorios/RelatoriosPage";
 import InsightsPage from "./pages/Insights/InsightsPage";
 import TalhoesPage from "./pages/Talhoes/TalhoesPage";
 
+import AppShell from "./components/AppShell";
+import type { Modulo } from "./components/AppShell";
+import DashboardPage from "./pages/Dashboard/DashboardPage";
+import VendasPage from "./pages/Vendas/VendasPage";
+import ProducaoSaldosPage from "./pages/ProducaoSaldos/ProducaoSaldosPage";
+import CargasColhidasPage from "./pages/CargasColhidas/CargasColhidasPage";
+import GruposColheitaPage from "./pages/GruposColheita/GruposColheitaPage";
 import "./styles.css";
 
 
 const formularioVazio: PropriedadeInput = {
+  formato_coordenadas: "decimal", latitude_gms: "", longitude_gms: "", converter_coordenadas: "false",
   nome: "",
   proprietario: "",
   municipio: "",
@@ -116,9 +124,7 @@ type PrivateAreaProps = {
 };
 
 function PrivateArea({ sair }: PrivateAreaProps) {
-  const [modulo, setModulo] = useState<
-    "propriedades" | "talhoes" | "clima" | "mercado" | "financeiro" | "estoque" | "operacoes" | "maquinas" | "relatorios" | "insights"
-  >("propriedades");
+  const [modulo, setModulo] = useState<Modulo>("dashboard");
   const [propriedades, setPropriedades] = useState<Propriedade[]>([]);
   const [selecionada, setSelecionada] = useState<Propriedade | null>(null);
   const [edicaoId, setEdicaoId] = useState<number | null>(null);
@@ -174,6 +180,8 @@ function PrivateArea({ sair }: PrivateAreaProps) {
       municipio: item.municipio,
       uf: item.uf,
       area_hectares: item.area_hectares,
+      formato_coordenadas: item.formato_coordenadas ?? "decimal",
+      latitude_gms: item.latitude_gms ?? "", longitude_gms: item.longitude_gms ?? "", converter_coordenadas: "false",
       latitude: item.latitude ?? "",
       longitude: item.longitude ?? "",
       observacoes: item.observacoes,
@@ -207,81 +215,15 @@ function PrivateArea({ sair }: PrivateAreaProps) {
   }
 
   return (
-    <main className="pagina">
-      <header>
-        <div>
-          <span className="kicker">Gestão rural</span>
-          <h1>
-            {modulo === "propriedades"
-              ? "Propriedades"
-              : modulo === "talhoes"
-                ? "Talhões"
-                : modulo === "clima"
-                  ? "Clima"
-                  : modulo === "mercado"
-                    ? "Mercado"
-                    : modulo === "financeiro"
-                      ? "Financeiro"
-                      : modulo === "estoque"
-                        ? "Estoque"
-                        : modulo === "operacoes" ? "Operações" : modulo === "maquinas" ? "Máquinas" : modulo === "relatorios" ? "Relatórios" : "Assistente"}
-          </h1>
-        </div>
-        <div className="cabecalho-acoes">
-          <AplicativoStatus />
-          <button className="secundario" onClick={() => { void encerrarSessao(); }}>Sair</button>
-        </div>
-      </header>
-
-      <nav className="navegacao-modulos" aria-label="Módulos agrícolas">
-        <button
-          className={modulo === "propriedades" ? "" : "secundario"}
-          onClick={() => setModulo("propriedades")}
-        >
-          Propriedades
-        </button>
-        <button
-          className={modulo === "talhoes" ? "" : "secundario"}
-          onClick={() => setModulo("talhoes")}
-        >
-          Talhões
-        </button>
-        <button
-          className={modulo === "clima" ? "" : "secundario"}
-          onClick={() => setModulo("clima")}
-        >
-          Clima
-        </button>
-        <button
-          className={modulo === "mercado" ? "" : "secundario"}
-          onClick={() => setModulo("mercado")}
-        >
-          Mercado
-        </button>
-        <button
-          className={modulo === "financeiro" ? "" : "secundario"}
-          onClick={() => setModulo("financeiro")}
-        >
-          Financeiro
-        </button>
-        <button
-          className={modulo === "estoque" ? "" : "secundario"}
-          onClick={() => setModulo("estoque")}
-        >
-          Estoque
-        </button>
-        <button
-          className={modulo === "operacoes" ? "" : "secundario"}
-          onClick={() => setModulo("operacoes")}
-        >
-          Operações
-        </button>
-        <button className={modulo === "maquinas" ? "" : "secundario"} onClick={() => setModulo("maquinas")}>Máquinas</button>
-        <button className={modulo === "relatorios" ? "" : "secundario"} onClick={() => setModulo("relatorios")}>Relatórios</button>
-        <button className={modulo === "insights" ? "" : "secundario"} onClick={() => setModulo("insights")}>Assistente</button>
-      </nav>
-
-      {modulo === "talhoes" ? (
+    <AppShell modulo={modulo} navegar={setModulo} propriedades={propriedades} selecionada={selecionada} selecionar={setSelecionada} sair={() => { void encerrarSessao(); }}>
+      {modulo !== "propriedades" && erro && <p className="erro card" role="alert">{erro}</p>}
+      {modulo === "dashboard" ? (
+        <DashboardPage propriedade={selecionada} navegar={setModulo} />
+      ) : modulo === "vendas" ? (<VendasPage />
+      ) : modulo === "saldos" ? (<ProducaoSaldosPage propriedades={propriedades} />
+      ) : modulo === "cargas" ? (<CargasColhidasPage propriedades={propriedades} />
+      ) : modulo === "grupos" ? (<GruposColheitaPage propriedades={propriedades} />
+      ) : modulo === "talhoes" ? (
         <TalhoesPage />
       ) : modulo === "clima" ? (
         <ClimaPage propriedades={propriedades} />
@@ -314,8 +256,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
           </div>
           <label>Área (ha)<input required min="0.01" step="0.01" type="number" value={formulario.area_hectares} onChange={(e) => setFormulario({ ...formulario, area_hectares: e.target.value })} /></label>
           <div className="linha">
-            <label>Latitude<input step="any" type="number" value={formulario.latitude} onChange={(e) => setFormulario({ ...formulario, latitude: e.target.value })} /></label>
-            <label>Longitude<input step="any" type="number" value={formulario.longitude} onChange={(e) => setFormulario({ ...formulario, longitude: e.target.value })} /></label>
+            <CoordenadasInput dados={formulario} alterar={setFormulario} />
           </div>
           <label>KML (até 5 MB)<input accept=".kml" type="file" onChange={(e) => setFormulario({ ...formulario, arquivo_kml: e.target.files?.[0] ?? null })} /></label>
           <label>Observações<textarea value={formulario.observacoes} onChange={(e) => setFormulario({ ...formulario, observacoes: e.target.value })} /></label>
@@ -359,7 +300,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
             </div>
           )}
 
-          {selecionada?.latitude && selecionada.longitude && (
+          {selecionada?.latitude !== null && selecionada?.latitude !== undefined && selecionada.longitude !== null && (
             <MapaPropriedade
               latitude={Number(selecionada.latitude)}
               longitude={Number(selecionada.longitude)}
@@ -371,7 +312,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
           </section>
         </>
       )}
-    </main>
+    </AppShell>
   );
 }
 

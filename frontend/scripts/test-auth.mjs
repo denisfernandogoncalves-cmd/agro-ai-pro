@@ -443,8 +443,9 @@ try {
 
   await test("logout desmonta estado privado e módulo Talhões", async () => {
     const rendered = await renderAppStates();
-    assert.match(rendered.privateHtml, /class="pagina"/);
-    assert.doesNotMatch(rendered.loggedOutHtml, /class="pagina"/);
+    assert.match(rendered.privateHtml, /data-private-component="AppShell"/);
+    assert.match(rendered.privateHtml, /data-private-component="DashboardPage"/);
+    assert.doesNotMatch(rendered.loggedOutHtml, /data-private-component="AppShell"/);
     assert.doesNotMatch(rendered.loggedOutHtml, /data-private-component/);
     assert.doesNotMatch(rendered.loggedOutHtml, /Talhões/);
   });
@@ -508,10 +509,10 @@ async function renderAppStates() {
     listarPropriedades: async () => [],
   };
   globalThis.__PRIVATE_COMPONENTS__ = new Proxy({}, {
-    get: (_target, name) => () =>
+    get: (_target, name) => ({ children }) =>
       React.createElement("div", {
         "data-private-component": String(name),
-      }),
+      }, children),
   });
 
   let source = appSource

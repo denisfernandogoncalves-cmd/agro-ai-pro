@@ -7,6 +7,7 @@ from apps.propriedades.models import Propriedade
 
 class LoteImportacao(models.Model):
     class Status(models.TextChoices):
+        HISTORICO = "historico", "Histórico de insumos"
         CONCLUIDO = "concluido", "Concluído"
         COM_ERROS = "com_erros", "Concluído com erros"
         PRONTO_PARA_CONFIRMACAO = (
@@ -70,6 +71,7 @@ class LoteImportacao(models.Model):
 
 class LinhaImportacao(models.Model):
     class Tipo(models.TextChoices):
+        HISTORICO = "historico", "Histórico de insumos"
         PRODUCAO = "producao", "Produção"
         SAIDA = "saida", "Saída"
         TERCEIROS = "terceiros", "Recebimento de terceiros"

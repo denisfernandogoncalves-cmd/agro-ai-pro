@@ -1,4 +1,5 @@
 import { CotacaoMercado } from "../../api/mercado";
+import { useState } from "react";
 
 
 type Props = {
@@ -6,6 +7,7 @@ type Props = {
 };
 
 export default function GraficoMercado({ cotacoes }: Props) {
+  const [selecionado, setSelecionado] = useState<number | null>(null);
   if (cotacoes.length < 2) {
     return <div className="vazio">Histórico insuficiente para o gráfico.</div>;
   }
@@ -32,15 +34,24 @@ export default function GraficoMercado({ cotacoes }: Props) {
     <figure className="card grafico-mercado">
       <svg
         aria-label="Evolução histórica da cotação"
-        role="img"
+        role="group"
         viewBox={`0 0 ${largura} ${altura}`}
       >
         <polyline fill="none" points={pontos} stroke="#237447" strokeWidth="4" />
+        {cotacoes.map((item, indice) => <circle key={item.id} className="chart-point"
+          cx={margem + (indice / (cotacoes.length - 1)) * (largura - margem * 2)}
+          cy={altura - margem - ((Number(item.valor) - minimo) / amplitude) * (altura - margem * 2)}
+          r="5" tabIndex={0} aria-label={`${item.data}: ${item.valor} ${item.unidade}`}
+          onFocus={() => setSelecionado(indice)} onMouseEnter={() => setSelecionado(indice)}
+          onClick={() => setSelecionado(indice)}><title>{`${item.data}: ${item.valor} ${item.unidade}`}</title></circle>)}
       </svg>
       <figcaption>
         {cotacoes[0].data} a {cotacoes[cotacoes.length - 1].data} · mínimo {minimo.toFixed(2)} ·
         máximo {maximo.toFixed(2)}
       </figcaption>
+      <div className="chart-detail" role="status">{selecionado != null && cotacoes[selecionado]
+        ? `${cotacoes[selecionado].data} · ${Number(cotacoes[selecionado].valor).toLocaleString("pt-BR")} ${cotacoes[selecionado].unidade}`
+        : "Passe sobre os pontos ou use Tab para consultar as cotações."}</div>
     </figure>
   );
 }
