@@ -5,8 +5,11 @@ import { BotaoAcao, useDestinoConsulta } from "../../components/AcoesContext";
 import { formatarData } from "../../utils/datas";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import axios from "axios";
+import CorrecaoHistorico from "../../components/CorrecaoHistorico";
+import { useAlteracoesNaoSalvas } from "../../components/AlteracoesNaoSalvas";
 
 import {
+  editarLote, excluirLote, excluirMovimentoEstoque,
   carregarEstoque,
   criarLote,
   LoteEstoque,
@@ -63,6 +66,8 @@ export default function EstoquePage({ propriedades }: Props) {
     loteCodigo: "",
     loteValidade: "",
   });
+  const [edicaoLote, setEdicaoLote] = useState<number | null>(null);
+  const protecaoLote = useAlteracoesNaoSalvas(auxiliar, "lote", edicaoLote);
   const [erro, setErro] = useState("");
   const [sucesso, setSucesso] = useState("");
   const [carregando, setCarregando] = useState(false);
@@ -133,23 +138,26 @@ export default function EstoquePage({ propriedades }: Props) {
     setErro("");
     setSucesso("");
     try {
-      const novoLote = await criarLote({
+      const dadosLote = {
         produto: auxiliar.loteProduto,
         fornecedor: auxiliar.loteFornecedor,
         codigo: auxiliar.loteCodigo,
         data_validade: auxiliar.loteValidade,
-      });
+      };
+      const novoLote = edicaoLote ? await editarLote(edicaoLote, dadosLote) : await criarLote(dadosLote);
+      setEdicaoLote(null);
       setAuxiliar({
         loteProduto: "",
         loteFornecedor: "",
         loteCodigo: "",
         loteValidade: "",
       });
+      protecaoLote.marcarSalvo({loteProduto:"",loteFornecedor:"",loteCodigo:"",loteValidade:""});
       setLotes((atuais) => [...atuais, novoLote]);
       setMovimento((atual) => ({ ...atual, lote: String(novoLote.id) }));
-      setSucesso("Lote cadastrado e selecionado. Complete os dados para registrar a movimentação.");
+      setSucesso(edicaoLote ? "Lote atualizado." : "Lote cadastrado e selecionado. Complete os dados para registrar a movimentação.");
       await carregar();
-      setAba("movimentos");
+      if (!edicaoLote) setAba("movimentos");
     } catch (falha) {
       setErro(mensagemErro(falha));
     } finally {
@@ -157,6 +165,11 @@ export default function EstoquePage({ propriedades }: Props) {
     }
   }
 
+  async function excluirRegistro(nome: string, acao: () => Promise<unknown>) {
+    if (salvandoLote || !(await protecaoLote.confirmarDescarte()) || !window.confirm(`Excluir ${nome}? O estoque será conferido e vínculos poderão bloquear a exclusão.`)) return;
+    setSalvandoLote(true); setErro("");
+    try { await acao(); setEdicaoLote(null); setSucesso("Registro excluído."); await carregar(); } catch (e) { setErro(mensagemErro(e)); } finally { setSalvandoLote(false); }
+  }
   return (
     <section className="modulo-estoque">
       {erro && <p className="erro card" role="alert">{erro}</p>}
@@ -227,7 +240,7 @@ export default function EstoquePage({ propriedades }: Props) {
               {movimentos.map((item) => (
                 <article className="item movimento-estoque" key={item.id}>
                   <div><h3>{item.tipo === "entrada" ? "Entrada" : "Saída"} · {item.produto_nome}</h3><p>{formatarData(item.data_movimento)} · lote {item.lote_codigo} · {item.fornecedor_nome || item.local_nome || "Fornecedor não informado"}</p><small>{item.documento_fiscal || "Sem documento fiscal"} · por {item.criado_por_nome}</small></div>
-                  <strong>{item.tipo === "entrada" ? "+" : "−"}{item.quantidade} {item.unidade}</strong>
+                  <strong>{item.tipo === "entrada" ? "+" : "−"}{item.quantidade} {item.unidade}</strong><CorrecaoHistorico base="/estoque/movimentacoes/" dados={item} campos={[{nome:"quantidade",rotulo:"Quantidade",tipo:"number"},{nome:"custo_unitario",rotulo:"Custo unitário",tipo:"number",nullable:true},{nome:"data_movimento",rotulo:"Data",tipo:"date"},{nome:"documento_fiscal",rotulo:"Documento",opcional:true},{nome:"safra",rotulo:"Safra",opcional:true},{nome:"observacoes",rotulo:"Observações",opcional:true}]} atualizar={() => void carregar()} />
                 </article>
               ))}
             </div>
@@ -243,7 +256,7 @@ export default function EstoquePage({ propriedades }: Props) {
               {posicoes.length === 0 ? <p className="vazio">Nenhum lote cadastrado.</p> : prioridadeValidade(posicoes).map((item) => (
                 <article className={`item posicao ${item.vencido || item.vence_em_30_dias || item.abaixo_minimo ? "alerta-estoque" : ""}`} key={item.lote_id}>
                   <div><h3>{item.produto}</h3><p>Lote {item.codigo_lote} · {item.fornecedor || item.local || "Fornecedor não informado"}</p><small>{item.data_validade ? `Validade ${formatarData(item.data_validade)}` : "Sem validade informada"}</small>{Number(item.saldo)>0&&(item.vencido||item.vence_em_30_dias)&&<p><strong>{item.vencido?"Vencido — conferir destinação":"Vence em até 30 dias — priorizar uso"}</strong></p>}</div>
-                  <strong>{item.saldo} {item.unidade}</strong>
+                  <strong>{item.saldo} {item.unidade}</strong><div className="acoes"><BotaoAcao acao="editar" disabled={salvandoLote} onClick={async () => { if (!(await protecaoLote.confirmarDescarte())) return; const lote=lotes.find(l => l.id===item.lote_id); if (!lote) return; const dados={loteProduto:String(lote.produto), loteFornecedor:String(lote.fornecedor ?? ""), loteCodigo:lote.codigo, loteValidade:lote.data_validade ?? ""}; setEdicaoLote(lote.id); setAuxiliar(dados); protecaoLote.marcarSalvo(dados); cadastroLotes.current?.scrollIntoView({block:"center"}); }}>Editar lote</BotaoAcao><BotaoAcao acao="excluir" className="perigo" disabled={salvandoLote} onClick={() => void excluirRegistro(`lote ${item.codigo_lote}`, () => excluirLote(item.lote_id))}>Excluir lote</BotaoAcao></div>
                 </article>
               ))}
             </div>
@@ -253,14 +266,14 @@ export default function EstoquePage({ propriedades }: Props) {
         <summary>Cadastro de lotes</summary>
         <div className="auxiliares-grade">
           <section>
-            <h3>Novo lote</h3>
+            <h3>{edicaoLote ? "Editar lote" : "Novo lote"}</h3>
             <button type="button" disabled={carregando} onClick={() => void carregar()}>Atualizar cadastros</button>
-            <label>Produto agrícola<select value={auxiliar.loteProduto} onChange={(e) => setAuxiliar({ ...auxiliar, loteProduto: e.target.value })}><option value="">Selecione</option>{produtos.filter((item) => item.ativo).map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select></label>
-            <label>Fornecedor<select value={auxiliar.loteFornecedor} onChange={(e) => setAuxiliar({ ...auxiliar, loteFornecedor: e.target.value })}><option value="">Selecione</option>{fornecedores.filter((item) => item.ativo).map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select></label>
+            <label>Produto agrícola<select value={auxiliar.loteProduto} onChange={(e) => setAuxiliar({ ...auxiliar, loteProduto: e.target.value })}><option value="">Selecione</option>{produtos.filter((item) => item.ativo || String(item.id) === auxiliar.loteProduto).map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select></label>
+            <label>Fornecedor<select value={auxiliar.loteFornecedor} onChange={(e) => setAuxiliar({ ...auxiliar, loteFornecedor: e.target.value })}><option value="">Selecione</option>{fornecedores.filter((item) => item.ativo || String(item.id) === auxiliar.loteFornecedor).map((item) => <option key={item.id} value={item.id}>{item.nome}</option>)}</select></label>
             <label>Código<input placeholder="Código do lote" value={auxiliar.loteCodigo} onChange={(e) => setAuxiliar({ ...auxiliar, loteCodigo: e.target.value })} /></label>
             <label>Validade<input type="date" value={auxiliar.loteValidade} onChange={(e) => setAuxiliar({ ...auxiliar, loteValidade: e.target.value })} /></label>
             <p>Escolha o produto agrícola e o fornecedor cadastrados na aba Cadastros agrícolas. Use Atualizar cadastros após incluir novos registros.</p>
-            <BotaoAcao acao="cadastrar" disabled={salvandoLote || !auxiliar.loteProduto || !auxiliar.loteFornecedor || !auxiliar.loteCodigo.trim()} type="button" onClick={() => void cadastrarLote()}>{salvandoLote ? "Cadastrando…" : "Cadastrar lote"}</BotaoAcao>
+            <BotaoAcao acao={edicaoLote ? "editar" : "cadastrar"} disabled={salvandoLote || !auxiliar.loteProduto || (!auxiliar.loteFornecedor && !lotes.find(l => l.id === edicaoLote)?.local) || !auxiliar.loteCodigo.trim()} type="button" onClick={() => void cadastrarLote()}>{salvandoLote ? "Salvando…" : edicaoLote ? "Salvar alterações" : "Cadastrar lote"}</BotaoAcao>{edicaoLote && <button type="button" disabled={salvandoLote} onClick={async () => { if (!(await protecaoLote.confirmarDescarte())) return; const dados={loteProduto:"",loteFornecedor:"",loteCodigo:"",loteValidade:""}; setEdicaoLote(null); setAuxiliar(dados); protecaoLote.marcarSalvo(dados); }}>Cancelar edição</button>}
           </section>
         </div>
       </details>

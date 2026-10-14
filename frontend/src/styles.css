@@ -1414,3 +1414,15 @@ dialog.editor-venda::backdrop { background: #102f2480; }
  .abas-modulo [role="tab"] {flex:0 0 auto;white-space:nowrap;}
 }
 .abrangencia-abas {grid-column:1/-1;font-size:13px;color:var(--cor-texto-secundario,#43584e);margin:0 0 12px;}
+
+.formulario fieldset.propriedades-compactas {display:flex;flex-direction:column;gap:.75rem;min-width:0;}
+.menu-propriedades {width:100%;border:1px solid #cbdad6;border-radius:10px;background:#fff;}
+.menu-propriedades summary {cursor:pointer;padding:.8rem;font-weight:600;}
+.menu-propriedades-conteudo {padding:0 .8rem .8rem;}
+.menu-propriedades-lista {max-height:260px;overflow-y:auto;margin-top:.6rem;display:grid;gap:.4rem;}
+.menu-propriedades-lista .opcao-checkbox {display:flex;align-items:center;gap:.6rem;padding:.5rem;overflow-wrap:anywhere;}
+.menu-propriedades-lista input[type="checkbox"] {flex:0 0 auto;}
+.propriedade-escolhida {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.75rem;align-items:center;}
+.propriedade-escolhida > div {display:flex;align-items:center;justify-content:space-between;gap:.5rem;min-width:0;}
+.propriedade-escolhida strong {overflow-wrap:anywhere;}
+@media(max-width:640px) {.propriedade-escolhida {grid-template-columns:minmax(0,1fr);}}

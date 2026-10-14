@@ -22,6 +22,7 @@ export type Propriedade = {
   bp_cvale?: string;
   id: number;
   nome: string;
+  apelidos?: string[];
   proprietario: string;
   municipio: string;
   uf: string;

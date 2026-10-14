@@ -3,9 +3,12 @@ import { FormEvent, useEffect, useRef, useState } from "react";
 import { formatarData } from "../../utils/datas";
 import PainelFormulario from "../../components/PainelFormulario";
 import axios from "axios";
+import CorrecaoHistorico from "../../components/CorrecaoHistorico";
+import { useAlteracoesNaoSalvas } from "../../components/AlteracoesNaoSalvas";
 
 import { LoteEstoque } from "../../api/estoque";
 import {
+  editarOperacao, excluirOperacao,
   adicionarInsumo,
   cancelarOperacao,
   carregarOperacoes,
@@ -44,6 +47,8 @@ export default function OperacoesPage() {
   const [talhoes, setTalhoes] = useState<Talhao[]>([]);
   const [lotes, setLotes] = useState<LoteEstoque[]>([]);
   const [formulario, setFormulario] = useState(vazio);
+  const [edicao, setEdicao] = useState<OperacaoAgricola | null>(null);
+  const protecao = useAlteracoesNaoSalvas(formulario, "operação agrícola", edicao?.id ?? null);
   const [filtros, setFiltros] = useState({ search: "", status: "", tipo: "" });
   const [selecionada, setSelecionada] = useState<OperacaoAgricola | null>(null);
   const [insumo, setInsumo] = useState({ lote: "", planejada: "", utilizada: "" });
@@ -82,7 +87,8 @@ export default function OperacoesPage() {
     trava.current = true; setSalvando(true);
     setErro(""); setSucesso("");
     try {
-      await criarOperacao(formulario);
+      if (edicao) await editarOperacao(edicao.id, formulario, edicao.atualizado_em); else await criarOperacao(formulario);
+      setEdicao(null); protecao.marcarSalvo(vazio);
       setFormulario(vazio);
       setSucesso("Operação planejada.");
       await carregar();
@@ -136,10 +142,10 @@ export default function OperacoesPage() {
       {erro && <p className="erro card" role="alert">{erro}</p>}
       {sucesso && <p className="sucesso card" role="status">{sucesso}</p>}
       <section className="grade operacoes-grade">
-        <PainelFormulario titulo="Planejar operação">
+        <PainelFormulario edicao={edicao?.id} key={edicao?.id ?? "nova"} titulo={edicao ? "Editar operação" : "Planejar operação"} inicialmenteAberto={!!edicao}>
         <form className="card formulario" onSubmit={salvar}>
           <fieldset disabled={salvando || carregando}>
-          <h2>Planejar operação</h2>
+          <h2>{edicao ? "Editar operação" : "Planejar operação"}</h2>
           <label>Talhão<select required value={formulario.talhao} onChange={(e) => {
             const talhao = talhoes.find((item) => String(item.id) === e.target.value);
             setFormulario({ ...formulario, talhao: e.target.value, area_hectares: valorAlqueiresParaFormulario(talhao?.area_hectares) });
@@ -153,7 +159,7 @@ export default function OperacoesPage() {
           <label>Responsável<input value={formulario.responsavel} onChange={(e) => setFormulario({ ...formulario, responsavel: e.target.value })} /></label>
           <label>Custo estimado<input min="0" step="0.01" type="number" value={formulario.custo_estimado} onChange={(e) => setFormulario({ ...formulario, custo_estimado: e.target.value })} /></label>
           <label>Observações<textarea value={formulario.observacoes} onChange={(e) => setFormulario({ ...formulario, observacoes: e.target.value })} /></label>
-          <button disabled={salvando || carregando} type="submit">{salvando ? "Salvando..." : "Salvar planejamento"}</button>
+          <BotaoAcao acao={edicao ? "editar" : "cadastrar"} disabled={salvando || carregando} type="submit">{salvando ? "Salvando..." : "Salvar planejamento"}</BotaoAcao>{edicao && <button type="button" disabled={salvando} onClick={async () => { if (!(await protecao.confirmarDescarte())) return; setEdicao(null); setFormulario(vazio); protecao.marcarSalvo(vazio); }}>Cancelar edição</button>}
           </fieldset>
         </form>
         </PainelFormulario>
@@ -180,9 +186,11 @@ export default function OperacoesPage() {
       {selecionada && (
         <section className="card detalhe-operacao">
           <div><h2>{selecionada.descricao}</h2><p>{selecionada.propriedade_nome} · {selecionada.talhao_nome} · criado por {selecionada.criado_por_nome}</p></div>
+          {selecionada.status === "planejada" && <div className="acoes"><BotaoAcao acao="editar" disabled={salvando} onClick={async () => { if (!(await protecao.confirmarDescarte())) return; const dados = {talhao:String(selecionada.talhao), tipo:selecionada.tipo, descricao:selecionada.descricao, data_planejada:selecionada.data_planejada, area_hectares:valorAlqueiresParaFormulario(selecionada.area_hectares), responsavel:selecionada.responsavel, custo_estimado:selecionada.custo_estimado, observacoes:selecionada.observacoes}; setEdicao(selecionada); setFormulario(dados); protecao.marcarSalvo(dados); }}>Editar</BotaoAcao><BotaoAcao acao="excluir" className="perigo" disabled={salvando} onClick={async () => { if (trava.current || !(await protecao.confirmarDescarte()) || !window.confirm(`Excluir a operação planejada ${selecionada.descricao}?`)) return; trava.current=true; setSalvando(true); try { await excluirOperacao(selecionada.id); setEdicao(null); setFormulario(vazio); protecao.marcarSalvo(vazio); await carregar(); } catch (e) { setErro(mensagemErro(e)); } finally { trava.current=false; setSalvando(false); } }}>Excluir</BotaoAcao></div>}
+          <CorrecaoHistorico base="/producao/operacoes/" dados={selecionada} campos={[{nome:"descricao",rotulo:"Descrição"},{nome:"data_planejada",rotulo:"Data planejada",tipo:"date"},{nome:"area_hectares",rotulo:"Área (hectares)",tipo:"number"},{nome:"responsavel",rotulo:"Responsável",opcional:true},{nome:"custo_estimado",rotulo:"Custo estimado",tipo:"number"},{nome:"custo_realizado",rotulo:"Custo realizado",tipo:"number",nullable:true},{nome:"data_inicio",rotulo:"Data de início",tipo:"date",nullable:true},{nome:"data_conclusao",rotulo:"Data de conclusão",tipo:"date",nullable:true},{nome:"observacoes",rotulo:"Observações",opcional:true}]} atualizar={() => void carregar()} />
           <section className="insumos-operacao">
             <h3>Insumos planejados</h3>
-            {selecionada.insumos.map((item) => <p key={item.id}>{item.produto_nome} · lote {item.lote_codigo}: {item.quantidade_utilizada ?? item.quantidade_planejada} {item.unidade}{item.movimentacao_estoque ? " · baixado no estoque" : ""}</p>)}
+            {selecionada.insumos.map((item) => <div key={item.id}>{item.produto_nome} · lote {item.lote_codigo}: {item.quantidade_utilizada ?? item.quantidade_planejada} {item.unidade}{item.movimentacao_estoque ? " · baixado no estoque" : ""}<CorrecaoHistorico base="/producao/insumos/" dados={item} campos={[{nome:"quantidade_planejada",rotulo:"Quantidade planejada",tipo:"number"},{nome:"quantidade_utilizada",rotulo:"Quantidade utilizada",tipo:"number",nullable:true}]} atualizar={() => void carregar()} /></div>)}
             {["planejada", "em_execucao"].includes(selecionada.status) && (
               <div className="linha-insumo">
                 <select value={insumo.lote} onChange={(e) => setInsumo({ ...insumo, lote: e.target.value })}><option value="">Selecione o lote</option>{lotes.filter((item) => item.ativo).map((item) => <option key={item.id} value={item.id}>{item.produto_nome} · {item.codigo} · saldo {item.saldo}</option>)}</select>

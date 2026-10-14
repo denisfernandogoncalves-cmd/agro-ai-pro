@@ -30,6 +30,13 @@ class ProdutoEstoque(models.Model):
     categoria = models.CharField(max_length=20, choices=Categoria.choices)
     unidade = models.CharField(max_length=5, choices=Unidade.choices)
     fabricante = models.CharField(max_length=120, blank=True)
+    classe_agronomica = models.CharField(max_length=240, blank=True)
+    principios_ativos = models.TextField(blank=True)
+    concentracao = models.CharField(max_length=500, blank=True)
+    registro_mapa = models.CharField(max_length=40, blank=True)
+    fonte_adapar = models.URLField(max_length=500, blank=True)
+    atualizacao_fonte = models.CharField(max_length=10, blank=True)
+    consultado_em = models.DateTimeField(null=True, blank=True)
     estoque_minimo = models.DecimalField(
         max_digits=14,
         decimal_places=3,

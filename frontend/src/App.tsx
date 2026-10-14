@@ -415,6 +415,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
                 <article className={`card item ${selecionada?.id === item.id ? "ativo" : ""}`} key={item.id} onClick={() => setSelecionada(item)}>
                   <div>
                     <h3>{item.nome}</h3>
+                    {!!item.apelidos?.length && <p><strong>Apelido:</strong> {item.apelidos.join(" / ")}</p>}
                     <p>{item.municipio}/{item.uf} · {areaEmAlqueires(item.area_hectares)} alq. declarados</p>
                     <p>CAD/PRO: {item.cad_pro_numeros.length ? item.cad_pro_numeros.join(", ") : "não informado"}</p>
                     {item.area_calculada_hectares && (

@@ -16,7 +16,7 @@ class Caminhao(models.Model):
 
     veiculo = models.CharField(max_length=100)
 
-    motorista = models.CharField(max_length=120)
+    motorista = models.CharField(max_length=120, blank=True)
 
     ativo = models.BooleanField(default=True)
 
@@ -152,10 +152,40 @@ class RemuneracaoMotorista(models.Model):
 
     @property
 
-    def valor_comissao(self):
+    def valor_comissao_transporte(self):
 
         if self.comissao_percentual is None:
 
-            return self.comissao
+            return Decimal(str(self.comissao)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
         return (self.base_comissao * self.comissao_percentual / 100).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
+    @property
+    def comissao_fretes(self):
+        if not self.pk:
+            return Decimal("0.00")
+        return self.fretes_conferidos.filter(ja_contabilizado=False).filter(
+            models.Q(carga__status="ativa") | models.Q(entrega__isnull=False, entrega__cancelado_em__isnull=True)
+        ).aggregate(total=models.Sum("comissao"))["total"] or Decimal("0.00")
+
+    @property
+    def valor_comissao(self):
+        return self.valor_comissao_transporte + self.comissao_fretes
+
+
+class FreteConferido(models.Model):
+    carga = models.OneToOneField("graos.CargaColhida", on_delete=models.PROTECT, null=True, blank=True, related_name="frete_conferido")
+    entrega = models.OneToOneField("vendas.EntregaVendaGraos", on_delete=models.PROTECT, null=True, blank=True, related_name="frete_conferido")
+    remuneracao = models.ForeignKey(RemuneracaoMotorista, on_delete=models.PROTECT, related_name="fretes_conferidos")
+    frete = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0"))])
+    comissao = models.DecimalField(max_digits=14, decimal_places=2, validators=[MinValueValidator(Decimal("0"))])
+    ja_contabilizado = models.BooleanField(default=True)
+    observacoes = models.CharField(max_length=220, blank=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(condition=(models.Q(carga__isnull=False, entrega__isnull=True) | models.Q(carga__isnull=True, entrega__isnull=False)), name="frete_origem_unica"),
+            models.CheckConstraint(condition=models.Q(frete__gte=0, comissao__gte=0), name="frete_valores_nao_negativos"),
+        ]

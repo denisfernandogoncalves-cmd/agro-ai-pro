@@ -270,6 +270,23 @@ class RelatorioOperacionalSelectorTests(RelatorioOperacionalBase, TestCase):
             self.assertEqual(Decimal(oficial["saldo_fisico_kg"]), posicao.saldo_fisico_kg)
             self.assertEqual(Decimal(oficial["saldo_comprometido_kg"]), posicao.saldo_comprometido_kg)
 
+    def test_paginas_preservam_totais_e_serializam_apenas_detalhes_da_pagina(self):
+        from . import selectors
+        for secao, funcao in (("producao", "_item_movimento"), ("movimentacoes", "_item_movimento"),
+                              ("rastreabilidade", "_item_movimento"), ("reservas", "_item_reserva"),
+                              ("vendas", "_item_venda"), ("entregas", "_item_entrega")):
+            with self.subTest(secao=secao):
+                completo = self.relatorio(secao=secao, por_pagina=100)
+                with patch.object(selectors, funcao, wraps=getattr(selectors, funcao)) as serializar:
+                    primeira = self.relatorio(secao=secao, por_pagina=1)
+                    self.assertLessEqual(serializar.call_count, 1)
+                self.assertEqual(primeira["totais"], completo["totais"])
+                self.assertEqual(primeira["dados"]["resultados"], completo["dados"]["resultados"][:1])
+                self.assertEqual(primeira["dados"]["total"], completo["dados"]["total"])
+                vazia = self.relatorio(secao=secao, pagina=100, por_pagina=1)
+                self.assertEqual(vazia["dados"]["resultados"], [])
+                self.assertEqual(vazia["totais"], completo["totais"])
+
     def test_rateio_por_propriedade_e_transporte_por_motorista(self):
         grupo = GrupoColheita.objects.create(
             propriedade=self.propriedade_a,

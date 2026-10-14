@@ -45,3 +45,33 @@
 
 /* Os formulários acompanham a rolagem sem cobrir os dados da consulta. */
 .modulo-transportes .formulario { position: static; top: auto; min-width: 0; }
+
+.holerite-dialogo { width: min(820px, calc(100vw - 32px)); }
+.holerite-folha { background: white; color: #111; font: 14px/1.45 Arial, sans-serif; text-align: left; padding: 20px; border: 1px solid #222; }
+.holerite-folha header { display: flex; justify-content: space-between; gap: 16px; border-bottom: 2px solid #222; padding-bottom: 12px; }
+.holerite-folha h2 { margin: 4px 0; font-size: 20px; }
+.holerite-folha header p { margin: 0; }
+.holerite-identificacao { display: grid; grid-template-columns: 2fr 1fr; gap: 16px; padding: 16px 0; }
+.holerite-identificacao strong { display: block; font-size: 16px; overflow-wrap: anywhere; }
+.holerite-folha table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.holerite-folha th, .holerite-folha td { padding: 8px; border: 1px solid #888; text-align: left; }
+.holerite-valores th:last-child, .holerite-valores td:last-child { text-align: right; white-space: nowrap; }
+.holerite-total { display: flex; justify-content: space-between; gap: 12px; padding: 14px 8px; border: 2px solid #222; margin-top: 12px; font-weight: bold; }
+.holerite-total strong { font-size: 20px; white-space: nowrap; }
+.holerite-detalhes { overflow-x: auto; }
+.holerite-nota { font-size: 12px; }
+.holerite-folha footer { margin-top: 40px; }
+.holerite-assinatura { border-top: 1px solid #222; width: 65%; margin: 40px auto 0; text-align: center; padding-top: 6px; }
+@page holerite { size: A4 portrait; margin: 15mm; }
+@media print {
+  .holerite-dialogo { page: holerite; }
+  .holerite-dialogo .holerite-folha { font-size: 11pt; padding: 4mm; }
+  .holerite-dialogo .holerite-folha table { font-size: 10pt; }
+  .holerite-dialogo .holerite-detalhes { overflow: visible; }
+  .holerite-dialogo .holerite-folha tr, .holerite-dialogo .holerite-total, .holerite-dialogo .holerite-folha footer { break-inside: avoid; }
+  .holerite-dialogo .holerite-folha thead { display: table-header-group; }
+}
+@media (max-width: 480px) {
+  .holerite-folha { padding: 10px; }
+  .holerite-folha header, .holerite-total { flex-direction: column; }
+}
