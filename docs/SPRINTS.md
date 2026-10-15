@@ -1,5 +1,60 @@
 # Sprints — AGRO-AI-PRO
 
+## Incremento — modernização visual 2.0 (14/10/2026)
+
+- [x] Branch própria de origem operacional, base preservada e commits visuais separados.
+- [x] Tokens, shell persistente, Painel, saldos/vendas, clima/mercado, frota e assistente.
+- [x] Testes frontend/build e revisão visual isolada desktop/tablet/celular, com capturas rotuladas.
+- [ ] Estabilizar migration preexistente de produtos e validar integração funcional antes de merge.
+
+Evidências: [layout 2.0](decisoes/2026-10-14-layout-2-0.md).
+
+
+## Incremento — transportes, relatórios e integração preparada (14/10/2026)
+
+- [x] PUT/PATCH de caminhões, lançamentos e remunerações protegidos por versão.
+- [x] Totais de grãos agregados no banco e detalhes paginados antes da serialização.
+- [x] Integração isolada preparada sem conflitos; 807 testes backend (seis skips),
+  testes frontend, TypeScript/build e migrations aprovados.
+- [ ] Commit/push e conclusão da integração em main não executados.
+
+Evidências e limites: [decisão](decisoes/2026-10-14-melhorias-integracao.md).
+
+## Incremento — controles de editar/excluir (14/10/2026)
+
+- [x] Ações existentes expostas em Transportes, frota, manutenções agendadas,
+  operações planejadas e lotes/movimentações de estoque, respeitando os bloqueios.
+- [x] 114 casos PostgreSQL (um skip), frontend/TypeScript/Vite e Django aprovados.
+- [x] Correção/cancelamento de históricos com original, motivo, versão e efeitos transacionais.
+- [ ] Validação/implantação final após estabilizar os campos agronômicos simultâneos de produtos.
+
+Evidências e limites: docs/decisoes/2026-10-14-editar-excluir.md.
+
+## Incremento — comissão e seleção compacta de propriedades (14/10/2026)
+
+- [x] Base da comissão manual nas cargas usa peso bruto do produto, sem tara ou
+  descontos de qualidade; valores salvos preservados.
+- [x] Menu de propriedades com busca/seleção múltipla, CAD/PRO apenas das escolhidas.
+- [x] Oito testes de fretes PostgreSQL e frontend/TypeScript/Vite aprovados;
+  nome do motorista corrigido no registro de abril após backup.
+- [x] Aba Motoristas e caminhões com edição e desvinculação do nome atual,
+  preservando caminhão e histórico; 21 casos de Transportes (um skip) aprovados.
+- [x] Tarifa de frete por tonelada sobre peso bruto e comissão sugerida pelo
+  percentual cadastrado; valores antigos preservados, cálculo decimal testado.
+
+Evidências e limites: docs/decisoes/2026-10-14-ajustes-operacionais.md.
+
+## Incremento — cotações gratuitas de Chicago (14/10/2026)
+
+- [x] Soja, milho e trigo via Yahoo Finance / CBOT; dólar pelo Investing, fontes,
+  contratos, unidades, atraso e horários originais explícitos.
+- [x] Cache, preservação em falhas e validação existente reutilizados; 22 testes
+  de mercado, frontend/TypeScript/Vite, Django e migrations aprovados.
+- [ ] Conferência visual autenticada.
+
+Evidências, backups e limites: docs/decisoes/2026-10-14-cotacoes-gratuitas.md.
+Sem migrations ou alteração de dados operacionais; sem commit/push/merge.
+
 ## Incremento — Transportes por caminhão e motorista (12/10/2026)
 
 **Status:** `[x]` — implementado e validado na versão web local.
@@ -501,3 +556,35 @@ Evidências e limites: docs/decisoes/2026-10-12-transportes.md.
 
 Evidências, backups, arquivos e sincronização: docs/MELHORIAS-AUDITORIA-20261013.md.
 Sem merge nem produção.
+
+
+## Incremento — holerite mensal por motorista (13/10/2026)
+
+- [x] Seleção de mês e motorista, prévia A4, salário/comissão/total e assinatura.
+- [x] Histórico e todas as placas preservados; acesso de impressão validado no backend.
+- [x] Testes pertinentes, frontend/TypeScript/Vite, check/migrations e atualização local aprovados.
+
+Evidências, backups e limites: docs/decisoes/2026-10-13-holerite-motoristas.md.
+Sem migration nem alteração de dados operacionais.
+
+
+## Incremento — fretes de cargas e vendas por mês/placa (13/10/2026)
+
+- [x] Cruzamento das origens ativas, frete/comissão manuais e decisão explícita para evitar repetição.
+- [x] Associação à remuneração mensal, holerite e relatórios com comissão manual separada.
+- [x] Reenvio, edição obsoleta, cancelamento, vínculos e permissões protegidos; testes pertinentes estabilizados.
+- [x] Migration transportes.0005 aditiva aplicada após backup; interface 5174 saudável.
+
+Evidências, resultados e limites: docs/decisoes/2026-10-13-fretes-cargas-vendas.md.
+Nenhum dado de frete/comissão preenchido automaticamente. Sem commit/push/merge.
+
+
+## Incremento — ranking financeiro e eficiência de motoristas (13/10/2026)
+
+- [x] Rankings separados por resultado e margem, com salário/comissão/custos registrados.
+- [x] Indicador de carga média documentada, motorista histórico e conferências manuais, sem origens canceladas.
+- [x] Filtros, pendências de cadastro, critérios, impressão e CSV preservados; permissões respeitadas.
+- [x] 61 casos PostgreSQL (um skip), frontend/TypeScript/Vite, Django/migrations e atualização local aprovados.
+
+Evidências e limites: docs/decisoes/2026-10-13-ranking-motoristas.md.
+Sem migration nova nem alteração de registros operacionais; sem commit/push/merge.

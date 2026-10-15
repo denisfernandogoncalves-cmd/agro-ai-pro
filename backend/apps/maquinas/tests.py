@@ -74,6 +74,16 @@ class MaquinaApiTests(MaquinaBase, APITestCase):
         self.client.force_authenticate(None)
         self.assertEqual(self.client.get("/api/maquinas/maquinas/").status_code, 401)
 
+    def test_exclusao_com_historico_e_edicao_com_versao(self):
+        ManutencaoMaquina.objects.create(maquina=self.maquina, descricao="Revisão", data_prevista=timezone.localdate())
+        url = f"/api/maquinas/maquinas/{self.maquina.pk}/"
+        self.assertEqual(self.client.delete(url).status_code, 400)
+        self.assertTrue(Maquina.objects.filter(pk=self.maquina.pk).exists())
+        versao = self.client.get(url).data["atualizado_em"]
+        resultado = self.client.patch(url, {"marca": "Marca corrigida", "atualizado_em_original": versao}, format="json")
+        self.assertEqual(resultado.status_code, 200, resultado.data)
+        self.assertEqual(self.client.patch(url, {"marca": "Edição antiga", "atualizado_em_original": versao}, format="json").status_code, 409)
+
     def test_crud_e_filtros(self):
         criada = self.client.post(
             "/api/maquinas/maquinas/",

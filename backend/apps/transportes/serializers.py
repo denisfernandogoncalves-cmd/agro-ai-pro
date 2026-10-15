@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from apps.core.correcoes import VersaoCorrecaoSerializer
 
 from .models import Caminhao, LancamentoTransporte, RemuneracaoMotorista
 
@@ -6,7 +7,7 @@ from .models import Caminhao, LancamentoTransporte, RemuneracaoMotorista
 
 
 
-class CaminhaoSerializer(serializers.ModelSerializer):
+class CaminhaoSerializer(VersaoCorrecaoSerializer, serializers.ModelSerializer):
 
     class Meta:
 
@@ -30,7 +31,7 @@ class CaminhaoSerializer(serializers.ModelSerializer):
 
 
 
-class LancamentoSerializer(serializers.ModelSerializer):
+class LancamentoSerializer(VersaoCorrecaoSerializer, serializers.ModelSerializer):
 
     placa = serializers.CharField(source="caminhao.placa", read_only=True)
 
@@ -50,7 +51,11 @@ class LancamentoSerializer(serializers.ModelSerializer):
 
 
 
-class RemuneracaoSerializer(serializers.ModelSerializer):
+class RemuneracaoSerializer(VersaoCorrecaoSerializer, serializers.ModelSerializer):
+    comissao_manual = serializers.DecimalField(source="comissao", max_digits=14, decimal_places=2, read_only=True)
+    comissao_transportes = serializers.DecimalField(source="valor_comissao_transporte", max_digits=22, decimal_places=2, read_only=True)
+    comissao_fretes = serializers.DecimalField(max_digits=22, decimal_places=2, read_only=True)
+
 
     comissao = serializers.DecimalField(source="valor_comissao", max_digits=22, decimal_places=2, read_only=True)
 
@@ -69,6 +74,8 @@ class RemuneracaoSerializer(serializers.ModelSerializer):
 
 
     def validate(self, attrs):
+        if self.instance and self.instance.fretes_conferidos.exists() and any(k in attrs and attrs[k] != getattr(self.instance, k) for k in ("caminhao", "motorista", "competencia")):
+            raise serializers.ValidationError("Esta remuneração possui fretes conferidos. Preserve motorista, placa e competência.")
 
         if attrs.get("comissao_percentual", getattr(self.instance, "comissao_percentual", None)) is None:
 

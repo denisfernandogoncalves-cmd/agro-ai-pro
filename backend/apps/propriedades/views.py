@@ -11,6 +11,7 @@ from .serializers import PropriedadeSerializer
 class PropriedadeViewSet(viewsets.ModelViewSet):
     queryset = Propriedade.objects.prefetch_related(
         "vinculos_cadpro__cad_pro",
+        "linhas_importacao",
     ).order_by("nome", "id")
     serializer_class = PropriedadeSerializer
     pagination_class = PaginacaoOpcional

@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { formatarData } from "../../utils/datas";
 import { CotacaoMercado } from "../../api/mercado";
 
@@ -17,12 +18,20 @@ type Props = {
 
 export default function GraficoMercado({ cotacoes }: Props) {
   const series = seriesMercado(cotacoes);
+  const figura = useRef<HTMLElement | null>(null);
+  const [largura, setLargura] = useState(720);
+  const temHistorico = series.length === 1 && series[0].length >= 2;
+  useEffect(() => {
+    if (!temHistorico || !figura.current || typeof ResizeObserver === "undefined") return;
+    const observador = new ResizeObserver(([entrada]) => { if (entrada.contentRect.width > 0) setLargura(Math.max(320, Math.min(720, Math.round(entrada.contentRect.width)))); });
+    observador.observe(figura.current);
+    return () => observador.disconnect();
+  }, [temHistorico]);
   if (series.length > 1) return <div className="graficos-series">{series.map(serie => <GraficoMercado key={`${serie[0].produto}|${serie[0].unidade}|${serie[0].fonte}`} cotacoes={serie}/>)}</div>;
   cotacoes = series[0] ?? [];
   if (cotacoes.length < 2) {
     return <div className="vazio">Histórico insuficiente para o gráfico.</div>;
   }
-  const largura = 720;
   const altura = 240;
   const margem = 60;
   const valores = cotacoes.map((item) => Number(item.valor));
@@ -45,7 +54,7 @@ export default function GraficoMercado({ cotacoes }: Props) {
     .join(" ");
 
   return (
-    <figure className="card grafico-mercado">
+    <figure ref={figura} className="card grafico-mercado">
       <div className="grafico-legenda"><strong>{cotacoes[0].produto_nome} · {cotacoes[0].unidade}</strong> · {cotacoes[0].fonte}</div>
       <svg
         aria-label="Evolução histórica da cotação"

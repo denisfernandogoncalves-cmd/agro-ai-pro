@@ -22,6 +22,13 @@ export default function NavegacaoModulos({ acesso, modulo, onSelecionar }: { ace
   const fecharMenu = () => { setAberto(false); alternarRef.current?.focus(); };
   const [recolhido, setRecolhido] = useState(false);
   useEffect(() => {
+    const buscar = () => { setRecolhido(false); setAberto(true); window.requestAnimationFrame(() => buscaRef.current?.focus()); };
+    const atalho = (e: KeyboardEvent) => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") { e.preventDefault(); buscar(); } };
+    window.addEventListener("agro:buscar-modulo", buscar);
+    window.addEventListener("keydown", atalho);
+    return () => { window.removeEventListener("agro:buscar-modulo", buscar); window.removeEventListener("keydown", atalho); };
+  }, []);
+  useEffect(() => {
     if (!aberto) return;
     buscaRef.current?.focus();
     const fechar = (e: KeyboardEvent) => {

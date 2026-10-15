@@ -7,6 +7,7 @@ import {
   listarPrevisoes,
   PrevisaoClima,
 } from "../../api/clima";
+import IconeClima from "../../components/IconeClima";
 import { Propriedade, rotuloPropriedade } from "../../api/propriedades";
 const MapaPropriedade = lazy(() => import("../../components/MapaPropriedade"));
 const SatelitePublico = lazy(() => import("../../components/SatelitePublico"));
@@ -48,6 +49,8 @@ export default function ClimaPage({ propriedades }: Props) {
   fimPrevisao.setUTCDate(fimPrevisao.getUTCDate()+6);
   const ate = fimPrevisao.toISOString().slice(0,10);
   const previsoesVisiveis = previsoes.filter(p => mostrarHistorico || (p.data >= hoje && p.data <= ate));
+  const previsoesSeteDias = previsoes.filter(p => p.data >= hoje && p.data <= ate);
+  const chuvaCompleta = previsoesSeteDias.length === 7 && new Set(previsoesSeteDias.map(p => p.data)).size === 7 && previsoesSeteDias.every(p => p.chuva_mm !== null && p.chuva_mm !== undefined && Number.isFinite(Number(p.chuva_mm)));
   const propriedadeAtual = useRef(propriedadeId);
   const localizacao = propriedades.find(item => item.id === propriedadeId);
   propriedadeAtual.current = propriedadeId;
@@ -152,6 +155,7 @@ export default function ClimaPage({ propriedades }: Props) {
 
       <label><input type="checkbox" checked={mostrarHistorico} onChange={e => setMostrarHistorico(e.target.checked)}/> Incluir previsões históricas armazenadas</label>
       <p>Consulta: {formatarData(hoje)} a {formatarData(ate)}{mostrarHistorico ? " · incluindo histórico registrado" : " · próximos sete dias"}.</p>
+      <div className="clima-acumulado"><span>Chuva prevista nos próximos sete dias</span><strong>{chuvaCompleta ? `${previsoesSeteDias.reduce((s, p) => s + Number(p.chuva_mm), 0).toLocaleString("pt-BR", {maximumFractionDigits: 1})} mm` : "Indisponível"}</strong><small>{chuvaCompleta ? "Soma das previsões armazenadas do período; não é medição de chuva." : "São necessários os sete dias com chuva informada para calcular o acumulado."}</small></div>
       {previsoesVisiveis.length === 0 ? (
         <section className="card vazio">
           Nenhuma previsão armazenada para o período consultado desta propriedade.
@@ -161,7 +165,7 @@ export default function ClimaPage({ propriedades }: Props) {
           {previsoesVisiveis.map((previsao) => (
             <article className="card previsao-card" key={previsao.id}>
               <span className="kicker">{formatarData(previsao.data)}</span>
-              <h3>{previsao.condicao || "Condição variável"}</h3>
+              <IconeClima condicao={previsao.condicao || ""} /><h3>{previsao.condicao || "Condição variável"}</h3>
               <p className="temperaturas">
                 {previsao.temperatura_min ?? "—"} °C /{" "}
                 {previsao.temperatura_max ?? "—"} °C

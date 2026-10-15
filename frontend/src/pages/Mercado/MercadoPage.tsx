@@ -92,7 +92,7 @@ export default function MercadoPage() {
       <section className="card mercado-controles">
         <div>
           <h2>Mercado agrícola</h2>
-          <p>Referências dos futuros de Chicago em US$/bushel e dólar USD/BRL pelo Investing, indicadores mensais globais e previsões armazenadas do Corn Belt.</p>
+          <p>Referências dos futuros de Chicago em US$/bushel via Yahoo Finance / CBOT e dólar USD/BRL pelo Investing, indicadores mensais globais e previsões armazenadas do Corn Belt.</p>
         </div>
         <div className="acoes">
           <button disabled={carregando} onClick={() => void atualizar("cotacoes")}>
@@ -110,7 +110,7 @@ export default function MercadoPage() {
 
       {erro && <p className="erro card" role="alert">{erro}</p>}
 
-      <section className="card"><h2>Chicago e dólar — Investing</h2><QuadroCBOT /></section>
+      <section className="card"><h2>Chicago e dólar — referências gratuitas</h2><QuadroCBOT /></section>
       <h2>Indicadores mensais FRED/FMI</h2>
       <section className="resumos-mercado" aria-label="Resumo dos indicadores mensais FRED/FMI">
         {resumos.map((resumo) => {

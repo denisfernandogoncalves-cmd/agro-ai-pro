@@ -370,6 +370,7 @@ export default function CargasColhidasPage({ propriedades }: Props) {
   const [cargas, setCargas] = useState<CargaColhida[]>([]);
   const [talhoes, setTalhoes] = useState<Talhao[]>([]);
   const [carga, setCarga] = useState<CargaColhidaInput>(() => novaCarga());
+  const [buscaPropriedadeRateio, setBuscaPropriedadeRateio] = useState("");
   const [edicaoId, setEdicaoId] = useState<number | null>(null);
   const protecao = useAlteracoesNaoSalvas({...carga, chave_registro: undefined}, "Carga colhida", edicaoId);
   const [filtrosRapidos, setFiltrosRapidos] = useState(filtrosRapidosVazios);
@@ -670,17 +671,28 @@ export default function CargasColhidasPage({ propriedades }: Props) {
           <button type="button" onClick={() => void carregarGrupos()}>Atualizar grupos</button>
           {erroGrupos && <p className="erro" role="alert">{erroGrupos}</p>}
           <p>Cadastre grupos em Talhões. Após aplicar, confira as propriedades abaixo; você pode ajustar a seleção e os CAD/PROs antes de salvar.</p>
-          <fieldset>
+          <fieldset className="propriedades-compactas">
             <legend>Escolha as propriedades</legend>
-            {propriedades.map((item) => {
-              const selecionada = propriedadesSelecionadasIds.includes(item.id);
+            <details className="menu-propriedades">
+              <summary>Selecionar propriedades · {propriedadesSelecionadas.length} selecionada(s)</summary>
+              <div className="menu-propriedades-conteudo">
+                <label>Buscar propriedade ou CAD/PRO<input type="search" value={buscaPropriedadeRateio} onChange={(e) => setBuscaPropriedadeRateio(e.target.value)} placeholder="Digite o nome ou código" /></label>
+                <div className="menu-propriedades-lista">
+                  {propriedades.filter(item => rotuloPropriedade(item).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR").includes(buscaPropriedadeRateio.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR"))).map(item =>
+                    <label className="opcao-checkbox" key={item.id}><input type="checkbox" checked={propriedadesSelecionadasIds.includes(item.id)} onChange={(e) => alternarPropriedadeRateio(item.id, e.target.checked)} /> {rotuloPropriedade(item)} · {areaEmAlqueires(item.area_hectares)} alq.</label>
+                  )}
+                  {propriedades.length === 0 && <p>Nenhuma propriedade disponível.</p>}
+                </div>
+              </div>
+            </details>
+            {propriedadesSelecionadas.map((item) => {
               const opcoesCadpro = cadpros.filter((cadpro) =>
                 cadpro.ativo && cadpro.propriedades.includes(item.id)
               );
-              return <div key={`rateio-${item.id}`}>
-                <label className="opcao-checkbox"><input type="checkbox" checked={selecionada} onChange={(e) => alternarPropriedadeRateio(item.id, e.target.checked)} /> {rotuloPropriedade(item)} · {areaEmAlqueires(item.area_hectares)} alq.</label>
-                {selecionada && <label>CAD/PRO de {item.nome}<select required value={carga.cadpros_por_propriedade[String(item.id)] || ""} onChange={(e) => alterarCadproDaPropriedade(item.id, e.target.value)}><option value="">Selecione</option>{opcoesCadpro.map((cadpro) => <option key={cadpro.id} value={cadpro.id}>{cadpro.codigo} · {cadpro.descricao}</option>)}</select></label>}
-                {selecionada && opcoesCadpro.length === 0 && <p className="aviso-contexto">Esta propriedade não possui CAD/PRO ativo.</p>}
+              return <div className="propriedade-escolhida" key={`rateio-${item.id}`}>
+                <div><strong>{item.nome} · {areaEmAlqueires(item.area_hectares)} alq.</strong><button type="button" className="secundario" aria-label={`Remover ${item.nome} da seleção`} onClick={() => alternarPropriedadeRateio(item.id, false)}>Remover</button></div>
+                <label>CAD/PRO de {item.nome}<select required value={carga.cadpros_por_propriedade[String(item.id)] || ""} onChange={(e) => alterarCadproDaPropriedade(item.id, e.target.value)}><option value="">Selecione</option>{opcoesCadpro.map((cadpro) => <option key={cadpro.id} value={cadpro.id}>{cadpro.codigo} · {cadpro.descricao}</option>)}</select></label>
+                {opcoesCadpro.length === 0 && <p className="aviso-contexto">Esta propriedade não possui CAD/PRO ativo.</p>}
               </div>;
             })}
           </fieldset>

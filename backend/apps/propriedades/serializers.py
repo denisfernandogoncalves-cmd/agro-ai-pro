@@ -23,6 +23,7 @@ class PropriedadeSerializer(serializers.ModelSerializer):
         max_length=50,
     )
     cad_pro_numeros = serializers.SerializerMethodField()
+    apelidos = serializers.SerializerMethodField()
 
     class Meta:
         model = Propriedade
@@ -50,6 +51,19 @@ class PropriedadeSerializer(serializers.ModelSerializer):
             for vinculo in obj.vinculos_cadpro.all()
             if vinculo.ativo and vinculo.cad_pro.ativo
         ]
+
+    def get_apelidos(self, obj):
+        # As duas planilhas históricas usam D para Nome conhecido/comercial.
+        apelidos = {}
+        for linha in obj.linhas_importacao.all():
+            if linha.tipo != "historico" or linha.planilha.upper() != "INSUMOS":
+                continue
+            valor = linha.dados_normalizados.get("valores_por_celula", {}).get(
+                f"D{linha.linha_origem}"
+            )
+            if isinstance(valor, str) and valor.strip():
+                apelidos.setdefault(valor.strip().casefold(), valor.strip())
+        return sorted(apelidos.values(), key=str.casefold)
 
     def validate_area_hectares(self, value):
         if value <= 0:

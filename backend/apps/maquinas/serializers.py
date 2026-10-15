@@ -1,6 +1,7 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import transaction
 from rest_framework import serializers
+from apps.core.correcoes import VersaoCorrecaoSerializer
 
 from .models import (
     AbastecimentoMaquina,
@@ -27,7 +28,9 @@ class MaquinaSerializer(serializers.ModelSerializer):
         return value
 
 
-class UsoMaquinaSerializer(serializers.ModelSerializer):
+class UsoMaquinaSerializer(VersaoCorrecaoSerializer, serializers.ModelSerializer):
+    horimetro_atual_maquina = serializers.DecimalField(source="maquina.horimetro_atual", max_digits=12, decimal_places=1, read_only=True)
+    versao_maquina_original = serializers.DateTimeField(source="maquina.atualizado_em", read_only=True)
     maquina_nome = serializers.CharField(source="maquina.identificacao", read_only=True)
     operacao_nome = serializers.CharField(source="operacao.descricao", read_only=True)
     horas_trabalhadas = serializers.DecimalField(
@@ -55,7 +58,9 @@ class UsoMaquinaSerializer(serializers.ModelSerializer):
         return instancia
 
 
-class AbastecimentoMaquinaSerializer(serializers.ModelSerializer):
+class AbastecimentoMaquinaSerializer(VersaoCorrecaoSerializer, serializers.ModelSerializer):
+    horimetro_atual_maquina = serializers.DecimalField(source="maquina.horimetro_atual", max_digits=12, decimal_places=1, read_only=True)
+    versao_maquina_original = serializers.DateTimeField(source="maquina.atualizado_em", read_only=True)
     maquina_nome = serializers.CharField(source="maquina.identificacao", read_only=True)
 
     class Meta:
@@ -72,7 +77,9 @@ class AbastecimentoMaquinaSerializer(serializers.ModelSerializer):
         return super().create(validated_data)
 
 
-class ManutencaoMaquinaSerializer(serializers.ModelSerializer):
+class ManutencaoMaquinaSerializer(VersaoCorrecaoSerializer, serializers.ModelSerializer):
+    horimetro_atual_maquina = serializers.DecimalField(source="maquina.horimetro_atual", max_digits=12, decimal_places=1, read_only=True)
+    versao_maquina_original = serializers.DateTimeField(source="maquina.atualizado_em", read_only=True)
     maquina_nome = serializers.CharField(source="maquina.identificacao", read_only=True)
 
     class Meta:

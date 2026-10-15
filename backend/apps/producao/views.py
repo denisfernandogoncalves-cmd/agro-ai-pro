@@ -10,6 +10,8 @@ from apps.core.pagination import PaginacaoOpcional
 from apps.core.query_params import validar_filtros
 
 from .models import InsumoOperacao, OperacaoAgricola
+from apps.core.correcoes import CorrecaoHistoricoMixin
+from rest_framework.exceptions import ValidationError
 from .serializers import InsumoOperacaoSerializer, OperacaoAgricolaSerializer
 from .services import (
     TransicaoOperacaoError,
@@ -19,7 +21,32 @@ from .services import (
 )
 
 
-class OperacaoAgricolaViewSet(EdicaoConcorrenteMixin, viewsets.ModelViewSet):
+class OperacaoAgricolaViewSet(CorrecaoHistoricoMixin, EdicaoConcorrenteMixin, viewsets.ModelViewSet):
+    modulo_correcao = "operacoes"
+    campos_correcao = ("talhao", "tipo", "descricao", "data_planejada", "area_hectares", "responsavel", "custo_estimado", "observacoes", "data_inicio", "data_conclusao", "custo_realizado")
+
+    def corrigir_historico(self, instancia, dados, request):
+        if "talhao" in dados and dados["talhao"].pk != instancia.talhao_id and instancia.insumos.filter(movimentacao_estoque__isnull=False).exists():
+            raise ValidationError("Cancele a operação antes de mudar o talhão, pois há consumo vinculado à propriedade original.")
+        for campo, valor in dados.items():
+            setattr(instancia, campo, valor)
+        instancia.full_clean()
+        instancia.save()
+
+    def cancelar_historico(self, instancia, request):
+        if instancia.status == "cancelada":
+            raise ValidationError("A operação já está cancelada.")
+        from apps.estoque.services import excluir_movimentacao
+        for item in instancia.insumos.select_for_update(of=("self",)).select_related("movimentacao_estoque").order_by("lote_id", "id"):
+            if item.movimentacao_estoque_id:
+                movimento = item.movimentacao_estoque
+                item.movimentacao_estoque = None
+                item.quantidade_utilizada = None
+                item.save(update_fields=["movimentacao_estoque", "quantidade_utilizada"])
+                excluir_movimentacao(movimento)
+        instancia.status = "cancelada"
+        instancia.custo_realizado = None
+        instancia.save(update_fields=["status", "custo_realizado", "atualizado_em"])
     queryset = OperacaoAgricola.objects.select_related(
         "talhao__propriedade", "criado_por"
     ).prefetch_related("insumos__lote__produto", "insumos__lote__local")
@@ -96,7 +123,43 @@ class OperacaoAgricolaViewSet(EdicaoConcorrenteMixin, viewsets.ModelViewSet):
         return Response(self.get_serializer(operacao).data)
 
 
-class InsumoOperacaoViewSet(viewsets.ModelViewSet):
+class InsumoOperacaoViewSet(CorrecaoHistoricoMixin, viewsets.ModelViewSet):
+    modulo_correcao = "operacoes"
+    campos_correcao = ("quantidade_planejada", "quantidade_utilizada")
+
+    def bloquear_dependencias(self, instancia):
+        from apps.estoque.models import LoteEstoque
+        OperacaoAgricola.objects.select_for_update().get(pk=instancia.operacao_id)
+        LoteEstoque.objects.select_for_update().get(pk=instancia.lote_id)
+
+    def corrigir_historico(self, instancia, dados, request):
+        from apps.estoque.models import LoteEstoque
+        from decimal import Decimal
+        lote = LoteEstoque.objects.select_for_update().get(pk=instancia.lote_id)
+        for campo, valor in dados.items():
+            setattr(instancia, campo, valor)
+        instancia.clean_fields()
+        if instancia.movimentacao_estoque_id:
+            movimento = instancia.movimentacao_estoque
+            movimento.quantidade = instancia.quantidade_utilizada or instancia.quantidade_planejada
+            movimento.full_clean()
+            movimento.save(update_fields=["quantidade"])
+            saldo = Decimal("0")
+            for item in lote.movimentacoes.order_by("data_movimento", "id"):
+                saldo += item.quantidade if item.tipo == "entrada" else -item.quantidade
+                if saldo < 0:
+                    raise ValidationError("Quantidade corrigida excede o estoque disponível. Nenhuma alteração foi salva.")
+            instancia.quantidade_utilizada = movimento.quantidade
+        instancia.save()
+
+    def cancelar_historico(self, instancia, request):
+        from apps.estoque.services import excluir_movimentacao
+        if instancia.movimentacao_estoque_id:
+            movimento = instancia.movimentacao_estoque
+            instancia.movimentacao_estoque = None
+            instancia.save(update_fields=["movimentacao_estoque"])
+            excluir_movimentacao(movimento)
+        instancia.delete()
     queryset = InsumoOperacao.objects.select_related(
         "operacao", "lote__produto", "lote__local"
     )

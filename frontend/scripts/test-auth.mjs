@@ -562,6 +562,7 @@ async function renderAppStates() {
   globalThis.__APP_ACTIONS__ = { AcoesContext: React.createContext(null), autorizado: () => true, BotaoAcao: globalThis.__PRIVATE_COMPONENTS__.BotaoAcao, useDestinoConsulta: () => {} };
   let source = appSource
     .replace('from "./components/MarcaAgro";', `from "${marcaUrl}";`)
+    .replace(/import \{ Icon \} from "\.\/components\/ModuloIcon";/, "const Icon = globalThis.__PRIVATE_COMPONENTS__.Icon;")
     .replace('from "./components/AlteracoesNaoSalvas";', `from "${protecaoUrl}";`)
     .replace('from "./components/ConfirmacaoCompacta";', `from "${confirmacaoUrl}";`)
     .replace(/import \{[^}]+\} from "\.\/components\/AcoesContext";/, "const { AcoesContext, autorizado, BotaoAcao, useDestinoConsulta } = globalThis.__APP_ACTIONS__;")

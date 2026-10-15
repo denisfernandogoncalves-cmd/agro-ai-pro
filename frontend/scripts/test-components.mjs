@@ -14,6 +14,15 @@ const servidor = await createServer({
 });
 
 try {
+  const { FolhaHolerite } = await servidor.ssrLoadModule("/src/pages/Transportes/HoleriteMotorista.tsx");
+  const holerite = renderToStaticMarkup(React.createElement(FolhaHolerite, {dados: {motorista: "João <script>alert(1)</script>", competencia: "2026-01", salario: "2500.00", comissao: "220.00", comissao_fretes: "100.00", total: "2720.00", itens: [{id: 1, placa: "ABC1D23", salario: "2500.00", comissao: "220.00", comissao_fretes: "100.00", base_comissao: "1000.00", comissao_percentual: "12"}]}}));
+  assert.match(holerite, /janeiro de 2026/);
+  assert.match(holerite, /2[.]720,00/);
+  assert.match(holerite, /Comissão manual de cargas e vendas incluída/);
+  assert.match(holerite, /Assinatura do motorista/);
+  assert.match(holerite, /ABC1D23/);
+  assert.match(holerite, /12%/);
+  assert.doesNotMatch(holerite, /<script>/);
   const { indicadorExecutivo, default: ResumoExecutivo } = await servidor.ssrLoadModule("/src/pages/Painel/ResumoExecutivo.tsx");
   assert.equal(indicadorExecutivo({}, "saldo_disponivel_kg"), "Indisponível", "Dado ausente não pode virar saldo zero");
   assert.equal(indicadorExecutivo({saldo_disponivel_kg: "0"}, "saldo_disponivel_kg"), "0 kg");
@@ -25,6 +34,14 @@ try {
   assert.deepEqual(filtrarInsights(evidencias,"Há risco climático?"),[evidencias[1]]);
   assert.deepEqual(filtrarInsights(evidencias,"Como está meu estoque?"),[evidencias[0]]);
   assert.deepEqual(filtrarInsights(evidencias,"Pergunta sem assunto disponível"),[]);
+  const {calcularFreteTonelada} = await servidor.ssrLoadModule("/src/pages/Transportes/ConferenciaFretes.tsx");
+  assert.deepEqual(calcularFreteTonelada("28000.000", "20", "8.0000"), {frete:"560.00", comissao:"44.80"});
+  assert.deepEqual(calcularFreteTonelada("1234.500", "21.37", "8"), {frete:"26.38", comissao:"2.11"});
+  assert.deepEqual(calcularFreteTonelada("28000", "20", null), {frete:"560.00", comissao:null});
+  assert.deepEqual(calcularFreteTonelada("28000", "20", "0"), {frete:"560.00", comissao:"0.00"});
+  assert.equal(calcularFreteTonelada("28000", "-20", "8"), null);
+  assert.equal(calcularFreteTonelada("28000", "20", "101"), null);
+  assert.equal(calcularFreteTonelada("28000", "NaN", "8"), null);
   const {precoCBOT,default:QuadroCBOT}=await servidor.ssrLoadModule("/src/components/QuadroCBOT.tsx");
   assert.equal(precoCBOT("12.975000"),"12,9750");
   const cbotVazio=renderToStaticMarkup(React.createElement(QuadroCBOT));
