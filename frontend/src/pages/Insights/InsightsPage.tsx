@@ -68,7 +68,7 @@ export default function InsightsPage({ propriedades }: { propriedades: Proprieda
       <p className="card" role="status">{carregando ? "Analisando os dados. Aguarde..." : analisado ? insights.length ? `${insights.length} alerta(s) encontrado(s).` : "Nenhum alerta encontrado para a seleção." : "Selecione a propriedade e clique em Analisar dados atuais."}</p>
       <div className="assistente-layout">
       <section className="card assistente-conversa" aria-label="Conversa com o assistente">
-        <div><span className="kicker">Assistente AGRO AI</span><h2>Como posso ajudar sua gestão?</h2><p>Consulte as análises disponíveis para sua propriedade. As respostas abaixo selecionam evidências do motor explicável existente; a conversa generativa local está disponível no quadro abaixo.</p></div>
+        <div><span className="kicker">Assistente AGRO AI</span><h2>Como posso ajudar sua gestão?</h2><p>Consulte as análises disponíveis para sua propriedade. As respostas abaixo selecionam evidências do motor explicável existente; o quadro de IA local abaixo depende da disponibilidade do serviço e informa falhas de consulta.</p></div>
         {pergunta && <div className="assistente-pergunta">{pergunta}</div>}
         <div className="assistente-resposta" aria-live="polite" aria-busy={carregando}>
           {carregando ? <p>Consultando as análises atuais…</p> : erro ? <p>Consulta indisponível. Tente analisar novamente.</p> : !analisado ? <p>Escolha a propriedade e analise os dados atuais.</p> : <>
@@ -78,7 +78,7 @@ export default function InsightsPage({ propriedades }: { propriedades: Proprieda
         </div>
         <form className="tw:grid tw:gap-3" onSubmit={e => { void perguntar(e); }}><label>Pergunte sobre sua operação<input maxLength={500} value={texto} onChange={e => setTexto(e.target.value)} placeholder="Ex.: Há alertas no estoque?" disabled={carregando} /></label><button type="submit" disabled={carregando || !texto.trim()}>Consultar análises</button></form>
       </section>
-      <aside className="card assistente-sugestoes"><h2>Comece por uma pergunta</h2>{["Como está meu estoque disponível?", "Há risco climático para os próximos dias?", "Quais análises de produtividade estão disponíveis?", "Há recomendações de mercado?"].map(sugestao => <button type="button" key={sugestao} disabled={carregando} onClick={() => { void perguntar(undefined,sugestao); }}>{sugestao}</button>)}<p className="executivo-nota">A análise respeita os acessos da sua conta e a propriedade selecionada.</p></aside>
+      <aside className="card assistente-sugestoes"><h2>Comece por uma pergunta</h2>{["Como está meu estoque disponível?", "Há risco climático para os próximos dias?", "Quais análises de produtividade estão disponíveis?", "Há recomendações de mercado?", "Quais contas precisam de atenção?"].map(sugestao => <button type="button" key={sugestao} disabled={carregando} onClick={() => { void perguntar(undefined,sugestao); }}>{sugestao}</button>)}<p className="executivo-nota">A análise respeita os acessos da sua conta e a propriedade selecionada.</p></aside>
       </div>
       <ChatLocal key={propriedade} propriedade={propriedade}/>
       <h2>Todas as análises e recomendações</h2><div className="lista-insights">

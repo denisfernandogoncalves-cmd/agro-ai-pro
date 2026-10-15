@@ -36,6 +36,7 @@ export default function TransportesPage() {
   const pode = useAcoes();
   const [aba, setAba] = useState("relatorios");
   const [caminhoes, setCaminhoes] = useState<Caminhao[]>([]);
+  const [cadastroCarregado, setCadastroCarregado] = useState(false);
   const [filtros, setFiltros] = useState(filtroVazio), [aplicados, setAplicados] = useState(filtroVazio);
   const [pagina, setPagina] = useState(1), [paginaRem, setPaginaRem] = useState(1);
   const [registros, setRegistros] = useState<Pagina<Lancamento>>({ count: 0, results: [] });
@@ -56,7 +57,7 @@ export default function TransportesPage() {
   const protecaoLancamento = useAlteracoesNaoSalvas(lancamento, "lançamento de transporte", idLancamento);
   const protecaoRemuneracao = useAlteracoesNaoSalvas(remuneracao, "salário e comissão", idRemuneracao);
   const atualizar = useCallback(() => setRevisao(r => r + 1), []);
-  useEffect(() => { let ativo = true; void listarCaminhoes().then(d => { if (ativo) setCaminhoes(d); }).catch(e => { if (ativo) setErro(mensagem(e)); }); return () => { ativo = false; }; }, [revisao]);
+  useEffect(() => { let ativo = true; void listarCaminhoes().then(d => { if (ativo) { setCaminhoes(d); setCadastroCarregado(true); } }).catch(e => { if (ativo) setErro(mensagem(e)); }); return () => { ativo = false; }; }, [revisao]);
   useEffect(() => {
     if (aba !== "relatorios" && aba !== "lancamentos" && aba !== "historico_remuneracao") return;
     const controle = new AbortController(); setCarregando(true); setErro("");
@@ -102,6 +103,7 @@ export default function TransportesPage() {
   const opcaoCaminhoes = <><option value="">Selecione</option>{caminhoes.map(c => <option key={c.id} value={c.id}>{c.placa} · {c.veiculo}{c.ativo ? "" : " (inativo)"}</option>)}</>;
   const abas = [{ id: "relatorios", titulo: "Relatórios e ranking" }, { id: "novo_lancamento", titulo: "Inserir receita / despesa" }, { id: "lancamentos", titulo: "Receitas e despesas" }, { id: "remuneracao", titulo: "Salário e comissão" }, { id: "historico_remuneracao", titulo: "Dados por motorista / placa" }, { id: "fretes", titulo: "Conferir cargas e vendas" }, { id: "holerite", titulo: "Holerite por motorista" }, { id: "caminhoes", titulo: "Motoristas e caminhões" }, ...(pode("cadastrar") ? [{ id: "importar", titulo: "Importar planilha" }] : [])];
   return <section className="modulo-transportes">
+    <section className="card transporte-contexto"><span className="kicker">Frota e movimentação</span><h2>Transportes da operação</h2><p>Receitas, despesas, comissão e documentos por motorista e veículo. Cada consulta mantém o período e os filtros informados.</p>{cadastroCarregado ? <div className="transporte-frota-resumo" aria-label="Cadastro atual de veículos"><span><strong>{caminhoes.length}</strong> caminhões cadastrados</span><span><strong>{caminhoes.filter(c => c.ativo).length}</strong> ativos</span><span><strong>{caminhoes.filter(c => !c.motorista).length}</strong> sem motorista atual</span></div> : <p role="status">{erro ? "Cadastro de veículos indisponível nesta consulta." : "Consultando cadastro de veículos…"}</p>}</section>
     <AbasModulo modulo="transportes" abas={abas} ativa={aba} alterar={setAba} desabilitado={ocupado} />
     {erro && <p className="card erro" role="alert">{erro}</p>}{sucesso && <p className="card" role="status">{sucesso}</p>}
     {(aba === "relatorios" || aba === "lancamentos") && <form className="card transporte-filtros nao-imprimir" onSubmit={filtrar}>
