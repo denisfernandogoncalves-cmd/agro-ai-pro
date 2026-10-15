@@ -1,5 +1,15 @@
 # Sprints — AGRO-AI-PRO
 
+## Incremento — modernização visual 2.0 (14/10/2026)
+
+- [x] Branch própria de origem operacional, base preservada e commits visuais separados.
+- [x] Tokens, shell persistente, Painel, saldos/vendas, clima/mercado, frota e assistente.
+- [x] Testes frontend/build e revisão visual isolada desktop/tablet/celular, com capturas rotuladas.
+- [ ] Estabilizar migration preexistente de produtos e validar integração funcional antes de merge.
+
+Evidências: [layout 2.0](decisoes/2026-10-14-layout-2-0.md).
+
+
 ## Incremento — transportes, relatórios e integração preparada (14/10/2026)
 
 - [x] PUT/PATCH de caminhões, lançamentos e remunerações protegidos por versão.
@@ -15,8 +25,8 @@ Evidências e limites: [decisão](decisoes/2026-10-14-melhorias-integracao.md).
 - [x] Ações existentes expostas em Transportes, frota, manutenções agendadas,
   operações planejadas e lotes/movimentações de estoque, respeitando os bloqueios.
 - [x] 114 casos PostgreSQL (um skip), frontend/TypeScript/Vite e Django aprovados.
-- [ ] Abrangência global e correção de históricos encerrados: decisão e interfaces
-  adicionais pendentes; não declarar todos os campos livremente alteráveis.
+- [x] Correção/cancelamento de históricos com original, motivo, versão e efeitos transacionais.
+- [ ] Validação/implantação final após estabilizar os campos agronômicos simultâneos de produtos.
 
 Evidências e limites: docs/decisoes/2026-10-14-editar-excluir.md.
 
