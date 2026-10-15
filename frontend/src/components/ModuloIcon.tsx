@@ -1,5 +1,6 @@
 export function Icon({ name }: { name: string }) {
   const paths: Record<string, string> = {
+    search: "M10 3a7 7 0 1 0 0 14 7 7 0 0 0 0-14M15 15l6 6",
     home: "M3 10 12 3l9 7M5 9v12h14V9M9 21v-8h6v8",
     building: "M4 21V6l8-3 8 3v15ZM8 8h1m6 0h1M8 12h1m6 0h1M9 21v-5h6v5",
     map: "m3 5 6-2 6 2 6-2v16l-6 2-6-2-6 2ZM9 3v16M15 5v16",

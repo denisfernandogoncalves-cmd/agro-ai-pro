@@ -13,6 +13,8 @@ import PainelFormulario from "./components/PainelFormulario";
 import { ProtecaoAlteracoes, useAlteracoesNaoSalvas, useConfirmarSaida } from "./components/AlteracoesNaoSalvas";
 import { ConfirmacoesCompactas } from "./components/ConfirmacaoCompacta";
 import AvisoSessao from "./components/AvisoSessao";
+import EstadoTela from "./components/EstadoTela";
+import { Icon } from "./components/ModuloIcon";
 
 import {
   api,
@@ -294,7 +296,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
   }
 
   return (
-    <AcoesContext.Provider value={{acesso, modulo, destino}}><Suspense fallback={<main className="pagina"><section className="card" role="status">Carregando tela...</section></main>}>
+    <AcoesContext.Provider value={{acesso, modulo, destino}}>
     <main className="pagina agro-premium" data-modulo={modulo} id="conteudo-principal">
       <a className="agro-skip nao-imprimir" href="#modulo-atual">Ir para o conteúdo</a>
       <header>
@@ -309,6 +311,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
           </div>
         </div>
         <div className="cabecalho-acoes">
+          <button type="button" className="secundario busca-global-menu nao-imprimir" onClick={() => window.dispatchEvent(new Event("agro:buscar-modulo"))}><Icon name="search" />Buscar módulo <kbd>Ctrl K</kbd></button>
           <AplicativoStatus />
           <ImprimirA4 />
           <button className="secundario" onClick={() => { void encerrarSessao(); }}>Sair</button>
@@ -319,8 +322,9 @@ function PrivateArea({ sair }: PrivateAreaProps) {
       <NavegacaoModulos acesso={acesso} modulo={modulo} onSelecionar={async id => {if (id !== modulo && !(await confirmarSaida())) return; if (id !== modulo && modulo === "propriedades") {setFormulario(formularioVazio); setEdicaoId(null);} setDestino(undefined); setModulo(id);}} />
       <AvisoSessao />
       <div id="modulo-atual" tabIndex={-1} />
-      {acesso && autorizado(acesso, modulo, "consultar") && <AjudaModulo modulo={modulo} />}
+      <Suspense fallback={null}>{acesso && autorizado(acesso, modulo, "consultar") && <AjudaModulo modulo={modulo} />}</Suspense>
 
+      <Suspense fallback={<EstadoTela carregando titulo="Carregando tela…" detalhe="Os controles de navegação continuam disponíveis." />}>
       {!acesso ? (
         <section className="card"><p role={erroAcesso ? "alert" : "status"}>{erroAcesso ? "Não foi possível verificar seus acessos." : "Carregando acessos..."}</p>{erroAcesso && <button onClick={() => void atualizarAcesso()}>Tentar novamente</button>}</section>
       ) : !autorizado(acesso, modulo, "consultar") ? (
@@ -412,7 +416,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
           ) : (
             <div className="lista propriedades-lista">
               {propriedades.map((item) => (
-                <article className={`card item ${selecionada?.id === item.id ? "ativo" : ""}`} key={item.id} onClick={() => setSelecionada(item)}>
+                <article className={`card item propriedade-cartao ${selecionada?.id === item.id ? "ativo" : ""}`} key={item.id} onClick={() => setSelecionada(item)}>
                   <div>
                     <h3>{item.nome}</h3>
                     {!!item.apelidos?.length && <p><strong>Apelido:</strong> {item.apelidos.join(" / ")}</p>}
@@ -427,6 +431,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
                     )}
                   </div>
                   <div className="acoes">
+                    <button type="button" className="secundario" onClick={e => { e.stopPropagation(); setSelecionada(item); }}>Ver localização</button>
                     <BotaoAcao acao="editar" disabled={salvando} className="secundario" onClick={(e) => { e.stopPropagation(); editar(item); }}>Editar</BotaoAcao>
                     <BotaoAcao acao="excluir" disabled={salvando} className="perigo" onClick={(e) => { e.stopPropagation(); void excluir(item); }}>Excluir</BotaoAcao>
                   </div>
@@ -447,8 +452,9 @@ function PrivateArea({ sair }: PrivateAreaProps) {
           </section>
         </>
       )}
+    </Suspense>
     </main>
-    </Suspense></AcoesContext.Provider>
+    </AcoesContext.Provider>
   );
 }
 

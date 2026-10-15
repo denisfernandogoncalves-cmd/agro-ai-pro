@@ -5,7 +5,7 @@
 
 /* Apenas tela: documentos A4 e impressos mantêm seus estilos operacionais. */
 @media screen {
-  :root { --cor-principal:#087f5b; --cor-principal-escura:#06563e; --cor-texto:#193b32; --cor-suave:#5f746d; --cor-borda:#dce7e1; --cor-superficie:#fff; --cor-fundo:#f4f7f5; --cor-foco:#bd944c; font-family:Inter,"Segoe UI",system-ui,sans-serif; background:var(--cor-fundo); color:var(--cor-texto); }
+  :root { --cor-principal:#087F5B; --cor-principal-escura:#092F28; --cor-texto:#193b32; --cor-suave:#52685c; --cor-borda:#dce7e1; --cor-superficie:#FFFFFF; --cor-fundo:#F1F5F3; --cor-foco:#C5A46B; --cor-painel:#F1F5F3; --cor-acento:#C5A46B; --raio-card:16px; --espaco-grade:20px; font-family:Inter,"Segoe UI",system-ui,sans-serif; background:var(--cor-fundo); color:var(--cor-texto); }
   body { background:var(--cor-fundo); }
   .agro-premium { color:var(--cor-texto); min-height:100vh; }
   .agro-premium>header { padding-bottom:22px; border-bottom:1px solid var(--cor-borda); align-items:center; }
@@ -119,3 +119,173 @@
   .inicio-dashboard .painel-indicadores strong { font-size:19px; }
 }
 @media (prefers-reduced-motion:reduce) { .agro-premium *, .login-premium * { transition:none!important; animation:none!important; } }
+
+/* Layout 2.0: estilos exclusivamente de tela; A4 conserva o contrato operacional. */
+@media screen {
+  .agro-premium { min-width:0; background:var(--cor-fundo); }
+  .agro-premium > header { gap:16px; padding:0 0 18px; margin-bottom:20px; }
+  .agro-premium > header h1 { font-size:clamp(22px,2vw,29px); color:var(--cor-principal-escura); }
+  .agro-premium .cabecalho-identidade { min-width:0; }
+  .agro-premium .cabecalho-panorama { margin:5px 0 0; max-width:52ch; font-size:12px; }
+  .agro-premium .cabecalho-acoes { gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+  .agro-premium .cabecalho-acoes button { min-height:42px; font-size:12px; padding:8px 12px; }
+  .busca-global-menu { display:inline-flex; align-items:center; gap:8px; }
+  .busca-global-menu .app-icon { width:17px; height:17px; flex-basis:17px; }
+  .busca-global-menu kbd { padding:1px 5px; background:var(--cor-fundo); border:1px solid var(--cor-borda); border-radius:4px; font:11px inherit; }
+  .agro-premium :is(section,article,form,fieldset,label,.conteudo,.lista,.grade) { min-width:0; }
+  .agro-premium fieldset { border-color:var(--cor-borda); border-radius:12px; }
+  .agro-premium .card { border-radius:var(--raio-card); box-shadow:0 3px 14px #092f2808; }
+  .agro-premium h2 { font-size:20px; line-height:1.3; }
+  .agro-premium h3 { font-size:16px; line-height:1.4; }
+  .agro-premium :is(p,small,dt,dd,h1,h2,h3) { overflow-wrap:anywhere; }
+  .agro-premium :is(strong,output,dd,.temperaturas) { font-variant-numeric:tabular-nums; }
+  .agro-premium :is(input,select,textarea,button) { min-height:44px; }
+  .agro-premium :is(button,a,summary):focus-visible { outline-color:var(--cor-principal); }
+  .agro-premium .navegacao-modulos :is(button,input):focus-visible { outline-color:var(--cor-acento); }
+  .agro-premium :is(input[type=checkbox],input[type=radio]) { min-height:0; width:18px; height:18px; accent-color:var(--cor-principal); }
+  .agro-premium :is(.acoes,.painel-titulo,.mercado-controles,.compra-rodape,.compra-lista-cabecalho) { flex-wrap:wrap; }
+  .agro-premium .abas-modulo { margin-bottom:18px; border-bottom:1px solid var(--cor-borda); padding:0 0 8px; gap:6px; }
+  .agro-premium .abas-modulo [role=tab] { border-radius:8px; background:transparent; color:var(--cor-suave); font-weight:600; border:1px solid transparent; }
+  .agro-premium .abas-modulo [aria-selected=true] { background:#e0eee6; border-color:#bed9c9; color:#07563d; }
+  .agro-premium :is(.tabela-responsiva,.tabela-scroll,.compra-tabela-scroll,.transporte-tabela) { max-width:100%; overflow:auto; overscroll-behavior-inline:contain; scrollbar-width:thin; }
+  .agro-premium table th { text-align:left; padding:12px; letter-spacing:.02em; }
+  .agro-premium table td { padding:12px; vertical-align:top; }
+  .agro-premium table tbody tr:nth-child(even) { background:#f8faf9; }
+  .agro-premium table tbody tr:hover { background:#eef5f0; }
+  .agro-premium .formulario { gap:16px; }
+  .agro-premium :is(.item,.lancamento) { gap:16px; align-items:flex-start; }
+  .agro-premium .item .acoes { flex-shrink:0; }
+  .agro-premium > .navegacao-modulos { background:var(--cor-principal-escura); }
+  .agro-premium .menu-lateral-completo { gap:8px; }
+  .agro-premium .menu-lateral-completo button { min-height:44px; font-size:13px; }
+  .agro-premium .menu-lateral-completo h2 { margin-top:12px; }
+  .agro-premium .menu-lateral-completo [aria-current=page] { box-shadow:inset 3px 0 var(--cor-acento); }
+  .agro-premium .busca-navegacao input { min-height:40px; }
+  .inicio-dashboard { gap:var(--espaco-grade); }
+  .inicio-dashboard .painel-apresentacao { padding:24px; display:grid; grid-template-columns:minmax(0,1fr) 270px; gap:20px; align-items:center; border-top:3px solid var(--cor-acento); }
+  .inicio-dashboard .painel-apresentacao h2 { font-size:24px; margin:5px 0 8px; }
+  .inicio-dashboard .painel-apresentacao .painel-filtros { grid-template-columns:minmax(140px,1fr) minmax(105px,.65fr) auto; }
+  .inicio-dashboard .painel-apresentacao small { font-size:12px; }
+  .boas-vindas-campo { margin:0; background:#e7eee9; border-radius:12px; overflow:hidden; width:100%; min-height:154px; }
+  .boas-vindas-campo img { display:block; width:100%; height:132px; object-fit:cover; }
+  .boas-vindas-campo figcaption { font-size:10px; padding:6px 9px; color:#405b4e; }
+  .boas-vindas-campo a { color:#285442; }
+  .inicio-dashboard .painel-foco { grid-template-columns:repeat(4,minmax(0,1fr))!important; }
+  .inicio-dashboard .painel-indicadores article { padding:20px; gap:10px; background:#fff; border:1px solid var(--cor-borda); }
+  .inicio-dashboard .painel-indicadores article:before { width:30px; height:3px; background:var(--cor-principal); }
+  .inicio-dashboard .painel-indicadores article > span { min-height:34px; font-size:12px; }
+  .inicio-dashboard .painel-indicadores strong { font-size:clamp(20px,1.65vw,27px); color:var(--cor-principal-escura); }
+  .inicio-dashboard .painel-indicadores .valor-negativo { color:#922e25; }
+  .inicio-dashboard .painel-visoes { order:0; margin:0; }
+  .inicio-dashboard .painel-prioridades { order:2; }
+  .inicio-dashboard .modulo-painel > .card.painel-prioridades { order:2; }
+  .inicio-dashboard .painel-indicadores .indicador-alertas { grid-column:1/-1; flex-direction:row; align-items:center; padding:12px 18px; }
+  .inicio-dashboard .painel-indicadores .indicador-alertas:before { display:none; }
+  .inicio-dashboard .painel-indicadores .indicador-alertas > span { min-height:0; }
+  .inicio-dashboard .painel-indicadores .indicador-alertas a { margin:0 0 0 auto; display:flex; align-items:center; }
+  .inicio-dashboard .painel-atalhos { display:flex; flex-wrap:wrap; gap:8px; padding-top:16px; border-top:1px solid var(--cor-borda); }
+  .painel-atalhos button { display:inline-flex; align-items:center; gap:8px; }
+  .inicio-dashboard .painel-alertas { order:2; }
+  .inicio-dashboard .painel-quadros { order:3; grid-template-columns:repeat(2,minmax(0,1fr)); gap:var(--espaco-grade); align-items:start; }
+  .inicio-dashboard .painel-quadros > section:first-child { grid-row:span 2; }
+  .inicio-dashboard .painel-quadros > section { padding:22px; }
+  .inicio-dashboard .painel-quadros .painel-quadro-titulo button { color:var(--cor-principal); font-weight:650; }
+  .inicio-dashboard .painel-mapa { order:4; }
+  .agro-premium .painel-mapa .mapa { height:360px; }
+  .agro-premium .painel-lista-alertas li { padding:14px; border:1px solid var(--cor-borda); border-left:3px solid var(--cor-principal); background:#f9fbfa; border-radius:10px; }
+  .agro-premium .painel-lista-alertas li.aviso-urgente { border-left-color:#b94335; background:#fff9f7; }
+  .agro-premium .painel-lista-alertas p { margin:8px 0 0; color:var(--cor-texto); }
+  .agro-premium .previsoes-grade { grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr)); gap:14px; }
+  .icone-clima { width:42px; height:42px; color:var(--cor-principal); }
+  .agro-premium .previsao-card { padding:18px; gap:12px; }
+  .agro-premium .previsao-card .temperaturas { font-size:20px; }
+  .agro-premium .previsao-card dl div { padding-bottom:6px; border-bottom:1px solid #edf2ee; }
+  .clima-acumulado { display:flex; flex-wrap:wrap; align-items:baseline; gap:12px; padding:16px 20px; background:#e7f1eb; border:1px solid #cadfd1; border-radius:12px; }
+  .clima-acumulado strong { color:var(--cor-principal-escura); font-size:24px; }
+  .agro-premium .resumos-mercado article { border-top:3px solid var(--cor-principal); }
+  .agro-premium .grafico-legenda { font-size:13px; margin-bottom:10px; }
+  .agro-premium .grafico-mercado svg { min-height:180px; }
+  .agro-premium .resumo-venda,.agro-premium .resumos-saldo { gap:14px; }
+  .composicao-saldos h2 { margin:6px 0; }
+  .composicao-saldos p { color:var(--cor-suave); font-size:13px; }
+  .composicao-lista { display:grid; gap:18px; max-height:480px; overflow:auto; padding-right:5px; }
+  .composicao-lista article { padding:16px; border:1px solid var(--cor-borda); border-radius:12px; background:#fafcfb; }
+  .composicao-identidade small { display:block; margin-top:5px; line-height:1.5; }
+  .composicao-valores { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; margin:14px 0; }
+  .composicao-valores dt { font-size:12px; color:var(--cor-suave); }
+  .composicao-valores dd { margin:3px 0 0; font-weight:700; }
+  .composicao-barra { display:flex; height:12px; overflow:hidden; border-radius:6px; background:#e0e9e3; }
+  .saldo-comprometido { background:#94713b; }
+  .saldo-disponivel { background:var(--cor-principal); }
+  .composicao-nota { color:var(--cor-suave); }
+  .composicao-legenda { display:flex; gap:18px; flex-wrap:wrap; margin-top:16px; font-size:12px; }
+  .composicao-legenda span { display:flex; align-items:center; gap:6px; }
+  .composicao-legenda i { display:inline-block; width:10px; height:10px; border-radius:3px; }
+  .fluxo-venda { margin:18px 0; padding:18px; background:#f4f8f5; border:1px solid var(--cor-borda); border-radius:12px; }
+  .fluxo-venda ol { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; list-style:none; padding:0; margin:0; }
+  .fluxo-venda li { display:flex; align-items:flex-start; gap:10px; }
+  .fluxo-etapa { display:grid; place-items:center; width:28px; height:28px; flex:0 0 28px; border-radius:50%; color:#fff; background:var(--cor-principal); font-size:12px; }
+  .fluxo-venda strong,.fluxo-venda small { display:block; font-size:12px; }
+  .fluxo-venda small { margin-top:5px; color:var(--cor-suave); }
+  .fluxo-venda p { font-size:12px; color:var(--cor-suave); margin:15px 0 0; }
+  .frota-cartoes { display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr)); gap:14px; }
+  .agro-premium .frota-cartoes .item { display:flex; flex-direction:column; background:#fafcfb; border:1px solid var(--cor-borda); padding:18px; border-radius:12px; }
+  .frota-cartoes .acoes { margin-top:auto; }
+  .transporte-contexto { margin-bottom:20px; }
+  .transporte-frota-resumo { display:flex; flex-wrap:wrap; gap:12px; }
+  .transporte-frota-resumo > span { padding:10px 14px; background:#f0f6f2; border:1px solid var(--cor-borda); border-radius:10px; font-size:12px; }
+  .transporte-frota-resumo strong { font-size:20px; color:var(--cor-principal-escura); margin-right:5px; }
+  .propriedade-cartao { border-left:3px solid var(--cor-principal)!important; }
+  .frota-situacao { display:inline-flex; padding:4px 8px; border:1px solid #d4e3d9; border-radius:6px; background:#e8f3ec; color:#27563d; font-size:12px; }
+  .frota-situacao[data-status=manutencao] { background:#fff5de; color:#795722; border-color:#ead7aa; }
+  .frota-situacao[data-status=inativa] { background:#f1f3f2; color:#52665b; }
+  .estado-tela { border:1px dashed #c7d9ce; border-radius:var(--raio-card); padding:24px; background:#fafcfb; width:100%; }
+  .estado-tela-titulo { display:flex; align-items:flex-start; gap:12px; color:var(--cor-texto); }
+  .estado-tela p { margin:6px 0 0; color:var(--cor-suave); font-size:13px; }
+  .skeleton-grade { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; margin-top:20px; }
+  .skeleton-card { display:grid; gap:18px; min-height:132px; padding:20px; border:1px solid var(--cor-borda); border-radius:12px; background:white; }
+  .skeleton-card > span { display:block; background:linear-gradient(90deg,#edf2ee,#e2ebe5,#edf2ee); background-size:200% 100%; height:12px; border-radius:6px; animation:agro-skeleton 1.6s ease-in-out infinite; }
+  .skeleton-card > span:last-child { height:25px; width:70%; }
+  .agro-premium .assistente-layout { gap:var(--espaco-grade); }
+  .agro-premium .assistente-conversa { padding:24px; }
+  .agro-premium .assistente-resposta { padding:20px; border-radius:12px; }
+  .agro-premium .assistente-sugestoes { position:sticky; top:20px; }
+}
+@keyframes agro-skeleton { to { background-position:-200% 0; } }
+@media screen and (min-width:1000px) {
+  .agro-premium { padding:24px 28px 40px; margin-left:240px; }
+  .agro-premium > .navegacao-modulos { width:240px; padding:22px 14px; }
+}
+@media screen and (max-width:1199px) {
+  .inicio-dashboard .painel-apresentacao { grid-template-columns:minmax(0,1fr); }
+  .boas-vindas-campo { display:none; }
+  .inicio-dashboard .painel-foco { grid-template-columns:repeat(2,minmax(0,1fr))!important; }
+  .fluxo-venda ol { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media screen and (max-width:999px) {
+  .agro-premium .menu-aberto .busca-navegacao { display:grid; }
+  .agro-premium .assistente-sugestoes { position:static; }
+  .agro-premium .grade { grid-template-columns:minmax(0,1fr); }
+}
+@media screen and (max-width:640px) {
+  .agro-premium { padding:14px; }
+  .agro-premium > header { align-items:flex-start; gap:10px; }
+  .agro-premium .cabecalho-acoes { justify-content:flex-start; width:100%; }
+  .busca-global-menu kbd { display:none; }
+  .inicio-dashboard .painel-apresentacao { padding:18px; }
+  .inicio-dashboard .painel-apresentacao .painel-filtros { grid-template-columns:minmax(0,1fr); }
+  .inicio-dashboard .painel-indicadores article { padding:14px; }
+  .inicio-dashboard .painel-indicadores strong { font-size:20px; }
+  .inicio-dashboard .painel-quadros { grid-template-columns:minmax(0,1fr); }
+  .inicio-dashboard .painel-quadros > section:first-child { grid-row:auto; }
+  .agro-premium .painel-mapa .mapa { height:280px; }
+  .skeleton-grade { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .composicao-valores { grid-template-columns:minmax(0,1fr); gap:8px; }
+  .composicao-valores div { display:flex; justify-content:space-between; gap:10px; }
+  .composicao-valores dd { margin:0; }
+  .fluxo-venda ol { grid-template-columns:minmax(0,1fr); }
+  .agro-premium .item { flex-wrap:wrap; }
+  .agro-premium .item .acoes { width:100%; }
+  .agro-premium .assistente-conversa { padding:18px; }
+}
+@media (prefers-reduced-motion:reduce) { .skeleton-card > span { animation:none; } }
