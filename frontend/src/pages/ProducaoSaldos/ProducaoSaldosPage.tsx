@@ -2,6 +2,7 @@ import {useOperacaoConferida} from "../../components/OperacaoConferida";
 import { useRascunhoAutomatico } from "../../components/RascunhoAutomatico";
 import { useAlteracoesNaoSalvas } from "../../components/AlteracoesNaoSalvas";
 import ConferenciaSaldo from "../../components/ConferenciaSaldo";
+import ComposicaoSaldo from "../../components/ComposicaoSaldo";
 import { useEntradaPainel } from "../../components/AcoesContext";
 import FiltrosFavoritos from "../../components/FiltrosFavoritos";
 import { BotaoAcao } from "../../components/AcoesContext";
@@ -267,6 +268,7 @@ export default function ProducaoSaldosPage({ propriedades }: Props) {
         <article className="card"><span>Propriedades · CAD/PROs · posições</span><strong>{painel?.resumo.propriedades ?? 0} · {painel?.resumo.cadpros ?? 0} · {painel?.resumo.posicoes ?? 0}</strong><small>Na consulta atual</small></article>
       </section>
 
+      {painel && <ComposicaoSaldo posicoes={painel.posicoes} />}
       <section className="grade producao-saldos-grade">
         <PainelFormulario titulo="Registrar produção">
         {rascunho.aviso}
