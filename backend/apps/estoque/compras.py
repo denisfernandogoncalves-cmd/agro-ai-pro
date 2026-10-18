@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from django.db import IntegrityError, transaction
 from django.db.models.deletion import ProtectedError
+from django.utils import timezone
 from rest_framework import serializers, status, viewsets
 from rest_framework.exceptions import APIException
 from rest_framework.permissions import IsAuthenticated
@@ -13,8 +14,9 @@ from rest_framework.decorators import action
 
 from apps.financeiro.models import ParceiroFinanceiro
 from .compras_calculos import calcular_compra
-from .models import CompraEstoque, LoteEstoque, MovimentacaoEstoque, ProdutoEstoque
-from .services import EstoqueInsuficienteError, excluir_movimentacao, registrar_movimentacao
+from .compra_financeiro import sincronizar_compra_financeiro, valores_compra
+from .models import EstornoCompraEstoque, CompraEstoque, LoteEstoque, MovimentacaoEstoque, ProdutoEstoque
+from .services import EstoqueInsuficienteError, excluir_movimentacao, registrar_movimentacao, saldo_lote
 
 
 class CompraConflitante(APIException):
@@ -43,7 +45,53 @@ class CompraEntradaSerializer(serializers.Serializer):
         return attrs
 
 
+class EstornoCompraSerializer(serializers.ModelSerializer):
+    responsavel = serializers.CharField(source="criado_por.username", read_only=True)
+
+    class Meta:
+        model = EstornoCompraEstoque
+        fields = ("id", "quantidade", "conta_receber", "cancelamento", "motivo", "criado_em", "responsavel")
+
+
+class EstornoEntradaSerializer(serializers.Serializer):
+    id = serializers.UUIDField()
+    motivo = serializers.CharField(max_length=500, allow_blank=False)
+    quantidade = serializers.DecimalField(max_digits=14, decimal_places=3, min_value=Decimal("0.001"), required=False)
+    quantidade_estornada_original = serializers.DecimalField(max_digits=14, decimal_places=3, min_value=Decimal("0"))
+
+
 class CompraSerializer(serializers.ModelSerializer):
+    estornos = EstornoCompraSerializer(many=True, read_only=True)
+    quantidade_estornada = serializers.SerializerMethodField()
+    quantidade_restante = serializers.SerializerMethodField()
+    valor_estornado = serializers.SerializerMethodField()
+    valor_liquido = serializers.SerializerMethodField()
+    valor_a_pagar = serializers.SerializerMethodField()
+    def get_valor_estornado(self, obj):
+        return str(valores_compra(obj)[0])
+    def get_valor_liquido(self, obj):
+        return str(valores_compra(obj)[1])
+    def get_valor_a_pagar(self, obj):
+        if obj.conta_pagar_id:
+            return str(obj.conta_pagar.valor if obj.conta_pagar.status == "pendente" else Decimal("0.00"))
+        return str(Decimal("0.00") if obj.data_pagamento else valores_compra(obj)[1])
+    saldo_disponivel = serializers.SerializerMethodField()
+    status_compra = serializers.SerializerMethodField()
+
+    def get_quantidade_estornada(self, obj):
+        return str(sum((e.quantidade for e in obj.estornos.all()), Decimal("0.000")))
+
+    def get_quantidade_restante(self, obj):
+        return str(obj.movimento.quantidade - Decimal(self.get_quantidade_estornada(obj)))
+
+    def get_saldo_disponivel(self, obj):
+        return str(max(Decimal("0"), saldo_lote(obj.movimento.lote)))
+
+    def get_status_compra(self, obj):
+        if Decimal(self.get_quantidade_restante(obj)) == 0:
+            return "cancelada"
+        return "estorno_parcial" if Decimal(self.get_quantidade_estornada(obj)) > 0 else "ativa"
+
     situacao = serializers.SerializerMethodField()
     safra = serializers.CharField(source="movimento.safra", read_only=True)
     data_compra = serializers.DateField(source="movimento.data_movimento", read_only=True)
@@ -58,7 +106,7 @@ class CompraSerializer(serializers.ModelSerializer):
         exclude = ("assinatura",)
 
     def get_situacao(self, obj):
-        return "pago" if obj.data_pagamento else "pendente"
+        return "pago" if obj.data_pagamento or (obj.conta_pagar_id and obj.conta_pagar.status == "liquidado") else "pendente"
 
 
 def registrar_compra(*, usuario, dados):
@@ -96,6 +144,7 @@ def registrar_compra(*, usuario, dados):
             compra = CompraEstoque(id=chave, assinatura=assinatura, movimento=movimento, valor_total=calculo["valor_total"], **campos)
             compra.full_clean()
             compra.save(force_insert=True)
+            sincronizar_compra_financeiro(compra)
             return compra, False
     except IntegrityError:
         existente = CompraEstoque.objects.filter(pk=chave).first()
@@ -104,10 +153,46 @@ def registrar_compra(*, usuario, dados):
         raise
 
 
+@transaction.atomic
+def estornar_compra(*, compra, usuario, dados, cancelar=False):
+    # Mesma ordem do faturamento: produto, lote, compra; saldo serializado.
+    ProdutoEstoque.objects.select_for_update().get(pk=compra.movimento.lote.produto_id)
+    lote = LoteEstoque.objects.select_for_update().get(pk=compra.movimento.lote_id)
+    compra = CompraEstoque.objects.select_for_update().select_related("movimento").get(pk=compra.pk)
+    existente = EstornoCompraEstoque.objects.filter(pk=dados["id"]).first()
+    if existente:
+        if (existente.compra_id != compra.pk or existente.cancelamento != cancelar
+                or existente.motivo != dados["motivo"] or existente.criado_por_id != usuario.pk
+                or (not cancelar and existente.quantidade != dados.get("quantidade"))):
+            raise CompraConflitante()
+        return compra
+    estornado = sum(compra.estornos.values_list("quantidade", flat=True), Decimal("0.000"))
+    if dados["quantidade_estornada_original"] != estornado:
+        raise CompraConflitante("A compra mudou. Atualize a lista antes de estornar.")
+    restante = compra.movimento.quantidade - estornado
+    quantidade = restante if cancelar else dados.get("quantidade")
+    if restante <= 0:
+        raise CompraConflitante("Esta compra já está cancelada.")
+    if quantidade is None or quantidade <= 0 or quantidade > restante:
+        raise serializers.ValidationError({"quantidade": f"Informe uma quantidade até {restante}."})
+    try:
+        movimento = registrar_movimentacao(usuario=usuario, lote=lote, tipo="saida", quantidade=quantidade,
+            custo_unitario=compra.movimento.custo_unitario,
+            data_movimento=max(timezone.localdate(), compra.movimento.data_movimento),
+            safra=compra.movimento.safra,
+            observacoes=f"{'Cancelamento' if cancelar else 'Estorno parcial'} da compra {compra.pk}: {dados['motivo']}")
+    except ValueError as exc:
+        raise serializers.ValidationError({"quantidade": str(exc)}) from exc
+    estorno = EstornoCompraEstoque.objects.create(id=dados["id"], compra=compra, movimento=movimento,
+        quantidade=quantidade, cancelamento=cancelar, motivo=dados["motivo"], criado_por=usuario)
+    sincronizar_compra_financeiro(compra, estorno)
+    return compra
+
+
 class CompraEstoqueViewSet(viewsets.mixins.ListModelMixin, viewsets.mixins.RetrieveModelMixin, viewsets.GenericViewSet):
     permission_classes = [IsAuthenticated]
     serializer_class = CompraSerializer
-    queryset = CompraEstoque.objects.select_related("movimento__lote__produto", "movimento__lote__fornecedor")
+    queryset = CompraEstoque.objects.select_related("movimento__lote__produto", "movimento__lote__fornecedor", "conta_pagar").prefetch_related("estornos__criado_por")
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ("movimento__lote__produto__nome", "cultura", "movimento__safra", "movimento__lote__fornecedor__nome")
     ordering_fields = ("movimento__data_movimento", "data_vencimento", "valor_total")
@@ -127,6 +212,26 @@ class CompraEstoqueViewSet(viewsets.mixins.ListModelMixin, viewsets.mixins.Retri
                 queryset = queryset.filter(**{f"{campo}__{operador}": filtros[limite]})
         return queryset
 
+    def executar_estorno(self, request, cancelar=False):
+        compra = self.get_object()
+        entrada = EstornoEntradaSerializer(data=request.data)
+        entrada.is_valid(raise_exception=True)
+        if not cancelar and "quantidade" not in entrada.validated_data:
+            raise serializers.ValidationError({"quantidade": "Informe a quantidade em litros/kg."})
+        try:
+            compra = estornar_compra(compra=compra, usuario=request.user, dados=entrada.validated_data, cancelar=cancelar)
+        except IntegrityError as exc:
+            raise CompraConflitante("Solicitação já utilizada. Atualize a lista antes de tentar novamente.") from exc
+        return Response(self.get_serializer(self.get_queryset().get(pk=compra.pk)).data)
+
+    @action(detail=True, methods=["post"])
+    def estornar(self, request, pk=None):
+        return self.executar_estorno(request)
+
+    @action(detail=True, methods=["post"])
+    def cancelar(self, request, pk=None):
+        return self.executar_estorno(request, cancelar=True)
+
     @action(detail=True, methods=["post"])
     def pagar(self, request, pk=None):
         compra = self.get_object()
@@ -137,8 +242,17 @@ class CompraEstoqueViewSet(viewsets.mixins.ListModelMixin, viewsets.mixins.Retri
             compra = CompraEstoque.objects.select_for_update().filter(pk=compra.pk).first()
             if compra is None:
                 return Response(status=status.HTTP_404_NOT_FOUND)
+            if sum(compra.estornos.values_list("quantidade", flat=True), Decimal("0")) == compra.movimento.quantidade:
+                raise CompraConflitante("Esta compra está cancelada e não pode receber novo pagamento.")
             if compra.data_pagamento:
                 return Response({"detail": "Esta compra já foi marcada como paga."}, status=status.HTTP_409_CONFLICT)
+            conta = sincronizar_compra_financeiro(compra)
+            if conta:
+                from apps.financeiro.services import liquidar_lancamento, OperacaoFinanceiraError
+                try:
+                    liquidar_lancamento(conta, **dict(data_liquidacao=entrada.validated_data["data_pagamento"], valor_liquidado=entrada.validated_data["valor_pago"]))
+                except OperacaoFinanceiraError as exc:
+                    raise CompraConflitante(str(exc)) from exc
             compra.data_pagamento = entrada.validated_data["data_pagamento"]
             compra.valor_pago = entrada.validated_data["valor_pago"]
             compra.save(update_fields=("data_pagamento", "valor_pago"))

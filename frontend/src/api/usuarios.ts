@@ -1,16 +1,18 @@
 import { api } from "./propriedades";
 
 export const MODULOS = [
+  ["cavaco", "Cavaco"],
   ["transportes", "Transportes"],
   ["propriedades", "Propriedades"], ["talhoes", "Talhões"],
   ["cadastros-agricolas", "Cadastros agrícolas"], ["cargas", "Cargas colhidas"],
   ["producao-saldos", "Produção e saldos"], ["transferencias", "Transferência de saldo"],
-  ["vendas", "Vendas"], ["clima", "Clima"], ["mercado", "Mercado"],
+  ["vendas", "Vendas"],
   ["financeiro", "Financeiro"], ["estoque", "Estoque"], ["operacoes", "Operações"],
   ["maquinas", "Máquinas"], ["faturamento-insumos", "Faturamento de insumos"],
   ["relatorios", "Relatórios"], ["importacoes", "Importações"], ["insights", "Assistente"],
 ] as const;
-export type Modulo = typeof MODULOS[number][0];
+// Identificadores antigos permanecem tipados para leitura de históricos.
+export type Modulo = typeof MODULOS[number][0] | "clima" | "mercado";
 export const ACOES = ["consultar", "cadastrar", "editar", "excluir", "imprimir"] as const;
 export type Acao = typeof ACOES[number];
 export type Pagina = Modulo | "usuarios" | "inicio" | "historico" | "backup";

@@ -103,10 +103,14 @@ export async function atualizarCBOT() {
 
 
 export type ReferenciaInvesting = {
-  produto:string; nome:string; simbolo?:string; fonte?:string; url?:string;
+  produto:string; nome:string; simbolo?:string; contrato?:string; fonte?:string; url?:string;
   valor?:string; valor_original?:string; unidade?:string; cotado_em?:string;
   consultado_em?:string; derivado?:boolean; atraso_provedor?:boolean; mercado_aberto?:boolean; erro:string;
 };
 export async function consultarInvesting() {
   return (await api.get<{cotacoes:ReferenciaInvesting[];intervalo_segundos:number;aviso:string}>("/mercado/investing/", {timeout:20000})).data;
+}
+
+export async function consultarReferenciasMercado() {
+  return (await api.get<{cotacoes:ReferenciaInvesting[];intervalo_segundos:number;aviso:string}>("/mercado/referencias/", {timeout:20000})).data;
 }

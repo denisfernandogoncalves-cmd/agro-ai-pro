@@ -78,9 +78,9 @@ class UserManagementTests(APITestCase):
         self.assertEqual(self.client.post("/api/auth/token/refresh/", {"refresh": refresh}).status_code, 401)
 
     def test_create_with_selected_access_and_status(self):
-        response = self.client.post("/api/auth/users/", {"username": "novo", "password": "Campo!SeguroABC", "password_confirmation": "Campo!SeguroABC", "modulos": ["mercado"], "is_active": False}, format="json")
+        response = self.client.post("/api/auth/users/", {"username": "novo", "password": "Campo!SeguroABC", "password_confirmation": "Campo!SeguroABC", "modulos": ["estoque"], "is_active": False}, format="json")
         self.assertEqual(response.status_code, 201, response.data)
-        self.assertEqual(response.data["modulos"], ["mercado"])
+        self.assertEqual(response.data["modulos"], ["estoque"])
         self.assertFalse(response.data["is_active"])
 
     def test_request_authenticated_before_admin_revocation_cannot_mutate(self):
@@ -100,7 +100,7 @@ class UserManagementTests(APITestCase):
 class ModuleAccessTests(APITestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user("operador")
-        self.acesso = AcessoUsuario.objects.create(usuario=self.user, modulos=["mercado"])
+        self.acesso = AcessoUsuario.objects.create(usuario=self.user, modulos=["estoque"])
         self.token = str(AccessToken.for_user(self.user))
         self.client.credentials(HTTP_AUTHORIZATION=f"Bearer {self.token}")
 
@@ -109,14 +109,14 @@ class ModuleAccessTests(APITestCase):
         self.acesso.save()
 
     def test_allowed_module_and_forbidden_direct_api(self):
-        self.assertEqual(self.client.get("/api/mercado/cotacoes/").status_code, 200)
+        self.assertEqual(self.client.get("/api/estoque/produtos/").status_code, 200)
         self.assertEqual(self.client.get("/api/financeiro/lancamentos/").status_code, 403)
         self.assertEqual(self.client.post("/api/financeiro/lancamentos/", {}, format="json").status_code, 403)
         self.assertEqual(self.client.get("/api/auth/users/").status_code, 403)
 
     def test_existing_token_obeys_changes_immediately(self):
         self.permitir("financeiro")
-        self.assertEqual(self.client.get("/api/mercado/cotacoes/").status_code, 403)
+        self.assertEqual(self.client.get("/api/estoque/produtos/").status_code, 403)
         self.assertEqual(self.client.get("/api/financeiro/lancamentos/").status_code, 200)
         self.assertEqual(self.client.get("/api/auth/me/").data["modulos"], ["financeiro"])
 
@@ -165,8 +165,8 @@ class ModuleAccessTests(APITestCase):
             "propriedades": "/api/propriedades/", "talhoes": "/api/talhoes/talhoes/",
             "cadastros-agricolas": "/api/graos/armazens/", "cargas": "/api/graos/cargas-colhidas/",
             "producao-saldos": "/api/graos/saldos/painel/", "transferencias": "/api/graos/saldos/painel/",
-            "vendas": "/api/comercial/vendas/", "clima": "/api/clima/previsoes/",
-            "mercado": "/api/mercado/cotacoes/", "financeiro": "/api/financeiro/lancamentos/",
+            "vendas": "/api/comercial/vendas/",
+            "financeiro": "/api/financeiro/lancamentos/",
             "estoque": "/api/estoque/compras/", "operacoes": "/api/producao/operacoes/",
             "maquinas": "/api/maquinas/maquinas/", "faturamento-insumos": "/api/estoque/faturamentos/",
             "relatorios": "/api/relatorios/operacionais/", "importacoes": "/api/importacoes/lotes/",

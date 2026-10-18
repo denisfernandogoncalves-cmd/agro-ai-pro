@@ -38,8 +38,6 @@ class FiltrosRelatorioOperacionalSerializer(serializers.Serializer):
             "estoque_insumos",
             "operacoes_agricolas",
             "maquinas",
-            "clima",
-            "mercado",
             "importacoes",
         ),
     )

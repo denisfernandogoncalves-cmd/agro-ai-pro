@@ -4,10 +4,9 @@ import { nomeModulo } from "./gruposModulos";
 const identidade: Partial<Record<Pagina, [string, string]>> = {
   transportes: ["Transportes", "Fretes, despesas, salário e comissão por motorista e caminhão"],
   inicio: ["Painel Geral", "Visão completa do seu negócio, do campo ao mercado"],
-  mercado: ["Mercado", "Cotações, fontes e tendências para decisões mais assertivas"],
-  clima: ["Clima", "Monitore as previsões e seus impactos nas lavouras"],
   cargas: ["Produção e Colheita", "Da pesagem aos descontos: acompanhe cada carga colhida"],
   "producao-saldos": ["Estoque e CAD/PRO", "Saldos físicos, comprometidos e disponíveis com rastreabilidade"],
+  cavaco: ["Cavaco", "Pesagem, pagamentos e romaneios individuais em duas vias"],
   estoque: ["Estoque", "Insumos, armazenagem e movimentações sob controle"],
   propriedades: ["Propriedades", "Fazendas, áreas e informações geográficas em um só lugar"],
   talhoes: ["Talhões", "Mapas, culturas e desempenho de cada área produtiva"],

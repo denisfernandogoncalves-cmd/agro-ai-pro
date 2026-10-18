@@ -28,6 +28,8 @@ def excluir_movimentacao(movimento):
                     "Esta entrada já possui consumo. Excluí-la deixaria o saldo do lote negativo."
                 )
     # Compra e entrada são removidas juntas; outros vínculos PROTECT revertem tudo.
+    if CompraEstoque.objects.filter(movimento=movimento, conta_pagar__isnull=False).exists():
+        raise EstoqueInsuficienteError("Esta compra possui conta no Financeiro. Use o cancelamento da compra para preservar o histórico.")
     CompraEstoque.objects.filter(movimento=movimento).delete()
     movimento.delete()
 

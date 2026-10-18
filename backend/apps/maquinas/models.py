@@ -1,4 +1,6 @@
-from decimal import Decimal
+from apps.financeiro.integracao import OrigemFinanceira, dados_conta
+from decimal import Decimal, ROUND_HALF_UP
+from datetime import timedelta
 
 from django.core.exceptions import ValidationError
 from django.core.validators import MinValueValidator
@@ -7,6 +9,40 @@ from django.utils import timezone
 
 from apps.producao.models import OperacaoAgricola
 from apps.propriedades.models import Propriedade
+
+
+class CompraDiesel(models.Model):
+    conta_pagar = models.OneToOneField('financeiro.LancamentoFinanceiro', null=True, blank=True, editable=False, on_delete=models.PROTECT, related_name='compra_diesel_origem')
+    excluido_em = models.DateTimeField(null=True, blank=True, editable=False)
+    data = models.DateField(default=timezone.localdate)
+    fornecedor = models.CharField(max_length=160)
+    produtor = models.CharField(max_length=160)
+    documento = models.CharField(max_length=80, blank=True)
+    tipo = models.CharField(max_length=4, choices=(("S10", "S10"), ("S500", "S500")))
+    litros = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(Decimal("0.01"))])
+    valor_unitario = models.DecimalField(max_digits=10, decimal_places=4, validators=[MinValueValidator(Decimal("0.0001"))])
+    prazo_dias = models.PositiveSmallIntegerField(null=True, blank=True)
+    pagamento = models.CharField(max_length=14, default="nao_informado", choices=(("nao_informado", "Não informado"), ("pendente", "Pendente"), ("parcial", "Parcial"), ("pago", "Pago")))
+    observacoes = models.TextField(blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("-data", "-id")
+        indexes = [models.Index(fields=["data", "tipo"], name="diesel_data_tipo_idx")]
+        constraints = [
+            models.CheckConstraint(condition=models.Q(litros__gt=0), name="diesel_litros_positivo"),
+            models.CheckConstraint(condition=models.Q(valor_unitario__gt=0), name="diesel_preco_positivo"),
+        ]
+
+    @property
+    def valor_total(self):
+        return (self.litros * self.valor_unitario).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    @property
+    def vencimento(self):
+        from apps.core.dias_uteis import vencimento_dia_util
+        return vencimento_dia_util(self.data, self.prazo_dias)
 
 
 class Maquina(models.Model):
@@ -118,7 +154,13 @@ class AbastecimentoMaquina(models.Model):
         ordering = ("-data", "-id")
 
 
-class ManutencaoMaquina(models.Model):
+class ManutencaoMaquina(OrigemFinanceira):
+
+    def dados_conta_pagar(self):
+        if self.status != "concluida":
+            return None
+        return dados_conta(f"Manutenção #{self.pk} · {self.maquina.identificacao} · {self.descricao}", self.custo, self.data_conclusao or self.data_prevista, propriedade_id=self.maquina.propriedade_id)
+
     class Status(models.TextChoices):
         AGENDADA = "agendada", "Agendada"
         CONCLUIDA = "concluida", "Concluída"

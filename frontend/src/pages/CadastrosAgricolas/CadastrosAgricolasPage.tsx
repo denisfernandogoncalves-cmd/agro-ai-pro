@@ -29,11 +29,13 @@ import {
 } from "../../api/estoque";
 import { Propriedade, rotuloPropriedade } from "../../api/propriedades";
 import ContratosComerciais from "./ContratosComerciais";
+import ConsultaAdapar from "../../components/ConsultaAdapar";
 
 
 const armazemVazio = { nome: "", capacidade_kg: "" };
 const localVazio = { nome: "", propriedade: "", descricao: "" };
 const produtoVazio = {
+  classe_agronomica: "", principios_ativos: "", concentracao: "", registro_mapa: "", consulta_adapar: "",
   nome: "",
   categoria: "insumo" as ProdutoEstoque["categoria"],
   unidade: "kg" as ProdutoEstoque["unidade"],
@@ -86,6 +88,7 @@ export default function CadastrosAgricolasPage({ propriedades }: Props) {
   const [armazens, setArmazens] = useState<ArmazemGraos[]>([]);
   const [locais, setLocais] = useState<LocalEstoque[]>([]);
   const [produtos, setProdutos] = useState<ProdutoEstoque[]>([]);
+  const [falhaProdutos, setFalhaProdutos] = useState(false);
   const [fornecedores, setFornecedores] = useState<ParceiroFinanceiro[]>([]);
   const [armazem, setArmazem] = useState(armazemVazio);
   const [local, setLocal] = useState(localVazio);
@@ -107,7 +110,9 @@ export default function CadastrosAgricolasPage({ propriedades }: Props) {
       const dados = await carregarCadastrosAgricolas();
       setArmazens(dados.armazens);
       setLocais(dados.locais);
-      setProdutos(dados.produtos);
+      const produtosIndisponiveis = dados.falhas.includes("produtos");
+      setFalhaProdutos(produtosIndisponiveis);
+      if (!produtosIndisponiveis) setProdutos(dados.produtos);
       setFornecedores(dados.fornecedores);
       if (dados.falhas.length) {
         setErro(
@@ -115,6 +120,7 @@ export default function CadastrosAgricolasPage({ propriedades }: Props) {
         );
       }
     } catch (falha) {
+      setFalhaProdutos(true);
       setErro(mensagemErro(falha));
     } finally {
       setCarregando(false);
@@ -208,7 +214,9 @@ export default function CadastrosAgricolasPage({ propriedades }: Props) {
           </form>
 </PainelFormulario>
           <div className="lista">
-            {armazens.length ? armazens.map((item) => <article className="item" key={item.id}><div><h3>{item.nome}</h3><p>Capacidade {numero(item.capacidade_kg)} kg</p><small>Ocupação atual: {numero(item.ocupacao_kg)} kg</small><div className="acoes"><BotaoAcao acao="editar" className="secundario" type="button" onClick={() => { setEdicaoArmazem(item.id); setArmazem({ nome: item.nome, capacidade_kg: item.capacidade_kg }); }}>Editar</BotaoAcao><BotaoAcao acao="excluir" className="perigo" type="button" onClick={() => void excluirCadastro("armazem", item.nome, () => excluirArmazemGraos(item.id), () => { setEdicaoArmazem(null); setArmazem(armazemVazio); })}>Excluir</BotaoAcao></div></div><span className="kicker">{item.ativo ? "Ativo" : "Inativo"}</span></article>) : <p className="vazio">{carregando ? "Carregando armazenagens..." : "Nenhuma armazenagem cadastrada."}</p>}
+            {armazens.length ? armazens.map((item) => <article className="item" key={item.id}><div><h3>{item.nome}</h3><p>Capacidade {numero(item.capacidade_kg)} kg</p><small>Ocupação atual: {numero(item.ocupacao_kg)} kg</small><div className="acoes">
+              {!item.ativo && <BotaoAcao acao="editar" type="button" disabled={carregando || Boolean(processando)} onClick={evento => void salvarCadastro(evento, "armazem", `${item.nome} ativada.`, () => atualizarArmazemGraos(item.id, { ativo: true }), () => {})}>{processando === "armazem" ? "Ativando…" : "Ativar"}</BotaoAcao>}
+              <BotaoAcao acao="editar" className="secundario" type="button" onClick={() => { setEdicaoArmazem(item.id); setArmazem({ nome: item.nome, capacidade_kg: item.capacidade_kg }); }}>Editar</BotaoAcao><BotaoAcao acao="excluir" className="perigo" type="button" onClick={() => void excluirCadastro("armazem", item.nome, () => excluirArmazemGraos(item.id), () => { setEdicaoArmazem(null); setArmazem(armazemVazio); })}>Excluir</BotaoAcao></div></div><span className="kicker">{item.ativo ? "Ativo" : "Inativo"}</span></article>) : <p className="vazio">{carregando ? "Carregando armazenagens..." : "Nenhuma armazenagem cadastrada."}</p>}
           </div>
         </section>
 
@@ -245,16 +253,21 @@ export default function CadastrosAgricolasPage({ propriedades }: Props) {
             () => edicaoProduto ? atualizarProduto(edicaoProduto, produto) : criarProduto(produto),
             () => { setProduto(produtoVazio); setEdicaoProduto(null); },
           )}>
-            <label>Nome<input required value={produto.nome} onChange={(e) => setProduto({ ...produto, nome: e.target.value })} /></label>
+            <label>Nome<input required maxLength={160} value={produto.nome} onChange={(e) => setProduto({ ...produto, nome: e.target.value, consulta_adapar: "" })} /></label>
+            <ConsultaAdapar nome={produto.nome} aplicar={item => setProduto(atual => ({ ...atual, nome: item.nome, fabricante: item.empresa || atual.fabricante, classe_agronomica: item.classe_agronomica, principios_ativos: item.principios_ativos, concentracao: item.concentracao, registro_mapa: item.registro_mapa, consulta_adapar: item.consulta_adapar, categoria: item.classe_agronomica === "HERBICIDA" ? "herbicida" : item.classe_agronomica === "FUNGICIDA" ? "fungicida" : atual.categoria }))} />
+            <label>Classe agronômica<input maxLength={240} value={produto.classe_agronomica} onChange={e => setProduto({ ...produto, classe_agronomica: e.target.value, consulta_adapar: "" })} /></label>
+            <label>Princípios ativos<textarea value={produto.principios_ativos} onChange={e => setProduto({ ...produto, principios_ativos: e.target.value, consulta_adapar: "" })} /></label>
+            <label>Concentração<input maxLength={500} value={produto.concentracao} onChange={e => setProduto({ ...produto, concentracao: e.target.value, consulta_adapar: "" })} /></label>
+            <label>Registro MAPA<input maxLength={40} value={produto.registro_mapa} onChange={e => setProduto({ ...produto, registro_mapa: e.target.value, consulta_adapar: "" })} /></label>
             <label>Categoria<select value={produto.categoria} onChange={(e) => setProduto({ ...produto, categoria: e.target.value as ProdutoEstoque["categoria"] })}>{Object.entries(nomesCategorias).map(([valor, nome]) => <option key={valor} value={valor}>{nome}</option>)}</select></label>
             <label>Unidade<select value={produto.unidade} onChange={(e) => setProduto({ ...produto, unidade: e.target.value as ProdutoEstoque["unidade"] })}>{Object.entries(nomesUnidades).map(([valor, nome]) => <option key={valor} value={valor}>{nome}</option>)}</select></label>
-            <label>Fabricante<input value={produto.fabricante} onChange={(e) => setProduto({ ...produto, fabricante: e.target.value })} /></label>
+            <label>Fabricante / empresa registrante<input value={produto.fabricante} onChange={(e) => setProduto({ ...produto, fabricante: e.target.value })} /></label>
             <label>Estoque mínimo<input min="0" step="0.001" type="number" value={produto.estoque_minimo} onChange={(e) => setProduto({ ...produto, estoque_minimo: e.target.value })} /></label>
             <div className="acoes"><button disabled={carregando || Boolean(processando)} type="submit">{edicaoProduto ? "Salvar produto" : "Cadastrar produto"}</button>{edicaoProduto && <BotaoAcao acao="excluir" className="secundario" type="button" onClick={() => { setProduto(produtoVazio); setEdicaoProduto(null); }}>Cancelar</BotaoAcao>}</div>
           </form>
 </PainelFormulario>
           <div className="lista">
-            {produtos.length ? produtos.map((item) => <article className="item" key={item.id}><div><h3>{item.nome}</h3><p>{nomesCategorias[item.categoria]} · {nomesUnidades[item.unidade]}</p><small>{item.fabricante || "Fabricante não informado"} · mínimo {numero(item.estoque_minimo)}</small><div className="acoes"><BotaoAcao acao="editar" className="secundario" type="button" onClick={() => { setEdicaoProduto(item.id); setProduto({ nome: item.nome, categoria: item.categoria, unidade: item.unidade, fabricante: item.fabricante, estoque_minimo: item.estoque_minimo }); }}>Editar</BotaoAcao><BotaoAcao acao="excluir" className="perigo" type="button" onClick={() => void excluirCadastro("produto", item.nome, () => excluirProduto(item.id), () => { setEdicaoProduto(null); setProduto(produtoVazio); })}>Excluir</BotaoAcao></div></div><span className="kicker">{item.ativo ? "Ativo" : "Inativo"}</span></article>) : <p className="vazio">{carregando ? "Carregando produtos..." : "Nenhum produto cadastrado."}</p>}
+            {produtos.length ? produtos.map((item) => <article className="item" key={item.id}><div><h3>{item.nome}</h3><p>{item.classe_agronomica?.trim() || nomesCategorias[item.categoria]} · {nomesUnidades[item.unidade]}</p><small>{item.fabricante || "Fabricante não informado"} · mínimo {numero(item.estoque_minimo)}</small><div className="acoes"><BotaoAcao acao="editar" className="secundario" type="button" onClick={() => { setEdicaoProduto(item.id); setProduto({ ...produtoVazio, nome: item.nome, categoria: item.categoria, unidade: item.unidade, fabricante: item.fabricante, estoque_minimo: item.estoque_minimo, classe_agronomica: item.classe_agronomica ?? "", principios_ativos: item.principios_ativos ?? "", concentracao: item.concentracao ?? "", registro_mapa: item.registro_mapa ?? "", consulta_adapar: "" }); }}>Editar</BotaoAcao><BotaoAcao acao="excluir" className="perigo" type="button" onClick={() => void excluirCadastro("produto", item.nome, () => excluirProduto(item.id), () => { setEdicaoProduto(null); setProduto(produtoVazio); })}>Excluir</BotaoAcao></div></div><span className="kicker">{item.ativo ? "Ativo" : "Inativo"}</span></article>) : <p className="vazio">{carregando ? "Carregando produtos..." : falhaProdutos ? "Não foi possível consultar os produtos. Tente novamente." : "Nenhum produto cadastrado."}</p>}
           </div>
         </section>
 

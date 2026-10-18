@@ -2,7 +2,7 @@ import { ItemFaturamento } from "../../api/faturamentoInsumos";
 
 function decimal(valor: string) {
   valor = valor.trim().replace(",", ".");
-  if (!/^\d+(?:\.\d+)?$/.test(valor.trim())) return null;
+  if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(valor)) return null;
   const [inteiro, fracao = ""] = valor.trim().split(".");
   return { valor: BigInt(inteiro + fracao), escala: 10n ** BigInt(fracao.length) };
 }

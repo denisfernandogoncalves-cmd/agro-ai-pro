@@ -1,3 +1,4 @@
+from decimal import ROUND_HALF_UP
 from decimal import Decimal
 import uuid
 
@@ -30,6 +31,13 @@ class ProdutoEstoque(models.Model):
     categoria = models.CharField(max_length=20, choices=Categoria.choices)
     unidade = models.CharField(max_length=5, choices=Unidade.choices)
     fabricante = models.CharField(max_length=120, blank=True)
+    classe_agronomica = models.CharField(max_length=240, blank=True)
+    principios_ativos = models.TextField(blank=True)
+    concentracao = models.CharField(max_length=500, blank=True)
+    registro_mapa = models.CharField(max_length=40, blank=True)
+    fonte_adapar = models.URLField(max_length=500, blank=True)
+    atualizacao_fonte = models.CharField(max_length=10, blank=True)
+    consultado_em = models.DateTimeField(null=True, blank=True)
     estoque_minimo = models.DecimalField(
         max_digits=14,
         decimal_places=3,
@@ -204,6 +212,8 @@ class CompraEstoque(models.Model):
 
     id = models.UUIDField(primary_key=True, editable=False)
     assinatura = models.CharField(max_length=64, editable=False)
+    integrar_financeiro = models.BooleanField(default=True, editable=False)
+    conta_pagar = models.OneToOneField("financeiro.LancamentoFinanceiro", null=True, blank=True, editable=False, on_delete=models.PROTECT, related_name="compra_estoque_origem")
     movimento = models.OneToOneField(MovimentacaoEstoque, on_delete=models.PROTECT, related_name="compra")
     cultura = models.CharField(max_length=100, blank=True)
     quantidade_embalagens = models.DecimalField(max_digits=14, decimal_places=3, validators=[MinValueValidator(Decimal("0.001"))])
@@ -224,6 +234,23 @@ class CompraEstoque(models.Model):
                 name="estoque_compra_pagamento_valido",
             ),
         ]
+
+
+class EstornoCompraEstoque(models.Model):
+    """Retirada imutável, sem apagar a compra ou modificar pagamentos."""
+    id = models.UUIDField(primary_key=True, editable=False)
+    compra = models.ForeignKey(CompraEstoque, on_delete=models.PROTECT, related_name="estornos")
+    movimento = models.OneToOneField(MovimentacaoEstoque, on_delete=models.PROTECT, related_name="estorno_compra")
+    quantidade = models.DecimalField(max_digits=14, decimal_places=3, validators=[MinValueValidator(Decimal("0.001"))])
+    conta_receber = models.OneToOneField("financeiro.LancamentoFinanceiro", null=True, blank=True, editable=False, on_delete=models.PROTECT, related_name="estorno_compra_origem")
+    cancelamento = models.BooleanField(default=False)
+    motivo = models.CharField(max_length=500)
+    criado_por = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("criado_em", "id")
+        constraints = [models.CheckConstraint(condition=models.Q(quantidade__gt=0), name="estoque_estorno_compra_qtd_positiva")]
 
 
 class FaturamentoInsumo(models.Model):
@@ -249,3 +276,34 @@ class FaturamentoInsumo(models.Model):
 class BaixaFaturamentoInsumo(models.Model):
     faturamento = models.ForeignKey(FaturamentoInsumo, on_delete=models.PROTECT, related_name="baixas")
     movimento = models.OneToOneField(MovimentacaoEstoque, on_delete=models.PROTECT, related_name="baixa_faturamento")
+
+
+class CargaCavaco(models.Model):
+    conta_pagar = models.OneToOneField('financeiro.LancamentoFinanceiro', null=True, blank=True, editable=False, on_delete=models.PROTECT, related_name='carga_cavaco_origem')
+    data_vencimento = models.DateField(null=True, blank=True)
+    excluido_em = models.DateTimeField(null=True, blank=True, editable=False)
+    data = models.DateField(default=timezone.localdate)
+    motorista = models.CharField(max_length=120)
+    fornecedor = models.CharField(max_length=160)
+    placa = models.CharField(max_length=10, blank=True)
+    valor_tonelada = models.DecimalField(max_digits=12, decimal_places=2, validators=[MinValueValidator(Decimal('0'))])
+    peso_bruto = models.DecimalField(max_digits=12, decimal_places=3, validators=[MinValueValidator(Decimal('0.001'))])
+    tara = models.DecimalField(max_digits=12, decimal_places=3, validators=[MinValueValidator(Decimal('0'))])
+    pago = models.BooleanField(default=False)
+    observacoes = models.CharField(max_length=240, blank=True)
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ('-data', '-id')
+        constraints = [
+            models.CheckConstraint(condition=models.Q(peso_bruto__gt=models.F('tara')) & models.Q(tara__gte=0), name='cavaco_pesos_validos'),
+            models.CheckConstraint(condition=models.Q(valor_tonelada__gte=0), name='cavaco_preco_valido'),
+        ]
+
+    @property
+    def peso_liquido(self):
+        return self.peso_bruto - self.tara
+
+    @property
+    def total(self):
+        return (self.peso_liquido * self.valor_tonelada / Decimal('1000')).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP)

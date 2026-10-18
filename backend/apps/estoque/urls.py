@@ -5,6 +5,7 @@ from .disponibilidade import disponibilidade
 from .faturamento import FaturamentoInsumoViewSet
 
 from .views import (
+    CargaCavacoViewSet,
     LocalEstoqueViewSet,
     LoteEstoqueViewSet,
     MovimentacaoEstoqueViewSet,
@@ -13,6 +14,7 @@ from .views import (
 
 
 router = DefaultRouter()
+router.register("cavaco", CargaCavacoViewSet, basename="cavaco")
 router.register("faturamentos", FaturamentoInsumoViewSet, basename="faturamentos-insumos")
 router.register("compras", CompraEstoqueViewSet, basename="compras-estoque")
 router.register("produtos", ProdutoEstoqueViewSet, basename="produtos")

@@ -5,7 +5,6 @@ import { abaDosFiltros, filtrosDaAba } from "./abasFinanceiro";
 import AnexosLancamento from "../../components/AnexosLancamento";
 import { useConferirDuplicidades } from "../../components/ConferirDuplicidades";
 import { useEntradaPainel } from "../../components/AcoesContext";
-import FiltrosFavoritos from "../../components/FiltrosFavoritos";
 import { BotaoAcao } from "../../components/AcoesContext";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import PainelFormulario from "../../components/PainelFormulario";
@@ -203,14 +202,13 @@ export default function FinanceiroPage(_props: Props) {
 
   return (
     <section className="modulo-financeiro">
-      <FiltrosFavoritos contexto="financeiro" filtros={filtros} aplicar={valores => {const proximos = {...filtrosVazios, ...valores}; setFiltros(proximos); void carregar(proximos);}} />
       <FinanceiroImpressao lancamentos={lancamentos} resumo={resumo} filtros={filtrosImpressao} carregando={carregando} />
       {editando && <EditorLancamento key={editando.id} item={editando} onFechar={() => setEditando(null)} onSalvo={() => { setEditando(null); setSucesso("Lançamento atualizado."); void carregar(); }} />}
       {erro && <p className="erro card" role="alert">{erro}</p>}
       {sucesso && <p className="card" role="status">{sucesso}</p>}
       {resumo && (
         <section className="resumos-financeiros" aria-label="Totais dos filtros aplicados">
-          <article className="card"><span>A pagar</span><strong>{moeda(resumo.a_pagar)}</strong></article>
+          <article className="card conta-a-pagar"><span>A pagar</span><strong>{moeda(resumo.a_pagar)}</strong></article>
           <article className="card"><span>Pagos</span><strong>{moeda(resumo.saidas_realizadas)}</strong></article>
           <article className="card"><span>A receber</span><strong>{moeda(resumo.a_receber)}</strong></article>
           <article className="card"><span>Saldo previsto</span><strong>{moeda(resumo.saldo_previsto)}</strong></article>
@@ -282,7 +280,7 @@ export default function FinanceiroPage(_props: Props) {
           <div className="resumo-consulta" role="status"><strong>Resultado da consulta</strong><span>{salvando || excluindo ? "Processando lançamento..." : carregando ? "Atualizando lançamentos..." : `${lancamentos.length} lançamento(s) na consulta completa · ${filtrosImpressao}`}</span></div>
           <div className="lista">
             {lancamentos.map((item) => (
-              <article className={`card item lancamento ${item.atrasado ? "atrasado" : ""}`} key={item.id}>
+              <article className={`card item lancamento ${item.atrasado ? "atrasado" : ""} ${item.tipo === "pagar" && item.status === "pendente" ? "conta-a-pagar" : ""}`} key={item.id}>
                 <div>
                   <span className="kicker">{item.status === "liquidado" ? (item.tipo === "pagar" ? "Pago" : "Recebido") : (item.tipo === "pagar" ? "A pagar" : "A receber")} · {item.status}</span>
                   <h3>{item.descricao}</h3>

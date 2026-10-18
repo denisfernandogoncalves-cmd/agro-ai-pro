@@ -7,6 +7,7 @@ from apps.estoque.models import MovimentacaoEstoque
 from apps.estoque.services import registrar_movimentacao
 
 from .models import OperacaoAgricola
+from apps.core.valores import validar_decimal
 
 
 class TransicaoOperacaoError(ValueError):
@@ -28,7 +29,7 @@ def iniciar_operacao(operacao, data_inicio=None):
 
 
 @transaction.atomic
-def concluir_operacao(operacao, *, usuario, data_conclusao=None, custo_realizado=None):
+def concluir_operacao(operacao, *, usuario, data_conclusao=None, custo_realizado=None, area_realizada_hectares=None):
     operacao = (
         OperacaoAgricola.objects.select_for_update()
         .select_related("talhao__propriedade")
@@ -36,6 +37,10 @@ def concluir_operacao(operacao, *, usuario, data_conclusao=None, custo_realizado
     )
     if operacao.status != OperacaoAgricola.Status.EM_EXECUCAO:
         raise TransicaoOperacaoError("Somente operações em execução podem ser concluídas.")
+    if area_realizada_hectares not in (None, ""):
+        operacao.area_realizada_hectares = validar_decimal(area_realizada_hectares, max_digits=10, decimal_places=2, minimo=Decimal("0.01"))
+    # Validar o informado antes de criar baixas de insumos; a transação preserva todo o conjunto.
+    operacao.full_clean()
     insumos = list(operacao.insumos.select_related("lote__produto", "lote__local"))
     for insumo in insumos:
         if insumo.movimentacao_estoque_id:
@@ -70,6 +75,7 @@ def concluir_operacao(operacao, *, usuario, data_conclusao=None, custo_realizado
             "status",
             "data_conclusao",
             "custo_realizado",
+            "area_realizada_hectares",
             "atualizado_em",
         )
     )

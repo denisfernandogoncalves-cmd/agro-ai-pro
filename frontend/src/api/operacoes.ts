@@ -6,6 +6,7 @@ import { hectaresDeAlqueires } from "../utils/areas";
 
 export type InsumoOperacao = {
   id: number;
+  versao_correcao?: string;
   operacao: number;
   lote: number;
   produto_nome: string;
@@ -18,7 +19,9 @@ export type InsumoOperacao = {
 };
 
 export type OperacaoAgricola = {
+  versao_correcao?: string;
   id: number;
+  atualizado_em: string;
   talhao: number;
   talhao_nome: string;
   propriedade_id: number;
@@ -30,6 +33,7 @@ export type OperacaoAgricola = {
   data_conclusao: string | null;
   status: "planejada" | "em_execucao" | "concluida" | "cancelada";
   area_hectares: string;
+  area_realizada_hectares: string | null;
   responsavel: string;
   custo_estimado: string;
   custo_realizado: string | null;
@@ -73,6 +77,9 @@ export async function criarOperacao(dados: OperacaoInput) {
   })).data;
 }
 
+export const editarOperacao = async (id: number, dados: OperacaoInput, versao: string) => api.patch(`/producao/operacoes/${id}/`, { ...dados, area_hectares: hectaresDeAlqueires(dados.area_hectares), atualizado_em_original: versao });
+export const excluirOperacao = async (id: number) => api.delete(`/producao/operacoes/${id}/`);
+
 export async function adicionarInsumo(dados: {
   operacao: number;
   lote: string;
@@ -99,11 +106,13 @@ export async function concluirOperacao(
   id: number,
   data_conclusao: string,
   custo_realizado: string,
+  area_realizada_alqueires = "",
 ) {
   return (
     await api.post<OperacaoAgricola>(`/producao/operacoes/${id}/concluir/`, {
       data_conclusao,
       custo_realizado: custo_realizado || null,
+      area_realizada_hectares: area_realizada_alqueires ? hectaresDeAlqueires(area_realizada_alqueires) : null,
     })
   ).data;
 }

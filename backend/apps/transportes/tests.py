@@ -147,6 +147,28 @@ class TransportesTests(TestCase):
         self.assertEqual(self.client.delete(f"/api/transportes/caminhoes/{self.c.pk}/").status_code, 400)
         self.assertTrue(Caminhao.objects.filter(pk=self.c.pk).exists())
 
+    def test_desvincular_motorista_preserva_caminhao_e_historico(self):
+        lancamento = self.lancamento()
+        rem = RemuneracaoMotorista.objects.create(caminhao=self.c, motorista="Motorista A", competencia=date(2026, 1, 1), salario=100, comissao=15)
+        url = f"/api/transportes/caminhoes/{self.c.pk}/motorista/"
+        self.assertEqual(self.client.delete(url, {"motorista_original": "Nome antigo"}, format="json").status_code, 409)
+        resposta = self.client.delete(url, {"motorista_original": "Motorista A"}, format="json")
+        self.assertEqual(resposta.status_code, 200)
+        self.c.refresh_from_db(); lancamento.refresh_from_db(); rem.refresh_from_db()
+        self.assertEqual(self.c.motorista, "")
+        self.assertEqual(self.c.placa, "XYZ9A99")
+        self.assertEqual(lancamento.motorista, "Motorista A")
+        self.assertEqual(rem.motorista, "Motorista A")
+        self.assertEqual(rem.valor_comissao, Decimal("15.00"))
+        self.assertEqual(self.client.patch(f"/api/transportes/caminhoes/{self.c.pk}/", {"motorista": "Motorista B", "versao_correcao_original": resposta.data["versao_correcao"]}, format="json").status_code, 200)
+
+    def test_desvincular_exige_permissao_excluir(self):
+        AcessoUsuario.objects.create(usuario=self.user, modulos=["transportes"], permissoes={"transportes": ["consultar", "editar"]})
+        resposta = self.client.delete(f"/api/transportes/caminhoes/{self.c.pk}/motorista/", {"motorista_original": "Motorista A"}, format="json")
+        self.assertEqual(resposta.status_code, 403)
+        self.c.refresh_from_db()
+        self.assertEqual(self.c.motorista, "Motorista A")
+
     def test_placa_normalizada_e_unica(self):
         resposta = self.client.post("/api/transportes/caminhoes/", dict(placa="abc-1d23", veiculo="Volvo", motorista="B"))
         self.assertEqual(resposta.status_code, 201)
@@ -178,3 +200,48 @@ class TransportesTests(TestCase):
             mes = MESES[int(i["competencia"][5:7]) - 1]
             self.assertEqual(Decimal(i["comissao"]), Decimal(str(w[mes]["B5"].value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
         self.assertEqual(importar(ler_planilha(SimpleUploadedFile("RHD 4D04.xlsx", conteudo)))["lancamentos_criados"], 0)
+
+
+class DemonstrativoMotoristaTests(TestCase):
+    def setUp(self):
+        self.user = get_user_model().objects.create_user(username="holerite")
+        self.client = APIClient()
+        self.client.force_authenticate(self.user)
+        self.caminhao = Caminhao.objects.create(placa="ABC1D23", veiculo="Volvo", motorista="Atual")
+        self.url = "/api/transportes/remuneracoes/imprimir/"
+
+    def test_mes_motorista_historico_e_totais_sem_gravacao(self):
+        RemuneracaoMotorista.objects.create(caminhao=self.caminhao, motorista="Motorista histórico", competencia=date(2026, 1, 1), salario="2000", comissao="100")
+        outro = Caminhao.objects.create(placa="XYZ9A99", veiculo="Volvo", motorista="Outro")
+        RemuneracaoMotorista.objects.create(caminhao=outro, motorista="MOTORISTA HISTÓRICO", competencia=date(2026, 1, 1), salario="500", comissao="20")
+        RemuneracaoMotorista.objects.create(caminhao=self.caminhao, motorista="Motorista histórico", competencia=date(2026, 2, 1), salario="9999", comissao="999")
+        resposta = self.client.get(self.url, {"mes": "2026-01"})
+        self.assertEqual(resposta.status_code, 200)
+        self.assertEqual(len(resposta.data), 1)
+        item = resposta.data[0]
+        self.assertEqual(item["salario"], "2500.00")
+        self.assertEqual(item["comissao"], "120.00")
+        self.assertEqual(item["total"], "2620.00")
+        self.assertEqual(len(item["itens"]), 2)
+        self.assertEqual(RemuneracaoMotorista.objects.count(), 3)
+        self.assertEqual(self.client.get(self.url, {"mes": "2025-12"}).data, [])
+
+    def test_percentual_reutiliza_calculo_da_remuneracao(self):
+        LancamentoTransporte.objects.create(caminhao=self.caminhao, motorista="Motorista", data=date(2026, 1, 10), tipo="receita", descricao="Milho", quantidade="1", valor_unitario="1000")
+        RemuneracaoMotorista.objects.create(caminhao=self.caminhao, motorista="Motorista", competencia=date(2026, 1, 1), salario="2000", comissao_percentual="10")
+        item = self.client.get(self.url, {"mes": "2026-01"}).data[0]
+        self.assertEqual(item["comissao"], "100.00")
+        self.assertEqual(item["total"], "2100.00")
+
+    def test_nao_trunca_em_trinta_motoristas(self):
+        for indice in range(35):
+            RemuneracaoMotorista.objects.create(caminhao=self.caminhao, motorista=f"Motorista {indice}", competencia=date(2026, 1, 1), salario="100", comissao="10")
+        self.assertEqual(len(self.client.get(self.url, {"mes": "2026-01"}).data), 35)
+
+    def test_mes_invalido_autenticacao_e_permissao_imprimir(self):
+        for mes in ("", "2026-13", "2026-01-15", "abc"):
+            self.assertEqual(self.client.get(self.url, {"mes": mes}).status_code, 400)
+        AcessoUsuario.objects.create(usuario=self.user, modulos=["transportes"], permissoes={"transportes": ["consultar"]})
+        self.assertEqual(self.client.get(self.url, {"mes": "2026-01"}).status_code, 403)
+        self.client.force_authenticate(None)
+        self.assertEqual(self.client.get(self.url, {"mes": "2026-01"}).status_code, 401)

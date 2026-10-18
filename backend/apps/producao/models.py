@@ -46,6 +46,11 @@ class OperacaoAgricola(models.Model):
         decimal_places=2,
         validators=[MinValueValidator(Decimal("0.01"))],
     )
+    area_realizada_hectares = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        validators=[MinValueValidator(Decimal("0.01"))],
+        help_text="Área efetivamente executada, informada manualmente; ausência não significa zero.",
+    )
     responsavel = models.CharField(max_length=120, blank=True)
     custo_estimado = models.DecimalField(
         max_digits=14,
@@ -78,6 +83,7 @@ class OperacaoAgricola(models.Model):
             ),
         ]
         constraints = [
+            models.CheckConstraint(condition=models.Q(area_realizada_hectares__isnull=True) | models.Q(area_realizada_hectares__gt=0), name="producao_area_realizada_positiva"),
             models.CheckConstraint(
                 condition=models.Q(area_hectares__gt=0),
                 name="producao_operacao_area_positiva",
@@ -104,6 +110,8 @@ class OperacaoAgricola(models.Model):
             > Decimal(str(self.talhao.area_hectares))
         ):
             erros["area_hectares"] = "A área da operação não pode superar a área do talhão."
+        if self.area_realizada_hectares is not None and self.talhao_id and self.area_realizada_hectares > self.talhao.area_hectares:
+            erros["area_realizada_hectares"] = "A área realizada não pode superar a área do talhão."
         if self.data_inicio and self.data_inicio < self.data_planejada:
             erros["data_inicio"] = "O início não pode ser anterior à data planejada."
         if self.data_conclusao and (

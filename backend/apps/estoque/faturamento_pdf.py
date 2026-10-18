@@ -1,6 +1,7 @@
 """PDF individual a partir do snapshot, sem consultar cadastros alterados depois do envio."""
 from decimal import Decimal
 from io import BytesIO
+import re
 from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
@@ -8,7 +9,7 @@ from reportlab.lib.enums import TA_RIGHT
 from reportlab.lib.pagesizes import A4, landscape
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
-from reportlab.platypus import LongTable, Paragraph, SimpleDocTemplate, Spacer, TableStyle
+from reportlab.platypus import LongTable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from .faturamento import fornecedor_usa_bep
 
@@ -18,13 +19,23 @@ def numero(valor):
     return texto.replace(",", "_").replace(".", ",").replace("_", ".")
 
 
+def titulo_faturamento(resumo):
+    def quantidade(valor):
+        return numero(valor).replace(".", "")
+    partes = [resumo["produto_nome"],
+              f"{quantidade(resumo['total_embalagens'])} {resumo['embalagem']} DE {quantidade(resumo['conteudo_embalagem'])} {resumo['unidade']}",
+              "SAFRA " + (resumo.get("safra", "").strip() or "NÃO INFORMADA"),
+              "-".join(resumo["data_envio"].split("-")[::-1])]
+    return re.sub(r'[<>:"/\\|?*\x00-\x1f]', "-", " - ".join(partes).upper())
+
+
 def gerar_pdf_faturamento(faturamento):
     resumo = faturamento.resumo
     usa_bep = resumo.get("usa_bep", fornecedor_usa_bep(resumo["fornecedor_nome"]))
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=landscape(A4), rightMargin=14 * mm,
                             leftMargin=14 * mm, topMargin=14 * mm, bottomMargin=18 * mm,
-                            title="Faturamento de insumos", author="AGRO-AI-PRO")
+                            title=titulo_faturamento(resumo), author="AGRO-AI-PRO")
     corpo = ParagraphStyle("Corpo", fontName="Helvetica", fontSize=9, leading=12, spaceAfter=5)
     titulo = ParagraphStyle("Titulo", parent=corpo, fontName="Helvetica-Bold", fontSize=17, leading=21, spaceAfter=9)
     cabecalho = ParagraphStyle("Cabecalho", parent=corpo, fontName="Helvetica-Bold", textColor=colors.white, spaceAfter=0)
@@ -35,11 +46,24 @@ def gerar_pdf_faturamento(faturamento):
         # Todos os textos vêm de cadastros: escapar impede interpretar marcação ou recursos externos.
         return Paragraph(escape(str(texto or "Não informado")).replace("\n", "<br/>"), estilo)
 
-    conteudo = [p("Faturamento de insumos", titulo),
-                p(resumo["fornecedor_nome"]),
-                p(f"Data do envio: {faturamento.data_envio:%d/%m/%Y}"),
-                p(f"Produto: {resumo['produto_nome']} | {resumo['embalagem']} de {numero(resumo['conteudo_embalagem'])} {resumo['unidade']}"),
-                p(f"Dosagem: {numero(resumo['dosagem_alqueire'])} {resumo['unidade']}/alq."), Spacer(1, 4 * mm)]
+    destaque = ParagraphStyle("Destaque", parent=celula, fontName="Helvetica-Bold")
+    dados_cabecalho = Table([
+        [[p("Empresa destinatária", celula), p(resumo["fornecedor_nome"], destaque)],
+         [p(f"Total de embalagens: {numero(resumo['total_embalagens'])}", destaque), p(f"{resumo['embalagem']} de {numero(resumo['conteudo_embalagem'])} {resumo['unidade']}", celula)],
+         [p("Data do envio", celula), p(f"{faturamento.data_envio:%d/%m/%Y}", destaque)]],
+        [[p("Produto", celula), p(resumo["produto_nome"], destaque)],
+         [p(f"Quantidade total: {numero(resumo['quantidade_total'])} {resumo['unidade']}", destaque), p(f"Dosagem: {numero(resumo['dosagem_alqueire'])} {resumo['unidade']}/alq.", celula)],
+         [p("Safra", celula), p(resumo.get("safra") or "Não informada", destaque)]],
+    ], colWidths=[115 * mm, 95 * mm, 59 * mm], hAlign="LEFT")
+    dados_cabecalho.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("LEFTPADDING", (0, 0), (-1, -1), 6), ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+        ("TOPPADDING", (0, 0), (-1, -1), 6), ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+        ("BACKGROUND", (0, 0), (1, 0), colors.HexColor("#EDF3EF")),
+        ("LINEABOVE", (0, 0), (-1, 0), 0.5, colors.HexColor("#DDE4DE")),
+        ("LINEBELOW", (0, -1), (-1, -1), 0.5, colors.HexColor("#DDE4DE")),
+    ]))
+    conteudo = [p("Faturamento de insumos", titulo), dados_cabecalho, Spacer(1, 4 * mm)]
     titulos = ["Propriedade", "Produtor", "CAD/PRO"]
     larguras = [60, 41, 30]
     if usa_bep:

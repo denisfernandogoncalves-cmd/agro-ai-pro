@@ -1,5 +1,8 @@
+from .models import CargaCavaco
+from django.db import transaction
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
+from apps.core.correcoes import VersaoCorrecaoSerializer
 
 from .models import (
     LocalEstoque,
@@ -11,6 +14,28 @@ from .services import EstoqueInsuficienteError, registrar_movimentacao, saldo_lo
 
 
 class ProdutoEstoqueSerializer(serializers.ModelSerializer):
+    consulta_adapar = serializers.CharField(write_only=True, required=False, allow_blank=True, max_length=12000)
+
+    def validate(self, attrs):
+        from django.core import signing
+        from .adapar import SALT
+        token = attrs.pop("consulta_adapar", "")
+        campos = ("classe_agronomica", "principios_ativos", "concentracao", "registro_mapa")
+        if token:
+            try:
+                dados = signing.loads(token, salt=SALT, max_age=86400)
+            except signing.BadSignature as exc:
+                raise serializers.ValidationError({"consulta_adapar": "Consulta vencida ou inválida. Busque novamente."}) from exc
+            if attrs.get("nome", getattr(self.instance, "nome", "")) != dados["nome"]:
+                raise serializers.ValidationError({"nome": "O nome foi alterado após a consulta. Busque novamente ou preencha manualmente."})
+            for campo in (*campos, "fonte_adapar", "atualizacao_fonte", "consultado_em"):
+                attrs[campo] = dados[campo]
+            from django.utils.dateparse import parse_datetime
+            attrs["consultado_em"] = parse_datetime(dados["consultado_em"])
+        elif self.instance and any(c in attrs and attrs[c] != getattr(self.instance, c) for c in ("nome", *campos)):
+            attrs.update(fonte_adapar="", atualizacao_fonte="", consultado_em=None)
+        return attrs
+
     def validate_unidade(self, value):
         if self.instance and value != self.instance.unidade and self.instance.faturamentoinsumo_set.exists():
             raise serializers.ValidationError("A unidade de produto com faturamento confirmado não pode ser alterada.")
@@ -19,7 +44,7 @@ class ProdutoEstoqueSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProdutoEstoque
         fields = "__all__"
-        read_only_fields = ("criado_em",)
+        read_only_fields = ("criado_em", "fonte_adapar", "atualizacao_fonte", "consultado_em")
         extra_kwargs = {
             "fabricante": {
                 "required": False,
@@ -81,7 +106,7 @@ class LoteEstoqueSerializer(serializers.ModelSerializer):
         return attrs
 
 
-class MovimentacaoEstoqueSerializer(serializers.ModelSerializer):
+class MovimentacaoEstoqueSerializer(VersaoCorrecaoSerializer, serializers.ModelSerializer):
     produto_nome = serializers.CharField(source="lote.produto.nome", read_only=True)
     unidade = serializers.CharField(source="lote.produto.unidade", read_only=True)
     lote_codigo = serializers.CharField(source="lote.codigo", read_only=True)
@@ -111,3 +136,35 @@ class MovimentacaoEstoqueSerializer(serializers.ModelSerializer):
             else:
                 detalhe = {"detail": str(exc)}
             raise serializers.ValidationError(detalhe) from exc
+
+
+class CargaCavacoSerializer(serializers.ModelSerializer):
+    pagamento_financeiro = serializers.CharField(source='conta_pagar.status', read_only=True, default=None)
+    peso_liquido = serializers.DecimalField(max_digits=12, decimal_places=3, read_only=True)
+    total = serializers.DecimalField(max_digits=20, decimal_places=2, read_only=True)
+
+    class Meta:
+        model = CargaCavaco
+        fields = '__all__'
+        read_only_fields = ('criado_em',)
+
+    def validate(self, attrs):
+        bruto = attrs.get('peso_bruto', getattr(self.instance, 'peso_bruto', None))
+        tara = attrs.get('tara', getattr(self.instance, 'tara', None))
+        if bruto is not None and tara is not None and bruto <= tara:
+            raise serializers.ValidationError({'tara': 'A tara deve ser menor que o peso bruto.'})
+        return attrs
+
+    @transaction.atomic
+    def create(self, validated_data):
+        from .cavaco_financeiro import sincronizar_conta_cavaco
+        carga = super().create(validated_data)
+        sincronizar_conta_cavaco(carga)
+        return carga
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        from .cavaco_financeiro import sincronizar_conta_cavaco
+        carga = super().update(instance, validated_data)
+        sincronizar_conta_cavaco(carga)
+        return carga

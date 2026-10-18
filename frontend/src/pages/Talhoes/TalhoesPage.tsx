@@ -297,7 +297,6 @@ export default function TalhoesPage() {
 
   return (
     <section className="modulo-talhoes">
-      <GruposPropriedadesPanel />
       {erro && <p className="erro card" role="alert">{erro}</p>}
       {salvando && <p role="status">Salvando alterações...</p>}
 
@@ -374,6 +373,7 @@ export default function TalhoesPage() {
           )}
         </section>
       </section>
+      <GruposPropriedadesPanel />
     </section>
   );
 }

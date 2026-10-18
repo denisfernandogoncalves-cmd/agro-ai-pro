@@ -660,6 +660,12 @@ dialog.editor-venda::backdrop { background: #102f2480; }
 .modulo-faturamento fieldset { border: 0; padding: 0; margin: 0; min-width: 0; display: grid; gap: 1rem; }
 .faturamento-campos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; }
 .faturamento-tabela { overflow-x: auto; }
+.faturamento-cabecalho { display: block; margin-bottom: 1rem; break-inside: avoid; }
+.faturamento-cabecalho-grade { display: grid; grid-template-columns: 1.25fr 1.1fr .65fr; gap: .7rem 1.3rem; border-top: 1px solid #d9e2da; border-bottom: 1px solid #d9e2da; padding: .7rem 0; }
+.faturamento-cabecalho-grade p { display: flex; flex-direction: column; gap: .2rem; margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.faturamento-cabecalho-grade span { color: inherit; }
+.faturamento-cabecalho-grade strong, .faturamento-cabecalho-grade b { font-size: inherit; }
+@media screen and (max-width: 600px) { .faturamento-cabecalho-grade { grid-template-columns: 1fr; } }
 .faturamento-tabela table { width: 100%; border-collapse: collapse; }
 .faturamento-tabela th, .faturamento-tabela td { text-align: left; padding: .7rem; border-bottom: 1px solid #d9e2da; }
 .faturamento-tabela th { background: #edf3ee; }
@@ -1414,3 +1420,41 @@ dialog.editor-venda::backdrop { background: #102f2480; }
  .abas-modulo [role="tab"] {flex:0 0 auto;white-space:nowrap;}
 }
 .abrangencia-abas {grid-column:1/-1;font-size:13px;color:var(--cor-texto-secundario,#43584e);margin:0 0 12px;}
+
+.formulario fieldset.propriedades-compactas {display:flex;flex-direction:column;gap:.75rem;min-width:0;}
+.menu-propriedades {width:100%;border:1px solid #cbdad6;border-radius:10px;background:#fff;}
+.menu-propriedades summary {cursor:pointer;padding:.8rem;font-weight:600;}
+.menu-propriedades-conteudo {padding:0 .8rem .8rem;}
+.menu-propriedades-lista {max-height:260px;overflow-y:auto;margin-top:.6rem;display:grid;gap:.4rem;}
+.menu-propriedades-lista .opcao-checkbox {display:flex;align-items:center;gap:.6rem;padding:.5rem;overflow-wrap:anywhere;}
+.menu-propriedades-lista input[type="checkbox"] {flex:0 0 auto;}
+.propriedade-escolhida {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:.75rem;align-items:center;}
+.propriedade-escolhida > div {display:flex;align-items:center;justify-content:space-between;gap:.5rem;min-width:0;}
+.propriedade-escolhida strong {overflow-wrap:anywhere;}
+@media(max-width:640px) {.propriedade-escolhida {grid-template-columns:minmax(0,1fr);}}
+.versao-aplicativo { display: block; font-size: .75rem; line-height: 1.5; color: #52645b; overflow-wrap: anywhere; }
+
+/* Consulta financeira: usa a largura disponível sem uma coluna fixa de ações. */
+@media screen and (min-width: 1000px) {
+  .lancamento.card.item { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; padding: .8rem 1rem; gap: .65rem 1.25rem; }
+  .lancamento > div:first-child { display: flex; flex-wrap: wrap; align-items: baseline; gap: .25rem .85rem; }
+  .lancamento .kicker { flex-basis: 100%; }
+  .lancamento h3, .lancamento p { margin: 0; }
+  .lancamento .anexos-lancamento { flex-basis: 100%; margin-top: .25rem; }
+  .lancamento > div:last-child { display: flex; align-items: center; gap: 1rem; flex-basis: auto; }
+  .lancamento > div:last-child > strong { white-space: nowrap; }
+  .lancamento .acoes-lancamento { margin-top: 0; flex-wrap: nowrap; gap: .4rem; }
+  .lancamento .acoes-lancamento button { padding: .55rem .7rem; white-space: nowrap; }
+}
+@media screen and (min-width: 1000px) and (max-width: 1250px) {
+  .lancamento.card.item { grid-template-columns: minmax(0, 1fr); }
+  .lancamento > div:last-child { justify-content: space-between; }
+}
+
+/* Contas a pagar pendentes: identificação e valor em vermelho. */
+.modulo-financeiro .conta-a-pagar { border-color: #dc8d87; }
+.modulo-financeiro .conta-a-pagar > span,
+.modulo-financeiro .conta-a-pagar > strong,
+.modulo-financeiro .conta-a-pagar .kicker,
+.modulo-financeiro .conta-a-pagar > div > strong { color: #b42318; }
+.modulo-financeiro #financeiro-aba-pagar { color: #b42318; }

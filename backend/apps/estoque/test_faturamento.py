@@ -158,6 +158,7 @@ class FaturamentoInsumosTests(APITestCase):
         entrada = FaturamentoEntrada(data=self.dados)
         entrada.is_valid(raise_exception=True)
         antigo = dict(entrada.validated_data)
+        antigo.pop("safra", None)
         antigo["itens"] = [{k: v for k, v in item.items() if k != "bep"} for item in antigo["itens"]]
         hash_antigo = hashlib.sha256(json.dumps(antigo, default=lambda v: str(v.pk) if hasattr(v, "pk") else str(v), sort_keys=True).encode()).hexdigest()
         self.assertEqual(assinatura(entrada.validated_data), hash_antigo)
@@ -203,15 +204,31 @@ class FaturamentoInsumosTests(APITestCase):
         resposta = self.client.get(url)
         self.assertEqual(resposta.status_code, 200)
         self.assertEqual(resposta["Content-Type"], "application/pdf")
-        self.assertIn(salvo["id"], resposta["Content-Disposition"])
+        self.assertIn("PRODUTO%20TESTE", resposta["Content-Disposition"])
+        self.assertIn("4%20BALDE%20DE%2020%20L", resposta["Content-Disposition"])
         self.assertEqual(resposta["Cache-Control"], "private, no-store")
         self.assertTrue(resposta.content.startswith(b"%PDF-"))
         self.assertTrue(resposta.content.rstrip().endswith(b"%%EOF"))
         faturamento = FaturamentoInsumo.objects.get()
         faturamento.resumo.pop("usa_bep")
+        faturamento.resumo.pop("safra", None)
         faturamento.resumo["itens"][0].pop("bep")
         faturamento.save()
         self.assertEqual(self.client.get(url).status_code, 200)
+
+    def test_safra_no_snapshot_titulo_e_reenvio(self):
+        from .faturamento_pdf import titulo_faturamento
+        self.dados.update(safra="26-27", data_envio="2026-10-09", embalagem="BAG", conteudo_embalagem="1000")
+        self.dados["itens"][0]["quantidade_embalagens"] = "40"
+        self.produto.nome = "02 20 18 MAIS MICRO"
+        self.produto.unidade = "kg"
+        self.produto.save()
+        salvo = self.post().data
+        self.assertEqual(salvo["resumo"]["safra"], "26-27")
+        self.assertEqual(titulo_faturamento(salvo["resumo"]), "02 20 18 MAIS MICRO - 40 BAG DE 1000 KG - SAFRA 26-27 - 09-10-2026")
+        self.assertEqual(self.post().status_code, 200)
+        self.dados["safra"] = "27-28"
+        self.assertEqual(self.post().status_code, 409)
 
     def test_exclusao_e_pdf_exigem_autenticacao_e_id_valido(self):
         salvo = self.post().data

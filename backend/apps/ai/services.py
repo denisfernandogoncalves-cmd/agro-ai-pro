@@ -1,6 +1,5 @@
 from django.utils import timezone
 
-from apps.clima.models import PrevisaoClima
 from apps.estoque.services import resumo_estoque
 from apps.financeiro.models import LancamentoFinanceiro
 from apps.maquinas.models import ManutencaoMaquina
@@ -32,14 +31,10 @@ def gerar_insights(*, propriedade=None, safra=""):
     manutencoes = ManutencaoMaquina.objects.filter(
         status="agendada", data_prevista__lt=hoje
     )
-    clima = PrevisaoClima.objects.filter(
-        data__gte=hoje, alerta_agricola__gt=""
-    )
     if propriedade:
         financeiros = financeiros.filter(propriedade_id=propriedade)
         operacoes = operacoes.filter(talhao__propriedade_id=propriedade)
         manutencoes = manutencoes.filter(maquina__propriedade_id=propriedade)
-        clima = clima.filter(propriedade_id=propriedade)
     if safra:
         financeiros = financeiros.filter(safra=safra)
         operacoes = operacoes.filter(talhao__safra=safra)
@@ -89,15 +84,6 @@ def gerar_insights(*, propriedade=None, safra=""):
             f"{manutencoes.count()} manutenção(ões) agendada(s) ultrapassaram a data.",
             "Avaliar a disponibilidade e concluir a manutenção antes de novo uso intensivo.",
             "maquinas",
-        )
-    for previsao in clima[:3]:
-        adicionar(
-            f"clima_{previsao.id}",
-            "atencao",
-            f"Alerta climático em {previsao.propriedade.nome}",
-            f"{previsao.data}: {previsao.alerta_agricola}",
-            "Confirmar a previsão atual antes de executar atividades sensíveis ao clima.",
-            "clima",
         )
     if not insights:
         adicionar(

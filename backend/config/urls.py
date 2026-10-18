@@ -138,10 +138,6 @@ urlpatterns = [
         include("apps.maquinas.urls")
     ),
 
-    path(
-        "api/mercado/",
-        include("apps.mercado.urls")
-    ),
 
     path(
         "api/propriedades/",
@@ -153,10 +149,6 @@ urlpatterns = [
         include("apps.talhoes.urls")
     ),
 
-    path(
-        "api/clima/",
-        include("apps.clima.urls")
-    ),
 
     path(
         "api/relatorios/",

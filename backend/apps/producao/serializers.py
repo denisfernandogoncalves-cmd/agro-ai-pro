@@ -1,10 +1,11 @@
 from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
+from apps.core.correcoes import VersaoCorrecaoSerializer
 
 from .models import InsumoOperacao, OperacaoAgricola
 
 
-class InsumoOperacaoSerializer(serializers.ModelSerializer):
+class InsumoOperacaoSerializer(VersaoCorrecaoSerializer, serializers.ModelSerializer):
     produto_nome = serializers.CharField(source="lote.produto.nome", read_only=True)
     lote_codigo = serializers.CharField(source="lote.codigo", read_only=True)
     unidade = serializers.CharField(source="lote.produto.unidade", read_only=True)
@@ -26,7 +27,7 @@ class InsumoOperacaoSerializer(serializers.ModelSerializer):
         return attrs
 
 
-class OperacaoAgricolaSerializer(serializers.ModelSerializer):
+class OperacaoAgricolaSerializer(VersaoCorrecaoSerializer, serializers.ModelSerializer):
     talhao_nome = serializers.CharField(source="talhao.nome", read_only=True)
     propriedade_id = serializers.IntegerField(
         source="talhao.propriedade_id", read_only=True
@@ -47,6 +48,7 @@ class OperacaoAgricolaSerializer(serializers.ModelSerializer):
             "data_inicio",
             "data_conclusao",
             "custo_realizado",
+            "area_realizada_hectares",
             "criado_por",
             "criado_em",
             "atualizado_em",

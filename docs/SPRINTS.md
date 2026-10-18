@@ -1,5 +1,137 @@
 # Sprints — AGRO-AI-PRO
 
+## Incremento — integração das novas contas a pagar (16/10/2026)
+
+- [x] Novas despesas externas de Transportes, remunerações e manutenções concluídas integradas com título único e baixa manual.
+- [x] Históricos preservados para conferência; sem duplicar consumo de diesel no silo.
+- [x] Cartões de resumo do Estoque retirados e contas a pagar pendentes em vermelho.
+- [x] Testes finais PostgreSQL, Django/migrations e versão ativa na porta 5174 conferidos; backup verificado.
+
+Evidências, arquivos e limites: [integração de contas a pagar](decisoes/2026-10-16-contas-pagar-integracao.md).
+Sem commit, push, merge ou produção. Históricos gerais não incorporados automaticamente.
+
+## Incremento — compras de diesel e abastecimento no silo (15/10/2026)
+
+- [x] Compras S10/S500 em Transportes, filtros, totais, cadastro e edição versionada.
+- [x] Despesas com opção Abasteceu no silo: litros e preço da última compra
+  do mesmo tipo até a data; referência e preço histórico preservados.
+- [x] 102 testes PostgreSQL (um skip), auditoria adicional, frontend/testes,
+  TypeScript/Vite/Docker, Django/migrations e diff aprovados. Duas migrations
+  aditivas aplicadas após backup; duas compras da planilha importadas sem
+  duplicação; aplicativo local atualizado na porta 5174.
+- [ ] Conferência visual autenticada da tela.
+
+Evidências e limites: [diesel e silo](decisoes/2026-10-15-diesel-silo.md).
+Sem baixa automática de estoque, pagamentos, commit, push ou merge.
+
+## Incremento — motoristas e cabeçalho do faturamento (15/10/2026)
+
+- [x] Excluir motorista por inativação versionada, histórico preservado,
+  excluídos/inativos em seção recolhível e opção de reativar.
+- [x] Cabeçalho de insumos distribuído em colunas na tela/impressão/PDF,
+  destacando empresa e embalagens sem aumentar as fontes.
+- [x] 29 testes PostgreSQL e dois de PDF, frontend/TypeScript/build,
+  Django/migrations, diff e renderização visual do PDF aprovados.
+- [x] Aplicativo local 5174 atualizado; sem alteração de dados reais ou schema.
+
+Evidências: [motoristas e cabeçalho](decisoes/2026-10-15-motoristas-cabecalho.md).
+Sem conferência visual autenticada da tela, commit, push ou merge.
+
+## Incremento — estornos de compras e ativação de armazenagem (15/10/2026)
+
+- [x] Cancelamento total e estorno parcial em litros/kg, com motivo, responsável,
+  histórico preservado, reenvio seguro, versão e proteção contra saldo insuficiente.
+- [x] Sugestão de embalagens aceita dosagem decimal sem zero inicial; botão
+  Ativar nas armazenagens de grãos inativas, respeitando permissão de edição.
+- [x] Testes PostgreSQL de compras/estornos/concorrência/armazenagem, frontend,
+  TypeScript/Vite, check e migrations aprovados; migration 0008 aditiva aplicada
+  após backup. Dados originais preservados e frontend local 5174 atualizado.
+- [ ] Conferência visual autenticada; não foram feitos estornos em compras reais.
+
+Evidências e limites: [compras e armazenagem](decisoes/2026-10-15-estornos-quantidade-armazenagem.md).
+Sem estorno financeiro automático, commit, push ou merge.
+
+## Correção — impressão de faturamento (15/10/2026)
+
+- [x] Impressão do painel ativo corrigida; total de embalagens e safra no cabeçalho.
+- [x] Nome do arquivo e título PDF com produto, embalagens, safra e data, conforme exemplo do Product Owner.
+- [x] 26 testes PostgreSQL, frontend/TypeScript/build e renderização de impressão/PDF aprovados.
+
+Evidências: [impressão de faturamento](decisoes/2026-10-15-impressao-faturamento.md). Sem migration ou alteração de dados reais.
+
+## Correção — consulta automática ADAPAR (14/10/2026)
+
+- [x] Empresa da consulta preenche o campo fabricante/empresa registrante; frontend testado e atualizado.
+- [x] Consulta online pública por registro testada: FOLICUR e Bayer S.A. em 0,86 s; integração automática online ainda não implementada.
+
+- [x] Leitor PDF instalado na imagem e extração limitada às páginas correspondentes.
+- [x] 136 testes existentes e três testes de extração aprovados em ambiente isolado.
+- [x] Backend local saudável; FOLICUR retornou HTTP 200 em 6,66 s, sem alterar os 60 produtos.
+
+Evidências: [consulta ADAPAR](decisoes/2026-10-14-consulta-adapar.md).
+
+## Incremento — cadastro de motoristas e apelidos (14/10/2026)
+
+- [x] Cadastro independente com apelido opcional; seleção de placa e motorista nas cargas e conferência de Transportes.
+- [x] Quatro testes de motoristas, oito de fretes, frontend/TypeScript/build e Django check aprovados; migration aditiva aplicada após backup verificado.
+- [ ] Conferência visual autenticada.
+
+Detalhes: `docs/decisoes/2026-10-14-cadastro-motoristas-apelidos.md`.
+
+## Correção — consulta de produtos (14/10/2026)
+
+- [x] Migration aditiva 0007 aplicada após backup; 60 produtos e campos originais preservados.
+- [x] 98 testes isolados, frontend/build e consulta autenticada HTTP 200 aprovados.
+- [x] Falha de consulta distinguida de catálogo vazio; cadastro manual sem dependência de PDF.
+
+Evidências: [correção de produtos](decisoes/2026-10-14-correcao-produtos.md).
+
+
+## Incremento — transportes, relatórios e integração preparada (14/10/2026)
+
+- [x] PUT/PATCH de caminhões, lançamentos e remunerações protegidos por versão.
+- [x] Totais de grãos agregados no banco e detalhes paginados antes da serialização.
+- [x] Integração isolada preparada sem conflitos; 807 testes backend (seis skips),
+  testes frontend, TypeScript/build e migrations aprovados.
+- [ ] Commit/push e conclusão da integração em main não executados.
+
+Evidências e limites: [decisão](decisoes/2026-10-14-melhorias-integracao.md).
+
+## Incremento — controles de editar/excluir (14/10/2026)
+
+- [x] Ações existentes expostas em Transportes, frota, manutenções agendadas,
+  operações planejadas e lotes/movimentações de estoque, respeitando os bloqueios.
+- [x] 114 casos PostgreSQL (um skip), frontend/TypeScript/Vite e Django aprovados.
+- [ ] Abrangência global e correção de históricos encerrados: decisão e interfaces
+  adicionais pendentes; não declarar todos os campos livremente alteráveis.
+
+Evidências e limites: docs/decisoes/2026-10-14-editar-excluir.md.
+
+## Incremento — comissão e seleção compacta de propriedades (14/10/2026)
+
+- [x] Base da comissão manual nas cargas usa peso bruto do produto, sem tara ou
+  descontos de qualidade; valores salvos preservados.
+- [x] Menu de propriedades com busca/seleção múltipla, CAD/PRO apenas das escolhidas.
+- [x] Oito testes de fretes PostgreSQL e frontend/TypeScript/Vite aprovados;
+  nome do motorista corrigido no registro de abril após backup.
+- [x] Aba Motoristas e caminhões com edição e desvinculação do nome atual,
+  preservando caminhão e histórico; 21 casos de Transportes (um skip) aprovados.
+- [x] Tarifa de frete por tonelada sobre peso bruto e comissão sugerida pelo
+  percentual cadastrado; valores antigos preservados, cálculo decimal testado.
+
+Evidências e limites: docs/decisoes/2026-10-14-ajustes-operacionais.md.
+
+## Incremento — cotações gratuitas de Chicago (14/10/2026)
+
+- [x] Soja, milho e trigo via Yahoo Finance / CBOT; dólar pelo Investing, fontes,
+  contratos, unidades, atraso e horários originais explícitos.
+- [x] Cache, preservação em falhas e validação existente reutilizados; 22 testes
+  de mercado, frontend/TypeScript/Vite, Django e migrations aprovados.
+- [ ] Conferência visual autenticada.
+
+Evidências, backups e limites: docs/decisoes/2026-10-14-cotacoes-gratuitas.md.
+Sem migrations ou alteração de dados operacionais; sem commit/push/merge.
+
 ## Incremento — Transportes por caminhão e motorista (12/10/2026)
 
 **Status:** `[x]` — implementado e validado na versão web local.
@@ -501,3 +633,111 @@ Evidências e limites: docs/decisoes/2026-10-12-transportes.md.
 
 Evidências, backups, arquivos e sincronização: docs/MELHORIAS-AUDITORIA-20261013.md.
 Sem merge nem produção.
+
+
+## Incremento — holerite mensal por motorista (13/10/2026)
+
+- [x] Seleção de mês e motorista, prévia A4, salário/comissão/total e assinatura.
+- [x] Histórico e todas as placas preservados; acesso de impressão validado no backend.
+- [x] Testes pertinentes, frontend/TypeScript/Vite, check/migrations e atualização local aprovados.
+
+Evidências, backups e limites: docs/decisoes/2026-10-13-holerite-motoristas.md.
+Sem migration nem alteração de dados operacionais.
+
+
+## Incremento — fretes de cargas e vendas por mês/placa (13/10/2026)
+
+- [x] Cruzamento das origens ativas, frete/comissão manuais e decisão explícita para evitar repetição.
+- [x] Associação à remuneração mensal, holerite e relatórios com comissão manual separada.
+- [x] Reenvio, edição obsoleta, cancelamento, vínculos e permissões protegidos; testes pertinentes estabilizados.
+- [x] Migration transportes.0005 aditiva aplicada após backup; interface 5174 saudável.
+
+Evidências, resultados e limites: docs/decisoes/2026-10-13-fretes-cargas-vendas.md.
+Nenhum dado de frete/comissão preenchido automaticamente. Sem commit/push/merge.
+
+
+## Incremento — ranking financeiro e eficiência de motoristas (13/10/2026)
+
+- [x] Rankings separados por resultado e margem, com salário/comissão/custos registrados.
+- [x] Indicador de carga média documentada, motorista histórico e conferências manuais, sem origens canceladas.
+- [x] Filtros, pendências de cadastro, critérios, impressão e CSV preservados; permissões respeitadas.
+- [x] 61 casos PostgreSQL (um skip), frontend/TypeScript/Vite, Django/migrations e atualização local aprovados.
+
+Evidências e limites: docs/decisoes/2026-10-13-ranking-motoristas.md.
+Sem migration nova nem alteração de registros operacionais; sem commit/push/merge.
+
+## Incremento — controle de cavaco (15/10/2026)
+
+- [x] Cadastro/edição de cargas, pagamento, filtros e cálculo de líquido e total.
+- [x] Módulo e permissões por ação, auditoria e migration aditiva estoque.0009 aplicada.
+- [x] Romaneio de cada carga com duas vias em uma única página A4 e assinaturas.
+- [x] Dez testes PostgreSQL isolado, regressões de estoque/autenticação, testes frontend e build Docker aprovados.
+- [x] Tela desktop/celular e cadastro com API simulada conferidos; PDF de uma página verificado.
+
+Evidências, backups e limites: [controle de cavaco](decisoes/2026-10-15-cavaco.md).
+Sem importação histórica automática, commit, push, merge ou produção.
+
+Importação histórica posteriormente autorizada: 31 cargas de CAVACO.xlsx
+incorporadas, 819.250 kg e R$ 278.175,45; totais/pagamentos, ausência de
+reimportação duplicada e 31 romaneios conferidos pela API. Backup completo
+com restauração isolada aprovado; origem por linha registrada no histórico.
+Uma carga sem motorista foi identificada explicitamente como ausente na fonte.
+Demais cargas existentes preservadas. Detalhes na decisão de cavaco acima.
+
+## Incremento — edição/exclusão e Financeiro de cavaco/diesel (15/10/2026)
+
+- [x] Exclusão lógica confirmada, permissões, auditoria e preservação dos históricos.
+- [x] Diesel com vencimento automático no próximo dia útil quando necessário, feriados nacionais e sem média ponderada.
+- [x] Uma conta a pagar por origem: 32 de cavaco e duas de diesel, todas pendentes para baixa posterior, conforme autorização.
+- [x] Edição sincroniza títulos pendentes; liquidados protegidos; reexecução sem duplicação.
+- [x] 52 testes PostgreSQL, frontend/TypeScript/build, verificação da API e fluxos visuais simulados aprovados.
+
+Evidências, regras e backups: [cavaco/diesel no Financeiro](decisoes/2026-10-15-cavaco-diesel-financeiro.md).
+Sem exclusão física, baixa automática, commit, push, merge ou produção.
+
+## Alteração solicitada — retirada de Clima e Mercado (15/10/2026)
+
+- [x] Removidos da navegação, permissões ativas, painel e relatórios.
+- [x] Rotas públicas desativadas e alertas climáticos retirados do assistente.
+- [x] Dados e migrations preservados; sem alteração estrutural do banco.
+- [x] Testes pertinentes, frontend/TypeScript/build, conferência visual e HTTP aprovados.
+
+Backup e evidências: [retirada dos módulos](decisoes/2026-10-15-retirar-clima-mercado.md).
+Aplicação local na porta 5174; sem commit, push, merge ou produção.
+
+
+## Incremento — compras, estornos e consulta financeira (16/10/2026)
+
+- [x] Compras com conta a pagar; estorno desconta quantidade e valor; compra paga gera crédito de fornecedor.
+- [x] ANKOR conferida: 2.000 L e R$ 100.000,00 líquidos, título #41; originais e estorno preservados.
+- [x] Financeiro compacto, sem ajuda/favoritos; 72 testes PostgreSQL, frontend/TypeScript/build e API aprovados; ativo localmente.
+- [ ] Conferência visual autenticada no navegador.
+
+Evidências e limites: [compras e estornos](decisoes/2026-10-16-compras-estornos-financeiro.md).
+
+
+## Incremento — área realizada e revisão geral de telas (16/10/2026)
+
+- [x] Área realizada opcional em Operações e relatórios, sem inferência histórica; correção versionada e conclusão atômica. Migration producao.0002 aplicada; 72 testes PostgreSQL aprovados.
+- [x] Fontes e espaçamentos de tela padronizados; compras com originais separados e ações recolhíveis; extravasamento de diesel e carregamento residual de Transportes corrigidos.
+- [x] Navegação autenticada pelos 21 módulos e 33 abas em desktop/celular; testes frontend, TypeScript/Vite, Django/migrations e revisão de diff aprovados; atualização local. Limites da conferência documentados.
+- [x] Empréstimos de motoristas, juros, pagamentos no holerite e calculadora de prestações: concluídos no incremento abaixo após validação.
+
+Evidências: [layout e fontes](decisoes/2026-10-16-revisao-layout-fontes.md) e [área realizada](decisoes/2026-10-16-area-realizada-operacoes.md).
+
+## Incremento — empréstimos e cálculo de prestações (16/10/2026)
+
+- [x] Empréstimos por motorista, juros únicos opcionais, pagamentos datados, saldo e histórico/estorno com justificativa; idempotência, concorrência e permissões.
+- [x] Empréstimo pago identificado no holerite, bruto/líquido separados e conta a pagar sincronizada, protegendo títulos liquidados e vínculos históricos.
+- [x] Simulador SAC no Financeiro baseado na planilha, juros anuais/dias reais, periodicidade e carência explícita; sem lançamento automático.
+- [x] 139 testes PostgreSQL aprovados (1 referência privada antiga indisponível), frontend/TypeScript/build, migrations, revisão de diff e conferência autenticada desktop/celular. Atualização local na porta 5174.
+
+Critérios, backups, evidências e limites: [empréstimos e prestações](decisoes/2026-10-16-emprestimos-prestacoes.md).
+
+## Incremento — aba e impressão do cálculo de prestações (16/10/2026)
+
+- [x] Aba própria no Financeiro, preservando lançamentos e a simulação ao alternar.
+- [x] Prévia exclusiva e impressão/PDF pelo navegador com parâmetros, critérios, totais e parcelas; permissão de impressão respeitada.
+- [x] Testes frontend, TypeScript/Vite, conferência autenticada desktop, dimensões móveis e revisão do diff aprovados; frontend local atualizado. Impressão física/PDF nativo não executados.
+
+Evidências, backups e limites: [aba e impressão de prestações](decisoes/2026-10-16-aba-prestacoes-impressao.md).

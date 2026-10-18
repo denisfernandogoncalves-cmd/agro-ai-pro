@@ -35,7 +35,7 @@ class CompraEstoqueTests(APITestCase):
         self.assertEqual(compra.movimento.criado_por, self.usuario)
         self.assertIsNone(compra.movimento.lote.data_validade)
         self.assertEqual(str(compra.data_vencimento), "2027-07-02")
-        self.assertFalse(LancamentoFinanceiro.objects.exists())
+        self.assertEqual(LancamentoFinanceiro.objects.get().valor, Decimal("52910"))
         self.assertNotIn("produtor", resposta.data)
         self.assertNotIn("assinatura", resposta.data)
 
@@ -104,10 +104,9 @@ class CompraEstoqueTests(APITestCase):
         self.assertEqual(len(self.client.get(self.url, {"search": "ausente"}).data), 0)
         detalhe = f"{self.url}{self.dados['id']}/"
         self.assertEqual(self.client.patch(detalhe, {"custo_embalagem": "1"}).status_code, 405)
-        self.assertEqual(self.client.delete(detalhe).status_code, 204)
-        self.assertFalse(CompraEstoque.objects.filter(pk=self.dados["id"]).exists())
-        self.assertFalse(MovimentacaoEstoque.objects.exists())
-        self.assertEqual(saldo_lote(LoteEstoque.objects.get()), Decimal("0"))
+        self.assertEqual(self.client.delete(detalhe).status_code, 409)
+        self.assertTrue(CompraEstoque.objects.filter(pk=self.dados["id"]).exists())
+        self.assertEqual(saldo_lote(LoteEstoque.objects.get()), Decimal("715"))
         self.client.force_authenticate(None)
         self.assertEqual(self.client.get(self.url).status_code, 401)
         self.assertEqual(self.client.post(self.url, self.dados, format="json").status_code, 401)

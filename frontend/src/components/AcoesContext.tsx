@@ -2,6 +2,7 @@ import { ButtonHTMLAttributes, createContext, ReactNode, useContext, useEffect, 
 import { Acao, Modulo, Pagina, UsuarioAtual } from "../api/usuarios";
 export type DestinoConsulta = { modulo: Modulo; filtros: Record<string, string | number | boolean>; registro?: number; chave: number };
 export function autorizado(acesso: UsuarioAtual | null, modulo: Pagina, acao: Acao): boolean {
+  if (modulo === "clima" || modulo === "mercado") return false;
   if (!acesso) return false;
   if (acesso.is_staff) return true;
   if (modulo === "usuarios" || modulo === "historico" || modulo === "backup") return false;

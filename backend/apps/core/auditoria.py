@@ -12,7 +12,11 @@ APPS = {"propriedades", "talhoes", "graos", "vendas", "estoque", "financeiro", "
 CAMPOS = set("nome username first_name last_name is_active is_staff modulos permissoes proprietario municipio uf area_hectares cultura cultura_atual safra status ativo ativa tipo descricao codigo capacidade_kg peso_bruto_kg peso_liquido_kg umidade_percentual impureza_percentual avariados_percentual placa motorista local_colheita quantidade_kg quantidade_entregue_kg quantidade_devolvida_kg quantidade_cancelada_kg saldo_fisico_kg saldo_comprometido_kg quantidade quantidade_planejada quantidade_utilizada valor valor_liquidado custo_estimado custo_realizado estoque_minimo unidade categoria fabricante data data_colheita data_emissao data_vencimento data_liquidacao data_validade data_planejada data_inicio data_conclusao conteudo_embalagem quantidade_embalagens custo_embalagem valor_total excluido_em excluida_em".split())
 
 
-CAMPOS.update("veiculo local quantidade valor_unitario competencia salario comissao comissao_percentual origem arquivo_nome total_planilhas total_linhas total_validas total_advertencias total_erros confirmado_em".split())
+CAMPOS.update("horimetro_atual horimetro_inicial horimetro_final horimetro_realizado horimetro_previsto litros custo documento operador data_prevista data_conclusao".split())
+CAMPOS.update("peso_bruto tara valor_tonelada pago".split())
+CAMPOS.update("fornecedor produtor prazo_dias pagamento abasteceu_silo tipo_diesel".split())
+
+CAMPOS.update("veiculo local quantidade valor_unitario competencia salario comissao comissao_percentual frete ja_contabilizado origem arquivo_nome total_planilhas total_linhas total_validas total_advertencias total_erros confirmado_em".split())
 
 
 def contexto(sender):
@@ -87,6 +91,10 @@ class AuditoriaMiddleware:
 
 def modulo_da_requisicao(request, app):
     caminho = getattr(request, "path", "").removeprefix("/api/")
+    if caminho.startswith("transportes/compras-diesel/"):
+        return "transportes"
+    if caminho.startswith("estoque/cavaco/"):
+        return "cavaco"
     if caminho.startswith("estoque/faturamentos/"):
         return "faturamento-insumos"
     if caminho.startswith(("graos/cargas-colhidas/", "graos/terceiros/")):

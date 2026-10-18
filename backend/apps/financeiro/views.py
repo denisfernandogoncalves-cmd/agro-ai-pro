@@ -191,7 +191,12 @@ class LancamentoFinanceiroViewSet(EdicaoConcorrenteMixin, viewsets.ModelViewSet)
     @action(detail=True, methods=["post"])
     def cancelar(self, request, pk=None):
         try:
-            lancamento = cancelar_lancamento(self.get_object())
+            origem = self.get_object()
+            if hasattr(origem, "compra_estoque_origem"):
+                return Response({"detail": "Cancele ou estorne a compra de origem para ajustar quantidade e valor juntos."}, status=status.HTTP_409_CONFLICT)
+            if any(hasattr(origem, nome) for nome in ("transportes_lancamentotransporte_origem", "transportes_remuneracaomotorista_origem", "maquinas_manutencaomaquina_origem")):
+                return Response({"detail": "Cancele o lançamento na origem para manter o Financeiro consistente."}, status=status.HTTP_409_CONFLICT)
+            lancamento = cancelar_lancamento(origem)
         except OperacaoFinanceiraError as exc:
             return Response(
                 {"detail": str(exc)},

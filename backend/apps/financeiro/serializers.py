@@ -84,6 +84,15 @@ class LancamentoFinanceiroSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         instancia = self.instance or LancamentoFinanceiro()
+        origens_novas = ('transportes_lancamentotransporte_origem', 'transportes_remuneracaomotorista_origem', 'maquinas_manutencaomaquina_origem')
+        if self.instance and any(hasattr(instancia, nome) for nome in origens_novas):
+            protegidos = ('tipo', 'descricao', 'valor', 'data_emissao', 'recebedor_nome', 'propriedade')
+            if any(k in attrs and attrs[k] != getattr(instancia, k) for k in protegidos):
+                raise serializers.ValidationError('Corrija os valores na origem. Confira o vencimento e a baixa no Financeiro.')
+        if self.instance and (hasattr(instancia, 'compra_diesel_origem') or hasattr(instancia, 'carga_cavaco_origem') or hasattr(instancia, 'compra_estoque_origem') or hasattr(instancia, 'estorno_compra_origem')):
+            protegidos = ('tipo', 'descricao', 'valor', 'data_emissao', 'data_vencimento', 'recebedor_nome', 'parceiro', 'safra')
+            if any(k in attrs and attrs[k] != getattr(instancia, k) for k in protegidos):
+                raise serializers.ValidationError('Edite os dados e o vencimento na compra ou carga de origem. A liquidação permanece no Financeiro.')
         for campo, valor in attrs.items():
             setattr(instancia, campo, valor)
         try:

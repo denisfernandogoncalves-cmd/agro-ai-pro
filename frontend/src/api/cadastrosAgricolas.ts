@@ -25,6 +25,7 @@ export type ArmazemGraos = {
 export type ArmazemGraosInput = {
   nome: string;
   capacidade_kg: string;
+  ativo?: boolean;
 };
 
 export type CadastrosAgricolas = {
@@ -75,7 +76,7 @@ export async function criarArmazemGraos(dados: ArmazemGraosInput) {
   ).data;
 }
 
-export async function atualizarArmazemGraos(id: number, dados: ArmazemGraosInput) {
+export async function atualizarArmazemGraos(id: number, dados: Partial<ArmazemGraosInput>) {
   return (await api.patch<ArmazemGraos>(`/graos/armazens/${id}/`, dados)).data;
 }
 

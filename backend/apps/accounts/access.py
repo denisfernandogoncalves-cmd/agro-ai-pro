@@ -2,11 +2,12 @@ from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 MODULOS = {
+    "cavaco": "Cavaco",
     "transportes": "Transportes",
     "propriedades": "Propriedades", "talhoes": "Talhões",
     "cadastros-agricolas": "Cadastros agrícolas", "cargas": "Cargas colhidas",
     "producao-saldos": "Produção e saldos", "transferencias": "Transferência de saldo",
-    "vendas": "Vendas", "clima": "Clima", "mercado": "Mercado",
+    "vendas": "Vendas",
     "financeiro": "Financeiro", "estoque": "Estoque", "operacoes": "Operações",
     "maquinas": "Máquinas", "faturamento-insumos": "Faturamento de insumos",
     "relatorios": "Relatórios", "importacoes": "Importações", "insights": "Assistente",
@@ -20,13 +21,16 @@ def modulos_do_usuario(user):
     acesso = AcessoUsuario.objects.filter(usuario=user).first()
     if acesso and acesso.excluido_em:
         return []
-    return list(MODULOS) if acesso is None or acesso.modulos is None else acesso.modulos
+    return list(MODULOS) if acesso is None or acesso.modulos is None else [modulo for modulo in acesso.modulos if modulo in MODULOS]
 
 
 # Catálogos de consulta são compartilhados pelos módulos que dependem deles.
 # A permissão de consultar um catálogo nunca autoriza sua alteração.
 REGRAS = (
+    ("transportes/motoristas/", {"transportes", "cargas"}, {"transportes"}),
+    ("transportes/caminhoes/", {"transportes", "cargas"}, {"transportes"}),
     ("transportes/", {"transportes"}, {"transportes"}),
+    ("estoque/cavaco/", {"cavaco"}, {"cavaco"}),
     ("estoque/faturamentos/", {"faturamento-insumos"}, {"faturamento-insumos"}),
     ("estoque/produtos/", {"estoque", "cadastros-agricolas", "faturamento-insumos", "operacoes"}, {"cadastros-agricolas", "estoque"}),
     ("estoque/locais/", {"estoque", "cadastros-agricolas", "faturamento-insumos"}, {"cadastros-agricolas", "estoque"}),

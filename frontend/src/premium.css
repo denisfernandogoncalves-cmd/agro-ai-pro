@@ -119,3 +119,69 @@
   .inicio-dashboard .painel-indicadores strong { font-size:19px; }
 }
 @media (prefers-reduced-motion:reduce) { .agro-premium *, .login-premium * { transition:none!important; animation:none!important; } }
+
+/* Controles acessíveis sem ampliar globalmente as fontes dos módulos. */
+@media screen {
+  :is(.agro-premium,.login-premium) :is(input:not([type="checkbox"]):not([type="radio"]),select,button) { min-height:44px; }
+  .agro-premium :is(.acoes,.acoes-lancamento,.cabecalho-acoes,.painel-quadro-titulo) { flex-wrap:wrap; }
+  .agro-premium .menu-lateral-completo button { white-space:normal; overflow-wrap:anywhere; }
+}
+
+/* Densidade e leitura consistentes em todos os módulos; não alcança impressos. */
+@media screen {
+ .agro-premium {font-size:14px;line-height:1.45;}
+ .agro-premium>header {padding-bottom:16px;margin-bottom:18px;gap:12px;}
+ .agro-premium>header h1 {font-size:clamp(22px,2vw,28px);line-height:1.25;}
+ .agro-premium h2 {font-size:19px;line-height:1.35;margin-bottom:12px;}
+ .agro-premium h3 {font-size:16px;line-height:1.4;margin-bottom:10px;}
+ .agro-premium .card {padding:16px;min-width:0;}
+ .agro-premium :is(label,input,select,textarea) {font-size:14px;line-height:1.4;}
+ .agro-premium :is(input,select,textarea) {padding:9px 11px;max-width:100%;}
+ .agro-premium label {gap:5px;min-width:0;}
+ .agro-premium :is(p,li,dt,dd) {line-height:1.45;}
+ .agro-premium :is(small,figcaption) {font-size:12px;line-height:1.45;}
+ .agro-premium :is(.formulario,.campos-formulario,.filtros-avancados-campos,.compra-campos) {gap:12px;}
+ .agro-premium :is(.acoes,.cabecalho-acoes) {gap:8px;align-items:center;}
+ .agro-premium :is(.tabela-responsiva,.tabela-scroll,.compra-tabela-scroll) {min-width:0;max-width:100%;height:auto;min-height:0;overflow:auto;}
+ .agro-premium table {font-size:13px;line-height:1.4;height:auto;min-height:0;}
+ .agro-premium table :is(th,td) {vertical-align:top;line-height:1.4;padding:10px 12px;height:auto;}
+ .agro-premium table th {font-size:12px;font-weight:700;}
+ .agro-premium table td {font-size:13px;}
+ .agro-premium table td small {display:block;margin-top:4px;font-size:12px;}
+ .agro-premium table td p {margin:5px 0;}
+ .agro-premium .transferencia-saldo :is(.resumos-estoque,.resumos-financeiros,.resumos-saldos,.resumos) .card {padding:14px;}
+ .agro-premium .transferencia-saldo .card :is(h2,h3) {margin:0 0 10px;}
+ .agro-premium .transferencia-saldo .card p {margin:6px 0;}
+ .agro-premium .vazio {padding:18px;font-size:14px;}
+ @media(max-width:640px) {
+  .agro-premium {padding:12px;}
+  .agro-premium .card {padding:12px;}
+  .agro-premium>header h1 {font-size:22px;}
+  .agro-premium table :is(th,td) {padding:9px 10px;}
+ }
+}
+
+@media screen {
+ .agro-premium .aba-modulo-painel,.agro-premium .aba-modulo-painel>* {min-width:0;max-width:100%;}
+ .agro-premium .modulo-transportes .aba-modulo-painel:not([hidden]) {grid-template-columns:minmax(0,1fr);}
+ .agro-premium .transporte-tabela {min-width:0;max-width:100%;width:100%;overflow-x:auto;}
+ .agro-premium .transferencia-saldo .card h4 {font-size:14px;margin:0 0 10px;line-height:1.4;}
+}
+
+/* Consolidado de saldos: identificação e métricas próximas, sem cartão alto. */
+@media screen {
+ .agro-premium .saldo-consolidado>.lista {gap:8px;}
+ .agro-premium .saldo-consolidado .saldo-cadpro {display:grid;grid-template-columns:minmax(180px,340px) minmax(0,1fr);align-items:center;gap:12px 20px;padding:10px 14px;margin:0;}
+ .agro-premium .saldo-consolidado .saldo-cadpro>div {min-width:0;}
+ .agro-premium .saldo-consolidado .saldo-cadpro :is(h3,p) {margin:2px 0;}
+ .agro-premium .saldo-consolidado .saldo-cadpro h3 {font-size:15px;line-height:1.3;overflow-wrap:anywhere;}
+ .agro-premium .saldo-consolidado .saldo-cadpro p {font-size:12px;color:var(--cor-suave);}
+ .agro-premium .saldo-consolidado .saldo-cadpro .kicker {font-size:11px;letter-spacing:.04em;overflow-wrap:anywhere;}
+ .agro-premium .saldo-consolidado .metricas-saldo {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));min-width:0;max-width:540px;gap:12px;text-align:left;}
+ .agro-premium .saldo-consolidado .metricas-saldo span {display:flex;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:3px;font-size:12px;line-height:1.3;min-width:0;}
+ .agro-premium .saldo-consolidado .metricas-saldo strong {font-size:14px;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
+ @media(max-width:700px) {
+  .agro-premium .saldo-consolidado .saldo-cadpro {grid-template-columns:minmax(0,1fr);gap:10px;padding:10px 12px;}
+  .agro-premium .saldo-consolidado .metricas-saldo {max-width:none;gap:8px;}
+ }
+}

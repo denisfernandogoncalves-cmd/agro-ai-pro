@@ -537,11 +537,13 @@ async function renderAppStates() {
   async function componenteUrl(nome, dependencias = {}) {
     const arquivo = await readFile(new URL(`../src/components/${nome}.tsx`, import.meta.url), "utf8");
     let fonte = arquivo.replace('from "react";', `from "${reactUrl}";`);
+    fonte = fonte.replaceAll("__APP_BUILD__", JSON.stringify({versao:"teste",canal:"Web local",interface:"abc123",compiladoEm:"2026-10-15T12:00:00Z"}));
     for (const [caminho,url] of Object.entries(dependencias)) fonte = fonte.replace(`from "${caminho}";`, `from "${url}";`);
     return moduleDataUrl((await transpile(fonte, true)).replaceAll('"react/jsx-runtime"', `"${reactJsxRuntimeUrl}"`), nome);
   }
   const confirmacaoUrl = await componenteUrl("ConfirmacaoCompacta");
   const marcaUrl = await componenteUrl("MarcaAgro");
+  const versaoUrl = await componenteUrl("VersaoAplicativo");
   const protecaoUrl = await componenteUrl("AlteracoesNaoSalvas", {"./ConfirmacaoCompacta":confirmacaoUrl});
   const React = await import(reactUrl);
   const { renderToString } = await import(reactDomServerUrl);
@@ -562,6 +564,7 @@ async function renderAppStates() {
   globalThis.__APP_ACTIONS__ = { AcoesContext: React.createContext(null), autorizado: () => true, BotaoAcao: globalThis.__PRIVATE_COMPONENTS__.BotaoAcao, useDestinoConsulta: () => {} };
   let source = appSource
     .replace('from "./components/MarcaAgro";', `from "${marcaUrl}";`)
+    .replace('from "./components/VersaoAplicativo";', `from "${versaoUrl}";`)
     .replace('from "./components/AlteracoesNaoSalvas";', `from "${protecaoUrl}";`)
     .replace('from "./components/ConfirmacaoCompacta";', `from "${confirmacaoUrl}";`)
     .replace(/import \{[^}]+\} from "\.\/components\/AcoesContext";/, "const { AcoesContext, autorizado, BotaoAcao, useDestinoConsulta } = globalThis.__APP_ACTIONS__;")

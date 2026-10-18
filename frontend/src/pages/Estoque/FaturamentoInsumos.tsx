@@ -11,7 +11,7 @@ import { listarProdutosEstoque, ProdutoEstoque } from "../../api/estoque";
 import { ParceiroFinanceiro } from "../../api/financeiro";
 import { obterGeracaoSessao } from "../../auth/sessionCoordinator";
 import { quantidadeParaEnviar, sugerirEmbalagens } from "./embalagensFaturamento";
-import { confirmarFaturamento, empresaUsaBep, excluirFaturamento, obterPdfFaturamento, EntradaFaturamento, Faturamento, ItemFaturamento, listarFaturamentos, previaFaturamento, ResumoFaturamento } from "../../api/faturamentoInsumos";
+import { confirmarFaturamento, empresaUsaBep, excluirFaturamento, obterPdfFaturamento, tituloFaturamento, EntradaFaturamento, Faturamento, ItemFaturamento, listarFaturamentos, previaFaturamento, ResumoFaturamento } from "../../api/faturamentoInsumos";
 
 const numero = (valor: string | number) => Number(valor).toLocaleString("pt-BR", { maximumFractionDigits: 3 });
 const dataLocal = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
@@ -20,12 +20,35 @@ const mensagem = (erro: unknown) => axios.isAxiosError(erro) && erro.response?.d
   ? Object.values(erro.response.data).flat().map(v => typeof v === "object" ? JSON.stringify(v) : String(v)).join(" ")
   : "Não foi possível concluir. Confira sua conexão e tente novamente com os mesmos dados.";
 
+export function EmbalagensAEnviar({ item, nome, dosagem, conteudo, editada, alterar, usarSugestao }: {
+  item: ItemFaturamento; nome: string; dosagem: string; conteudo: string; editada: boolean;
+  alterar: (valor: string) => void; usarSugestao: () => void;
+}) {
+  const sugestao = sugerirEmbalagens(item.area_alqueires, dosagem, conteudo);
+  return <>
+    <input aria-label={`Embalagens de ${nome}`} type="number" min="0.001" step="0.001" required
+      value={quantidadeParaEnviar(item, dosagem, conteudo, editada)}
+      onChange={e => alterar(e.target.value)}
+      onBlur={() => { if (editada && !item.quantidade_embalagens.trim()) usarSugestao(); }} />
+    <small>{sugestao ? `Sugestão: ${sugestao} embalagem(ns), arredondada para cima.` : "Informe área, dosagem e conteúdo por embalagem para calcular a sugestão."}</small>
+    {editada && <button type="button" className="secundario sugestao-embalagens" onClick={usarSugestao}>Usar sugestão ({sugestao || "—"})</button>}
+  </>;
+}
+
 export function RelatorioFaturamento({ resumo, confirmado }: { resumo: ResumoFaturamento; confirmado: boolean }) {
   const usaBep = resumo.usa_bep ?? empresaUsaBep(resumo.fornecedor_nome);
   return <section className="relatorio-faturamento card">
-    <h2>{confirmado ? "Faturamento de insumos confirmado" : "Prévia de faturamento — sem baixa"}</h2>
-    <p><strong>{resumo.fornecedor_nome}</strong> · {resumo.data_envio.split("-").reverse().join("/")}</p>
-    <p>{resumo.produto_nome} · {resumo.embalagem} de {numero(resumo.conteudo_embalagem)} {resumo.unidade}</p>
+    <header className="faturamento-cabecalho">
+      <h2>{confirmado ? "Faturamento de insumos confirmado" : "Prévia de faturamento — sem baixa"}</h2>
+      <div className="faturamento-cabecalho-grade">
+        <p><span>Empresa destinatária</span><strong>{resumo.fornecedor_nome}</strong></p>
+        <p><strong>Total de embalagens: {numero(resumo.total_embalagens)}</strong><span>{resumo.embalagem} de {numero(resumo.conteudo_embalagem)} {resumo.unidade}</span></p>
+        <p><span>Data do envio</span><b>{resumo.data_envio.split("-").reverse().join("/")}</b></p>
+        <p><span>Produto</span><b>{resumo.produto_nome}</b></p>
+        <p><span>Quantidade total / dosagem</span><b>{numero(resumo.quantidade_total)} {resumo.unidade} · {numero(resumo.dosagem_alqueire)} {resumo.unidade}/alq.</b></p>
+        <p><span>Safra</span><b>{resumo.safra || "Não informada"}</b></p>
+      </div>
+    </header>
     <div className="faturamento-tabela"><table><thead><tr><th>Propriedade</th><th>Produtor</th><th>CAD/PRO</th>{usaBep && <th>BEP</th>}<th>Área (alq.)</th><th>Embalagens</th><th>Quantidade ({resumo.unidade})</th></tr></thead>
       <tbody>{resumo.itens.map(item => <tr key={item.propriedade}><td>{item.propriedade_nome}<br /><small>Latitude: {coordenadaCadastrada(item, "latitude")}<br />Longitude: {coordenadaCadastrada(item, "longitude")}</small></td><td>{item.produtor || "Não informado"}</td><td>{item.cad_pro || "Não informado"}</td>{usaBep && <td>{item.bep || "Não informado"}</td>}<td>{numero(item.area_alqueires)}</td><td>{numero(item.quantidade_embalagens)}</td><td>{numero(item.quantidade)}</td></tr>)}</tbody>
       <tfoot><tr><th colSpan={usaBep ? 5 : 4}>Total</th><td>{numero(resumo.total_embalagens)}</td><td>{numero(resumo.quantidade_total)} {resumo.unidade}</td></tr></tfoot>
@@ -60,7 +83,7 @@ export default function FaturamentoInsumos() {
   const [empresas, setEmpresas] = useState<ParceiroFinanceiro[]>([]);
   const [propriedades, setPropriedades] = useState<Propriedade[]>([]);
   const [historico, setHistorico] = useState<Faturamento[]>([]);
-  const [form, setForm] = useState({ fornecedor: "", produto: "", data_envio: dataLocal(), embalagem: "Balde", conteudo_embalagem: "20", dosagem_alqueire: "0", observacoes: "" });
+  const [form, setForm] = useState({ fornecedor: "", produto: "", data_envio: dataLocal(), safra: "", embalagem: "Balde", conteudo_embalagem: "20", dosagem_alqueire: "0", observacoes: "" });
   const [itens, setItens] = useState<Record<number, ItemFaturamento>>({});
   const [busca, setBusca] = useState("");
   const [erro, setErro] = useState("");
@@ -71,6 +94,15 @@ export default function FaturamentoInsumos() {
   const [confirmado, setConfirmado] = useState<Faturamento | null>(null);
   const [pendente, setPendente] = useState<EntradaFaturamento | null>(null);
   const [incerto, setIncerto] = useState(false);
+  useEffect(() => {
+    if (!previa) return;
+    const tituloAnterior = document.title;
+    const antes = () => { document.title = tituloFaturamento(previa); };
+    const depois = () => { document.title = tituloAnterior; };
+    window.addEventListener("beforeprint", antes);
+    window.addEventListener("afterprint", depois);
+    return () => { window.removeEventListener("beforeprint", antes); window.removeEventListener("afterprint", depois); depois(); };
+  }, [previa]);
   const protecao = useAlteracoesNaoSalvas({form,itens}, "Faturamento de insumos", null, !confirmado);
   const trava = useRef(false);
   const versao = useRef(0);
@@ -140,7 +172,7 @@ export default function FaturamentoInsumos() {
       const arquivo = await obterPdfFaturamento(faturamento.id);
       const url = URL.createObjectURL(arquivo);
       const link = document.createElement("a");
-      link.href = url; link.download = `faturamento-insumos-${faturamento.data_envio}-${faturamento.id}.pdf`;
+      link.href = url; link.download = `${tituloFaturamento(faturamento.resumo)}.pdf`;
       document.body.appendChild(link); link.click(); link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch {
@@ -162,13 +194,14 @@ export default function FaturamentoInsumos() {
   useEffect(() => {
     const salvo = sessionStorage.getItem(chavePendente());
     if (salvo) {
-      try { const dados: EntradaFaturamento = JSON.parse(salvo); setPendente(dados); setIncerto(true); setForm(dados); setItens(Object.fromEntries(dados.itens.map(i => [i.propriedade, i]))); embalagensEditadas.current = new Set(dados.itens.filter(i => i.quantidade_embalagens.trim() !== "").map(i => i.propriedade)); }
+      try { const dados: EntradaFaturamento = JSON.parse(salvo); setPendente(dados); setIncerto(true); setForm({ ...dados, safra: dados.safra || "" }); setItens(Object.fromEntries(dados.itens.map(i => [i.propriedade, i]))); embalagensEditadas.current = new Set(dados.itens.filter(i => i.quantidade_embalagens.trim() !== "").map(i => i.propriedade)); }
       catch { setErro("Não foi possível recuperar o envio pendente. Confira o histórico antes de repetir."); }
     }
   }, []);
 
   const visiveis = propriedades.filter(p => `${p.nome} ${p.proprietario} ${p.cad_pro_numeros.join(" ")}`.toLocaleLowerCase().includes(busca.toLocaleLowerCase()));
   return <section className="modulo-faturamento">
+    <style media="print">{`.modulo-faturamento > .aba-modulo-painel:not([hidden]) { display: block !important; } .modulo-faturamento > .aba-modulo-painel > :not(.relatorio-faturamento) { display: none !important; }`}</style>
     <div className="nao-imprimir"><h2>Faturamento de insumos por empresa</h2><p>Selecione as propriedades, confira as embalagens e confirme a baixa. O relatório pode ser impresso ou salvo em PDF para encaminhar à empresa.</p></div>
     {erro && <p className="erro card nao-imprimir" role="alert">{erro}</p>}
     {aviso && <p className="sucesso card nao-imprimir" role="status">{aviso}</p>}
@@ -181,6 +214,7 @@ export default function FaturamentoInsumos() {
           <label>Empresa / fornecedor<select required value={form.fornecedor} onChange={e => { invalidar(); setForm({ ...form, fornecedor: e.target.value }); const cvale = empresaUsaBep(empresas.find(empresa => String(empresa.id) === e.target.value)?.nome || ""); setItens(atuais => Object.fromEntries(Object.entries(atuais).map(([id, item]) => [id, { ...item, bep: cvale ? propriedades.find(p => p.id === item.propriedade)?.bp_cvale || "" : "" }]))); }}><option value="">Selecione</option>{empresas.map(e => <option key={e.id} value={e.id}>{e.nome}</option>)}</select></label>
           <label>Produto<select required value={form.produto} onChange={e => { invalidar(); setForm({ ...form, produto: e.target.value }); }}><option value="">Selecione</option>{produtos.map(p => <option key={p.id} value={p.id}>{p.nome} ({p.unidade})</option>)}</select></label>
           <label>Data do envio<input type="date" required value={form.data_envio} onChange={e => { invalidar(); setForm({ ...form, data_envio: e.target.value }); }} /></label>
+          <label>Safra<input maxLength={20} placeholder="26-27" value={form.safra} onChange={e => { invalidar(); setForm({ ...form, safra: e.target.value }); }} /></label>
           <label>Embalagem<input required maxLength={40} value={form.embalagem} onChange={e => { invalidar(); setForm({ ...form, embalagem: e.target.value }); }} /></label>
           <label>Conteúdo por embalagem ({produto?.unidade || "unidade do produto"})<input type="number" required min="0.001" step="0.001" value={form.conteudo_embalagem} onChange={e => { invalidar(); setForm({ ...form, conteudo_embalagem: e.target.value }); }} /></label>
           <label>Dosagem por alqueire ({produto?.unidade || "unidade"}/alq.)<input type="number" required min="0" step="0.001" value={form.dosagem_alqueire} onChange={e => { invalidar(); setForm({ ...form, dosagem_alqueire: e.target.value }); }} /></label>
@@ -197,7 +231,7 @@ export default function FaturamentoInsumos() {
             {usaBep && <td>{item && <input aria-label={`BEP de ${p.nome}`} type="text" inputMode="numeric" pattern="[0-9]*" maxLength={40} value={item.bep || ""} onChange={e => atualizarItem(p.id, "bep", e.target.value)} />}</td>}
             <td>{item ? <input aria-label={`Área de ${p.nome}`} type="number" required min="0.000001" step="0.000001" value={item.area_alqueires} onChange={e => atualizarItem(p.id, "area_alqueires", e.target.value)} /> : numero(Number(p.area_hectares) / 2.42)}</td>
             <td>{item ? numero(Number(item.area_alqueires) * Number(form.dosagem_alqueire)) : "—"}</td>
-            <td>{item && <input aria-label={`Embalagens de ${p.nome}`} type="number" min="0.001" step="0.001" required value={quantidadeParaEnviar(item, form.dosagem_alqueire, form.conteudo_embalagem, embalagensEditadas.current.has(p.id))} onChange={e => atualizarItem(p.id, "quantidade_embalagens", e.target.value)} />}{item && embalagensEditadas.current.has(p.id) && <button type="button" className="secundario sugestao-embalagens" onClick={() => {embalagensEditadas.current.delete(p.id); atualizarItem(p.id, "area_alqueires", item.area_alqueires);}}>Usar sugestão ({sugerirEmbalagens(item.area_alqueires, form.dosagem_alqueire, form.conteudo_embalagem) || "—"})</button>}</td>
+            <td>{item && <EmbalagensAEnviar item={item} nome={p.nome} dosagem={form.dosagem_alqueire} conteudo={form.conteudo_embalagem} editada={embalagensEditadas.current.has(p.id)} alterar={valor => atualizarItem(p.id, "quantidade_embalagens", valor)} usarSugestao={() => { embalagensEditadas.current.delete(p.id); atualizarItem(p.id, "area_alqueires", item.area_alqueires); }} />}</td>
           </tr>; })}</tbody></table></div>
         <label>Observações<textarea maxLength={1000} value={form.observacoes} onChange={e => { invalidar(); setForm({ ...form, observacoes: e.target.value }); }} /></label>
         <button type="submit">{ocupado ? "Calculando..." : "Simular e conferir"}</button>

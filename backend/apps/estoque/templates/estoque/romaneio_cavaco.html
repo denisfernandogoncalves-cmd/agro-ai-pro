@@ -1,0 +1,49 @@
+{% load l10n %}<!doctype html>
+<html lang="pt-BR"><head><meta charset="utf-8"><title>Romaneio de cavaco {{ carga.id }}</title>
+<style>
+@page { size: A4 portrait; margin: 10mm; }
+* { box-sizing: border-box; }
+body { margin: 0; color: #111; background: white; font: 12px Arial, sans-serif; }
+.folha { width: 190mm; margin: auto; }
+.via { height: 130mm; padding: 6mm; border: 1px solid #333; display: flex; flex-direction: column; }
+header { display: flex; justify-content: space-between; gap: 8mm; border-bottom: 2px solid #222; padding-bottom: 4mm; }
+h1 { font-size: 18px; margin: 2mm 0; } p { margin: 1mm 0; }
+.campos { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm 6mm; margin-top: 4mm; }
+.campo { min-width: 0; overflow-wrap: anywhere; }
+.campo span { display: block; font-size: 10px; text-transform: uppercase; color: #444; margin-bottom: 1mm; }
+.campo strong { font-size: 13px; }
+.pesos { display: grid; grid-template-columns: repeat(3, 1fr); border: 1px solid #888; padding: 3mm; margin-top: 4mm; gap: 3mm; }
+.observacoes { margin-top: 3mm; overflow-wrap: anywhere; }
+.assinaturas { display: flex; gap: 12mm; margin-top: auto; padding-top: 9mm; }
+.assinaturas p { width: 50%; text-align: center; border-top: 1px solid #222; padding-top: 2mm; }
+.corte { height: 10mm; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #555; }
+.corte:before,.corte:after { content: ''; flex: 1; border-top: 1px dashed #999; margin: 0 3mm; }
+.acoes { text-align: center; padding: 12px; } button { padding: 10px 20px; cursor: pointer; }
+@media print { .acoes { display: none; } .folha { margin: 0; } .via { break-inside: avoid; } }
+</style></head><body>
+<div class="acoes"><button onclick="window.print()">Imprimir / Salvar PDF — duas vias em A4</button></div>
+<main class="folha">
+{% for via in vias %}
+<section class="via" aria-label="{{ via }}ª via">
+<header><div><strong>AGRO-AI-PRO</strong><h1>ROMANEIO DE CAVACO</h1><p>Carga nº {{ carga.id|stringformat:"06d" }} · {{ carga.data|date:"d/m/Y" }}</p></div><strong>{{ via }}ª VIA</strong></header>
+<div class="campos">
+<div class="campo"><span>Fornecedor</span><strong>{{ carga.fornecedor }}</strong></div>
+<div class="campo"><span>Motorista</span><strong>{{ carga.motorista }}</strong></div>
+<div class="campo"><span>Placa</span><strong>{{ carga.placa|default:"Não informada" }}</strong></div>
+<div class="campo"><span>Pagamento</span><strong>{% if carga.pago %}Pago{% else %}Pendente{% endif %}</strong></div>
+</div>
+<div class="pesos">
+<div class="campo"><span>Peso bruto (kg)</span><strong>{{ carga.peso_bruto|localize }}</strong></div>
+<div class="campo"><span>Tara (kg)</span><strong>{{ carga.tara|localize }}</strong></div>
+<div class="campo"><span>Peso líquido (kg)</span><strong>{{ carga.peso_liquido|localize }}</strong></div>
+</div>
+<div class="campos">
+<div class="campo"><span>Valor por tonelada</span><strong>R$ {{ carga.valor_tonelada|localize }}</strong></div>
+<div class="campo"><span>Total da carga</span><strong>R$ {{ carga.total|localize }}</strong></div>
+</div>
+<p class="observacoes"><strong>Observações:</strong> {{ carga.observacoes|default:"—" }}</p>
+<div class="assinaturas"><p>Motorista / Fornecedor</p><p>Responsável pelo recebimento</p></div>
+</section>
+{% if not forloop.last %}<div class="corte">Cortar aqui</div>{% endif %}
+{% endfor %}
+</main></body></html>

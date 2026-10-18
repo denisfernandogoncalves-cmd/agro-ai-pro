@@ -17,6 +17,7 @@ import { BotaoAcao, useDestinoConsulta } from "../../components/AcoesContext";
 import axios from "axios";
 import { Fragment, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import PainelFormulario from "../../components/PainelFormulario";
+import SelecionarTransporte from "../../components/SelecionarTransporte";
 
 import {
   ArmazemGraos,
@@ -370,6 +371,7 @@ export default function CargasColhidasPage({ propriedades }: Props) {
   const [cargas, setCargas] = useState<CargaColhida[]>([]);
   const [talhoes, setTalhoes] = useState<Talhao[]>([]);
   const [carga, setCarga] = useState<CargaColhidaInput>(() => novaCarga());
+  const [buscaPropriedadeRateio, setBuscaPropriedadeRateio] = useState("");
   const [edicaoId, setEdicaoId] = useState<number | null>(null);
   const protecao = useAlteracoesNaoSalvas({...carga, chave_registro: undefined}, "Carga colhida", edicaoId);
   const [filtrosRapidos, setFiltrosRapidos] = useState(filtrosRapidosVazios);
@@ -670,17 +672,28 @@ export default function CargasColhidasPage({ propriedades }: Props) {
           <button type="button" onClick={() => void carregarGrupos()}>Atualizar grupos</button>
           {erroGrupos && <p className="erro" role="alert">{erroGrupos}</p>}
           <p>Cadastre grupos em Talhões. Após aplicar, confira as propriedades abaixo; você pode ajustar a seleção e os CAD/PROs antes de salvar.</p>
-          <fieldset>
+          <fieldset className="propriedades-compactas">
             <legend>Escolha as propriedades</legend>
-            {propriedades.map((item) => {
-              const selecionada = propriedadesSelecionadasIds.includes(item.id);
+            <details className="menu-propriedades">
+              <summary>Selecionar propriedades · {propriedadesSelecionadas.length} selecionada(s)</summary>
+              <div className="menu-propriedades-conteudo">
+                <label>Buscar propriedade ou CAD/PRO<input type="search" value={buscaPropriedadeRateio} onChange={(e) => setBuscaPropriedadeRateio(e.target.value)} placeholder="Digite o nome ou código" /></label>
+                <div className="menu-propriedades-lista">
+                  {propriedades.filter(item => rotuloPropriedade(item).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR").includes(buscaPropriedadeRateio.trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR"))).map(item =>
+                    <label className="opcao-checkbox" key={item.id}><input type="checkbox" checked={propriedadesSelecionadasIds.includes(item.id)} onChange={(e) => alternarPropriedadeRateio(item.id, e.target.checked)} /> {rotuloPropriedade(item)} · {areaEmAlqueires(item.area_hectares)} alq.</label>
+                  )}
+                  {propriedades.length === 0 && <p>Nenhuma propriedade disponível.</p>}
+                </div>
+              </div>
+            </details>
+            {propriedadesSelecionadas.map((item) => {
               const opcoesCadpro = cadpros.filter((cadpro) =>
                 cadpro.ativo && cadpro.propriedades.includes(item.id)
               );
-              return <div key={`rateio-${item.id}`}>
-                <label className="opcao-checkbox"><input type="checkbox" checked={selecionada} onChange={(e) => alternarPropriedadeRateio(item.id, e.target.checked)} /> {rotuloPropriedade(item)} · {areaEmAlqueires(item.area_hectares)} alq.</label>
-                {selecionada && <label>CAD/PRO de {item.nome}<select required value={carga.cadpros_por_propriedade[String(item.id)] || ""} onChange={(e) => alterarCadproDaPropriedade(item.id, e.target.value)}><option value="">Selecione</option>{opcoesCadpro.map((cadpro) => <option key={cadpro.id} value={cadpro.id}>{cadpro.codigo} · {cadpro.descricao}</option>)}</select></label>}
-                {selecionada && opcoesCadpro.length === 0 && <p className="aviso-contexto">Esta propriedade não possui CAD/PRO ativo.</p>}
+              return <div className="propriedade-escolhida" key={`rateio-${item.id}`}>
+                <div><strong>{item.nome} · {areaEmAlqueires(item.area_hectares)} alq.</strong><button type="button" className="secundario" aria-label={`Remover ${item.nome} da seleção`} onClick={() => alternarPropriedadeRateio(item.id, false)}>Remover</button></div>
+                <label>CAD/PRO de {item.nome}<select required value={carga.cadpros_por_propriedade[String(item.id)] || ""} onChange={(e) => alterarCadproDaPropriedade(item.id, e.target.value)}><option value="">Selecione</option>{opcoesCadpro.map((cadpro) => <option key={cadpro.id} value={cadpro.id}>{cadpro.codigo} · {cadpro.descricao}</option>)}</select></label>
+                {opcoesCadpro.length === 0 && <p className="aviso-contexto">Esta propriedade não possui CAD/PRO ativo.</p>}
               </div>;
             })}
           </fieldset>
@@ -694,9 +707,8 @@ export default function CargasColhidasPage({ propriedades }: Props) {
           <div className="resumo-peso"><span>Área total selecionada <strong>{areaEmAlqueires(areaTotalSelecionada)} alq.</strong></span><span>Área dos talhões <strong>{areaEmAlqueires(areaTotalTalhoes)} alq.</strong></span><span>Propriedades <strong>{propriedadesSelecionadas.length}</strong></span></div>
           <div className="linha">
             <label>Data<input required type="date" value={carga.data_colheita} onChange={(e) => setCarga({ ...carga, data_colheita: e.target.value })} /></label>
-            <label>Placa do veículo<input maxLength={8} placeholder="ABC1D23" value={carga.placa} onChange={(e) => setCarga({ ...carga, placa: e.target.value.toUpperCase() })} /></label>
           </div>
-          <label>Nome do motorista<input maxLength={120} placeholder="Obrigatório quando não houver placa" value={carga.motorista} onChange={(e) => setCarga({ ...carga, motorista: e.target.value })} /></label>
+          <SelecionarTransporte placa={carga.placa} motorista={carga.motorista} disabled={carregando} alterar={dados => setCarga({ ...carga, ...dados })} />
           <label>Local de colheita<input placeholder="Talhão, gleba ou ponto de origem" value={carga.local_colheita} onChange={(e) => setCarga({ ...carga, local_colheita: e.target.value })} /></label>
           <label>Peso total (kg)<input min="0.001" step="0.001" type="number" value={carga.peso_total_kg ?? ""} onChange={e=>{const total=e.target.value;setCarga({...carga,peso_total_kg:total||null,peso_bruto_kg:total&&carga.tara_kg!=null?(Number(total)-Number(carga.tara_kg)).toFixed(3):carga.peso_bruto_kg});}} /></label>
           <label>Tara (kg)<input min="0" step="0.001" type="number" value={carga.tara_kg ?? ""} onChange={e=>{const tara=e.target.value;setCarga({...carga,tara_kg:tara||null,peso_bruto_kg:tara&&carga.peso_total_kg!=null?(Number(carga.peso_total_kg)-Number(tara)).toFixed(3):carga.peso_bruto_kg});}} /></label>

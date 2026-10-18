@@ -41,6 +41,7 @@ class FaturamentoEntrada(serializers.Serializer):
     fornecedor = serializers.PrimaryKeyRelatedField(queryset=ParceiroFinanceiro.objects.filter(ativo=True, tipo__in=("fornecedor", "ambos")))
     produto = serializers.PrimaryKeyRelatedField(queryset=ProdutoEstoque.objects.filter(ativo=True))
     data_envio = serializers.DateField()
+    safra = serializers.CharField(max_length=20, allow_blank=True, default="")
     embalagem = serializers.CharField(max_length=40)
     conteudo_embalagem = serializers.DecimalField(max_digits=10, decimal_places=3, min_value=Decimal("0.001"))
     dosagem_alqueire = serializers.DecimalField(max_digits=10, decimal_places=3, min_value=Decimal("0"))
@@ -80,7 +81,7 @@ def assinatura(dados):
         return str(valor)
     # Campo vazio omitido para preservar a assinatura dos envios anteriores ao BEP.
     itens = [{k: v for k, v in i.items() if k != "bep" or v} for i in dados["itens"]]
-    conteudo = {**dados, "itens": sorted(itens, key=lambda i: i["propriedade"].pk)}
+    conteudo = {**{k: v for k, v in dados.items() if k != "safra" or v}, "itens": sorted(itens, key=lambda i: i["propriedade"].pk)}
     return hashlib.sha256(json.dumps(conteudo, default=normalizar, sort_keys=True).encode()).hexdigest()
 
 
@@ -113,6 +114,7 @@ def preparar_resumo(dados):
         "fornecedor_nome": fornecedor.nome, "produto_nome": produto.nome, "unidade": produto.unidade,
         "usa_bep": fornecedor_usa_bep(fornecedor.nome),
         "data_envio": str(dados["data_envio"]), "embalagem": dados["embalagem"],
+        "safra": dados.get("safra", ""),
         "conteudo_embalagem": str(dados["conteudo_embalagem"]), "dosagem_alqueire": str(dados["dosagem_alqueire"]),
         "observacoes": dados["observacoes"], "itens": itens,
         "total_embalagens": str(sum((Decimal(i["quantidade_embalagens"]) for i in itens), Decimal(0))),
@@ -219,10 +221,11 @@ class FaturamentoInsumoViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
 
     @action(detail=True, methods=["get"])
     def pdf(self, request, *args, **kwargs):
-        from .faturamento_pdf import gerar_pdf_faturamento
+        from django.utils.http import content_disposition_header
+        from .faturamento_pdf import gerar_pdf_faturamento, titulo_faturamento
         faturamento = self.get_object()
         response = HttpResponse(gerar_pdf_faturamento(faturamento), content_type="application/pdf")
-        response["Content-Disposition"] = f'attachment; filename="faturamento-insumos-{faturamento.id}.pdf"'
+        response["Content-Disposition"] = content_disposition_header(True, titulo_faturamento(faturamento.resumo) + ".pdf")
         response["Cache-Control"] = "private, no-store"
         return response
 

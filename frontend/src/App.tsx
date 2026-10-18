@@ -13,6 +13,7 @@ import PainelFormulario from "./components/PainelFormulario";
 import { ProtecaoAlteracoes, useAlteracoesNaoSalvas, useConfirmarSaida } from "./components/AlteracoesNaoSalvas";
 import { ConfirmacoesCompactas } from "./components/ConfirmacaoCompacta";
 import AvisoSessao from "./components/AvisoSessao";
+import VersaoAplicativo from "./components/VersaoAplicativo";
 
 import {
   api,
@@ -37,16 +38,15 @@ const HistoricoPage = lazy(() => import("./pages/Historico/HistoricoPage"));
 const BackupPage = lazy(() => import("./pages/Backup/BackupPage"));
 const UsuariosPage = lazy(() => import("./pages/Usuarios/UsuariosPage"));
 const MapaPropriedade = lazy(() => import("./components/MapaPropriedade"));
-const ClimaPage = lazy(() => import("./pages/Clima/ClimaPage"));
 const CargasColhidasPage = lazy(() => import("./pages/CargasColhidas/CargasColhidasPage"));
 const CadastrosAgricolasPage = lazy(() => import("./pages/CadastrosAgricolas/CadastrosAgricolasPage"));
 const ProducaoSaldosPage = lazy(() => import("./pages/ProducaoSaldos/ProducaoSaldosPage"));
 const TransferenciasSaldoPage = lazy(() => import("./pages/TransferenciasSaldo/TransferenciasSaldoPage"));
 const VendasPage = lazy(() => import("./pages/Vendas/VendasPage"));
+const CavacoPage = lazy(() => import("./pages/Cavaco/CavacoPage"));
 const EstoquePage = lazy(() => import("./pages/Estoque/EstoquePage"));
 const FaturamentoInsumos = lazy(() => import("./pages/Estoque/FaturamentoInsumos"));
-const FinanceiroPage = lazy(() => import("./pages/Financeiro/FinanceiroPage"));
-const MercadoPage = lazy(() => import("./pages/Mercado/MercadoPage"));
+const FinanceiroPage = lazy(() => import("./pages/Financeiro/FinanceiroModulo"));
 const TransportesPage = lazy(() => import("./pages/Transportes/TransportesPage"));
 const MaquinasPage = lazy(() => import("./pages/Maquinas/MaquinasPage"));
 const OperacoesPage = lazy(() => import("./pages/Operacoes/OperacoesPage"));
@@ -157,6 +157,7 @@ function Login({ authenticate }: LoginProps) {
         </label>
         {error && <p className="erro" role="alert">{error}</p>}
         <button disabled={entrando} type="submit">{entrando ? "Entrando..." : "Entrar"}</button>
+        <VersaoAplicativo />
       </form>
     </main>
   );
@@ -220,7 +221,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
   }, []);
 
   useEffect(() => {
-    if (acesso && acesso.modulos.some(item => item !== "mercado")) void carregar();
+    if (acesso && acesso.modulos.length > 0) void carregar();
     else { setPropriedades([]); setSelecionada(null); }
   }, [carregar, acesso?.modulos.join(",")]);
 
@@ -310,6 +311,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
         </div>
         <div className="cabecalho-acoes">
           <AplicativoStatus />
+          <VersaoAplicativo />
           <ImprimirA4 />
           <button className="secundario" onClick={() => { void encerrarSessao(); }}>Sair</button>
         </div>
@@ -319,7 +321,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
       <NavegacaoModulos acesso={acesso} modulo={modulo} onSelecionar={async id => {if (id !== modulo && !(await confirmarSaida())) return; if (id !== modulo && modulo === "propriedades") {setFormulario(formularioVazio); setEdicaoId(null);} setDestino(undefined); setModulo(id);}} />
       <AvisoSessao />
       <div id="modulo-atual" tabIndex={-1} />
-      {acesso && autorizado(acesso, modulo, "consultar") && <AjudaModulo modulo={modulo} />}
+      {modulo !== "financeiro" && acesso && autorizado(acesso, modulo, "consultar") && <AjudaModulo modulo={modulo} />}
 
       {!acesso ? (
         <section className="card"><p role={erroAcesso ? "alert" : "status"}>{erroAcesso ? "Não foi possível verificar seus acessos." : "Carregando acessos..."}</p>{erroAcesso && <button onClick={() => void atualizarAcesso()}>Tentar novamente</button>}</section>
@@ -347,12 +349,9 @@ function PrivateArea({ sair }: PrivateAreaProps) {
         <TransferenciasSaldoPage />
       ) : modulo === "vendas" ? (
         <VendasPage />
-      ) : modulo === "clima" ? (
-        <ClimaPage propriedades={propriedades} />
-      ) : modulo === "mercado" ? (
-        <MercadoPage />
       ) : modulo === "financeiro" ? (
         <FinanceiroPage propriedades={propriedades} />
+      ) : modulo === "cavaco" ? (<CavacoPage />
       ) : modulo === "estoque" ? (
         <EstoquePage propriedades={propriedades} />
       ) : modulo === "operacoes" ? (
@@ -415,6 +414,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
                 <article className={`card item ${selecionada?.id === item.id ? "ativo" : ""}`} key={item.id} onClick={() => setSelecionada(item)}>
                   <div>
                     <h3>{item.nome}</h3>
+                    {!!item.apelidos?.length && <p><strong>Apelido:</strong> {item.apelidos.join(" / ")}</p>}
                     <p>{item.municipio}/{item.uf} · {areaEmAlqueires(item.area_hectares)} alq. declarados</p>
                     <p>CAD/PRO: {item.cad_pro_numeros.length ? item.cad_pro_numeros.join(", ") : "não informado"}</p>
                     {item.area_calculada_hectares && (

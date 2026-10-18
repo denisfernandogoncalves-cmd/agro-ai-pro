@@ -15,4 +15,7 @@ router.register("parceiros", ParceiroFinanceiroViewSet, basename="parceiros")
 router.register("centros-custo", CentroCustoViewSet, basename="centros-custo")
 router.register("lancamentos", LancamentoFinanceiroViewSet, basename="lancamentos")
 
+from .prestacoes import PrestacoesViewSet
+router.register("prestacoes", PrestacoesViewSet, basename="financeiro-prestacoes")
+
 urlpatterns = [path("", include(router.urls))]

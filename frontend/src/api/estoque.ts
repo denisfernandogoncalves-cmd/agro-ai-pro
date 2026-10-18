@@ -8,6 +8,13 @@ export type ProdutoEstoque = {
   categoria: "insumo" | "herbicida" | "fungicida" | "fertilizante" | "semente" | "outro";
   unidade: "kg" | "l" | "un" | "sc" | "t";
   fabricante: string;
+  classe_agronomica: string;
+  principios_ativos: string;
+  concentracao: string;
+  registro_mapa: string;
+  fonte_adapar: string;
+  atualizacao_fonte: string;
+  consultado_em: string | null;
   estoque_minimo: string;
   ativo: boolean;
 };
@@ -57,6 +64,7 @@ export type PosicaoEstoque = {
 };
 
 export type MovimentacaoEstoque = {
+  versao_correcao?: string;
   id: number;
   tipo: "entrada" | "saida";
   lote: number;
@@ -99,8 +107,18 @@ export type CompraEstoqueInput = {
   data_vencimento: string;
 };
 
+export type EstornoCompra = { id: string; quantidade: string; cancelamento: boolean; motivo: string; criado_em: string; responsavel: string };
 export type CompraEstoque = Omit<CompraEstoqueInput, "produto" | "fornecedor" | "data_vencimento"> & {
   data_vencimento: string | null;
+  status_compra: "ativa" | "estorno_parcial" | "cancelada";
+  conta_pagar: number | null;
+  valor_estornado: string;
+  valor_liquido: string;
+  valor_a_pagar: string;
+  quantidade_estornada: string;
+  quantidade_restante: string;
+  saldo_disponivel: string;
+  estornos: EstornoCompra[];
   produto_nome: string;
   fornecedor_nome: string;
   unidade: string;
@@ -113,6 +131,10 @@ export async function listarComprasEstoque(search = "") {
   return (await api.get<CompraEstoque[]>("/estoque/compras/", { params: { search } })).data;
 }
 
+export async function estornarCompraEstoque(compra: string, acao: "cancelar" | "estornar", dados: {id: string; motivo: string; quantidade_estornada_original: string; quantidade?: string}) {
+  return (await api.post<CompraEstoque>(`/estoque/compras/${compra}/${acao}/`, dados)).data;
+}
+
 export async function registrarCompraEstoque(dados: CompraEstoqueInput) {
   return (await api.post<CompraEstoque>("/estoque/compras/", {
     ...dados, data_vencimento: dados.data_vencimento || null,
@@ -120,6 +142,11 @@ export async function registrarCompraEstoque(dados: CompraEstoqueInput) {
 }
 
 export type ProdutoEstoqueInput = {
+  classe_agronomica?: string;
+  principios_ativos?: string;
+  concentracao?: string;
+  registro_mapa?: string;
+  consulta_adapar?: string;
   nome: string;
   categoria: ProdutoEstoque["categoria"];
   unidade: ProdutoEstoque["unidade"];
@@ -264,3 +291,7 @@ export async function listarDisponibilidadeEstoque(params: Record<string, string
 }
 
 export type ResumoDisponibilidade = Pick<DisponibilidadeEstoque, "produto_id" | "produto" | "fornecedor_id" | "fornecedor" | "unidade" | "disponivel" | "preco_medio">;
+
+export const editarLote = async (id: number, dados: {produto:string; fornecedor:string; codigo:string; data_validade:string}) => (await api.patch<LoteEstoque>(`/estoque/lotes/${id}/`, {...dados, fornecedor:dados.fornecedor || null, data_validade:dados.data_validade || null})).data;
+export const excluirLote = async (id: number) => api.delete(`/estoque/lotes/${id}/`);
+export const excluirMovimentoEstoque = async (id: number) => api.delete(`/estoque/movimentacoes/${id}/`);

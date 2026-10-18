@@ -130,3 +130,11 @@ class ReferenciasInvestingViewSet(viewsets.ViewSet):
     def list(self, request):
         from .investing import consultar_referencias
         return Response(consultar_referencias())
+
+
+class ReferenciasMercadoViewSet(viewsets.ViewSet):
+    permission_classes = [IsAuthenticated]
+
+    def list(self, request):
+        from .referencias import consultar_referencias
+        return Response(consultar_referencias())

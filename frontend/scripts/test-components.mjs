@@ -14,6 +14,24 @@ const servidor = await createServer({
 });
 
 try {
+  const { FolhaHolerite } = await servidor.ssrLoadModule("/src/pages/Transportes/HoleriteMotorista.tsx");
+  const holerite = renderToStaticMarkup(React.createElement(FolhaHolerite, {dados: {motorista: "João <script>alert(1)</script>", competencia: "2026-01", salario: "2500.00", comissao: "220.00", comissao_fretes: "100.00", total: "2720.00", itens: [{id: 1, placa: "ABC1D23", salario: "2500.00", comissao: "220.00", comissao_fretes: "100.00", base_comissao: "1000.00", comissao_percentual: "12"}]}}));
+  assert.match(holerite, /janeiro de 2026/);
+  assert.match(holerite, /2[.]720,00/);
+  assert.match(holerite, /Comissão manual de cargas e vendas incluída/);
+  assert.match(holerite, /Assinatura do motorista/);
+  assert.match(holerite, /ABC1D23/);
+  assert.match(holerite, /12%/);
+  assert.doesNotMatch(holerite, /<script>/);
+  const holeriteEmprestimo = renderToStaticMarkup(React.createElement(FolhaHolerite, {dados: {motorista:"Motorista",competencia:"2026-01",salario:"1000",comissao:"0",total:"1000",desconto_emprestimos:"150",total_liquido:"850",emprestimos_pagos:[{id:1,emprestimo:7,data:"2026-01-20",valor:"150"}],itens:[]}}));
+  assert.match(holeriteEmprestimo,/Empréstimo pago/);
+  assert.match(holeriteEmprestimo,/850,00/);
+  assert.match(holeriteEmprestimo,/Empréstimo #7/);
+  assert.doesNotMatch(holerite,/Líquido após empréstimo pago/);
+  const { FolhaPrestacoes } = await servidor.ssrLoadModule("/src/pages/Financeiro/CalculoPrestacoes.tsx");
+  const prestacoes = renderToStaticMarkup(React.createElement(FolhaPrestacoes, {campos:{valor:"1100",entrada:"100",juros_anual:"10",parcelas:"1",carencia:"0",liberacao:"2026-10-16",primeiro_vencimento:"2027-10-16",periodicidade:"anual"},geradoEm:"16/10/2026 18:00:00",resultado:{financiado:"1000",juros:"100",total_prestacoes:"1100",total_com_entrada:"1200",media_prestacoes:"1100",criterio:"Taxa efetiva anual; dias corridos/365",parcelas:[{numero:1,vencimento:"2027-10-16",dias:365,amortizacao:"1000",juros:"100",prestacao:"1100",saldo:"0"}]}}));
+  for (const trecho of [/Simulação de prestações/,/Juros efetivos anuais/,/10%/,/16\/10\/2027/,/16\/10\/2026 18:00:00/,/1\.200,00/,/Amortização/,/dias corridos\/365/,/Valores em reais/,/Não representa contrato/]) assert.match(prestacoes,trecho);
+  assert.doesNotMatch(prestacoes,/<input|<button|Lançamentos financeiros/);
   const { indicadorExecutivo, default: ResumoExecutivo } = await servidor.ssrLoadModule("/src/pages/Painel/ResumoExecutivo.tsx");
   assert.equal(indicadorExecutivo({}, "saldo_disponivel_kg"), "Indisponível", "Dado ausente não pode virar saldo zero");
   assert.equal(indicadorExecutivo({saldo_disponivel_kg: "0"}, "saldo_disponivel_kg"), "0 kg");
@@ -25,6 +43,14 @@ try {
   assert.deepEqual(filtrarInsights(evidencias,"Há risco climático?"),[evidencias[1]]);
   assert.deepEqual(filtrarInsights(evidencias,"Como está meu estoque?"),[evidencias[0]]);
   assert.deepEqual(filtrarInsights(evidencias,"Pergunta sem assunto disponível"),[]);
+  const {calcularFreteTonelada} = await servidor.ssrLoadModule("/src/pages/Transportes/ConferenciaFretes.tsx");
+  assert.deepEqual(calcularFreteTonelada("28000.000", "20", "8.0000"), {frete:"560.00", comissao:"44.80"});
+  assert.deepEqual(calcularFreteTonelada("1234.500", "21.37", "8"), {frete:"26.38", comissao:"2.11"});
+  assert.deepEqual(calcularFreteTonelada("28000", "20", null), {frete:"560.00", comissao:null});
+  assert.deepEqual(calcularFreteTonelada("28000", "20", "0"), {frete:"560.00", comissao:"0.00"});
+  assert.equal(calcularFreteTonelada("28000", "-20", "8"), null);
+  assert.equal(calcularFreteTonelada("28000", "20", "101"), null);
+  assert.equal(calcularFreteTonelada("28000", "NaN", "8"), null);
   const {precoCBOT,default:QuadroCBOT}=await servidor.ssrLoadModule("/src/components/QuadroCBOT.tsx");
   assert.equal(precoCBOT("12.975000"),"12,9750");
   const cbotVazio=renderToStaticMarkup(React.createElement(QuadroCBOT));
@@ -132,6 +158,8 @@ try {
   assert.match(nav({ ...usuarioRestrito, modulos: [] }), />Início</);
   const admin = { ...usuarioRestrito, is_staff: true, modulos: MODULOS.map(([id]) => id) };
   const menuAdmin = nav(admin);
+  assert.doesNotMatch(menuAdmin, />Clima<|>Mercado</);
+  assert.ok(!MODULOS.some(([id]) => id === "clima" || id === "mercado"));
   for (const [id, nome] of MODULOS) assert.ok(nav(admin, id).includes(`>${nome}<`), nome);
   assert.match(nav(admin, "usuarios"), />Usuários</);
   const { AREAS_MODULOS } = await servidor.ssrLoadModule("/src/components/gruposModulos.ts");
@@ -148,6 +176,7 @@ try {
   for (const acao of ["cadastrar","editar","excluir","imprimir"]) assert.equal(autorizado(acessoConsulta,"financeiro",acao),false);
   assert.equal(autorizado(acessoConsulta,"estoque","consultar"),false);
   assert.equal(autorizado({...acessoConsulta,is_staff:true},"estoque","excluir"),true);
+  for (const modulo of ["clima", "mercado"]) assert.equal(autorizado({...acessoConsulta,is_staff:true},modulo,"consultar"),false);
   const protegido = renderToStaticMarkup(React.createElement(AcoesContext.Provider,{value:{acesso:acessoConsulta,modulo:"financeiro"}},React.createElement(BotaoAcao,{acao:"excluir"},"Excluir")));
   assert.equal(protegido, "");
   const { default: PainelFormulario } = await servidor.ssrLoadModule("/src/components/PainelFormulario.tsx");
@@ -161,7 +190,7 @@ try {
   assert.equal(montarFormulario({ bp_cvale: "000123" }).get("bp_cvale"), "000123");
   assert.equal(montarFormulario({ bp_cvale: "" }).get("bp_cvale"), "");
   for (const [area, dose, conteudo, esperado] of [
-    ["72", "0.2", "5", "3"], ["72,000000", "0,2", "5", "3"], ["10", "2.5", "20", "2"], ["10", "4", "20", "2"],
+    ["19.000000", ".25", "1", "5"], ["19", ",25", "1", "5"], ["19.", "0.25", "1.", "5"], ["19", "invalida", "1", ""], ["72", "0.2", "5", "3"], ["72,000000", "0,2", "5", "3"], ["10", "2.5", "20", "2"], ["10", "4", "20", "2"],
     ["3", "0.1", "0.3", "1"], ["27.880165", "0.2", "1", "6"],
     ["1", "0.001", "20", "1"], ["10", "0", "20", "0"], ["10", "2", "0", ""],
   ]) assert.equal(sugerirEmbalagens(area, dose, conteudo), esperado);
@@ -172,8 +201,23 @@ try {
   assert.equal(quantidadeParaEnviar(itemEmbalagens, "2.5", "20", true), "7");
   assert.equal(quantidadeParaEnviar(itemEmbalagens, "100", "1", true), "7");
   assert.equal(quantidadeParaEnviar({ ...itemEmbalagens, quantidade_embalagens: "" }, "2.5", "20", true), "");
-  const { default: FaturamentoInsumos, RelatorioFaturamento, HistoricoFaturamento } = await servidor.ssrLoadModule("/src/pages/Estoque/FaturamentoInsumos.tsx");
-  const { empresaUsaBep } = await servidor.ssrLoadModule("/src/api/faturamentoInsumos.ts");
+  const { default: FaturamentoInsumos, EmbalagensAEnviar, RelatorioFaturamento, HistoricoFaturamento } = await servidor.ssrLoadModule("/src/pages/Estoque/FaturamentoInsumos.tsx");
+  const propsEmbalagens = { item: { propriedade:1, cad_pro:"", area_alqueires:"19", quantidade_embalagens:"7" }, nome:"Fazenda de teste", dosagem:"0.25", conteudo:"1", editada:false, alterar:()=>{}, usarSugestao:()=>{} };
+  for (const [area, esperado] of [["1.450413", "1"], ["3.752066", "1"], ["19.000000", "5"]]) {
+    const campo = renderToStaticMarkup(React.createElement(EmbalagensAEnviar, {...propsEmbalagens, item:{...propsEmbalagens.item, area_alqueires:area}}));
+    assert.match(campo, new RegExp(`value="${esperado}"`));
+    assert.match(campo, new RegExp(`Sugestão: ${esperado} embalagem`));
+  }
+  const embalagensManuais = renderToStaticMarkup(React.createElement(EmbalagensAEnviar, {...propsEmbalagens, dosagem:"1", editada:true}));
+  assert.match(embalagensManuais, /value="7"/);
+  assert.match(embalagensManuais, /Usar sugestão \(19\)/);
+  assert.match(renderToStaticMarkup(React.createElement(EmbalagensAEnviar, {...propsEmbalagens, conteudo:"5"})), /value="1"/);
+  assert.match(renderToStaticMarkup(React.createElement(EmbalagensAEnviar, {...propsEmbalagens, conteudo:""})), /Informe área, dosagem e conteúdo/);
+  let sugestaoRestaurada = false;
+  const campoApagado = EmbalagensAEnviar({...propsEmbalagens, editada:true, item:{...propsEmbalagens.item, quantidade_embalagens:""}, usarSugestao:()=>{sugestaoRestaurada=true;}});
+  campoApagado.props.children[0].props.onBlur();
+  assert.equal(sugestaoRestaurada, true, "Apagar o campo e sair restaura a sugestão automática");
+  const { empresaUsaBep, tituloFaturamento } = await servidor.ssrLoadModule("/src/api/faturamentoInsumos.ts");
   for (const nome of ["C.Vale", "CVALE", " c vale ", "C-VALE Cooperativa"]) assert.equal(empresaUsaBep(nome), true);
   for (const nome of ["Empresa teste", "C Valerio", "Fornecedor C.Vale"]) assert.equal(empresaUsaBep(nome), false);
   const faturamentoFixture = {
@@ -183,9 +227,24 @@ try {
     itens: [{ propriedade: 1, propriedade_nome: "Fazenda teste", produtor: "Produtor teste", cad_pro: "123",
       area_alqueires: "10", quantidade_embalagens: "4", quantidade: "80", quantidade_sugerida: "25" }],
   };
+  assert.equal(tituloFaturamento({...faturamentoFixture, produto_nome:"02 20 18 MAIS MICRO", total_embalagens:"40", embalagem:"BAG", conteudo_embalagem:"1000", unidade:"kg", safra:"26-27", data_envio:"2026-10-09"}), "02 20 18 MAIS MICRO - 40 BAG DE 1000 KG - SAFRA 26-27 - 09-10-2026");
+  assert.match(tituloFaturamento(faturamentoFixture), /SAFRA NÃO INFORMADA/);
   const previaFaturamentoHtml = renderToStaticMarkup(React.createElement(RelatorioFaturamento, { resumo: faturamentoFixture, confirmado: false }));
   for (const texto of ["Prévia de faturamento", "sem baixa", "Empresa teste", "Fazenda teste", "Produtor teste", "123", "80", "-20", "Saldo negativo permitido"]) assert.ok(previaFaturamentoHtml.includes(texto), texto);
   assert.doesNotMatch(previaFaturamentoHtml, /<script>/);
+  assert.match(previaFaturamentoHtml, /Total de embalagens: 4/);
+  assert.match(previaFaturamentoHtml, /faturamento-cabecalho-grade/);
+  for (const texto of ["Empresa destinatária", "Quantidade total / dosagem", "Data do envio", "Safra"]) assert.ok(previaFaturamentoHtml.includes(texto));
+  const { ListaMotoristas } = await servidor.ssrLoadModule("/src/pages/Transportes/CadastroMotoristas.tsx");
+  const listaMotoristasHtml = renderToStaticMarkup(React.createElement(ListaMotoristas, {itens:[{id:1,nome:"Motorista ativo",apelido:"",ativo:true},{id:2,nome:"Motorista arquivado",apelido:"",ativo:false}], ocupado:false, editar(){}, excluir(){}, reativar(){}}));
+  const [listaAtiva, listaInativa] = listaMotoristasHtml.split('<details');
+  assert.match(listaAtiva, /Motorista ativo/);
+  assert.match(listaAtiva, /Excluir motorista/);
+  assert.doesNotMatch(listaAtiva, /Motorista arquivado/);
+  assert.match(listaInativa, /Motoristas excluídos \/ inativos \(1\)/);
+  assert.match(listaInativa, /Motorista arquivado/);
+  assert.match(listaInativa, /Reativar motorista/);
+  assert.doesNotMatch(listaInativa.split('>')[0], /open/);
   const confirmadoFaturamentoHtml = renderToStaticMarkup(React.createElement(RelatorioFaturamento, { resumo: faturamentoFixture, confirmado: true }));
   assert.match(confirmadoFaturamentoHtml, /Faturamento de insumos confirmado/);
   assert.doesNotMatch(confirmadoFaturamentoHtml, /<th>BEP<\/th>/);
@@ -994,7 +1053,7 @@ try {
     React.createElement(RelatoriosPage, { propriedades: [propriedade] }),
   );
   assert.match(htmlRelatorios, /Todos os relatórios/);
-  assert.match(htmlRelatorios, /Gestão rural, produção, comercial, financeiro, estoque, operações, máquinas, clima, mercado e auditoria/);
+  assert.match(htmlRelatorios, /Gestão rural, produção, comercial, financeiro, estoque, operações, máquinas e auditoria/);
   assert.match(htmlRelatorios, /Somente leitura/);
   assert.match(htmlRelatorios, /Classificação/);
   assert.match(htmlRelatorios, /Armazenagem/);

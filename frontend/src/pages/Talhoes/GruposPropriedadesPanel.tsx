@@ -58,12 +58,28 @@ export default function GruposPropriedadesPanel() {
         <legend>{id === null ? "Novo grupo" : "Editar grupo"}</legend>
         <label>Nome do grupo<input required maxLength={100} value={nome} onChange={e => setNome(e.target.value)} placeholder="Fazenda Electra" /></label>
         <label className="opcao-checkbox"><input type="checkbox" checked={ativo} onChange={e => setAtivo(e.target.checked)} />Grupo ativo</label>
-        <div className="grupo-propriedades">{propriedades.map(([propriedade, rotulo]) => <label key={propriedade}>{rotulo}
-          <select value={escolhas[String(propriedade)] || ""} onChange={e => setEscolhas({ ...escolhas, [String(propriedade)]: e.target.value })}>
-            <option value="">Não incluir no grupo</option>
+        <label>Adicionar propriedade ao grupo
+          <select value="" onChange={e => {
+            const propriedade = e.target.value;
+            if (!propriedade) return;
+            const vinculos = opcoes.filter(o => String(o.propriedade) === propriedade);
+            setEscolhas(atual => ({ ...atual, [propriedade]: vinculos.length === 1 ? vinculos[0].id : "" }));
+          }}>
+            <option value="">Selecione uma propriedade</option>
+            {propriedades.filter(([propriedade]) => !(String(propriedade) in escolhas)).map(([propriedade, rotulo]) =>
+              <option key={propriedade} value={propriedade}>{rotulo}</option>)}
+          </select>
+        </label>
+        <div className="grupo-propriedades">{propriedades.filter(([propriedade]) => String(propriedade) in escolhas).map(([propriedade, rotulo]) => <div key={propriedade}><label>CAD/PRO de {rotulo}
+          <select required value={escolhas[String(propriedade)] || ""} onChange={e => setEscolhas({ ...escolhas, [String(propriedade)]: e.target.value })}>
+            <option value="">Selecione o CAD/PRO</option>
             {opcoes.filter(o => o.propriedade === propriedade).map(o => <option key={o.id} value={o.id}>{o.cad_pro_codigo}</option>)}
           </select>
-        </label>)}</div>
+        </label><button type="button" aria-label={`Remover ${rotulo} do grupo`} onClick={() => setEscolhas(atual => {
+          const novas = { ...atual };
+          delete novas[String(propriedade)];
+          return novas;
+        })}>Remover do grupo</button></div>)}</div>
         {!ocupado && propriedades.length === 0 && <p>Cadastre primeiro os vínculos entre propriedades e CAD/PROs.</p>}
         <button disabled={!Object.values(escolhas).some(Boolean)} type="submit">Salvar grupo</button>
         {id !== null && <button type="button" onClick={limpar}>Cancelar edição</button>}

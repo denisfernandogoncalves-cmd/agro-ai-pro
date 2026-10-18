@@ -97,7 +97,7 @@ class DashboardApiTests(DashboardBase, APITestCase):
                 self.assertEqual(resposta.data["secao"], secao)
                 self.assertEqual(resposta.data["dados"]["resultados"][0][campo], valor)
 
-        for secao in ("estoque_insumos", "clima", "mercado", "importacoes"):
+        for secao in ("estoque_insumos", "importacoes"):
             with self.subTest(secao=secao):
                 resposta = self.client.get(
                     "/api/relatorios/operacionais/", {"secao": secao}

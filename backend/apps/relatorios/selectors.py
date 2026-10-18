@@ -2,7 +2,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from math import ceil
 
 from django.utils import timezone
-from django.db.models import Q
+from django.db.models import Q, Sum
 from apps.financeiro.services import resumo_financeiro
 from .agrupamento_financeiro import agrupar_financeiro, vencimentos_financeiros
 
@@ -42,6 +42,18 @@ def _pagina(itens, numero, tamanho):
         "total": total,
         "total_paginas": ceil(total / tamanho) if total else 0,
         "resultados": itens[inicio : inicio + tamanho],
+    }
+
+
+def _pagina_consulta(queryset, serializar, numero, tamanho):
+    total = queryset.count()
+    inicio = (numero - 1) * tamanho
+    return {
+        "pagina": numero,
+        "por_pagina": tamanho,
+        "total": total,
+        "total_paginas": ceil(total / tamanho) if total else 0,
+        "resultados": [serializar(item) for item in queryset[inicio:inicio + tamanho]],
     }
 
 
@@ -712,7 +724,7 @@ def _comparacao_operacao(item):
     for uso in item.insumos.all():
         movimento=uso.movimentacao_estoque if uso.movimentacao_estoque_id else None
         insumos.append({"produto":uso.lote.produto.nome,"lote":uso.lote.codigo,"unidade":uso.lote.produto.unidade,"planejada":_texto_decimal(uso.quantidade_planejada),"utilizada":_texto_decimal(movimento.quantidade) if movimento else None,"diferenca":_texto_decimal(movimento.quantidade-uso.quantidade_planejada) if movimento else None,"movimento_id":uso.movimentacao_estoque_id,"documento":movimento.documento_fiscal if movimento else "","custo_registrado":_texto_decimal(movimento.quantidade*movimento.custo_unitario) if movimento and movimento.custo_unitario is not None else None})
-    return {"custo_diferenca":_texto_decimal(item.custo_realizado-item.custo_estimado) if item.custo_realizado is not None else None,"duracao_realizada_dias":(item.data_conclusao-item.data_inicio).days if item.data_inicio and item.data_conclusao else None,"insumos":insumos,"base":"Quantidades realizadas usam a movimentação efetiva de estoque, por produto/lote/unidade. Área realizada separada e duração planejada não são cadastradas neste modelo. Custos dos insumos só aparecem quando registrados na movimentação; não são somados novamente ao custo realizado da operação."}
+    return {"area_planejada_hectares":_texto_decimal(item.area_hectares),"area_realizada_hectares":_texto_decimal(item.area_realizada_hectares) if item.area_realizada_hectares is not None else None,"area_diferenca_hectares":_texto_decimal(item.area_realizada_hectares-item.area_hectares) if item.area_realizada_hectares is not None else None,"custo_diferenca":_texto_decimal(item.custo_realizado-item.custo_estimado) if item.custo_realizado is not None else None,"duracao_realizada_dias":(item.data_conclusao-item.data_inicio).days if item.data_inicio and item.data_conclusao else None,"insumos":insumos,"base":"Quantidades realizadas usam a movimentação efetiva de estoque, por produto/lote/unidade. Área realizada é informada manualmente, sem copiar a planejada; ausência permanece não informada. Duração planejada não é cadastrada. Custos dos insumos só aparecem quando registrados na movimentação; não são somados novamente ao custo realizado da operação."}
 
 
 def _operacoes_agricolas(filtros, queryset=None):
@@ -731,6 +743,9 @@ def _operacoes_agricolas(filtros, queryset=None):
         "data_inicio": item.data_inicio,
         "data_conclusao": item.data_conclusao,
         "area_alqueires": _texto_decimal(item.area_hectares / HECTARES_POR_ALQUEIRE_PAULISTA),
+        "area_planejada_hectares": _texto_decimal(item.area_hectares),
+        "area_realizada_hectares": _texto_decimal(item.area_realizada_hectares) if item.area_realizada_hectares is not None else None,
+        "area_diferenca_hectares": _texto_decimal(item.area_realizada_hectares-item.area_hectares) if item.area_realizada_hectares is not None else None,
         "responsavel": item.responsavel,
         "custo_estimado": _texto_decimal(item.custo_estimado),
         "custo_realizado": _texto_decimal(item.custo_realizado),
@@ -884,8 +899,6 @@ def selecionar_relatorio_operacional(**filtros):
         "estoque_insumos": _estoque_insumos,
         "operacoes_agricolas": _operacoes_agricolas,
         "maquinas": _maquinas,
-        "clima": _clima,
-        "mercado": _mercado,
         "importacoes": _importacoes,
     }
     if secao in seletores_gerais:
@@ -933,34 +946,35 @@ def selecionar_relatorio_operacional(**filtros):
             "agrupamento_financeiro": agrupar_financeiro(qs,filtros.get("agrupamento_financeiro"),filtros.get("pagina_agrupamento",1),por_pagina) if secao in {"financeiro","contas_pagar"} else None,
         }
     posicoes = list(_filtrar_posicoes(filtros))
-    ids = _ids_posicoes(posicoes)
-    movimentos = list(_movimentos(filtros, ids))
-    reservas = list(_reservas(filtros, ids))
-    vendas = list(_vendas(filtros, ids))
-    entregas = list(_entregas(filtros, ids))
+    ids = _filtrar_posicoes(filtros).order_by().values("pk")
+    movimentos = _movimentos(filtros, ids)
+    reservas = _reservas(filtros, ids)
+    vendas = _vendas(filtros, ids)
+    entregas = _entregas(filtros, ids)
+    producoes = movimentos.filter(
+        operacao=MovimentacaoGraos.Operacao.CREDITO_PRODUCAO,
+        movimento_estorno__isnull=True,
+    )
     produtividade = _produtividade(filtros)
     producao_propriedade = _producao_por_propriedade_cad_pro(produtividade)
-    motoristas = _motoristas(filtros)
 
+    # Paginar antes de materializar relações e serializar os detalhes.
     secoes = {
-        "saldos": lambda: [_item_posicao(item) for item in posicoes],
-        "producao": lambda: _producoes(movimentos),
-        "reservas": lambda: [_item_reserva(item) for item in reservas],
-        "vendas": lambda: [_item_venda(item) for item in vendas],
-        "entregas": lambda: [_item_entrega(item) for item in entregas],
-        "movimentacoes": lambda: [_item_movimento(item) for item in movimentos],
-        "rastreabilidade": lambda: _rastreabilidade(movimentos),
-        "produtividade": lambda: produtividade,
-        "producao_propriedade": lambda: producao_propriedade,
-        "motoristas": lambda: motoristas,
+        "saldos": lambda: _pagina_consulta(_filtrar_posicoes(filtros), _item_posicao, pagina, por_pagina),
+        "producao": lambda: _pagina_consulta(producoes, _item_movimento, pagina, por_pagina),
+        "reservas": lambda: _pagina_consulta(reservas, _item_reserva, pagina, por_pagina),
+        "vendas": lambda: _pagina_consulta(vendas, _item_venda, pagina, por_pagina),
+        "entregas": lambda: _pagina_consulta(entregas, _item_entrega, pagina, por_pagina),
+        "movimentacoes": lambda: _pagina_consulta(movimentos, _item_movimento, pagina, por_pagina),
+        "rastreabilidade": lambda: _pagina_consulta(movimentos, _item_movimento, pagina, por_pagina),
+        "produtividade": lambda: _pagina(produtividade, pagina, por_pagina),
+        "producao_propriedade": lambda: _pagina(producao_propriedade, pagina, por_pagina),
+        "motoristas": lambda: _pagina(_motoristas(filtros), pagina, por_pagina),
     }
-    producao_total = sum(
-        (item.quantidade_kg for item in movimentos if _movimento_producao_ativo(item)),
-        ZERO,
-    )
-    reserva_aberta = sum((item.saldo_reservado_kg for item in reservas), ZERO)
-    venda_total = sum((item.quantidade_kg for item in vendas), ZERO)
-    entrega_total = sum((item.quantidade_kg for item in entregas), ZERO)
+    producao_total = producoes.aggregate(total=Sum("quantidade_kg"))["total"] or ZERO
+    reserva_aberta = reservas.aggregate(total=Sum("saldo_reservado_kg"))["total"] or ZERO
+    venda_total = vendas.aggregate(total=Sum("quantidade_kg"))["total"] or ZERO
+    entrega_total = entregas.aggregate(total=Sum("quantidade_kg"))["total"] or ZERO
     producao_rateada = sum(
         (Decimal(item["quantidade_kg"]) for item in produtividade), ZERO
     )
@@ -1001,7 +1015,7 @@ def selecionar_relatorio_operacional(**filtros):
         "produtividade_por_cad_pro": _produtividade_por_cad_pro(produtividade),
         "totais_producao_propriedade": _totais_producao_propriedade(producao_propriedade),
         "secao": secao,
-        "dados": _pagina(secoes[secao](), pagina, por_pagina),
+        "dados": secoes[secao](),
     }
 
 
