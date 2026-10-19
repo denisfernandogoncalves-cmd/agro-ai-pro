@@ -14,9 +14,9 @@ class ApelidosTests(SimpleTestCase):
         linhas = [linha(" SILO "), linha("silo"), linha("SCARAMAL"),
                   linha(0), linha(""), linha("Outro", tipo="producao"),
                   linha("Outro", planilha="1")]
-        propriedade = SimpleNamespace(linhas_importacao=SimpleNamespace(all=lambda: linhas))
+        propriedade = SimpleNamespace(apelido='', linhas_importacao=SimpleNamespace(all=lambda: linhas))
         self.assertEqual(PropriedadeSerializer().get_apelidos(propriedade), ["SCARAMAL", "SILO"])
 
     def test_sem_importacao_retorna_lista_vazia(self):
-        propriedade = SimpleNamespace(linhas_importacao=SimpleNamespace(all=lambda: []))
+        propriedade = SimpleNamespace(apelido='', linhas_importacao=SimpleNamespace(all=lambda: []))
         self.assertEqual(PropriedadeSerializer().get_apelidos(propriedade), [])

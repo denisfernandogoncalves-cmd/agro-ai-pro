@@ -5,6 +5,47 @@ from .serializers import PropriedadeSerializer
 
 
 class CoordenadasGmsTests(TestCase):
+    def test_area_preserva_quatro_casas_em_alqueires(self):
+        p = self.salvar(self.dados(area_hectares='34.220010'))
+        p.refresh_from_db()
+        self.assertEqual(p.area_hectares / Decimal('2.42'), Decimal('14.1405'))
+        p = self.salvar({'area_hectares': '0.000242'}, p)
+        p.refresh_from_db()
+        self.assertEqual(p.area_hectares / Decimal('2.42'), Decimal('0.0001'))
+    def test_apelido_manual_editavel_e_pesquisavel(self):
+        from rest_framework.test import APIRequestFactory, force_authenticate
+        from django.contrib.auth import get_user_model
+        from .views import PropriedadeViewSet
+        p = self.salvar(self.dados(apelido='Sede Nova'))
+        self.assertIn('Sede Nova', PropriedadeSerializer(p).data['apelidos'])
+        request = APIRequestFactory().get('/api/propriedades/', {'search': 'Sede Nova'})
+        force_authenticate(request, user=get_user_model().objects.create_user(username='apelido'))
+        resposta = PropriedadeViewSet.as_view({'get': 'list'})(request)
+        self.assertEqual([item['id'] for item in resposta.data], [p.pk])
+        p = self.salvar({'apelido': ''}, p)
+        self.assertEqual(p.apelido, '')
+    def test_tipo_imovel_opcional_e_editavel(self):
+        p = self.salvar(self.dados())
+        self.assertEqual(p.tipo_imovel, '')
+        for tipo in ('arrendado', 'proprio', ''):
+            p = self.salvar({'tipo_imovel': tipo}, p)
+            p.refresh_from_db()
+            self.assertEqual(p.tipo_imovel, tipo)
+        s = PropriedadeSerializer(p, data={'tipo_imovel': 'invalido'}, partial=True)
+        self.assertFalse(s.is_valid())
+    def test_padrao_gms_e_identificacao_livre_editavel(self):
+        p = self.salvar({'nome': 'Nova', 'municipio': 'Teste', 'area_hectares': '2.42', 'cad_pro_identificacao': 'Principal'})
+        self.assertEqual(p.formato_coordenadas, 'gms')
+        p = self.salvar({'cad_pro_identificacao': 'Secundário - matrícula 2'}, p)
+        p.refresh_from_db()
+        self.assertEqual(PropriedadeSerializer(p).data['cad_pro_identificacao'], 'Secundário - matrícula 2')
+        p = self.salvar({'cad_pro_identificacao': ''}, p)
+        self.assertEqual(p.cad_pro_identificacao, '')
+
+    def test_padrao_gms_preserva_decimal_de_integracoes(self):
+        p = self.salvar({'nome': 'Integração', 'municipio': 'Teste', 'area_hectares': '2.42', 'latitude': '-24.308047', 'longitude': '-51.713328'})
+        self.assertEqual(p.latitude, Decimal('-24.308047'))
+
     def dados(self, **extras):
         return {'nome':'Teste GMS','municipio':'Teste','area_hectares':'2.42','formato_coordenadas':'gms','latitude_gms':'24°18\'28,97"S','longitude_gms':'51°42\'47,98"O', **extras}
 

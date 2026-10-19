@@ -55,15 +55,19 @@ const AjudaModulo = lazy(() => import("./components/AjudaModulo"));
 const ImportacoesPage = lazy(() => import("./pages/Importacoes/ImportacoesPage"));
 const InsightsPage = lazy(() => import("./pages/Insights/InsightsPage"));
 const TalhoesPage = lazy(() => import("./pages/Talhoes/TalhoesPage"));
+const GruposColheitaPage = lazy(() => import("./pages/Talhoes/GruposPropriedadesPanel"));
 
 const areaEmAlqueires = (valor: string | number | null | undefined) =>
-  (Number(valor || 0) / 2.42).toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+  (Number(valor || 0) / 2.42).toLocaleString("pt-BR", { minimumFractionDigits: 4, maximumFractionDigits: 4 });
 const valorAlqueiresParaFormulario = (valor: string | number | null | undefined) =>
   valor === null || valor === undefined || valor === "" ? "" : String(Number((Number(valor) / 2.42).toFixed(4)));
 
 
 const formularioVazio: PropriedadeInput = {
-  formato_coordenadas: "decimal", latitude_gms: "", longitude_gms: "", converter_coordenadas: "false",
+  formato_coordenadas: "gms", latitude_gms: "", longitude_gms: "", converter_coordenadas: "false",
+  cad_pro_identificacao: "",
+  tipo_imovel: "",
+  apelido: "",
   bp_cvale: "",
   nome: "",
   proprietario: "",
@@ -251,6 +255,9 @@ function PrivateArea({ sair }: PrivateAreaProps) {
     setEdicaoId(item.id);
     setFormulario({
       bp_cvale: item.bp_cvale ?? "",
+      cad_pro_identificacao: item.cad_pro_identificacao ?? "",
+      tipo_imovel: item.tipo_imovel ?? "",
+      apelido: item.apelido ?? "",
       nome: item.nome,
       proprietario: item.proprietario,
       municipio: item.municipio,
@@ -318,7 +325,11 @@ function PrivateArea({ sair }: PrivateAreaProps) {
       </header>
 
       <DestinoPropriedade destino={destino} aplicar={(termo, id) => {setBusca(termo); void carregar(termo); if (id) setSelecionada(propriedades.find(item => item.id === id) ?? null);}} />
-      <NavegacaoModulos acesso={acesso} modulo={modulo} onSelecionar={async id => {if (id !== modulo && !(await confirmarSaida())) return; if (id !== modulo && modulo === "propriedades") {setFormulario(formularioVazio); setEdicaoId(null);} setDestino(undefined); setModulo(id);}} />
+      <NavegacaoModulos acesso={acesso} modulo={modulo} onResultado={async (item, termo) => {
+        if (!(await confirmarSaida())) return;
+        setDestino({ modulo: item.modulo, filtros: { search: termo, tipo: item.tipo }, registro: /^\d+$/.test(item.id) ? Number(item.id) : undefined, chave: Date.now() });
+        setModulo(item.modulo);
+      }} onSelecionar={async id => {if (id !== modulo && !(await confirmarSaida())) return; if (id !== modulo && modulo === "propriedades") {setFormulario(formularioVazio); setEdicaoId(null);} setDestino(undefined); setModulo(id);}} />
       <AvisoSessao />
       <div id="modulo-atual" tabIndex={-1} />
       {modulo !== "financeiro" && acesso && autorizado(acesso, modulo, "consultar") && <AjudaModulo modulo={modulo} />}
@@ -337,6 +348,8 @@ function PrivateArea({ sair }: PrivateAreaProps) {
         <FaturamentoInsumos />
       ) : modulo === "usuarios" ? (
         <><MatrizPermissoes /><UsuariosPage usuarioAtualId={acesso.id} onAtualizado={() => void atualizarAcesso()} /></>
+      ) : modulo === "grupos-colheita" ? (
+        <GruposColheitaPage propriedades={propriedades} />
       ) : modulo === "talhoes" ? (
         <TalhoesPage />
       ) : modulo === "cadastros-agricolas" ? (
@@ -377,14 +390,18 @@ function PrivateArea({ sair }: PrivateAreaProps) {
           <fieldset className="campos-formulario" disabled={salvando}>
           <h2>{edicaoId ? "Editar propriedade" : "Nova propriedade"}</h2>
           <label>Nome<input required value={formulario.nome} onChange={(e) => setFormulario({ ...formulario, nome: e.target.value })} /></label>
+          <label>Apelido<input maxLength={100} value={formulario.apelido ?? ""} onChange={e => setFormulario({ ...formulario, apelido: e.target.value })} placeholder="Nome pelo qual a propriedade é conhecida" /></label>
           <label>Proprietário<input value={formulario.proprietario} onChange={(e) => setFormulario({ ...formulario, proprietario: e.target.value })} /></label>
           <label>BP C.Vale<input inputMode="numeric" pattern="[0-9]*" maxLength={40} value={formulario.bp_cvale ?? ""} onChange={e => setFormulario({ ...formulario, bp_cvale: e.target.value })} /><small>Opcional. Usado como BEP somente no faturamento da C.Vale.</small></label>
           <div className="linha">
             <label>Município<input required value={formulario.municipio} onChange={(e) => setFormulario({ ...formulario, municipio: e.target.value })} /></label>
             <label>UF<input maxLength={2} value={formulario.uf} onChange={(e) => setFormulario({ ...formulario, uf: e.target.value.toUpperCase() })} /></label>
           </div>
-          <label>Área (alqueires paulistas)<input required min="0.01" step="0.01" type="number" value={formulario.area_hectares} onChange={(e) => setFormulario({ ...formulario, area_hectares: e.target.value })} /></label>
+          <label>Área (alqueires paulistas)<input required min="0.0001" step="0.0001" type="number" value={formulario.area_hectares} onChange={(e) => setFormulario({ ...formulario, area_hectares: e.target.value })} /></label>
           <label>Número CAD/PRO<input placeholder="Ex.: 123.456-7" value={formulario.cad_pro_numero} onChange={(e) => setFormulario({ ...formulario, cad_pro_numero: e.target.value })} /></label>
+          <label>Identificação do CAD/PRO<input maxLength={100} list="cad-pro-identificacoes" placeholder="Principal ou Secundário" value={formulario.cad_pro_identificacao ?? ""} onChange={e => setFormulario({ ...formulario, cad_pro_identificacao: e.target.value })} /></label>
+          <datalist id="cad-pro-identificacoes"><option value="Principal" /><option value="Secundário" /></datalist>
+          <label>Tipo do imóvel<select value={formulario.tipo_imovel ?? ""} onChange={e => setFormulario({ ...formulario, tipo_imovel: e.target.value as PropriedadeInput["tipo_imovel"] })}><option value="">Não informado</option><option value="arrendado">Imóvel arrendado</option><option value="proprio">Imóvel próprio</option></select></label>
           <div className="linha">
             <CoordenadasInput dados={formulario} alterar={setFormulario} />
           </div>
@@ -417,6 +434,8 @@ function PrivateArea({ sair }: PrivateAreaProps) {
                     {!!item.apelidos?.length && <p><strong>Apelido:</strong> {item.apelidos.join(" / ")}</p>}
                     <p>{item.municipio}/{item.uf} · {areaEmAlqueires(item.area_hectares)} alq. declarados</p>
                     <p>CAD/PRO: {item.cad_pro_numeros.length ? item.cad_pro_numeros.join(", ") : "não informado"}</p>
+                    {item.cad_pro_identificacao && <p>Identificação do CAD/PRO: {item.cad_pro_identificacao}</p>}
+                    <p>{item.tipo_imovel === "arrendado" ? "Imóvel arrendado" : item.tipo_imovel === "proprio" ? "Imóvel próprio" : "Tipo do imóvel não informado"}</p>
                     {item.area_calculada_hectares && (
                       <p className="metadado-geografico">
                         {areaEmAlqueires(item.area_calculada_hectares)} alq. calculados

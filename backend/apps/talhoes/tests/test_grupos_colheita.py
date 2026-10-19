@@ -62,7 +62,7 @@ class GruposPropriedadesTests(APITestCase):
         resposta = self.criar()
         detalhe = f'{self.url}{resposta.data["id"]}/'
         self.assertEqual(self.client.patch(detalhe, {"ativo": False}, format="json").status_code, 200)
-        self.assertEqual(self.client.delete(detalhe).status_code, 405)
+        self.assertEqual(self.client.delete(detalhe).status_code, 204)
         self.client.force_authenticate(None)
         self.assertEqual(self.client.get(self.url).status_code, 401)
         self.assertEqual(self.client.get(f"{self.url}opcoes/").status_code, 401)
@@ -79,3 +79,33 @@ class GruposPropriedadesTests(APITestCase):
         _aplicar_rateio_producao(contexto, peso_liquido_kg=Decimal("600"), sacas_60kg=Decimal("10"))
         parcelas = {p["propriedade_id"]: Decimal(p["peso_liquido_kg"]) for p in contexto["rateio_producao"]}
         self.assertEqual(parcelas, {self.a.pk: Decimal("450"), self.b.pk: Decimal("150")})
+
+
+    def test_exclusao_preserva_area_e_vinculos_e_bloqueia_edicao(self):
+        resposta = self.criar([str(self.va.pk), str(self.vc.pk)])
+        detalhe = f'{self.url}{resposta.data["id"]}/'
+        self.assertEqual(self.client.delete(detalhe).status_code, 204)
+        grupo = GrupoPropriedadesColheita.objects.get(pk=resposta.data['id'])
+        self.assertFalse(grupo.ativo)
+        self.assertIsNotNone(grupo.excluido_em)
+        self.assertEqual(grupo.vinculos.count(), 2)
+        areas = {m['propriedade']: Decimal(m['area_hectares']) for m in grupo.historico_area}
+        self.assertEqual(areas, {self.a.pk: Decimal('30'), self.b.pk: Decimal('10')})
+        self.a.area_hectares = 99
+        self.a.save()
+        historico = self.client.get(detalhe).data
+        self.assertEqual(Decimal(historico['membros'][0]['area_hectares']) + Decimal(historico['membros'][1]['area_hectares']), Decimal('40'))
+        self.assertEqual(self.client.get(self.url).data, [])
+        self.assertEqual(len(self.client.get(self.url, {'incluir_excluidos': 'true'}).data), 1)
+        self.assertEqual(self.client.patch(detalhe, {'ativo': True}, format='json').status_code, 400)
+        self.assertEqual(self.client.delete(detalhe).status_code, 204)
+        grupo.refresh_from_db()
+        self.assertEqual({m['propriedade']: Decimal(m['area_hectares']) for m in grupo.historico_area}, areas)
+        self.assertEqual(CADProPropriedade.objects.count(), 3)
+
+    def test_exclusao_exige_permissao(self):
+        from apps.accounts.models import AcessoUsuario
+        resposta = self.criar()
+        AcessoUsuario.objects.create(usuario=self.usuario, modulos=['talhoes'], permissoes={'talhoes': ['consultar']})
+        self.assertEqual(self.client.delete(f'{self.url}{resposta.data["id"]}/').status_code, 403)
+        self.assertIsNone(GrupoPropriedadesColheita.objects.get(pk=resposta.data['id']).excluido_em)

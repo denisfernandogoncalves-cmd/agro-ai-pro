@@ -22,7 +22,6 @@ import HistoricoAgronomicoPanel from "./HistoricoAgronomicoPanel";
 import TalhaoForm from "./TalhaoForm";
 import PainelFormulario from "../../components/PainelFormulario";
 import TalhaoLista from "./TalhaoLista";
-import GruposPropriedadesPanel from "./GruposPropriedadesPanel";
 import { areaEmAlqueires, valorAlqueiresParaFormulario } from "../../utils/areas";
 
 
@@ -373,7 +372,6 @@ export default function TalhoesPage() {
           )}
         </section>
       </section>
-      <GruposPropriedadesPanel />
     </section>
   );
 }

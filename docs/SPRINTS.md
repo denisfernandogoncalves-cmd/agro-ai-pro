@@ -1,5 +1,37 @@
 # Sprints — AGRO-AI-PRO
 
+## Incremento — identificação CAD/PRO no faturamento (19/10/2026)
+
+- [x] Principal/Secundário do cadastro na seleção, impressão e PDF; identificação preservada no resumo histórico.
+- [x] Excel individual com identificação, permissão de impressão e dados do resumo confirmado.
+- [x] 31 testes PostgreSQL, frontend/TypeScript/build, Django/migrations/diff, renderização de PDF e leitura de Excel aprovados.
+
+Critérios e limites: [identificação no faturamento](decisoes/2026-10-19-identificacao-cadpro-faturamento.md).
+
+## Incremento — aba de grupos e exclusão com histórico (19/10/2026)
+
+- [x] Grupos retirados de Talhões e movidos para página própria em Cadastros.
+- [x] Exclusão lógica com cópia histórica das áreas, consulta aos excluídos e bloqueio de alteração do histórico.
+- [x] Testes PostgreSQL pertinentes e retestes, frontend/TypeScript/build, migration aditiva e readiness aprovados.
+
+Backups, critérios e evidências: [grupos e histórico](decisoes/2026-10-19-grupos-historico.md).
+
+## Correção — quatro casas na área de propriedades (18/10/2026)
+
+- [x] Entrada/listagem com quatro casas em alqueires e persistência sem arredondamento para duas casas em hectares.
+- [x] Migration propriedades.0009 aplicada após backup; 55 testes PostgreSQL e frontend/TypeScript/build aprovados.
+
+Evidências e limites: [precisão da área](decisoes/2026-10-18-area-quatro-casas.md).
+
+## Incremento — propriedades, grupos e busca geral (18/10/2026)
+
+- [x] GMS padrão nos novos cadastros; identificação CAD/PRO, tipo do imóvel e apelido editáveis.
+- [x] Seleção múltipla de propriedades com CAD/PRO individual nos grupos; busca de produto/princípio ativo.
+- [x] Busca geral de registros por palavra/número com permissões, cancelamento e limites explícitos.
+- [x] 29 testes PostgreSQL, frontend/TypeScript/Vite, Django/migrations/diff e readiness aprovados; atualização local em 5174.
+
+Backups, comportamento e limites: [cadastros e buscas](decisoes/2026-10-18-cadastros-busca.md). Sem commit, push ou merge.
+
 ## Incremento — integração das novas contas a pagar (16/10/2026)
 
 - [x] Novas despesas externas de Transportes, remunerações e manutenções concluídas integradas com título único e baixa manual.
@@ -741,3 +773,12 @@ Critérios, backups, evidências e limites: [empréstimos e prestações](deciso
 - [x] Testes frontend, TypeScript/Vite, conferência autenticada desktop, dimensões móveis e revisão do diff aprovados; frontend local atualizado. Impressão física/PDF nativo não executados.
 
 Evidências, backups e limites: [aba e impressão de prestações](decisoes/2026-10-16-aba-prestacoes-impressao.md).
+
+## Incremento — faturamento em A4 retrato e Arial 12 (19/10/2026)
+
+- [x] Impressão e PDF em retrato, Arial 12; Excel com aba de impressão própria e dados preservados.
+- [x] Testes de faturamento, PDF/Excel, frontend e build aprovados; PDF conferido visualmente e aplicação local atualizada.
+
+Evidências, backup e configuração das fontes: [faturamento A4 Arial 12](decisoes/2026-10-19-faturamento-a4-arial12.md).
+
+- [x] Revisão do faturamento: propriedades em linhas de tabela na impressão/PDF/Excel, mantendo A4 retrato e Arial 12; testes e conferência visual do PDF aprovados.

@@ -166,11 +166,14 @@ try {
   const idsAgrupados = AREAS_MODULOS.flatMap(area => area.modulos);
   assert.equal(new Set(idsAgrupados).size, MODULOS.length);
   assert.deepEqual([...idsAgrupados].sort(), MODULOS.map(([id]) => id).sort());
+  assert.match(nav({...usuarioRestrito, modulos:["talhoes"]}), />Grupos de colheita</);
   const { formatarData } = await servidor.ssrLoadModule("/src/utils/datas.ts");
   assert.equal(formatarData("2026-10-01"), "01/10/2026");
   assert.equal(formatarData("2026-10-01T00:00:00Z"), "01/10/2026");
   assert.equal(formatarData(null), "—");
   const { AcoesContext, BotaoAcao, autorizado } = await servidor.ssrLoadModule("/src/components/AcoesContext.tsx");
+  assert.equal(autorizado({...usuarioRestrito, modulos:["talhoes"], permissoes:{talhoes:["consultar"]}}, "grupos-colheita", "excluir"), false);
+  assert.equal(autorizado({...usuarioRestrito, modulos:["talhoes"], permissoes:{talhoes:["consultar","excluir"]}}, "grupos-colheita", "excluir"), true);
   const acessoConsulta = {id:9, username:"consulta", is_staff:false, modulos:["financeiro"], permissoes:{financeiro:["consultar"]}};
   assert.equal(autorizado(acessoConsulta,"financeiro","consultar"),true);
   for (const acao of ["cadastrar","editar","excluir","imprimir"]) assert.equal(autorizado(acessoConsulta,"financeiro",acao),false);
@@ -187,6 +190,8 @@ try {
 
   const { sugerirEmbalagens, quantidadeParaEnviar } = await servidor.ssrLoadModule("/src/pages/Estoque/embalagensFaturamento.ts");
   const { montarFormulario } = await servidor.ssrLoadModule("/src/api/propriedades.ts");
+  assert.equal(montarFormulario({ area_hectares: "14,1405" }).get("area_hectares"), "34.220010");
+  assert.equal(montarFormulario({ area_hectares: "0.0001" }).get("area_hectares"), "0.000242");
   assert.equal(montarFormulario({ bp_cvale: "000123" }).get("bp_cvale"), "000123");
   assert.equal(montarFormulario({ bp_cvale: "" }).get("bp_cvale"), "");
   for (const [area, dose, conteudo, esperado] of [
@@ -230,6 +235,9 @@ try {
   assert.equal(tituloFaturamento({...faturamentoFixture, produto_nome:"02 20 18 MAIS MICRO", total_embalagens:"40", embalagem:"BAG", conteudo_embalagem:"1000", unidade:"kg", safra:"26-27", data_envio:"2026-10-09"}), "02 20 18 MAIS MICRO - 40 BAG DE 1000 KG - SAFRA 26-27 - 09-10-2026");
   assert.match(tituloFaturamento(faturamentoFixture), /SAFRA NÃO INFORMADA/);
   const previaFaturamentoHtml = renderToStaticMarkup(React.createElement(RelatorioFaturamento, { resumo: faturamentoFixture, confirmado: false }));
+  const htmlIdentificacaoFaturamento = renderToStaticMarkup(React.createElement(RelatorioFaturamento, { resumo: {...faturamentoFixture, itens: faturamentoFixture.itens.map(i => ({...i, cad_pro_identificacao: "Secundário", apelido: "APELIDO_NAO_IMPRIMIR"}))}, confirmado: true }));
+  assert.match(htmlIdentificacaoFaturamento, /Identificação: Secundário/);
+  assert.doesNotMatch(htmlIdentificacaoFaturamento, /APELIDO_NAO_IMPRIMIR/);
   for (const texto of ["Prévia de faturamento", "sem baixa", "Empresa teste", "Fazenda teste", "Produtor teste", "123", "80", "-20", "Saldo negativo permitido"]) assert.ok(previaFaturamentoHtml.includes(texto), texto);
   assert.doesNotMatch(previaFaturamentoHtml, /<script>/);
   assert.match(previaFaturamentoHtml, /Total de embalagens: 4/);
@@ -247,10 +255,10 @@ try {
   assert.doesNotMatch(listaInativa.split('>')[0], /open/);
   const confirmadoFaturamentoHtml = renderToStaticMarkup(React.createElement(RelatorioFaturamento, { resumo: faturamentoFixture, confirmado: true }));
   assert.match(confirmadoFaturamentoHtml, /Faturamento de insumos confirmado/);
-  assert.doesNotMatch(confirmadoFaturamentoHtml, /<th>BEP<\/th>/);
+  assert.doesNotMatch(confirmadoFaturamentoHtml, /<th[^>]*>BEP<\/th>/);
   const cvaleResumo = { ...faturamentoFixture, usa_bep: true, fornecedor_nome: "C.Vale", itens: [{ ...faturamentoFixture.itens[0], bep: "00100371854" }] };
   const cvaleHtml = renderToStaticMarkup(React.createElement(RelatorioFaturamento, { resumo: cvaleResumo, confirmado: true }));
-  assert.match(cvaleHtml, /<th>BEP<\/th>/);
+  assert.match(cvaleHtml, /<th[^>]*>BEP<\/th>/);
   assert.match(cvaleHtml, /00100371854/);
   const historicoHtml = renderToStaticMarkup(React.createElement(HistoricoFaturamento, {
     historico: [{ id: "teste", data_envio: "2026-09-29", resumo: cvaleResumo }], ocupado: true,
@@ -310,6 +318,16 @@ try {
   assert.match(importacoesHtml, /Gerar prévia/);
   assert.doesNotMatch(importacoesHtml, /Confirmar importação/);
   const { aplicarGrupoNaCarga } = await servidor.ssrLoadModule("/src/api/gruposPropriedades.ts");
+  const { filtrarProdutos } = await servidor.ssrLoadModule("/src/pages/CadastrosAgricolas/CadastrosAgricolasPage.tsx");
+  const produtosBusca = [{ nome: "Produto Ágil", principios_ativos: "Glifosato" }, { nome: "Outro", principios_ativos: "Atrazina" }];
+  assert.deepEqual(filtrarProdutos(produtosBusca, "AGIL"), [produtosBusca[0]]);
+  assert.deepEqual(filtrarProdutos(produtosBusca, "glifosato"), [produtosBusca[0]]);
+  assert.deepEqual(filtrarProdutos(produtosBusca, "produto glifosato"), [produtosBusca[0]]);
+  assert.deepEqual(filtrarProdutos(produtosBusca, ""), produtosBusca);
+  assert.deepEqual(filtrarProdutos(produtosBusca, "inexistente"), []);
+  const grupoDiverso = { ativo: true, membros: [{ propriedade: 1, cad_pro: "123", disponivel: true }, { propriedade: 2, cad_pro: "456", disponivel: true }, { propriedade: 3, cad_pro: "789", disponivel: true }] };
+  assert.throws(() => aplicarGrupoNaCarga({}, {...grupoDiverso, excluido_em: "2026-10-18T22:00:00Z"}));
+  assert.deepEqual(aplicarGrupoNaCarga({}, grupoDiverso).cadpros_por_propriedade, { 1: "123", 2: "456", 3: "789" });
   const grupoTeste = { ativo: true, membros: [
     { propriedade: 1, cad_pro: "compartilhado", disponivel: true },
     { propriedade: 2, cad_pro: "compartilhado", disponivel: true },

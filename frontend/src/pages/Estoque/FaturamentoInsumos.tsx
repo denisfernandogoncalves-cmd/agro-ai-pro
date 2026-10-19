@@ -11,7 +11,7 @@ import { listarProdutosEstoque, ProdutoEstoque } from "../../api/estoque";
 import { ParceiroFinanceiro } from "../../api/financeiro";
 import { obterGeracaoSessao } from "../../auth/sessionCoordinator";
 import { quantidadeParaEnviar, sugerirEmbalagens } from "./embalagensFaturamento";
-import { confirmarFaturamento, empresaUsaBep, excluirFaturamento, obterPdfFaturamento, tituloFaturamento, EntradaFaturamento, Faturamento, ItemFaturamento, listarFaturamentos, previaFaturamento, ResumoFaturamento } from "../../api/faturamentoInsumos";
+import { confirmarFaturamento, empresaUsaBep, excluirFaturamento, obterPdfFaturamento, obterExcelFaturamento, tituloFaturamento, EntradaFaturamento, Faturamento, ItemFaturamento, listarFaturamentos, previaFaturamento, ResumoFaturamento } from "../../api/faturamentoInsumos";
 
 const numero = (valor: string | number) => Number(valor).toLocaleString("pt-BR", { maximumFractionDigits: 3 });
 const dataLocal = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
@@ -49,9 +49,17 @@ export function RelatorioFaturamento({ resumo, confirmado }: { resumo: ResumoFat
         <p><span>Safra</span><b>{resumo.safra || "Não informada"}</b></p>
       </div>
     </header>
-    <div className="faturamento-tabela"><table><thead><tr><th>Propriedade</th><th>Produtor</th><th>CAD/PRO</th>{usaBep && <th>BEP</th>}<th>Área (alq.)</th><th>Embalagens</th><th>Quantidade ({resumo.unidade})</th></tr></thead>
-      <tbody>{resumo.itens.map(item => <tr key={item.propriedade}><td>{item.propriedade_nome}<br /><small>Latitude: {coordenadaCadastrada(item, "latitude")}<br />Longitude: {coordenadaCadastrada(item, "longitude")}</small></td><td>{item.produtor || "Não informado"}</td><td>{item.cad_pro || "Não informado"}</td>{usaBep && <td>{item.bep || "Não informado"}</td>}<td>{numero(item.area_alqueires)}</td><td>{numero(item.quantidade_embalagens)}</td><td>{numero(item.quantidade)}</td></tr>)}</tbody>
-      <tfoot><tr><th colSpan={usaBep ? 5 : 4}>Total</th><td>{numero(resumo.total_embalagens)}</td><td>{numero(resumo.quantidade_total)} {resumo.unidade}</td></tr></tfoot>
+    <div className="faturamento-tabela"><table><thead><tr><th>Propriedade</th><th className="faturamento-produtor">Produtor</th><th>CAD/PRO</th>{usaBep && <th className="faturamento-bep">BEP</th>}<th className="faturamento-area">Área (alq.)</th><th className="faturamento-embalagens">Embalagens</th><th className="faturamento-quantidade">Quantidade ({resumo.unidade})</th></tr></thead>
+      <tbody>{resumo.itens.map(item => <tr key={item.propriedade}>
+        <td data-label="Propriedade">{item.propriedade_nome}<span className="somente-impressao">Produtor: {item.produtor || "Não informado"}</span><br className="nao-imprimir" /><small>Latitude: {coordenadaCadastrada(item, "latitude")}<br />Longitude: {coordenadaCadastrada(item, "longitude")}</small></td>
+        <td className="faturamento-produtor" data-label="Produtor">{item.produtor || "Não informado"}</td>
+        <td data-label="CAD/PRO">{item.cad_pro || "Não informado"}<br /><small>Identificação: {item.cad_pro_identificacao || "Não informado"}</small>{usaBep && <span className="somente-impressao">BEP: {item.bep || "Não informado"}</span>}</td>
+        {usaBep && <td className="faturamento-bep" data-label="BEP">{item.bep || "Não informado"}</td>}
+        <td data-label="Área (alq.)">{numero(item.area_alqueires)}</td>
+        <td data-label="Embalagens">{numero(item.quantidade_embalagens)}</td>
+        <td data-label={`Quantidade (${resumo.unidade})`}>{numero(item.quantidade)}</td>
+      </tr>)}</tbody>
+      <tfoot><tr><th className="total-faturamento-tela" colSpan={usaBep ? 5 : 4}>Total</th><th className="somente-impressao total-faturamento-impressao" colSpan={3}>Total</th><td data-label="Embalagens">{numero(resumo.total_embalagens)}</td><td data-label="Quantidade">{numero(resumo.quantidade_total)} {resumo.unidade}</td></tr></tfoot>
     </table></div>
     {resumo.observacoes && <p>{resumo.observacoes}</p>}
     <p className="nao-imprimir">Saldo da empresa: {numero(resumo.saldo_anterior)} → <strong>{numero(resumo.saldo_posterior)} {resumo.unidade}</strong>.</p>
@@ -59,9 +67,10 @@ export function RelatorioFaturamento({ resumo, confirmado }: { resumo: ResumoFat
   </section>;
 }
 
-export function HistoricoFaturamento({ historico, ocupado, onVer, onPdf, onExcluir }: {
+export function HistoricoFaturamento({ historico, ocupado, onVer, onPdf, onExcel, onExcluir }: {
   historico: Faturamento[]; ocupado: boolean;
   onVer: (f: Faturamento) => void; onPdf: (f: Faturamento) => void; onExcluir: (f: Faturamento) => void;
+  onExcel?: (f: Faturamento) => void;
 }) {
   return <section className="card nao-imprimir"><h2>Histórico de envios confirmados</h2>{!historico.length && <p>Nenhum faturamento registrado.</p>}
     {historico.map(h => <article className="item" key={h.id}><AnexosLancamento entidade="faturamento" registro={h.id} />
@@ -69,6 +78,7 @@ export function HistoricoFaturamento({ historico, ocupado, onVer, onPdf, onExclu
       <div className="acoes">
         <button type="button" className="secundario" disabled={ocupado} onClick={() => onVer(h)}>Ver relatório</button>
         <BotaoAcao acao="imprimir" type="button" className="secundario" disabled={ocupado} onClick={() => onPdf(h)}>Exportar PDF</BotaoAcao>
+        {onExcel && <BotaoAcao acao="imprimir" type="button" className="secundario" disabled={ocupado} onClick={() => onExcel(h)}>Exportar Excel</BotaoAcao>}
         <BotaoAcao acao="excluir" type="button" className="perigo" disabled={ocupado} onClick={() => onExcluir(h)}>Excluir lançamento</BotaoAcao>
       </div>
     </article>)}
@@ -165,18 +175,18 @@ export default function FaturamentoInsumos() {
     }
     finally { trava.current = false; setOcupado(false); }
   }
-  async function exportarPdf(faturamento: Faturamento) {
+  async function exportarPdf(faturamento: Faturamento, formato: "pdf" | "excel" = "pdf") {
     if (trava.current) return;
     trava.current = true; setOcupado(true); setErro("");
     try {
-      const arquivo = await obterPdfFaturamento(faturamento.id);
+      const arquivo = formato === "excel" ? await obterExcelFaturamento(faturamento.id) : await obterPdfFaturamento(faturamento.id);
       const url = URL.createObjectURL(arquivo);
       const link = document.createElement("a");
-      link.href = url; link.download = `${tituloFaturamento(faturamento.resumo)}.pdf`;
+      link.href = url; link.download = `${tituloFaturamento(faturamento.resumo)}.${formato === "excel" ? "xlsx" : "pdf"}`;
       document.body.appendChild(link); link.click(); link.remove();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch {
-      setErro("Não foi possível exportar o PDF. Confira sua conexão e se o lançamento ainda está disponível.");
+      setErro(`Não foi possível exportar o ${formato === "excel" ? "Excel" : "PDF"}. Confira sua conexão e se o lançamento ainda está disponível.`);
     } finally { trava.current = false; setOcupado(false); }
   }
   async function excluir(faturamento: Faturamento) {
@@ -199,7 +209,7 @@ export default function FaturamentoInsumos() {
     }
   }, []);
 
-  const visiveis = propriedades.filter(p => `${p.nome} ${p.proprietario} ${p.cad_pro_numeros.join(" ")}`.toLocaleLowerCase().includes(busca.toLocaleLowerCase()));
+  const visiveis = propriedades.filter(p => `${p.nome} ${p.apelido ?? ""} ${(p.apelidos ?? []).join(" ")} ${p.proprietario} ${p.cad_pro_numeros.join(" ")}`.toLocaleLowerCase().includes(busca.toLocaleLowerCase()));
   return <section className="modulo-faturamento">
     <style media="print">{`.modulo-faturamento > .aba-modulo-painel:not([hidden]) { display: block !important; } .modulo-faturamento > .aba-modulo-painel > :not(.relatorio-faturamento) { display: none !important; }`}</style>
     <div className="nao-imprimir"><h2>Faturamento de insumos por empresa</h2><p>Selecione as propriedades, confira as embalagens e confirme a baixa. O relatório pode ser impresso ou salvo em PDF para encaminhar à empresa.</p></div>
@@ -221,13 +231,13 @@ export default function FaturamentoInsumos() {
         </div>
         <p>As embalagens são sugeridas pela dosagem e pelo conteúdo da embalagem, arredondando para cima. Você pode editar a quantidade a enviar; alterações manuais serão mantidas. 1 alqueire paulista = 2,42 ha.</p>
         {usaBep && <p>O BP cadastrado na propriedade preenche o BEP da C.Vale. Você pode ajustá-lo para este envio; ele será incluído no PDF.</p>}
-        <label>Buscar propriedade, produtor ou CAD/PRO<input value={busca} onChange={e => setBusca(e.target.value)} /></label>
+        <label>Buscar propriedade, apelido, produtor ou CAD/PRO<input value={busca} onChange={e => setBusca(e.target.value)} /></label>
         <p>{Object.keys(itens).length} propriedade(s) selecionada(s), inclusive fora da busca.</p>
         {!propriedades.length && !carregando && <p>Cadastre as propriedades na aba Propriedades. Cadastre produtos e fornecedores em Estoque.</p>}
         <div className="faturamento-tabela"><table><thead><tr><th>Selecionar / propriedade</th><th>Produtor</th><th>CAD/PRO</th>{usaBep && <th>BEP C.Vale</th>}<th>Área faturada (alq.)</th><th>Sugestão ({produto?.unidade})</th><th>Embalagens a enviar</th></tr></thead>
-          <tbody>{visiveis.map(p => { const item = itens[p.id]; return <tr key={p.id}>
-            <td><label className="faturamento-checkbox"><input type="checkbox" checked={Boolean(item)} onChange={e => selecionar(p, e.target.checked)} />{p.nome}</label><small>Latitude: {coordenadaCadastrada(p, "latitude")}<br />Longitude: {coordenadaCadastrada(p, "longitude")}</small></td><td>{p.proprietario || "Não informado"}</td>
-            <td>{item ? <select aria-label={`CAD/PRO de ${p.nome}`} required={Boolean(p.cad_pro_numeros.length)} value={item.cad_pro} onChange={e => atualizarItem(p.id, "cad_pro", e.target.value)}><option value="">{p.cad_pro_numeros.length ? "Selecione" : "Não informado"}</option>{p.cad_pro_numeros.map(c => <option key={c}>{c}</option>)}</select> : p.cad_pro_numeros.join(", ")}</td>
+          <tbody>{visiveis.map(p => { const item = itens[p.id]; const apelidos = [...new Set([p.apelido, ...(p.apelidos ?? [])].map(a => (a ?? "").trim()).filter(Boolean))]; return <tr key={p.id}>
+            <td><label className="faturamento-checkbox"><input type="checkbox" checked={Boolean(item)} onChange={e => selecionar(p, e.target.checked)} />{p.nome}{apelidos.length > 0 && ` — ${apelidos.join(" / ")}`}</label><small>Latitude: {coordenadaCadastrada(p, "latitude")}<br />Longitude: {coordenadaCadastrada(p, "longitude")}</small></td><td>{p.proprietario || "Não informado"}</td>
+            <td>{item ? <select aria-label={`CAD/PRO de ${p.nome}`} required={Boolean(p.cad_pro_numeros.length)} value={item.cad_pro} onChange={e => atualizarItem(p.id, "cad_pro", e.target.value)}><option value="">{p.cad_pro_numeros.length ? "Selecione" : "Não informado"}</option>{p.cad_pro_numeros.map(c => <option key={c}>{c}</option>)}</select> : p.cad_pro_numeros.join(", ")}<small>Identificação: {p.cad_pro_identificacao || "Não informado"}</small></td>
             {usaBep && <td>{item && <input aria-label={`BEP de ${p.nome}`} type="text" inputMode="numeric" pattern="[0-9]*" maxLength={40} value={item.bep || ""} onChange={e => atualizarItem(p.id, "bep", e.target.value)} />}</td>}
             <td>{item ? <input aria-label={`Área de ${p.nome}`} type="number" required min="0.000001" step="0.000001" value={item.area_alqueires} onChange={e => atualizarItem(p.id, "area_alqueires", e.target.value)} /> : numero(Number(p.area_hectares) / 2.42)}</td>
             <td>{item ? numero(Number(item.area_alqueires) * Number(form.dosagem_alqueire)) : "—"}</td>
@@ -242,12 +252,13 @@ export default function FaturamentoInsumos() {
       {previa && !confirmado && <BotaoAcao acao="cadastrar" type="button" disabled={ocupado || incerto} motivoBloqueio={incerto ? "Existe confirmação pendente. Use Verificar / repetir confirmação para evitar baixa duplicada." : "Aguarde o processamento."} onClick={() => void confirmar()}>Confirmar envio e baixar estoque</BotaoAcao>}
       {previa && <BotaoAcao acao="imprimir" type="button" className="secundario" disabled={ocupado} onClick={() => window.print()}>Imprimir / salvar PDF</BotaoAcao>}
       {confirmado && <BotaoAcao acao="imprimir" type="button" className="secundario" disabled={ocupado} onClick={() => void exportarPdf(confirmado)}>Exportar PDF deste lançamento</BotaoAcao>}
+      {confirmado && <BotaoAcao acao="imprimir" type="button" className="secundario" disabled={ocupado} onClick={() => void exportarPdf(confirmado, "excel")}>Exportar Excel deste lançamento</BotaoAcao>}
       {confirmado && <button type="button" onClick={() => { invalidar(); setItens({}); protecao.marcarSalvo({form,itens:{}}); embalagensEditadas.current.clear(); }}>Novo faturamento</button>}
     </div>
     {confirmado && <p className="sucesso card nao-imprimir" role="status">Baixa registrada. Protocolo {confirmado.id} · {confirmado.responsavel}.</p>}
 
 </PainelAba><PainelAba modulo="faturamento" aba="historico" ativa={aba}>
-    <HistoricoFaturamento historico={historico} ocupado={ocupado || incerto} onVer={async h => { if (!(await protecao.confirmarDescarte())) return; setAba("novo"); setConfirmado(h); setPrevia(h.resumo); setPendente(null); }} onPdf={h => void exportarPdf(h)} onExcluir={h => void excluir(h)} />
+    <HistoricoFaturamento historico={historico} ocupado={ocupado || incerto} onVer={async h => { if (!(await protecao.confirmarDescarte())) return; setAba("novo"); setConfirmado(h); setPrevia(h.resumo); setPendente(null); }} onPdf={h => void exportarPdf(h)} onExcel={h => void exportarPdf(h, "excel")} onExcluir={h => void excluir(h)} />
 
 </PainelAba>  </section>;
 }

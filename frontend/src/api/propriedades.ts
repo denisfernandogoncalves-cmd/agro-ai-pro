@@ -16,6 +16,9 @@ import { GeometriaGeoJSON } from "../utils/geometria";
 
 
 export type Propriedade = {
+  apelido?: string;
+  tipo_imovel?: "" | "arrendado" | "proprio";
+  cad_pro_identificacao?: string;
   formato_coordenadas?: "decimal" | "gms";
   latitude_gms?: string;
   longitude_gms?: string;
@@ -40,6 +43,9 @@ export type Propriedade = {
 };
 
 export type PropriedadeInput = {
+  apelido?: string;
+  tipo_imovel?: "" | "arrendado" | "proprio";
+  cad_pro_identificacao?: string;
   formato_coordenadas?: "decimal" | "gms";
   latitude_gms?: string;
   longitude_gms?: string;
@@ -70,7 +76,7 @@ export function rotuloPropriedade(propriedade: PropriedadeComCadPro) {
 }
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://127.0.0.1:8000/api";
-const hectaresDeAlqueires = (valor: string) => (Number(valor.replace(",", ".")) * 2.42).toFixed(2);
+const hectaresDeAlqueires = (valor: string) => (Number(valor.replace(",", ".")) * 2.42).toFixed(6);
 
 type RequisicaoComRetry = InternalAxiosRequestConfig & {
   _retry?: boolean;
@@ -271,7 +277,7 @@ export async function listarPropriedades(search = "") {
 export function montarFormulario(dados: PropriedadeInput) {
   const formulario = new FormData();
   Object.entries(dados).forEach(([campo, valor]) => {
-    if (valor !== undefined && valor !== null && (valor !== "" || ["bp_cvale", "latitude_gms", "longitude_gms"].includes(campo))) {
+    if (valor !== undefined && valor !== null && (valor !== "" || ["apelido", "tipo_imovel", "cad_pro_identificacao", "bp_cvale", "latitude_gms", "longitude_gms"].includes(campo))) {
       formulario.append(campo, campo === "area_hectares" ? hectaresDeAlqueires(String(valor)) : valor);
     }
   });

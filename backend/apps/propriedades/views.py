@@ -17,7 +17,7 @@ class PropriedadeViewSet(viewsets.ModelViewSet):
     pagination_class = PaginacaoOpcional
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ["nome", "proprietario", "municipio", "uf"]
+    search_fields = ["nome", "apelido", "proprietario", "municipio", "uf", "cad_pro_identificacao", "vinculos_cadpro__cad_pro__codigo"]
     ordering_fields = ["nome", "municipio", "area_hectares", "criado_em"]
 
     def destroy(self, request, *args, **kwargs):

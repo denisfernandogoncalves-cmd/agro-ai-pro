@@ -1,4 +1,5 @@
 from django.urls import path
+from .busca import BuscaGeralView
 from .views import PainelView, FavoritosView, FavoritoDetailView, HistoricoView
 
 from .rascunhos import RascunhoView
@@ -17,6 +18,7 @@ from apps.graos.pendencias import PendenciasView
 from .conferencia_diaria import ConferenciaDiariaView
 
 urlpatterns = [
+    path("busca/", BuscaGeralView.as_view(), name="busca-geral"),
     path("conferencia-diaria/", ConferenciaDiariaView.as_view(), name="conferencia-diaria"),
     path("pendencias-conferencia/<int:pk>/origem/", OrigemPendenciaView.as_view(), name="origem-pendencia"),
     path("checklist-safra/", ChecklistSafraView.as_view(), name="checklist-safra"),

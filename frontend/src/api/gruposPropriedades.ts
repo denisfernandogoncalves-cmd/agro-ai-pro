@@ -7,6 +7,7 @@ export type MembroGrupo = {
   cad_pro: string;
   cad_pro_codigo: string;
   disponivel: boolean;
+  area_hectares?: string;
 };
 export type GrupoPropriedades = {
   id: number;
@@ -14,11 +15,16 @@ export type GrupoPropriedades = {
   ativo: boolean;
   vinculos: string[];
   membros: MembroGrupo[];
+  excluido_em?: string | null;
+  historico_area?: MembroGrupo[];
 };
 export type OpcaoGrupo = Omit<MembroGrupo, "disponivel"> & { id: string };
 const caminho = "/talhoes/grupos-colheita/";
-export async function listarGruposPropriedades() {
-  return (await api.get<GrupoPropriedades[]>(caminho)).data;
+export async function listarGruposPropriedades(incluirExcluidos = false) {
+  return (await api.get<GrupoPropriedades[]>(caminho, { params: incluirExcluidos ? { incluir_excluidos: true } : undefined })).data;
+}
+export async function excluirGrupoPropriedades(id: number) {
+  await api.delete(`${caminho}${id}/`);
 }
 export async function listarOpcoesGrupo() {
   return (await api.get<OpcaoGrupo[]>(`${caminho}opcoes/`)).data;
@@ -34,8 +40,8 @@ export async function salvarGrupoPropriedades(
 export function aplicarGrupoNaCarga(
   carga: CargaColhidaInput, grupo: GrupoPropriedades,
 ): CargaColhidaInput {
-  if (!grupo.ativo || !grupo.membros.length || grupo.membros.some(m => !m.disponivel)) {
-    throw new Error("O grupo possui vínculo indisponível. Revise seu cadastro em Talhões.");
+  if (grupo.excluido_em || !grupo.ativo || !grupo.membros.length || grupo.membros.some(m => !m.disponivel)) {
+    throw new Error("O grupo está excluído, inativo ou possui vínculo indisponível. Revise em Grupos de colheita.");
   }
   return {
     ...carga,

@@ -671,7 +671,7 @@ export default function CargasColhidasPage({ propriedades }: Props) {
           </label>
           <button type="button" onClick={() => void carregarGrupos()}>Atualizar grupos</button>
           {erroGrupos && <p className="erro" role="alert">{erroGrupos}</p>}
-          <p>Cadastre grupos em Talhões. Após aplicar, confira as propriedades abaixo; você pode ajustar a seleção e os CAD/PROs antes de salvar.</p>
+          <p>Cadastre em Grupos de colheita, no menu Cadastros. Após aplicar, confira as propriedades abaixo; você pode ajustar a seleção e os CAD/PROs antes de salvar.</p>
           <fieldset className="propriedades-compactas">
             <legend>Escolha as propriedades</legend>
             <details className="menu-propriedades">

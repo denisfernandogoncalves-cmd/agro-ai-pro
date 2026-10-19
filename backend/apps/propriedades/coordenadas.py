@@ -29,7 +29,7 @@ def converter_gms(valor, eixo):
 
 def validar_coordenadas_cadastradas(attrs, instance=None):
     converter = attrs.pop('converter_coordenadas', False)
-    formato = attrs.get('formato_coordenadas',getattr(instance,'formato_coordenadas','decimal'))
+    formato = attrs.get('formato_coordenadas',getattr(instance,'formato_coordenadas','gms'))
     if converter and formato != 'gms':
         raise serializers.ValidationError({'converter_coordenadas':'Selecione GMS para solicitar a conversão para decimal.'})
     if formato != 'gms':
@@ -50,7 +50,7 @@ def validar_coordenadas_cadastradas(attrs, instance=None):
             raise serializers.ValidationError({'converter_coordenadas':'Informe as duas coordenadas GMS antes de converter.'})
         attrs['latitude'] = converter_gms(lat,'latitude')
         attrs['longitude'] = converter_gms(lon,'longitude')
-    elif mudou:
+    elif mudou and (instance is not None or lat or lon):
         # GMS novo não deve reutilizar a posição decimal antiga no mapa.
         attrs['latitude'] = None
         attrs['longitude'] = None

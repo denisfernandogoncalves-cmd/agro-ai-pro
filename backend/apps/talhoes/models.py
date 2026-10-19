@@ -11,6 +11,8 @@ class GrupoPropriedadesColheita(models.Model):
 
     nome = models.CharField(max_length=100, unique=True)
     ativo = models.BooleanField(default=True)
+    excluido_em = models.DateTimeField(null=True, blank=True, editable=False)
+    historico_area = models.JSONField(default=list, blank=True, editable=False)
     vinculos = models.ManyToManyField("cadpro.CADProPropriedade", blank=False)
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)

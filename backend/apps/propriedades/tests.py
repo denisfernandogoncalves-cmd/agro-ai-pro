@@ -71,7 +71,7 @@ class PropriedadeAPITests(APITestCase):
             detalhe_url, {"area_hectares": "1300.00"}, format="json"
         )
         self.assertEqual(alteracao.status_code, status.HTTP_200_OK)
-        self.assertEqual(alteracao.data["area_hectares"], "1300.00")
+        self.assertEqual(alteracao.data["area_hectares"], "1300.000000")
 
         exclusao = self.client.delete(detalhe_url)
         self.assertEqual(exclusao.status_code, status.HTTP_204_NO_CONTENT)

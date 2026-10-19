@@ -12,7 +12,7 @@ export const MODULOS = [
   ["relatorios", "Relatórios"], ["importacoes", "Importações"], ["insights", "Assistente"],
 ] as const;
 // Identificadores antigos permanecem tipados para leitura de históricos.
-export type Modulo = typeof MODULOS[number][0] | "clima" | "mercado";
+export type Modulo = typeof MODULOS[number][0] | "clima" | "mercado" | "grupos-colheita";
 export const ACOES = ["consultar", "cadastrar", "editar", "excluir", "imprimir"] as const;
 export type Acao = typeof ACOES[number];
 export type Pagina = Modulo | "usuarios" | "inicio" | "historico" | "backup";

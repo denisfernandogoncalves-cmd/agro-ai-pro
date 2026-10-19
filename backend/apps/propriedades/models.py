@@ -3,7 +3,10 @@ from django.core.validators import RegexValidator
 
 
 class Propriedade(models.Model):
-    formato_coordenadas = models.CharField(max_length=7, choices=[('decimal', 'Graus decimais'), ('gms', 'Graus, minutos e segundos')], default='decimal')
+    apelido = models.CharField(max_length=100, blank=True, default='')
+    formato_coordenadas = models.CharField(max_length=7, choices=[('decimal', 'Graus decimais'), ('gms', 'Graus, minutos e segundos')], default='gms')
+    cad_pro_identificacao = models.CharField(max_length=100, blank=True, default='')
+    tipo_imovel = models.CharField(max_length=10, blank=True, default='', choices=[('arrendado', 'Imóvel arrendado'), ('proprio', 'Imóvel próprio')])
     latitude_gms = models.CharField(max_length=60, blank=True, default='')
     longitude_gms = models.CharField(max_length=60, blank=True, default='')
 
@@ -32,8 +35,8 @@ class Propriedade(models.Model):
     )
 
     area_hectares = models.DecimalField(
-        max_digits=10,
-        decimal_places=2
+        max_digits=14,
+        decimal_places=6
     )
 
     latitude = models.DecimalField(

@@ -21,13 +21,13 @@
 }
 
 @media print {
-  body:has(.modulo-faturamento) .pagina { page: planilha; }
+  body:has(.modulo-faturamento) .pagina { page: faturamento; }
   body:has(.modulo-faturamento) .pagina > header,
   body:has(.modulo-faturamento) .pagina > .impressao-contexto { display: none !important; }
   .modulo-faturamento > :not(.relatorio-faturamento) { display: none !important; }
   .modulo-faturamento .relatorio-faturamento { display: block !important; border: 0; box-shadow: none; padding: 0; }
   .modulo-faturamento .faturamento-tabela { overflow: visible; }
-  .modulo-faturamento table { font-size: 9pt; }
+  .modulo-faturamento table { font-size: 12pt; }
   :root, body { background: white !important; color: #111 !important; min-width: 0; font-size: 10pt; }
   .pagina { width: auto; max-width: none; margin: 0; padding: 0; }
   .pagina * { box-shadow: none !important; text-shadow: none !important; }
@@ -326,3 +326,32 @@
 }
 
 @media print {body.impressao-bloqueada #root {display:none !important;} body.impressao-bloqueada::after {content:"Impressão indisponível para seu usuário nesta tela.";} .filtros-favoritos {display:none !important;}}
+
+@page faturamento { size: A4 portrait; margin: 14mm; }
+@media print {
+  .pagina .modulo-faturamento .relatorio-faturamento,
+  .pagina .modulo-faturamento .relatorio-faturamento * {
+    font-family: Arial, sans-serif !important;
+    font-size: 12pt !important;
+    line-height: 1.35;
+  }
+  .modulo-faturamento .faturamento-cabecalho-grade { grid-template-columns: 1fr 1fr; }
+  .modulo-faturamento .faturamento-cabecalho { break-inside: auto; }
+  .modulo-faturamento .faturamento-cabecalho-grade > p { break-inside: avoid; }
+  .pagina .modulo-faturamento .faturamento-tabela table { display: table; width: 100%; table-layout: fixed; }
+  .pagina .modulo-faturamento .faturamento-tabela thead { display: table-header-group; }
+  .pagina .modulo-faturamento .faturamento-tabela tbody { display: table-row-group; }
+  .pagina .modulo-faturamento .faturamento-tabela tfoot { display: table-row-group; }
+  .pagina .modulo-faturamento .faturamento-tabela tr { display: table-row; break-inside: avoid; }
+  .pagina .modulo-faturamento .faturamento-tabela :is(th, td) {
+    display: table-cell; padding: 2mm 1mm; vertical-align: top; border-bottom: 1px solid #aaa;
+  }
+  .pagina .modulo-faturamento .faturamento-tabela :is(.faturamento-produtor, .faturamento-bep) { display: none; }
+  .modulo-faturamento .faturamento-tabela thead th:first-child { width: 37%; }
+  .modulo-faturamento .faturamento-tabela thead th:nth-child(3) { width: 23%; }
+  .modulo-faturamento .faturamento-tabela .faturamento-area { width: 12%; }
+  .modulo-faturamento .faturamento-tabela .faturamento-embalagens { width: 14%; }
+  .modulo-faturamento .faturamento-tabela .faturamento-quantidade { width: 14%; }
+  .pagina .modulo-faturamento .faturamento-tabela tfoot th { text-align: left; }
+}
+@media print { .modulo-faturamento .total-faturamento-tela { display: none !important; } }

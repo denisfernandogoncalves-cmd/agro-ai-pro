@@ -316,8 +316,8 @@ class CargaColhidaApiTests(CargaColhidaBase, APITestCase):
         self.assertEqual(resposta.data["status"], "ativa")
         self.assertNotIn("grupo_colheita", resposta.data)
         self.assertEqual(
-            resposta.data["contexto_colheita"]["area_total_propriedades_hectares"],
-            "1000.00",
+            Decimal(resposta.data["contexto_colheita"]["area_total_propriedades_hectares"]),
+            Decimal("1000"),
         )
         self.assertIsNotNone(resposta.data["movimentacao"])
 

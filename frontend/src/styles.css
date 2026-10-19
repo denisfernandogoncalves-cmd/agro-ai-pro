@@ -1458,3 +1458,8 @@ dialog.editor-venda::backdrop { background: #102f2480; }
 .modulo-financeiro .conta-a-pagar .kicker,
 .modulo-financeiro .conta-a-pagar > div > strong { color: #b42318; }
 .modulo-financeiro #financeiro-aba-pagar { color: #b42318; }
+.grupo-opcoes { max-height: 18rem; overflow-y: auto; display: grid; gap: .5rem; padding: .5rem; }
+.grupo-formulario fieldset { min-width: 0; }
+.busca-geral-resultados { min-width: 0; padding: .5rem 0; }
+.busca-geral-resultados button { display: flex; flex-direction: column; align-items: flex-start; width: 100%; text-align: left; margin: .5rem 0; white-space: normal; overflow-wrap: anywhere; }
+.busca-geral-resultados small { display: block; }

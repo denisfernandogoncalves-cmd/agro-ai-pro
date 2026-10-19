@@ -98,6 +98,7 @@ def preparar_resumo(dados):
         itens.append({
             "propriedade": propriedade.pk, "propriedade_nome": propriedade.nome,
             "produtor": propriedade.proprietario, "cad_pro": codigo,
+            "cad_pro_identificacao": propriedade.cad_pro_identificacao,
             "formato_coordenadas": propriedade.formato_coordenadas,
             "latitude": str(propriedade.latitude) if propriedade.latitude is not None else None,
             "longitude": str(propriedade.longitude) if propriedade.longitude is not None else None,
@@ -228,6 +229,11 @@ class FaturamentoInsumoViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin,
         response["Content-Disposition"] = content_disposition_header(True, titulo_faturamento(faturamento.resumo) + ".pdf")
         response["Cache-Control"] = "private, no-store"
         return response
+
+    @action(detail=True, methods=["get"])
+    def excel(self, request, *args, **kwargs):
+        from .faturamento_excel import exportar_excel_faturamento
+        return exportar_excel_faturamento(self.get_object())
 
     @action(detail=False, methods=["post"])
     def previa(self, request):

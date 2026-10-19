@@ -1,5 +1,5 @@
 import AbasModulo, { PainelAba } from "../../components/AbasModulo";
-import { BotaoAcao } from "../../components/AcoesContext";
+import { BotaoAcao, useDestinoConsulta } from "../../components/AcoesContext";
 import PainelFormulario from "../../components/PainelFormulario";
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import axios from "axios";
@@ -81,6 +81,15 @@ function numero(valor: string) {
   return Number(valor).toLocaleString("pt-BR", { maximumFractionDigits: 3 });
 }
 
+export function filtrarProdutos(produtos: ProdutoEstoque[], busca: string) {
+  const normalizar = (valor: string) => valor.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase();
+  const termos = normalizar(busca).trim().split(/\s+/).filter(Boolean);
+  return produtos.filter(item => {
+    const texto = normalizar(`${item.nome} ${item.principios_ativos ?? ""}`);
+    return termos.every(termo => texto.includes(termo));
+  });
+}
+
 type Props = { propriedades: Propriedade[] };
 
 export default function CadastrosAgricolasPage({ propriedades }: Props) {
@@ -88,6 +97,13 @@ export default function CadastrosAgricolasPage({ propriedades }: Props) {
   const [armazens, setArmazens] = useState<ArmazemGraos[]>([]);
   const [locais, setLocais] = useState<LocalEstoque[]>([]);
   const [produtos, setProdutos] = useState<ProdutoEstoque[]>([]);
+  const [buscaProduto, setBuscaProduto] = useState("");
+  const produtosFiltrados = filtrarProdutos(produtos, buscaProduto);
+  useDestinoConsulta("cadastros-agricolas", filtros => {
+    if (String(filtros.tipo ?? "").toLowerCase().includes("produto")) {
+      setAba("produtos"); setBuscaProduto(String(filtros.search ?? ""));
+    }
+  });
   const [falhaProdutos, setFalhaProdutos] = useState(false);
   const [fornecedores, setFornecedores] = useState<ParceiroFinanceiro[]>([]);
   const [armazem, setArmazem] = useState(armazemVazio);
@@ -266,8 +282,10 @@ export default function CadastrosAgricolasPage({ propriedades }: Props) {
             <div className="acoes"><button disabled={carregando || Boolean(processando)} type="submit">{edicaoProduto ? "Salvar produto" : "Cadastrar produto"}</button>{edicaoProduto && <BotaoAcao acao="excluir" className="secundario" type="button" onClick={() => { setProduto(produtoVazio); setEdicaoProduto(null); }}>Cancelar</BotaoAcao>}</div>
           </form>
 </PainelFormulario>
+          <label>Buscar produto ou princípio ativo<input type="search" placeholder="Nome do produto ou princípio ativo" value={buscaProduto} onChange={e => setBuscaProduto(e.target.value)} /></label>
+          <p role="status">{produtosFiltrados.length} de {produtos.length} produtos</p>
           <div className="lista">
-            {produtos.length ? produtos.map((item) => <article className="item" key={item.id}><div><h3>{item.nome}</h3><p>{item.classe_agronomica?.trim() || nomesCategorias[item.categoria]} · {nomesUnidades[item.unidade]}</p><small>{item.fabricante || "Fabricante não informado"} · mínimo {numero(item.estoque_minimo)}</small><div className="acoes"><BotaoAcao acao="editar" className="secundario" type="button" onClick={() => { setEdicaoProduto(item.id); setProduto({ ...produtoVazio, nome: item.nome, categoria: item.categoria, unidade: item.unidade, fabricante: item.fabricante, estoque_minimo: item.estoque_minimo, classe_agronomica: item.classe_agronomica ?? "", principios_ativos: item.principios_ativos ?? "", concentracao: item.concentracao ?? "", registro_mapa: item.registro_mapa ?? "", consulta_adapar: "" }); }}>Editar</BotaoAcao><BotaoAcao acao="excluir" className="perigo" type="button" onClick={() => void excluirCadastro("produto", item.nome, () => excluirProduto(item.id), () => { setEdicaoProduto(null); setProduto(produtoVazio); })}>Excluir</BotaoAcao></div></div><span className="kicker">{item.ativo ? "Ativo" : "Inativo"}</span></article>) : <p className="vazio">{carregando ? "Carregando produtos..." : falhaProdutos ? "Não foi possível consultar os produtos. Tente novamente." : "Nenhum produto cadastrado."}</p>}
+            {produtosFiltrados.length ? produtosFiltrados.map((item) => <article className="item" key={item.id}><div><h3>{item.nome}</h3><p>{item.classe_agronomica?.trim() || nomesCategorias[item.categoria]} · {nomesUnidades[item.unidade]}</p><p>Princípios ativos: {item.principios_ativos?.trim() || "Não informado"}</p><small>{item.fabricante || "Fabricante não informado"} · mínimo {numero(item.estoque_minimo)}</small><div className="acoes"><BotaoAcao acao="editar" className="secundario" type="button" onClick={() => { setEdicaoProduto(item.id); setProduto({ ...produtoVazio, nome: item.nome, categoria: item.categoria, unidade: item.unidade, fabricante: item.fabricante, estoque_minimo: item.estoque_minimo, classe_agronomica: item.classe_agronomica ?? "", principios_ativos: item.principios_ativos ?? "", concentracao: item.concentracao ?? "", registro_mapa: item.registro_mapa ?? "", consulta_adapar: "" }); }}>Editar</BotaoAcao><BotaoAcao acao="excluir" className="perigo" type="button" onClick={() => void excluirCadastro("produto", item.nome, () => excluirProduto(item.id), () => { setEdicaoProduto(null); setProduto(produtoVazio); })}>Excluir</BotaoAcao></div></div><span className="kicker">{item.ativo ? "Ativo" : "Inativo"}</span></article>) : <p className="vazio">{carregando ? "Carregando produtos..." : falhaProdutos ? "Não foi possível consultar os produtos. Tente novamente." : "Nenhum produto encontrado."}</p>}
           </div>
         </section>
 

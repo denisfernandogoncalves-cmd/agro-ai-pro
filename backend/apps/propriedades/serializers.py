@@ -54,7 +54,7 @@ class PropriedadeSerializer(serializers.ModelSerializer):
 
     def get_apelidos(self, obj):
         # As duas planilhas históricas usam D para Nome conhecido/comercial.
-        apelidos = {}
+        apelidos = {obj.apelido.casefold(): obj.apelido} if obj.apelido else {}
         for linha in obj.linhas_importacao.all():
             if linha.tipo != "historico" or linha.planilha.upper() != "INSUMOS":
                 continue

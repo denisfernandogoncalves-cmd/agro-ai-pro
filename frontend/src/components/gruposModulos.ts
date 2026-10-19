@@ -9,4 +9,5 @@ export const AREAS_MODULOS: { nome: string; modulos: Modulo[] }[] = [
   { nome: "Gestão", modulos: ["relatorios", "importacoes", "insights"] },
 ];
 
-export const nomeModulo = (id: Modulo) => MODULOS.find(([chave]) => chave === id)?.[1] ?? id;
+export const AREAS_NAVEGACAO = AREAS_MODULOS.map(area => area.nome === "Cadastros" ? { ...area, modulos: [...area.modulos, "grupos-colheita" as const] } : area);
+export const nomeModulo = (id: Modulo) => id === "grupos-colheita" ? "Grupos de colheita" : MODULOS.find(([chave]) => chave === id)?.[1] ?? id;

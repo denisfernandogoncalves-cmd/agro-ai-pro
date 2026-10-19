@@ -1,9 +1,10 @@
 import { Icon } from "./ModuloIcon";
 import MarcaAgro from "./MarcaAgro";
+import BuscaGeralResultados, { ResultadoBusca } from "./BuscaGeralResultados";
 import { autorizado } from "./AcoesContext";
 import { useEffect, useRef, useState } from "react";
 import { Pagina, UsuarioAtual } from "../api/usuarios";
-import { AREAS_MODULOS, nomeModulo } from "./gruposModulos";
+import { AREAS_NAVEGACAO as AREAS_MODULOS, nomeModulo } from "./gruposModulos";
 
 export function correspondeBuscaModulo(nome: string, busca: string) {
   const normalizar = (texto: string) => texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("pt-BR").trim();
@@ -12,7 +13,7 @@ export function correspondeBuscaModulo(nome: string, busca: string) {
 
 const nomesAdministracao = { usuarios: "Usuários", historico: "Histórico de alterações", backup: "Backup em Excel" } as const;
 
-export default function NavegacaoModulos({ acesso, modulo, onSelecionar }: { acesso: UsuarioAtual | null; modulo: Pagina; onSelecionar: (id: Pagina) => void }) {
+export default function NavegacaoModulos({ acesso, modulo, onSelecionar, onResultado }: { acesso: UsuarioAtual | null; modulo: Pagina; onSelecionar: (id: Pagina) => void; onResultado?: (item: ResultadoBusca, termo: string) => void }) {
   const areas = AREAS_MODULOS.filter(area => area.modulos.some(id => autorizado(acesso, id, "consultar")) || (area.nome === "Gestão" && acesso?.is_staff));
   const areaAtual = AREAS_MODULOS.find(area => ["usuarios", "historico", "backup"].includes(modulo) ? area.nome === "Gestão" : area.modulos.some(id => id === modulo))?.nome;
   const [aberto, setAberto] = useState(false);
@@ -48,7 +49,8 @@ export default function NavegacaoModulos({ acesso, modulo, onSelecionar }: { ace
     <div className="marca-lateral"><MarcaAgro /></div>
     {acesso && <button className="recolher-menu" type="button" aria-expanded={!recolhido} onClick={() => setRecolhido(!recolhido)}>{recolhido ? "Expandir menu" : "Recolher menu"}</button>}
     <span className="estado-menu" data-recolhido={recolhido} hidden />
-    {acesso && <label className="busca-navegacao">Buscar módulo<input ref={buscaRef} type="search" value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Ex.: talhoes, maquinas…" onKeyDown={e => { if (e.key === "Escape" && busca) { e.stopPropagation(); setBusca(""); } }} /></label>}
+    {acesso && <label className="busca-navegacao">Buscar no programa<input ref={buscaRef} type="search" maxLength={100} value={busca} onChange={e=>setBusca(e.target.value)} placeholder="Palavra, número, produto, placa…" onKeyDown={e => { if (e.key === "Escape" && busca) { e.stopPropagation(); setBusca(""); } }} /></label>}
+    {acesso && <BuscaGeralResultados key={acesso.id} termo={busca} abrir={item => { if (onResultado) onResultado(item, busca); else onSelecionar(item.modulo); setAberto(false); }} />}
     <div className="navegacao-areas" aria-label="Áreas do sistema">
       {acesso && <button type="button" aria-current={modulo === "inicio" ? "page" : undefined} className={modulo === "inicio" ? "" : "secundario"} onClick={() => onSelecionar("inicio")}>Início</button>}
       {areas.map(item => <button type="button" key={item.nome} aria-pressed={area?.nome === item.nome} className={area?.nome === item.nome ? "" : "secundario"} onClick={() => setAreaSelecionada(item.nome)}>{item.nome}</button>)}
