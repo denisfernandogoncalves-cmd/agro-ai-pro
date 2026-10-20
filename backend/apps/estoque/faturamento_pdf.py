@@ -36,6 +36,26 @@ def numero(valor):
     return texto.replace(",", "_").replace(".", ",").replace("_", ".")
 
 
+def descricao_embalagens(resumo):
+    nomes = {
+        'balde': ('BALDE', 'BALDES'), 'baldes': ('BALDE', 'BALDES'),
+        'galão': ('GALÃO', 'GALÕES'), 'galões': ('GALÃO', 'GALÕES'),
+        'saco': ('SACO', 'SACOS'), 'sacos': ('SACO', 'SACOS'),
+        'caixa': ('CAIXA', 'CAIXAS'), 'caixas': ('CAIXA', 'CAIXAS'),
+        'frasco': ('FRASCO', 'FRASCOS'), 'frascos': ('FRASCO', 'FRASCOS'),
+        'pacote': ('PACOTE', 'PACOTES'), 'pacotes': ('PACOTE', 'PACOTES'),
+        'tambor': ('TAMBOR', 'TAMBORES'), 'tambores': ('TAMBOR', 'TAMBORES'),
+    }
+    unidades = {'l': ('LITRO', 'LITROS'), 'ml': ('MILILITRO', 'MILILITROS'),
+                'kg': ('QUILOGRAMA', 'QUILOGRAMAS'), 'g': ('GRAMA', 'GRAMAS'),
+                't': ('TONELADA', 'TONELADAS'), 'un': ('UNIDADE', 'UNIDADES')}
+    embalagem = resumo['embalagem'].strip()
+    nome = nomes.get(embalagem.casefold(), (embalagem.upper(), embalagem.upper()))[Decimal(resumo['total_embalagens']) != 1]
+    unidade = resumo['unidade'].strip()
+    medida = unidades.get(unidade.casefold(), (unidade.upper(), unidade.upper()))[Decimal(resumo['conteudo_embalagem']) != 1]
+    return f"{numero(resumo['total_embalagens'])} {nome} DE {numero(resumo['conteudo_embalagem'])} {medida}"
+
+
 def titulo_faturamento(resumo):
     def quantidade(valor):
         return numero(valor).replace(".", "")
@@ -61,43 +81,38 @@ def gerar_pdf_faturamento(faturamento):
     def p(texto, estilo=corpo):
         return Paragraph(escape(str(texto if texto is not None and texto != "" else "Não informado")).replace("\n", "<br/>"), estilo)
 
-    def tabela(campos):
-        # Duas colunas mantêm o tamanho da fonte sem reduzir a escala da página.
-        t = LongTable([[p(campo, rotulo), p(valor)] for campo, valor in campos],
-                      colWidths=[62 * mm, 120 * mm], hAlign="LEFT")
-        t.setStyle(TableStyle([
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("LEFTPADDING", (0, 0), (-1, -1), 6),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-            ("TOPPADDING", (0, 0), (-1, -1), 3),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-            ("LINEBELOW", (0, 0), (-1, -1), 0.4, colors.HexColor("#DDE4DE")),
-            ("BACKGROUND", (0, 0), (0, -1), colors.HexColor("#EDF3EF")),
-        ]))
-        return t
-
-    conteudo = [p("Faturamento de insumos", titulo), tabela([
-        ("Empresa destinatária", resumo["fornecedor_nome"]),
-        ("Produto", resumo["produto_nome"]),
-        ("Data do envio", f"{faturamento.data_envio:%d/%m/%Y}"),
-        ("Safra", resumo.get("safra") or "Não informada"),
-        ("Apresentação", f"{resumo['embalagem']} de {numero(resumo['conteudo_embalagem'])} {resumo['unidade']}"),
-        ("Dosagem", f"Dosagem: {numero(resumo['dosagem_alqueire'])} {resumo['unidade']}/alq."),
-    ])]
+    linha_principal = (f"{resumo['produto_nome']} · Total de embalagens: {descricao_embalagens(resumo)}"
+                       f" · Quantidade total: {numero(resumo['quantidade_total'])} {resumo['unidade']}")
+    linha_detalhes = (f"{resumo['fornecedor_nome']} · {faturamento.data_envio:%d/%m/%Y}"
+                     f" · Safra: {resumo.get('safra') or 'Não informada'}"
+                     f" · Dosagem: {numero(resumo['dosagem_alqueire'])} {resumo['unidade']}/alq.")
+    dados_cabecalho = LongTable([[p(linha_principal, rotulo)], [p(linha_detalhes)]],
+                               colWidths=[182 * mm], hAlign="LEFT")
+    dados_cabecalho.setStyle(TableStyle([
+        ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#EDF3EF")),
+        ("LEFTPADDING", (0, 0), (-1, -1), 5), ("RIGHTPADDING", (0, 0), (-1, -1), 5),
+        ("TOPPADDING", (0, 0), (-1, -1), 3), ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
+        ("LINEBELOW", (0, -1), (-1, -1), 0.5, colors.HexColor("#DDE4DE")),
+    ]))
+    conteudo = [p("Faturamento de insumos", titulo), dados_cabecalho]
     cabecalhos = ["Propriedade / produtor", "CAD/PRO", "Área (alq.)", "Emb.", f"Qtd. ({resumo['unidade']})"]
     linhas = [[p(texto, rotulo) for texto in cabecalhos]]
     for item in resumo["itens"]:
         lat = item.get('latitude_gms') if item.get('formato_coordenadas') == 'gms' else item.get('latitude')
         lon = item.get('longitude_gms') if item.get('formato_coordenadas') == 'gms' else item.get('longitude')
-        propriedade = (f"{item['propriedade_nome']}\nProdutor: {item.get('produtor') or 'Não informado'}"
-                       f"\nLatitude: {lat if lat is not None and lat != '' else 'Não informada'}"
-                       f"\nLongitude: {lon if lon is not None and lon != '' else 'Não informada'}")
+        propriedade = f"{item['propriedade_nome']}\nProdutor: {item.get('produtor') or 'Não informado'}"
+        coordenadas = (f"Latitude: {lat if lat is not None and lat != '' else 'Não informada'}"
+                       f" · Longitude: {lon if lon is not None and lon != '' else 'Não informada'}")
+        tamanho_coordenadas = min(9, 12 * (82 * mm - 8) / pdfmetrics.stringWidth(coordenadas, "Arial", 12))
+        estilo_coordenadas = ParagraphStyle("Coordenadas", parent=corpo, fontSize=tamanho_coordenadas,
+                                            leading=tamanho_coordenadas * 1.3, spaceAfter=0)
         cadastro = f"{item.get('cad_pro') or 'Não informado'}\nIdentificação: {item.get('cad_pro_identificacao') or 'Não informado'}"
         if usa_bep:
             cadastro += f"\nBEP: {item.get('bep') or 'Não informado'}"
-        linhas.append([p(propriedade), p(cadastro)] + [p(numero(item[campo]))
+        linhas.append([[p(propriedade), p(coordenadas, estilo_coordenadas)], p(cadastro)] + [p(numero(item[campo]))
                        for campo in ('area_alqueires', 'quantidade_embalagens', 'quantidade')])
-    grade = LongTable(linhas, colWidths=[68 * mm, 42 * mm, 22 * mm, 25 * mm, 25 * mm],
+    grade = LongTable(linhas, colWidths=[82 * mm, 36 * mm, 20 * mm, 22 * mm, 22 * mm],
                      repeatRows=1, hAlign="LEFT")
     grade.setStyle(TableStyle([
         ("VALIGN", (0, 0), (-1, -1), "TOP"),
@@ -109,7 +124,7 @@ def gerar_pdf_faturamento(faturamento):
     conteudo += [Spacer(1, 5 * mm), grade]
     conteudo += [KeepTogether([Spacer(1, 5 * mm),
                  p(f"Área total (alq.): {numero(sum(Decimal(i['area_alqueires']) for i in resumo['itens']))}", titulo),
-                 p(f"Total de embalagens: {numero(resumo['total_embalagens'])}", titulo),
+                 p(f"Total de embalagens: {descricao_embalagens(resumo)}", titulo),
                  p(f"Quantidade total: {numero(resumo['quantidade_total'])} {resumo['unidade']}", titulo)])]
     if resumo.get("observacoes"):
         conteudo += [p("Observações: " + resumo["observacoes"])]

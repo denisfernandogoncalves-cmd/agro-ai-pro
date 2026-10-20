@@ -347,11 +347,24 @@
     display: table-cell; padding: 2mm 1mm; vertical-align: top; border-bottom: 1px solid #aaa;
   }
   .pagina .modulo-faturamento .faturamento-tabela :is(.faturamento-produtor, .faturamento-bep) { display: none; }
-  .modulo-faturamento .faturamento-tabela thead th:first-child { width: 37%; }
-  .modulo-faturamento .faturamento-tabela thead th:nth-child(3) { width: 23%; }
-  .modulo-faturamento .faturamento-tabela .faturamento-area { width: 12%; }
-  .modulo-faturamento .faturamento-tabela .faturamento-embalagens { width: 14%; }
-  .modulo-faturamento .faturamento-tabela .faturamento-quantidade { width: 14%; }
+  .modulo-faturamento .faturamento-tabela thead th:first-child { width: 45%; }
+  .modulo-faturamento .faturamento-tabela thead th:nth-child(3) { width: 20%; }
+  .modulo-faturamento .faturamento-tabela .faturamento-area { width: 11%; }
+  .modulo-faturamento .faturamento-tabela .faturamento-embalagens { width: 12%; }
+  .modulo-faturamento .faturamento-tabela .faturamento-quantidade { width: 12%; }
   .pagina .modulo-faturamento .faturamento-tabela tfoot th { text-align: left; }
 }
 @media print { .modulo-faturamento .total-faturamento-tela { display: none !important; } }
+
+@media print {
+  .modulo-faturamento .faturamento-cabecalho { margin-bottom: 2mm; }
+  .modulo-faturamento .faturamento-cabecalho h2 { margin: 0 0 2mm; }
+  .modulo-faturamento .faturamento-cabecalho-grade { gap: 1mm 3mm; padding: 1mm 0; }
+  .modulo-faturamento .faturamento-cabecalho-grade p { margin: 0; }
+  .modulo-faturamento :is(.faturamento-produto-destaque, .faturamento-total-destaque) {
+    print-color-adjust: exact; -webkit-print-color-adjust: exact; padding: 1mm 2mm;
+  }
+  .pagina .modulo-faturamento .relatorio-faturamento .faturamento-coordenadas {
+    font-size: 7pt !important; white-space: nowrap; line-height: 1.3;
+  }
+}

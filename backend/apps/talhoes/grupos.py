@@ -1,4 +1,4 @@
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 from rest_framework.exceptions import PermissionDenied
 from apps.accounts.access import pode
@@ -12,6 +12,7 @@ from .models import GrupoPropriedadesColheita
 
 
 class GrupoPropriedadesSerializer(serializers.ModelSerializer):
+    nome = serializers.CharField(max_length=100)
     vinculos = serializers.PrimaryKeyRelatedField(
         many=True, allow_empty=False,
         queryset=CADProPropriedade.objects.filter(ativo=True, cad_pro__ativo=True),
@@ -20,7 +21,7 @@ class GrupoPropriedadesSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = GrupoPropriedadesColheita
-        fields = ("id", "nome", "ativo", "vinculos", "membros", "excluido_em", "historico_area")
+        fields = ("id", "nome", "cultura", "safra", "ativo", "vinculos", "membros", "excluido_em", "historico_area")
         read_only_fields = ("excluido_em", "historico_area")
 
     def get_membros(self, obj):
@@ -35,6 +36,14 @@ class GrupoPropriedadesSerializer(serializers.ModelSerializer):
             "disponivel": vinculo.ativo and vinculo.cad_pro.ativo,
         } for vinculo in obj.vinculos.all()]
 
+    def validate_nome(self, nome):
+        grupos = GrupoPropriedadesColheita.objects.filter(nome=nome, excluido_em__isnull=True)
+        if self.instance:
+            grupos = grupos.exclude(pk=self.instance.pk)
+        if grupos.exists():
+            raise serializers.ValidationError('Já existe um grupo não excluído com esse nome. Edite o grupo existente ou escolha outro nome.')
+        return nome
+
     def validate_vinculos(self, vinculos):
         propriedades = [v.propriedade_id for v in vinculos]
         if len(propriedades) != len(set(propriedades)):
@@ -43,14 +52,26 @@ class GrupoPropriedadesSerializer(serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data):
-        return super().create(validated_data)
+        try:
+            with transaction.atomic():
+                return super().create(validated_data)
+        except IntegrityError:
+            if GrupoPropriedadesColheita.objects.filter(nome=validated_data['nome'], excluido_em__isnull=True).exists():
+                raise serializers.ValidationError({'nome': 'Já existe um grupo não excluído com esse nome.'})
+            raise
 
     @transaction.atomic
     def update(self, instance, validated_data):
         instance = GrupoPropriedadesColheita.objects.select_for_update().get(pk=instance.pk)
         if instance.excluido_em:
             raise serializers.ValidationError("Grupo excluído: o histórico é somente para consulta.")
-        return super().update(instance, validated_data)
+        try:
+            with transaction.atomic():
+                return super().update(instance, validated_data)
+        except IntegrityError:
+            if GrupoPropriedadesColheita.objects.filter(nome=validated_data.get('nome', instance.nome), excluido_em__isnull=True).exclude(pk=instance.pk).exists():
+                raise serializers.ValidationError({'nome': 'Já existe um grupo não excluído com esse nome.'})
+            raise
 
 
 class GrupoPropriedadesViewSet(

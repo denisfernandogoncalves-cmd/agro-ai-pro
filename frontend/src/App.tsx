@@ -1,3 +1,4 @@
+import { coordenadasParaMapa } from "./utils/coordenadas";
 import CoordenadasInput from "./components/CoordenadasInput";
 import MarcaAgro from "./components/MarcaAgro";
 import IdentidadeModulo, { tituloModulo } from "./components/IdentidadeModulo";
@@ -18,6 +19,7 @@ import VersaoAplicativo from "./components/VersaoAplicativo";
 import {
   api,
   atualizarPropriedade,
+  arquivarPropriedade,
   criarPropriedade,
   excluirPropriedade,
   listarPropriedades,
@@ -197,8 +199,10 @@ function PrivateArea({ sair }: PrivateAreaProps) {
     const intervalo = window.setInterval(atualizar, 30000);
     return () => { ativo = false; window.removeEventListener("focus", atualizar); window.clearInterval(intervalo); };
   }, [atualizarAcesso]);
+  const [mostrarArquivadas, setMostrarArquivadas] = useState(false);
   const [propriedades, setPropriedades] = useState<Propriedade[]>([]);
   const [selecionada, setSelecionada] = useState<Propriedade | null>(null);
+  const coordenadasSelecionadas = selecionada ? coordenadasParaMapa(selecionada) : null;
   const [edicaoId, setEdicaoId] = useState<number | null>(null);
   const [formulario, setFormulario] = useState(formularioVazio);
   const [busca, setBusca] = useState("");
@@ -212,20 +216,20 @@ function PrivateArea({ sair }: PrivateAreaProps) {
     setCarregando(true);
     setErro("");
     try {
-      const dados = await listarPropriedades(termo);
+      const dados = await listarPropriedades(termo, mostrarArquivadas);
       setPropriedades(dados);
       setSelecionada((atual) =>
-        dados.find((item) => item.id === atual?.id) ?? dados[0] ?? null
+        dados.find((item) => item.id === atual?.id) ?? null
       );
     } catch (falha) {
       setErro(mensagemDoErro(falha));
     } finally {
       setCarregando(false);
     }
-  }, []);
+  }, [mostrarArquivadas]);
 
   useEffect(() => {
-    if (acesso && acesso.modulos.length > 0) void carregar();
+    if (acesso && acesso.modulos.length > 0) void carregar(busca);
     else { setPropriedades([]); setSelecionada(null); }
   }, [carregar, acesso?.modulos.join(",")]);
 
@@ -286,6 +290,18 @@ function PrivateArea({ sair }: PrivateAreaProps) {
     } catch (falha) {
       setErro(mensagemDoErro(falha));
     } finally { travaPropriedade.current = false; setSalvando(false); }
+  }
+
+  async function alterarArquivo(item: Propriedade) {
+    if (travaPropriedade.current) return;
+    const restaurar = Boolean(item.arquivada_em);
+    if (!window.confirm(restaurar ? `Restaurar a propriedade "${item.nome}" na lista?` : `Arquivar a propriedade "${item.nome}"? Cargas, saldos, áreas e demais históricos serão preservados.`)) return;
+    travaPropriedade.current = true; setSalvando(true); setErro("");
+    try {
+      await arquivarPropriedade(item.id, restaurar);
+      await carregar(busca);
+    } catch (falha) { setErro(mensagemDoErro(falha)); }
+    finally { travaPropriedade.current = false; setSalvando(false); }
   }
 
   async function encerrarSessao() {
@@ -421,6 +437,8 @@ function PrivateArea({ sair }: PrivateAreaProps) {
             <button type="submit">Buscar</button>
           </form>
 
+          <label className="opcao-checkbox nao-imprimir"><input type="checkbox" checked={mostrarArquivadas} disabled={salvando} onChange={e => setMostrarArquivadas(e.target.checked)} />Mostrar propriedades arquivadas</label>
+
           {carregando && propriedades.length === 0 ? (
             <p role="status">Carregando propriedades...</p>
           ) : propriedades.length === 0 ? (
@@ -428,9 +446,10 @@ function PrivateArea({ sair }: PrivateAreaProps) {
           ) : (
             <div className="lista propriedades-lista">
               {propriedades.map((item) => (
-                <article className={`card item ${selecionada?.id === item.id ? "ativo" : ""}`} key={item.id} onClick={() => setSelecionada(item)}>
+                <article className={`card item ${selecionada?.id === item.id ? "ativo" : ""}`} key={item.id} onClick={() => setSelecionada(atual => atual?.id === item.id ? null : item)}>
                   <div>
-                    <h3>{item.nome}</h3>
+                    <h3><button type="button" className="nome-propriedade-mapa" aria-expanded={selecionada?.id === item.id} aria-controls={`mapa-propriedade-${item.id}`} title="Ver localização no mapa" onClick={e => { e.stopPropagation(); setSelecionada(atual => atual?.id === item.id ? null : item); }}>{item.nome}</button></h3>
+                    {item.arquivada_em && <p><strong>Arquivada</strong> — histórico preservado</p>}
                     {!!item.apelidos?.length && <p><strong>Apelido:</strong> {item.apelidos.join(" / ")}</p>}
                     <p>{item.municipio}/{item.uf} · {areaEmAlqueires(item.area_hectares)} alq. declarados</p>
                     <p>CAD/PRO: {item.cad_pro_numeros.length ? item.cad_pro_numeros.join(", ") : "não informado"}</p>
@@ -445,22 +464,20 @@ function PrivateArea({ sair }: PrivateAreaProps) {
                     )}
                   </div>
                   <div className="acoes">
-                    <BotaoAcao acao="editar" disabled={salvando} className="secundario" onClick={(e) => { e.stopPropagation(); editar(item); }}>Editar</BotaoAcao>
-                    <BotaoAcao acao="excluir" disabled={salvando} className="perigo" onClick={(e) => { e.stopPropagation(); void excluir(item); }}>Excluir</BotaoAcao>
+                    {!item.arquivada_em && <BotaoAcao acao="editar" disabled={salvando} className="secundario" onClick={(e) => { e.stopPropagation(); editar(item); }}>Editar</BotaoAcao>}
+                    {!item.arquivada_em && <BotaoAcao acao="excluir" disabled={salvando} className="perigo" onClick={(e) => { e.stopPropagation(); void excluir(item); }}>Excluir</BotaoAcao>}
+                    <BotaoAcao acao={item.arquivada_em ? "editar" : "excluir"} disabled={salvando} className="secundario" onClick={e => { e.stopPropagation(); void alterarArquivo(item); }}>{item.arquivada_em ? "Restaurar" : "Arquivar"}</BotaoAcao>
                   </div>
+                  {selecionada?.id === item.id && <section id={`mapa-propriedade-${item.id}`} className="propriedade-mapa-inline nao-imprimir" aria-label={`Localização de ${item.nome}`} onClick={e => e.stopPropagation()}>
+                    {coordenadasSelecionadas ? <Suspense fallback={<p role="status">Carregando mapa...</p>}>
+                      <MapaPropriedade latitude={coordenadasSelecionadas.latitude} longitude={coordenadasSelecionadas.longitude} nome={item.nome} geometria={item.geometria_geojson} />
+                    </Suspense> : <p role="status">Esta propriedade não possui coordenadas válidas cadastradas. Use Editar para informar latitude e longitude.</p>}
+                  </section>}
                 </article>
               ))}
             </div>
           )}
 
-          {selecionada?.latitude !== null && selecionada?.latitude !== undefined && selecionada.longitude !== null && (
-            <MapaPropriedade
-              latitude={Number(selecionada.latitude)}
-              longitude={Number(selecionada.longitude)}
-              nome={selecionada.nome}
-              geometria={selecionada.geometria_geojson}
-            />
-          )}
         </section>
           </section>
         </>

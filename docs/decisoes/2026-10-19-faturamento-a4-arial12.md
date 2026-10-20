@@ -28,3 +28,25 @@ SHA-256 negrito: `E8F4E3BAF6CC35FED6FCCE3A540E8B39E8F6CDA1D22A28F2EC8F526FEF7A43
 Após a conferência do usuário, a impressão, o PDF e a aba `Impressão` do Excel passaram a apresentar uma propriedade por linha de tabela. Produtor e coordenadas ficam na célula da propriedade; identificação e BEP, quando aplicável, na célula CAD/PRO. Área, embalagens e quantidade ficam lado a lado. A4 retrato, Arial 12 e os dados históricos foram preservados. Isso substitui a organização vertical por propriedade descrita acima.
 
 Backup anterior: `D:/PROJETOS/AGRO-AI-PRO/backups/visual-20261019-090910`, código, banco e uploads com integridade verificada. Quatro testes de formatação PDF/Excel aprovados; testes frontend e build TypeScript/Vite aprovados. PDF demonstrativo conferido visualmente. Sem migrations, commit ou push.
+
+## Revisão: cabeçalho compacto e coordenadas na mesma linha
+
+Produto aparece primeiro, destacado, seguido pelos totais de embalagens e quantidade em negrito e fundo de destaque. Empresa, envio, safra, apresentação e dosagem ficam em um cabeçalho compacto, preservando os valores e a organização em linhas por propriedade.
+
+Latitude e longitude ficam na mesma linha. Somente as coordenadas usam fonte menor: 7 pontos na impressão do navegador e no Excel; no PDF, ajuste proporcional até 9 pontos para caber na célula. Os demais dados continuam em Arial 12 e A4 retrato. Excel usa texto rico na célula da propriedade para preservar nome/produtor em 12 pontos.
+
+Backup: `D:/PROJETOS/AGRO-AI-PRO/backups/visual-20261019-122721`, verificado antes da alteração. Cinco testes de formatação PDF/Excel, testes frontend e build TypeScript/Vite aprovados. Conferência visual do PDF com coordenadas GMS e identificação CAD/PRO. Impressão física/Microsoft Excel não executados. Sem migrations nem alterações dos registros históricos.
+
+## Revisão: resumo em duas linhas
+
+Primeira linha: produto, total de embalagens e quantidade total, em negrito. Segunda linha: empresa, data, safra, apresentação e dosagem. Aplicado à tela/impressão, PDF e aba de impressão do Excel. Exemplo ANKOR/AGRO PRODUZ conferido em duas linhas, mantendo Arial 12; textos excepcionalmente extensos quebram naturalmente sem cortes. Coordenadas continuam na mesma linha e com fonte menor.
+
+Backup verificado: `D:/PROJETOS/AGRO-AI-PRO/backups/visual-20261019-220638`. Seis testes de formatação aprovados, inclusive verificação das duas linhas do PDF; frontend, TypeScript e Vite aprovados. PDF renderizado para conferência. Sem migrations ou alterações de dados.
+
+## Revisão: propriedade/produtor mais largos e embalagens por extenso
+
+Coluna de propriedade/produtor ampliada de 68 para 82 mm no PDF e de 37% para 45% na impressão; aba de impressão do Excel também ampliada. Cabeçalho e total do PDF agora apresentam, por exemplo, `Total de embalagens: 7 BALDES DE 20 LITROS`. Singular/plural para embalagens conhecidas e unidades por extenso, preservando nomes personalizados desconhecidos e os valores do resumo histórico.
+
+Nome do produto segue primeiro, sem rótulo redundante, para preservar o cabeçalho compacto em duas linhas. Apresentação removida da segunda linha pois já consta no total detalhado. A4 retrato e Arial 12 preservados; coordenadas na mesma linha.
+
+Backup: `D:/PROJETOS/AGRO-AI-PRO/backups/visual-20261019-221229`, código/banco/uploads verificados. Sete testes PDF/Excel, testes frontend, TypeScript/Vite e revisão de diff aprovados; PDF conferido visualmente com exemplo de produtor longo. Sem migrations ou alterações nos dados existentes.

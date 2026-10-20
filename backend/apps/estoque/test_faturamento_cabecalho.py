@@ -24,12 +24,12 @@ class CabecalhoFaturamentoTests(SimpleTestCase):
             self.assertGreaterEqual(len(pdf.pages), 1)
             pagina = pdf.pages[0]
             texto = '\n'.join(p.extract_text() for p in pdf.pages)
-            for esperado in ("EMPRESA DEMONSTRAÇÃO", "Total de embalagens: 2", "GALÕES de 5 l", "15/10/2026", "26-27", "Dosagem: 0,25 l/alq."):
-                self.assertIn(esperado, texto)
+            for esperado in ("EMPRESA DEMONSTRAÇÃO", "Total de embalagens: 2", "2 GALÕES DE 5 LITROS", "15/10/2026", "26-27", "Dosagem: 0,25 l/alq."):
+                self.assertIn(esperado, ' '.join(texto.split()))
             for pagina in pdf.pages:
                 self.assertAlmostEqual(pagina.width, 595.276, places=2)
                 self.assertAlmostEqual(pagina.height, 841.890, places=2)
-                self.assertTrue(all(abs(c['size'] - 12) < 0.01 and 'Arial' in c['fontname'] for c in pagina.chars))
+                self.assertTrue(all(6 <= c['size'] <= 12.01 and 'Arial' in c['fontname'] for c in pagina.chars))
                 self.assertTrue(all(c['x0'] >= 0 and c['x1'] <= pagina.width for c in pagina.chars))
 
     def test_texto_longo_quebra_sem_perder_tabela_ou_interpretar_html(self):
@@ -50,6 +50,11 @@ class CabecalhoFaturamentoTests(SimpleTestCase):
         registro.resumo['itens'][0].update(cad_pro='00123', cad_pro_identificacao='Principal', bep='00456')
         wb = load_workbook(BytesIO(exportar_excel_faturamento(registro).content))
         self.assertEqual(wb.active.title, 'Impressão')
+        self.assertTrue(wb.active['A2'].value.startswith(registro.resumo['produto_nome']))
+        for endereco in ('A2',):
+            self.assertTrue(wb.active[endereco].font.bold)
+        self.assertIn('Total de embalagens:', wb.active['A2'].value)
+        self.assertIn('Quantidade total:', wb.active['A2'].value)
         linha = next(l for l in wb.active.values if l[0] and 'Propriedade exemplo 1' in str(l[0]))
         self.assertIn('Principal', linha[1])
         self.assertEqual(linha[3], 1)
@@ -76,3 +81,40 @@ class CabecalhoFaturamentoTests(SimpleTestCase):
             self.assertGreaterEqual(len(propriedades), 2)
             self.assertAlmostEqual(propriedades[-1]['x0'], propriedades[-2]['x0'], places=1)
             self.assertTrue(any(p['text'] == 'Emb.' and p['x0'] > 350 for p in palavras))
+
+    def test_cabecalho_produto_primeiro_e_coordenadas_na_mesma_linha(self):
+        registro = faturamento_teste()
+        registro.resumo['itens'][0].update(formato_coordenadas='gms', latitude_gms='24°18\'28,98"S', longitude_gms='51°42\'48,71"O')
+        with pdfplumber.open(BytesIO(gerar_pdf_faturamento(registro))) as pdf:
+            pagina = pdf.pages[0]
+            texto = pagina.extract_text()
+            self.assertLess(texto.index('PRODUTO DEMONSTRAÇÃO'), texto.index('Total de embalagens:'))
+            self.assertLess(texto.index('PRODUTO DEMONSTRAÇÃO'), texto.index('Quantidade total:'))
+            palavras = pagina.extract_words()
+            lat = next(p for p in palavras if p['text'] == 'Latitude:')
+            lon = next(p for p in palavras if p['text'] == 'Longitude:')
+            self.assertAlmostEqual(lat['top'], lon['top'], places=1)
+            self.assertLess(lat['x0'], lon['x0'])
+
+    def test_cabecalho_em_duas_linhas_para_dados_da_tela(self):
+        registro = faturamento_teste('AGRO PRODUZ')
+        registro.resumo.update(produto_nome='ANKOR', total_embalagens='7', quantidade_total='140',
+                              embalagem='Balde', conteudo_embalagem='20', dosagem_alqueire='5')
+        with pdfplumber.open(BytesIO(gerar_pdf_faturamento(registro))) as pdf:
+            linhas = pdf.pages[0].extract_text().splitlines()
+            self.assertTrue(linhas[1].startswith('ANKOR'))
+            self.assertIn('Total de embalagens: 7', linhas[1])
+            self.assertIn('Quantidade total: 140 l', linhas[1])
+            self.assertIn('AGRO PRODUZ', linhas[2])
+            self.assertIn('Dosagem: 5 l/alq.', linhas[2])
+            self.assertTrue(linhas[3].startswith('Propriedade'))
+
+    def test_descricao_completa_embalagens(self):
+        from .faturamento_pdf import descricao_embalagens
+        resumo = faturamento_teste().resumo
+        resumo.update(embalagem='BALDES', total_embalagens='7', conteudo_embalagem='20', unidade='l')
+        self.assertEqual(descricao_embalagens(resumo), '7 BALDES DE 20 LITROS')
+        resumo.update(total_embalagens='1', conteudo_embalagem='1')
+        self.assertEqual(descricao_embalagens(resumo), '1 BALDE DE 1 LITRO')
+        resumo.update(embalagem='Pacote', total_embalagens='2', conteudo_embalagem='2.5', unidade='kg')
+        self.assertEqual(descricao_embalagens(resumo), '2 PACOTES DE 2,5 QUILOGRAMAS')

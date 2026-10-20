@@ -28,3 +28,17 @@ export function coordenadaCadastrada(item: CoordenadasCadastradas, eixo: "latitu
   const valor = item.formato_coordenadas === "gms" ? item[`${eixo}_gms`] : item[eixo];
   return valor === null || valor === undefined || valor === "" ? "Não informada" : String(valor);
 }
+
+/** Converte somente para exibição no mapa, preservando o cadastro original. */
+export function coordenadasParaMapa(item: CoordenadasCadastradas): {latitude: number; longitude: number} | null {
+  try {
+    const latitude = item.formato_coordenadas === "gms" ? gmsParaDecimal(item.latitude_gms || "", "latitude") : item.latitude;
+    const longitude = item.formato_coordenadas === "gms" ? gmsParaDecimal(item.longitude_gms || "", "longitude") : item.longitude;
+    if (latitude == null || longitude == null || String(latitude).trim() === "" || String(longitude).trim() === "") return null;
+    const lat = Number(String(latitude).replace(",", "."));
+    const lon = Number(String(longitude).replace(",", "."));
+    return Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180 ? {latitude:lat, longitude:lon} : null;
+  } catch {
+    return null;
+  }
+}

@@ -4,11 +4,14 @@ from copy import copy
 from math import ceil
 
 from openpyxl.styles import Alignment
+from openpyxl.cell.rich_text import CellRichText, TextBlock
+from openpyxl.cell.text import InlineFont
 from openpyxl.utils import get_column_letter
 from openpyxl.worksheet.page import PageMargins
 
 from apps.core.excel import PlanilhaExportacao
 from .faturamento import fornecedor_usa_bep
+from .faturamento_pdf import numero, descricao_embalagens
 
 
 def exportar_excel_faturamento(faturamento):
@@ -43,26 +46,38 @@ def exportar_excel_faturamento(faturamento):
         linha[len(colunas) - 3].number_format = '#,##0.0000'
     # Uma propriedade por linha; produtor/coordenadas e identificação/BEP
     # compartilham células para caber em retrato sem diminuir a fonte.
-    campos = [[campo, valor, '', '', ''] for campo, valor in list(planilha.workbook['Faturamento'].values)[1:]]
+    campos = [
+        [f"{resumo['produto_nome']} · Total de embalagens: {descricao_embalagens(resumo)} · Quantidade total: {numero(resumo['quantidade_total'])} {resumo['unidade']}", '', '', '', ''],
+        [f"{resumo['fornecedor_nome']} · {faturamento.data_envio:%d/%m/%Y} · Safra: {resumo.get('safra') or 'Não informada'} · Dosagem: {numero(resumo['dosagem_alqueire'])} {resumo['unidade']}/alq.", '', '', '', ''],
+    ]
     cabecalho = len(campos) + 2
     campos.append(['Propriedade / produtor', 'CAD/PRO', 'Área (alq.)', 'Embalagens', f'Quantidade ({resumo["unidade"]})'])
+    coordenadas_por_linha = {}
     for item in resumo['itens']:
         propriedade = f"{item['propriedade_nome']}\nProdutor: {item.get('produtor') or 'Não informado'}"
+        coordenadas = []
         for eixo in ('latitude', 'longitude'):
             valor = item.get(eixo + '_gms') if item.get('formato_coordenadas') == 'gms' else item.get(eixo)
-            propriedade += f"\n{eixo.capitalize()}: {valor if valor is not None and valor != '' else 'Não informada'}"
+            coordenadas.append(f"{eixo.capitalize()}: {valor if valor is not None and valor != '' else 'Não informada'}")
+        coordenadas_por_linha[len(campos) + 2] = (propriedade, ' · '.join(coordenadas))
+        propriedade += '\n' + ' · '.join(coordenadas)
         cadastro = f"{item.get('cad_pro') or 'Não informado'}\nIdentificação: {item.get('cad_pro_identificacao') or 'Não informado'}"
         if usa_bep:
             cadastro += f"\nBEP: {item.get('bep') or 'Não informado'}"
         campos.append([propriedade, cadastro] + [Decimal(item[campo]) for campo in ('area_alqueires', 'quantidade_embalagens', 'quantidade')])
     campos.append(['Total', '', sum(Decimal(i['area_alqueires']) for i in resumo['itens']),
                    Decimal(resumo['total_embalagens']), Decimal(resumo['quantidade_total'])])
+    campos.extend([['Protocolo', str(faturamento.pk), '', '', ''], ['Observações', resumo.get('observacoes', ''), '', '', '']])
     impressao = planilha.adicionar('Impressão', ['Faturamento de insumos', '', '', '', ''], campos)
     impressao.merge_cells('A1:E1')
-    for indice in range(2, cabecalho):
+    impressao.merge_cells('A2:E2')
+    impressao.merge_cells('A3:E3')
+    for indice in (impressao.max_row - 1, impressao.max_row):
         impressao.merge_cells(start_row=indice, start_column=2, end_row=indice, end_column=5)
-    for indice, largura in zip('ABCDE', (32, 21, 10, 12, 12)):
+    for indice, largura in zip('ABCDE', (45, 18, 9, 10, 11)):
         impressao.column_dimensions[indice].width = largura
+    for endereco in ('A2',):
+        impressao[endereco]._style = copy(impressao['A1']._style)
     for celula in impressao[cabecalho]:
         celula._style = copy(impressao['A1']._style)
     for linha in impressao.iter_rows(min_row=cabecalho + 1):
@@ -90,11 +105,22 @@ def exportar_excel_faturamento(faturamento):
                 celula.font = fonte
                 celula.alignment = Alignment(wrap_text=True, vertical='top')
                 largura = aba.column_dimensions[get_column_letter(celula.column)].width
-                if aba == impressao and celula.column == 2 and celula.row < cabecalho:
-                    largura = 55
+                if aba == impressao and celula.row < cabecalho:
+                    largura = 93
                 altura = max(altura, sum(max(1, ceil(len(parte) / max(1, int(largura * 0.75))))
                                         for parte in str(celula.value or '').split('\n')))
                 if celula.column == 2 and linha[0].value == 'Área (alq.)':
                     celula.number_format = '#,##0.0000'
             aba.row_dimensions[linha[0].row].height = 18 * altura + 6
+    for indice, (identidade, coordenadas) in coordenadas_por_linha.items():
+        altura = 18 * sum(max(1, ceil(len(parte) / 33)) for parte in identidade.split('\n')) + 11
+        for celula in impressao[indice][1:]:
+            largura = impressao.column_dimensions[get_column_letter(celula.column)].width
+            altura = max(altura, 18 * sum(max(1, ceil(len(parte) / max(1, int(largura * .75))))
+                                         for parte in str(celula.value or '').split('\n')))
+        impressao.row_dimensions[indice].height = altura + 6
+        impressao.cell(indice, 1).value = CellRichText(
+            TextBlock(InlineFont(rFont='Arial', sz=12), identidade + '\n'),
+            TextBlock(InlineFont(rFont='Arial', sz=7), coordenadas),
+        )
     return planilha.resposta('faturamento-insumos')

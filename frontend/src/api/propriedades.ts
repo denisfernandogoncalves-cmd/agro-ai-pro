@@ -16,6 +16,7 @@ import { GeometriaGeoJSON } from "../utils/geometria";
 
 
 export type Propriedade = {
+  arquivada_em?: string | null;
   apelido?: string;
   tipo_imovel?: "" | "arrendado" | "proprio";
   cad_pro_identificacao?: string;
@@ -267,9 +268,9 @@ export function sair() {
   return encerramentoEmAndamento;
 }
 
-export async function listarPropriedades(search = "") {
+export async function listarPropriedades(search = "", incluirArquivadas = false) {
   const response = await api.get<Propriedade[]>("/propriedades/", {
-    params: search ? { search } : undefined,
+    params: incluirArquivadas ? { search: search || undefined, incluir_arquivadas: true } : search ? { search } : undefined,
   });
   return response.data;
 }
@@ -302,4 +303,8 @@ export async function atualizarPropriedade(id: number, dados: PropriedadeInput) 
 
 export async function excluirPropriedade(id: number) {
   await api.delete(`/propriedades/${id}/`);
+}
+
+export async function arquivarPropriedade(id: number, restaurar = false) {
+  return (await api.post<Propriedade>(`/propriedades/${id}/${restaurar ? "restaurar" : "arquivar"}/`)).data;
 }

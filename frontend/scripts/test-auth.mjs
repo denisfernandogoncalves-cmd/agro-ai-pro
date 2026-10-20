@@ -562,7 +562,9 @@ async function renderAppStates() {
   });
 
   globalThis.__APP_ACTIONS__ = { AcoesContext: React.createContext(null), autorizado: () => true, BotaoAcao: globalThis.__PRIVATE_COMPONENTS__.BotaoAcao, useDestinoConsulta: () => {} };
+  const coordenadasUrl = moduleDataUrl(await transpile(await readFile(new URL("../src/utils/coordenadas.ts", import.meta.url), "utf8")), "coordenadas");
   let source = appSource
+    .replace('from "./utils/coordenadas";', `from "${coordenadasUrl}";`)
     .replace('from "./components/MarcaAgro";', `from "${marcaUrl}";`)
     .replace('from "./components/VersaoAplicativo";', `from "${versaoUrl}";`)
     .replace('from "./components/AlteracoesNaoSalvas";', `from "${protecaoUrl}";`)
@@ -576,7 +578,7 @@ async function renderAppStates() {
     .replace(
       /import \{\s*api,\s*atualizarPropriedade[\s\S]*?\} from "\.\/api\/propriedades";/,
       "const { api, atualizarPropriedade, criarPropriedade, "
-        + "excluirPropriedade, listarPropriedades } = globalThis.__APP_API__;\n"
+        + "excluirPropriedade, arquivarPropriedade, listarPropriedades } = globalThis.__APP_API__;\n"
         + "type Propriedade = any;\ntype PropriedadeInput = any;",
     )
     .replace(

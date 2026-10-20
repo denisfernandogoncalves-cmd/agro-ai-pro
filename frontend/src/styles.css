@@ -1463,3 +1463,21 @@ dialog.editor-venda::backdrop { background: #102f2480; }
 .busca-geral-resultados { min-width: 0; padding: .5rem 0; }
 .busca-geral-resultados button { display: flex; flex-direction: column; align-items: flex-start; width: 100%; text-align: left; margin: .5rem 0; white-space: normal; overflow-wrap: anywhere; }
 .busca-geral-resultados small { display: block; }
+
+.faturamento-cabecalho .faturamento-cabecalho-grade { grid-template-columns: 1fr 1fr; gap: .3rem .8rem; padding: .4rem 0; }
+.faturamento-produto-destaque { grid-column: 1 / -1; }
+.faturamento-cabecalho-grade .faturamento-produto-destaque,
+.faturamento-cabecalho-grade .faturamento-total-destaque { background: #edf3ef; padding: .3rem .5rem; border-left: 3px solid #24543e; }
+.faturamento-coordenadas { display: block; }
+
+.faturamento-cabecalho .faturamento-cabecalho-grade { display: block; }
+.faturamento-cabecalho .faturamento-cabecalho-grade p { display: block; margin: 0; padding: .25rem .4rem; }
+.faturamento-cabecalho .faturamento-cabecalho-grade p > :is(span, strong) { display: inline; }
+
+.propriedades-lista .nome-propriedade-mapa { background: none; border: 0; padding: 0; margin: 0; color: inherit; font: inherit; font-weight: inherit; text-align: left; text-decoration: underline; text-decoration-color: transparent; }
+.propriedades-lista .nome-propriedade-mapa:hover { text-decoration-color: currentColor; }
+.propriedades-lista .nome-propriedade-mapa:focus-visible { outline: 2px solid #168443; outline-offset: 4px; }
+.propriedades-lista .propriedade-mapa-inline { grid-column: 1 / -1; flex-basis: 100%; width: 100%; min-width: 0; margin-top: 1rem; }
+.propriedade-mapa-inline .mapa { width: 100%; height: 360px; max-height: 65vh; border-radius: 12px; }
+
+.grupo-cultura-safra { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 1rem; }

@@ -234,6 +234,9 @@ try {
   };
   assert.equal(tituloFaturamento({...faturamentoFixture, produto_nome:"02 20 18 MAIS MICRO", total_embalagens:"40", embalagem:"BAG", conteudo_embalagem:"1000", unidade:"kg", safra:"26-27", data_envio:"2026-10-09"}), "02 20 18 MAIS MICRO - 40 BAG DE 1000 KG - SAFRA 26-27 - 09-10-2026");
   assert.match(tituloFaturamento(faturamentoFixture), /SAFRA NÃO INFORMADA/);
+  const { descricaoEmbalagens } = await servidor.ssrLoadModule("/src/api/faturamentoInsumos.ts");
+  assert.equal(descricaoEmbalagens({...faturamentoFixture, embalagem:"BALDES", total_embalagens:"7", conteudo_embalagem:"20", unidade:"l"}), "7 BALDES DE 20 LITROS");
+  assert.equal(descricaoEmbalagens({...faturamentoFixture, embalagem:"Balde", total_embalagens:"1", conteudo_embalagem:"1", unidade:"l"}), "1 BALDE DE 1 LITRO");
   const previaFaturamentoHtml = renderToStaticMarkup(React.createElement(RelatorioFaturamento, { resumo: faturamentoFixture, confirmado: false }));
   const htmlIdentificacaoFaturamento = renderToStaticMarkup(React.createElement(RelatorioFaturamento, { resumo: {...faturamentoFixture, itens: faturamentoFixture.itens.map(i => ({...i, cad_pro_identificacao: "Secundário", apelido: "APELIDO_NAO_IMPRIMIR"}))}, confirmado: true }));
   assert.match(htmlIdentificacaoFaturamento, /Identificação: Secundário/);
@@ -242,7 +245,11 @@ try {
   assert.doesNotMatch(previaFaturamentoHtml, /<script>/);
   assert.match(previaFaturamentoHtml, /Total de embalagens: 4/);
   assert.match(previaFaturamentoHtml, /faturamento-cabecalho-grade/);
-  for (const texto of ["Empresa destinatária", "Quantidade total / dosagem", "Data do envio", "Safra"]) assert.ok(previaFaturamentoHtml.includes(texto));
+  const cabecalhoFaturamentoHtml = previaFaturamentoHtml.split('</header>')[0];
+  assert.ok(cabecalhoFaturamentoHtml.indexOf('faturamento-produto-destaque') < cabecalhoFaturamentoHtml.indexOf('Total de embalagens:'));
+  assert.ok(cabecalhoFaturamentoHtml.indexOf('faturamento-produto-destaque') < cabecalhoFaturamentoHtml.indexOf('Quantidade total:'));
+  assert.match(previaFaturamentoHtml, /class="faturamento-coordenadas">Latitude:[^<]* · Longitude:/);
+  for (const texto of ["Empresa destinatária", "Quantidade total:", "Dosagem:", "Data do envio", "Safra"]) assert.ok(previaFaturamentoHtml.includes(texto));
   const { ListaMotoristas } = await servidor.ssrLoadModule("/src/pages/Transportes/CadastroMotoristas.tsx");
   const listaMotoristasHtml = renderToStaticMarkup(React.createElement(ListaMotoristas, {itens:[{id:1,nome:"Motorista ativo",apelido:"",ativo:true},{id:2,nome:"Motorista arquivado",apelido:"",ativo:false}], ocupado:false, editar(){}, excluir(){}, reativar(){}}));
   const [listaAtiva, listaInativa] = listaMotoristasHtml.split('<details');
@@ -317,6 +324,10 @@ try {
   const importacoesHtml = renderToStaticMarkup(React.createElement(ImportacoesPage));
   assert.match(importacoesHtml, /Gerar prévia/);
   assert.doesNotMatch(importacoesHtml, /Confirmar importação/);
+  const { default: GruposPropriedadesPanel } = await servidor.ssrLoadModule("/src/pages/Talhoes/GruposPropriedadesPanel.tsx");
+  const gruposCadastroHtml = renderToStaticMarkup(React.createElement(GruposPropriedadesPanel, {propriedades:[]}));
+  assert.match(gruposCadastroHtml, /Cultura<input[^>]*maxLength="50"/);
+  assert.match(gruposCadastroHtml, /Safra<input[^>]*maxLength="20"/);
   const { aplicarGrupoNaCarga } = await servidor.ssrLoadModule("/src/api/gruposPropriedades.ts");
   const { filtrarProdutos } = await servidor.ssrLoadModule("/src/pages/CadastrosAgricolas/CadastrosAgricolasPage.tsx");
   const produtosBusca = [{ nome: "Produto Ágil", principios_ativos: "Glifosato" }, { nome: "Outro", principios_ativos: "Atrazina" }];

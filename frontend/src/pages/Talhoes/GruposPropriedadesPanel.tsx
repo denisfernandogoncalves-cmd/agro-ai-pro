@@ -15,6 +15,8 @@ export default function GruposPropriedadesPanel({ propriedades: cadastradas }: {
   const [opcoes, setOpcoes] = useState<OpcaoGrupo[]>([]);
   const [id, setId] = useState<number | null>(null);
   const [nome, setNome] = useState("");
+  const [cultura, setCultura] = useState("");
+  const [safra, setSafra] = useState("");
   const [ativo, setAtivo] = useState(true);
   const [escolhas, setEscolhas] = useState<Record<string, string>>({});
   const [ocupado, setOcupado] = useState(true);
@@ -35,7 +37,7 @@ export default function GruposPropriedadesPanel({ propriedades: cadastradas }: {
   }
   useEffect(() => { void carregar(); }, []);
   function limpar() {
-    setId(null); setNome(""); setAtivo(true); setEscolhas({});
+    setId(null); setNome(""); setCultura(""); setSafra(""); setAtivo(true); setEscolhas({});
   }
   async function salvar(evento: FormEvent) {
     evento.preventDefault();
@@ -47,7 +49,7 @@ export default function GruposPropriedadesPanel({ propriedades: cadastradas }: {
     setOcupado(true); setErro(""); setSucesso("");
     try {
       const salvo = await salvarGrupoPropriedades(id, {
-        nome, ativo, vinculos: Object.values(escolhas).filter(Boolean),
+        nome, cultura, safra, ativo, vinculos: Object.values(escolhas).filter(Boolean),
       });
       setGrupos(atual => [...atual.filter(g => g.id !== salvo.id), salvo].sort((a, b) => a.nome.localeCompare(b.nome)));
       limpar(); setSucesso("Grupo salvo. Disponível em Cargas colhidas quando ativo.");
@@ -86,6 +88,10 @@ export default function GruposPropriedadesPanel({ propriedades: cadastradas }: {
       <fieldset disabled={ocupado || !pode(id === null ? "cadastrar" : "editar")}>
         <legend>{id === null ? "Novo grupo" : "Editar grupo"}</legend>
         <label>Nome do grupo<input required maxLength={100} value={nome} onChange={e => setNome(e.target.value)} placeholder="Fazenda Electra" /></label>
+        <div className="grupo-cultura-safra">
+          <label>Cultura<input maxLength={50} value={cultura} onChange={e => setCultura(e.target.value)} placeholder="Ex.: Soja" /></label>
+          <label>Safra<input maxLength={20} value={safra} onChange={e => setSafra(e.target.value)} placeholder="Ex.: 2026/2027" /></label>
+        </div>
         <label className="opcao-checkbox"><input type="checkbox" checked={ativo} onChange={e => setAtivo(e.target.checked)} />Grupo ativo</label>
         <label>Buscar propriedade para o grupo<input type="search" value={busca} onChange={e => setBusca(e.target.value)} /></label>
         <p>Marque todas as propriedades que serão colhidas juntas. Selecionadas: {Object.keys(escolhas).length}.</p>
@@ -118,10 +124,11 @@ export default function GruposPropriedadesPanel({ propriedades: cadastradas }: {
     </form>
     <div className="grupos-lista">{grupos.map(grupo => <article key={grupo.id}>
       <h3>{grupo.nome}{grupo.excluido_em ? " (excluído)" : !grupo.ativo ? " (inativo)" : ""}</h3>
+      <p><strong>Cultura:</strong> {grupo.cultura || "Não informada"} · <strong>Safra:</strong> {grupo.safra || "Não informada"}</p>
       {grupo.excluido_em && <p>Excluído em {new Date(grupo.excluido_em).toLocaleString("pt-BR")}. Áreas preservadas na data da exclusão.</p>}
       <p>{grupo.membros.map(m => `${m.propriedade_nome} — CAD/PRO ${m.cad_pro_codigo}${m.area_hectares ? ` — ${areaEmAlqueires(m.area_hectares, 4)} alq.` : ""}${!grupo.excluido_em && !m.disponivel ? " (vínculo indisponível)" : ""}`).join(" · ")}</p>
       {!grupo.excluido_em && <BotaoAcao acao="editar" type="button" disabled={ocupado} onClick={() => {
-        setId(grupo.id); setNome(grupo.nome); setAtivo(grupo.ativo); setSucesso("");
+        setId(grupo.id); setNome(grupo.nome); setCultura(grupo.cultura || ""); setSafra(grupo.safra || ""); setAtivo(grupo.ativo); setSucesso("");
         setEscolhas(Object.fromEntries(grupo.membros.map(m => [String(m.propriedade), opcoes.find(o => o.propriedade === m.propriedade && o.cad_pro === m.cad_pro)?.id ?? ""])));
         setErro(grupo.membros.some(m => !m.disponivel) ? "Revise as propriedades: vínculos indisponíveis precisam ser substituídos antes de salvar." : "");
       }}>Editar grupo</BotaoAcao>}

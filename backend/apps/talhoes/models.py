@@ -9,7 +9,9 @@ from apps.propriedades.models import Propriedade
 class GrupoPropriedadesColheita(models.Model):
     """Seleção reutilizável; não modifica as cargas já registradas."""
 
-    nome = models.CharField(max_length=100, unique=True)
+    nome = models.CharField(max_length=100)
+    cultura = models.CharField(max_length=50, blank=True, default="")
+    safra = models.CharField(max_length=20, blank=True, default="")
     ativo = models.BooleanField(default=True)
     excluido_em = models.DateTimeField(null=True, blank=True, editable=False)
     historico_area = models.JSONField(default=list, blank=True, editable=False)
@@ -19,6 +21,7 @@ class GrupoPropriedadesColheita(models.Model):
 
     class Meta:
         ordering = ("nome", "id")
+        constraints = [models.UniqueConstraint(fields=("nome",), condition=models.Q(excluido_em__isnull=True), name="grupo_nome_nao_excluido_unico")]
 
     def __str__(self):
         return self.nome

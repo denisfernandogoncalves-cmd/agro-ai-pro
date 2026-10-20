@@ -109,3 +109,51 @@ class GruposPropriedadesTests(APITestCase):
         AcessoUsuario.objects.create(usuario=self.usuario, modulos=['talhoes'], permissoes={'talhoes': ['consultar']})
         self.assertEqual(self.client.delete(f'{self.url}{resposta.data["id"]}/').status_code, 403)
         self.assertIsNone(GrupoPropriedadesColheita.objects.get(pk=resposta.data['id']).excluido_em)
+
+    def test_cultura_safra_criacao_edicao_e_historico(self):
+        resposta = self.client.post(self.url, {
+            'nome': 'Grupo com cultura', 'cultura': 'Soja', 'safra': '2026/2027',
+            'vinculos': [str(self.va.pk), str(self.vc.pk)],
+        }, format='json')
+        self.assertEqual(resposta.status_code, 201, resposta.data)
+        detalhe = f'{self.url}{resposta.data["id"]}/'
+        self.assertEqual(resposta.data['cultura'], 'Soja')
+        self.assertEqual(resposta.data['safra'], '2026/2027')
+        alterada = self.client.patch(detalhe, {'cultura': 'Milho', 'safra': '2027'}, format='json')
+        self.assertEqual(alterada.status_code, 200, alterada.data)
+        grupo = GrupoPropriedadesColheita.objects.get(pk=resposta.data['id'])
+        self.assertEqual((grupo.cultura, grupo.safra), ('Milho', '2027'))
+        self.assertEqual(self.client.get(self.url).data[0]['cultura'], 'Milho')
+        self.assertEqual(self.client.patch(detalhe, {'cultura': 'x' * 51}, format='json').status_code, 400)
+        self.assertEqual(self.client.patch(detalhe, {'safra': 'x' * 21}, format='json').status_code, 400)
+        self.assertEqual(self.client.delete(detalhe).status_code, 204)
+        historico = self.client.get(detalhe).data
+        self.assertEqual((historico['cultura'], historico['safra']), ('Milho', '2027'))
+        self.assertEqual(len(historico['membros']), 2)
+        self.assertEqual(self.client.patch(detalhe, {'safra': '2028'}, format='json').status_code, 400)
+
+    def test_grupo_sem_cultura_e_safra_continua_compativel(self):
+        resposta = self.criar()
+        self.assertEqual(resposta.status_code, 201, resposta.data)
+        self.assertEqual(resposta.data['cultura'], '')
+        self.assertEqual(resposta.data['safra'], '')
+
+    def test_reutiliza_nome_excluido_com_novo_id_preservando_historico(self):
+        primeiro = self.criar()
+        detalhe = f'{self.url}{primeiro.data["id"]}/'
+        self.assertEqual(self.client.delete(detalhe).status_code, 204)
+        anterior = self.client.get(detalhe).data
+        novo = self.criar([str(self.va.pk), str(self.vc.pk)])
+        self.assertEqual(novo.status_code, 201, novo.data)
+        self.assertNotEqual(novo.data['id'], primeiro.data['id'])
+        self.assertEqual(novo.data['nome'], primeiro.data['nome'])
+        self.assertEqual(self.client.get(detalhe).data, anterior)
+        self.assertEqual(len(self.client.get(self.url).data), 1)
+        self.assertEqual(len(self.client.get(self.url, {'incluir_excluidos':'true'}).data), 2)
+        repetido = self.criar()
+        self.assertEqual(repetido.status_code, 400, repetido.data)
+        self.assertIn('nome', repetido.data)
+        self.assertEqual(self.client.patch(f'{self.url}{novo.data["id"]}/', {'nome':novo.data['nome']}, format='json').status_code, 200)
+        outro = self.client.post(self.url, {'nome':'Outro nome', 'vinculos':[str(self.va.pk)]}, format='json')
+        self.assertEqual(outro.status_code, 201, outro.data)
+        self.assertEqual(self.client.patch(f'{self.url}{outro.data["id"]}/', {'nome':novo.data['nome']}, format='json').status_code, 400)

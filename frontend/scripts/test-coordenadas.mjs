@@ -4,7 +4,7 @@ import {renderToStaticMarkup} from 'react-dom/server';
 import {createServer} from 'vite';
 const servidor=await createServer({appType:'custom',configLoader:'runner',logLevel:'silent',ssr:{external:['react','react/jsx-runtime','react/jsx-dev-runtime','react-dom/server']},server:{middlewareMode:true}});
 try {
-  const {gmsParaDecimal,decimalParaGms,coordenadaCadastrada}=await servidor.ssrLoadModule('/src/utils/coordenadas.ts');
+  const {gmsParaDecimal,decimalParaGms,coordenadaCadastrada,coordenadasParaMapa}=await servidor.ssrLoadModule('/src/utils/coordenadas.ts');
   assert.equal(gmsParaDecimal('24°18\'28,97"S','latitude'),'-24.308047');
   assert.equal(gmsParaDecimal('51°42\'47,98"O','longitude'),'-51.713328');
   assert.equal(gmsParaDecimal('0°00\'00"N','latitude'),'0.000000');
@@ -19,6 +19,15 @@ try {
   assert.equal(coordenadaCadastrada({latitude:'0'},'latitude'),'0');
   const original={formato_coordenadas:'gms',latitude_gms:'24°18\'28,97"S',longitude_gms:'51°42\'47,98"O',latitude:null,longitude:null};
   assert.equal(coordenadaCadastrada(original,'latitude'),original.latitude_gms);
+  assert.deepEqual(coordenadasParaMapa(original), {latitude:-24.308047, longitude:-51.713328});
+  assert.equal(original.latitude, null);
+  assert.deepEqual(coordenadasParaMapa({latitude:'0',longitude:'0'}), {latitude:0,longitude:0});
+  assert.deepEqual(coordenadasParaMapa({latitude:'-24,5',longitude:'-51,2'}), {latitude:-24.5,longitude:-51.2});
+  assert.equal(coordenadasParaMapa({latitude:null,longitude:'-51'}),null);
+  assert.equal(coordenadasParaMapa({latitude:'',longitude:''}),null);
+  assert.equal(coordenadasParaMapa({latitude:'91',longitude:'181'}),null);
+  assert.equal(coordenadasParaMapa({latitude:'NaN',longitude:'-51'}),null);
+  assert.equal(coordenadasParaMapa({...original,longitude_gms:'inválida'}),null);
   assert.equal(coordenadaCadastrada({},'latitude'),'Não informada');
   const {default:CoordenadasInput}=await servidor.ssrLoadModule('/src/components/CoordenadasInput.tsx');
   let alterou=false;

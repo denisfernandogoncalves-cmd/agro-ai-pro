@@ -22,6 +22,7 @@ class NumeroCADProInvalido(ValueError):
 @transaction.atomic
 def vincular_numero_cadpro_a_propriedade(*, numero, propriedade):
     """Cria ou reutiliza o CAD/PRO oficial e mantém um único vínculo ativo."""
+    Propriedade.objects.select_for_update().get(pk=propriedade.pk)
     codigo = " ".join(str(numero or "").strip().split())
     normalizado = normalizar_codigo_cadpro(codigo)
     if not normalizado:
@@ -49,6 +50,9 @@ def vincular_numero_cadpro_a_propriedade(*, numero, propriedade):
     if not criado and not vinculo.ativo:
         vinculo.ativo = True
         vinculo.save(update_fields=("ativo", "atualizado_em"))
+    for anterior in CADProPropriedade.objects.select_for_update().filter(propriedade=propriedade, ativo=True).exclude(pk=vinculo.pk):
+        anterior.ativo = False
+        anterior.save(update_fields=("ativo", "atualizado_em"))
     return cad_pro, vinculo
 
 

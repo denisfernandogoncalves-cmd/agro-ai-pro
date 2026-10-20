@@ -11,7 +11,7 @@ import { listarProdutosEstoque, ProdutoEstoque } from "../../api/estoque";
 import { ParceiroFinanceiro } from "../../api/financeiro";
 import { obterGeracaoSessao } from "../../auth/sessionCoordinator";
 import { quantidadeParaEnviar, sugerirEmbalagens } from "./embalagensFaturamento";
-import { confirmarFaturamento, empresaUsaBep, excluirFaturamento, obterPdfFaturamento, obterExcelFaturamento, tituloFaturamento, EntradaFaturamento, Faturamento, ItemFaturamento, listarFaturamentos, previaFaturamento, ResumoFaturamento } from "../../api/faturamentoInsumos";
+import { confirmarFaturamento, descricaoEmbalagens, empresaUsaBep, excluirFaturamento, obterPdfFaturamento, obterExcelFaturamento, tituloFaturamento, EntradaFaturamento, Faturamento, ItemFaturamento, listarFaturamentos, previaFaturamento, ResumoFaturamento } from "../../api/faturamentoInsumos";
 
 const numero = (valor: string | number) => Number(valor).toLocaleString("pt-BR", { maximumFractionDigits: 3 });
 const dataLocal = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
@@ -41,17 +41,13 @@ export function RelatorioFaturamento({ resumo, confirmado }: { resumo: ResumoFat
     <header className="faturamento-cabecalho">
       <h2>{confirmado ? "Faturamento de insumos confirmado" : "Prévia de faturamento — sem baixa"}</h2>
       <div className="faturamento-cabecalho-grade">
-        <p><span>Empresa destinatária</span><strong>{resumo.fornecedor_nome}</strong></p>
-        <p><strong>Total de embalagens: {numero(resumo.total_embalagens)}</strong><span>{resumo.embalagem} de {numero(resumo.conteudo_embalagem)} {resumo.unidade}</span></p>
-        <p><span>Data do envio</span><b>{resumo.data_envio.split("-").reverse().join("/")}</b></p>
-        <p><span>Produto</span><b>{resumo.produto_nome}</b></p>
-        <p><span>Quantidade total / dosagem</span><b>{numero(resumo.quantidade_total)} {resumo.unidade} · {numero(resumo.dosagem_alqueire)} {resumo.unidade}/alq.</b></p>
-        <p><span>Safra</span><b>{resumo.safra || "Não informada"}</b></p>
+        <p className="faturamento-produto-destaque faturamento-cabecalho-linha-principal"><strong title="Produto">{resumo.produto_nome}</strong>{" · "}<strong>Total de embalagens: {descricaoEmbalagens(resumo)}</strong>{" · "}<strong>Quantidade total: {numero(resumo.quantidade_total)} {resumo.unidade}</strong></p>
+        <p className="faturamento-cabecalho-linha-detalhes"><span title="Empresa destinatária">{resumo.fornecedor_nome}</span>{" · "}<span title="Data do envio">{resumo.data_envio.split("-").reverse().join("/")}</span>{" · "}<span>Safra: {resumo.safra || "Não informada"}</span>{" · "}<span>Dosagem: {numero(resumo.dosagem_alqueire)} {resumo.unidade}/alq.</span></p>
       </div>
     </header>
     <div className="faturamento-tabela"><table><thead><tr><th>Propriedade</th><th className="faturamento-produtor">Produtor</th><th>CAD/PRO</th>{usaBep && <th className="faturamento-bep">BEP</th>}<th className="faturamento-area">Área (alq.)</th><th className="faturamento-embalagens">Embalagens</th><th className="faturamento-quantidade">Quantidade ({resumo.unidade})</th></tr></thead>
       <tbody>{resumo.itens.map(item => <tr key={item.propriedade}>
-        <td data-label="Propriedade">{item.propriedade_nome}<span className="somente-impressao">Produtor: {item.produtor || "Não informado"}</span><br className="nao-imprimir" /><small>Latitude: {coordenadaCadastrada(item, "latitude")}<br />Longitude: {coordenadaCadastrada(item, "longitude")}</small></td>
+        <td data-label="Propriedade">{item.propriedade_nome}<span className="somente-impressao">Produtor: {item.produtor || "Não informado"}</span><br className="nao-imprimir" /><small className="faturamento-coordenadas">Latitude: {coordenadaCadastrada(item, "latitude")} · Longitude: {coordenadaCadastrada(item, "longitude")}</small></td>
         <td className="faturamento-produtor" data-label="Produtor">{item.produtor || "Não informado"}</td>
         <td data-label="CAD/PRO">{item.cad_pro || "Não informado"}<br /><small>Identificação: {item.cad_pro_identificacao || "Não informado"}</small>{usaBep && <span className="somente-impressao">BEP: {item.bep || "Não informado"}</span>}</td>
         {usaBep && <td className="faturamento-bep" data-label="BEP">{item.bep || "Não informado"}</td>}

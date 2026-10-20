@@ -3,6 +3,7 @@ from django.core.validators import RegexValidator
 
 
 class Propriedade(models.Model):
+    arquivada_em = models.DateTimeField(null=True, blank=True, editable=False)
     apelido = models.CharField(max_length=100, blank=True, default='')
     formato_coordenadas = models.CharField(max_length=7, choices=[('decimal', 'Graus decimais'), ('gms', 'Graus, minutos e segundos')], default='gms')
     cad_pro_identificacao = models.CharField(max_length=100, blank=True, default='')

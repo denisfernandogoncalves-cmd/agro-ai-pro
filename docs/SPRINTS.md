@@ -782,3 +782,23 @@ Evidências, backups e limites: [aba e impressão de prestações](decisoes/2026
 Evidências, backup e configuração das fontes: [faturamento A4 Arial 12](decisoes/2026-10-19-faturamento-a4-arial12.md).
 
 - [x] Revisão do faturamento: propriedades em linhas de tabela na impressão/PDF/Excel, mantendo A4 retrato e Arial 12; testes e conferência visual do PDF aprovados.
+
+- [x] Faturamento: produto antes dos totais em destaque, cabeçalho compacto e coordenadas na mesma linha; PDF/Excel e frontend validados.
+
+- [x] Faturamento: cabeçalho resumido em duas linhas (produto/totais e dados complementares), validado em PDF, Excel e frontend.
+
+- [x] Faturamento: mais largura para propriedade/produtor e descrição completa de embalagens (ex.: 7 BALDES DE 20 LITROS), com testes e conferência visual.
+
+- [x] Propriedades: clicar no nome abre o mapa logo abaixo do cadastro, com suporte a GMS e decimais e aviso para coordenadas ausentes; testes frontend aprovados. [Detalhes](decisoes/2026-10-19-mapa-propriedade-selecionada.md).
+
+- [x] Mapa da propriedade: segundo clique no cartão também recolhe o mapa, preservando os cliques nas ações e dentro do mapa.
+
+- [x] Grupos de colheita: Cultura e Safra no cadastro, edição e lista; migration aplicada, dez testes de grupos/histórico e frontend/build aprovados. [Detalhes](decisoes/2026-10-19-grupos-cultura-safra.md).
+
+- [x] Propriedades: arquivamento reversível autorizado, filtro/restauração, exclusão protegida com vínculos reais e auditoria; migration, treze testes e frontend/build aprovados. [Detalhes](decisoes/2026-10-19-arquivamento-propriedades.md).
+
+- [x] Grupos de colheita: nomes dos excluídos liberados para novo cadastro, preservando histórico e unicidade dos não excluídos; migration aplicada e onze testes aprovados. [Detalhes](decisoes/2026-10-19-grupos-nomes-excluidos.md).
+
+- [x] Propriedades: edição do CAD/PRO substitui o vínculo atual sem apagar históricos; Electra corrigida pontualmente e 23 testes aprovados. [Detalhes](decisoes/2026-10-19-substituicao-cadpro-propriedade.md).
+
+- [x] CAD/PRO atual: revisão dos cadastros legados concluída, mantendo o último salvo no Sítio Bom Jesus; zero propriedades com vínculos ativos duplicados, históricos preservados.

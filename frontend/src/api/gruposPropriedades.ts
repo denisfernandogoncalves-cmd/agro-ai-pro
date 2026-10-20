@@ -12,6 +12,8 @@ export type MembroGrupo = {
 export type GrupoPropriedades = {
   id: number;
   nome: string;
+  cultura: string;
+  safra: string;
   ativo: boolean;
   vinculos: string[];
   membros: MembroGrupo[];
@@ -30,7 +32,7 @@ export async function listarOpcoesGrupo() {
   return (await api.get<OpcaoGrupo[]>(`${caminho}opcoes/`)).data;
 }
 export async function salvarGrupoPropriedades(
-  id: number | null, dados: { nome: string; ativo: boolean; vinculos: string[] },
+  id: number | null, dados: { nome: string; cultura: string; safra: string; ativo: boolean; vinculos: string[] },
 ) {
   return id === null
     ? (await api.post<GrupoPropriedades>(caminho, dados)).data
