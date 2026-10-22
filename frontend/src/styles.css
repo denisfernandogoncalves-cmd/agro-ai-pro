@@ -292,3 +292,81 @@ header { align-items: center; display: flex; justify-content: space-between; mar
 @media(max-width:1100px) { .dashboard-shortcuts { grid-template-columns: repeat(2,minmax(0,1fr)); } }
 @media(max-width:600px) { .dashboard-welcome { padding: 20px; } .dashboard-welcome > .app-icon { display: none; } .dashboard-shortcuts { gap: 8px; } .dashboard-shortcuts button { padding: 10px; font-size: 12px; } .dashboard-shortcuts .app-icon { width: 18px; flex-basis: 18px; } .market-row { gap: 7px; } .linha { grid-template-columns: 1fr; } }
 @media(prefers-reduced-motion:reduce) { .app-shell *, .app-shell *::before, .app-shell *::after { transition: none !important; animation: none !important; } }
+
+/* Seleção de coordenadas diretamente no cadastro de propriedades. */
+.seletor-coordenadas-ajuda {
+  color: #587062;
+  font-size: 0.84rem;
+  font-weight: 400;
+  line-height: 1.4;
+  margin: 0.15rem 0 0.55rem;
+}
+
+.seletor-coordenadas-dialog {
+  width: min(1000px, 96vw);
+  max-width: 1000px;
+  max-height: 94vh;
+  margin: auto;
+  padding: 1.25rem;
+  border: 1px solid #cfddcf;
+  border-radius: 16px;
+  background: #fff;
+  color: #18332a;
+  box-shadow: 0 20px 90px #10281f52;
+}
+
+.seletor-coordenadas-dialog::backdrop {
+  background: #0d241cc9;
+}
+
+.seletor-coordenadas-cabecalho {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.seletor-coordenadas-cabecalho h2 { margin-bottom: 0.4rem; }
+.seletor-coordenadas-cabecalho p { color: #587062; margin-bottom: 0; }
+.seletor-coordenadas-cabecalho > button { white-space: nowrap; }
+
+.seletor-coordenadas-mapa {
+  height: min(59vh, 540px);
+  min-height: 300px;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.seletor-coordenadas-marcador {
+  border: 3px solid white;
+  border-radius: 50%;
+  background: #d64525;
+  box-shadow: 0 1px 8px #152a21a6;
+  cursor: grab;
+}
+
+.seletor-coordenadas-rodape {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  padding-top: 1rem;
+}
+
+.seletor-coordenadas-resultado {
+  color: #254c38;
+  font-size: 0.9rem;
+  font-weight: 650;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 640px) {
+  .seletor-coordenadas-dialog { padding: 0.75rem; width: 98vw; max-height: 96vh; }
+  .seletor-coordenadas-cabecalho { align-items: stretch; flex-direction: column; }
+  .seletor-coordenadas-mapa { height: 46vh; min-height: 240px; }
+  .seletor-coordenadas-rodape { align-items: stretch; flex-direction: column; }
+  .seletor-coordenadas-rodape .acoes { flex-wrap: wrap; }
+}
