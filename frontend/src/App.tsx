@@ -1,4 +1,4 @@
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 
 import {
@@ -11,6 +11,7 @@ import {
 } from "./api/propriedades";
 import { useAuth } from "./auth/AuthContext";
 import MapaPropriedade from "./components/MapaPropriedade";
+import { organizarPropriedades } from "./utils/ordenarPropriedades";
 import AplicativoStatus from "./components/AplicativoStatus";
 import ClimaPage from "./pages/Clima/ClimaPage";
 import CargasColhidasPage from "./pages/CargasColhidas/CargasColhidasPage";
@@ -139,6 +140,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
   const [busca, setBusca] = useState("");
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
+  const gruposPropriedades = useMemo(() => organizarPropriedades(propriedades), [propriedades]);
 
   const carregar = useCallback(async (termo = "") => {
     setCarregando(true);
@@ -147,7 +149,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
       const dados = await listarPropriedades(termo);
       setPropriedades(dados);
       setSelecionada((atual) =>
-        dados.find((item) => item.id === atual?.id) ?? dados[0] ?? null
+        dados.find((item) => item.id === atual?.id) ?? organizarPropriedades(dados)[0]?.propriedades[0] ?? null
       );
     } catch (falha) {
       setErro(mensagemDoErro(falha));
@@ -401,7 +403,14 @@ function PrivateArea({ sair }: PrivateAreaProps) {
             <div className="card vazio">Nenhuma propriedade cadastrada.</div>
           ) : (
             <div className="lista propriedades-lista">
-              {propriedades.map((item) => (
+              {gruposPropriedades.map((grupo) => (
+                <section className="grupo-propriedades" key={grupo.chave} aria-label={grupo.titulo}>
+                  <div className="grupo-propriedades-cabecalho">
+                    <h3>{grupo.titulo}</h3>
+                    <span>{grupo.propriedades.length} {grupo.propriedades.length === 1 ? "propriedade" : "propriedades"} · por proximidade geográfica</span>
+                  </div>
+                  <div className="lista grupo-propriedades-itens">
+                    {grupo.propriedades.map((item) => (
                 <article className={`card item ${selecionada?.id === item.id ? "ativo" : ""}`} key={item.id} onClick={() => setSelecionada(item)}>
                   <div>
                     <h3>{item.nome}</h3>
@@ -420,6 +429,9 @@ function PrivateArea({ sair }: PrivateAreaProps) {
                     <button className="perigo" onClick={(e) => { e.stopPropagation(); void excluir(item); }}>Excluir</button>
                   </div>
                 </article>
+                    ))}
+                  </div>
+                </section>
               ))}
             </div>
           )}
