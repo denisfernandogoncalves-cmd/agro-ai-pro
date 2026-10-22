@@ -36,10 +36,11 @@ export function Icon({ name }: { name: string }) {
 }
 type Props = PropsWithChildren<{
   modulo: Modulo; navegar: (modulo: Modulo) => void;
+  voltar: () => void; podeVoltar: boolean;
   propriedades: Propriedade[]; selecionada: Propriedade | null;
   selecionar: (propriedade: Propriedade | null) => void; sair: () => void;
 }>;
-export default function AppShell({ children, modulo, navegar, propriedades, selecionada, selecionar, sair }: Props) {
+export default function AppShell({ children, modulo, navegar, voltar, podeVoltar, propriedades, selecionada, selecionar, sair }: Props) {
   const [aberto, setAberto] = useState(false);
   const [recolhido, setRecolhido] = useState(false);
   const [busca, setBusca] = useState("");
@@ -69,7 +70,19 @@ export default function AppShell({ children, modulo, navegar, propriedades, sele
       <div className="sidebar-footer"><small>Propriedade atual</small><strong>{selecionada?.nome || "Nenhuma propriedade"}</strong><span>{selecionada ? `${selecionada.municipio} · ${selecionada.uf}` : "Cadastre para começar"}</span><div className="sidebar-account"><Icon name="leaf" /><span>Sessão autenticada</span><button onClick={sair}>Sair</button></div></div>
     </aside>
     <main className="app-main" id="conteudo-principal">
-      <header className="app-topbar"><div><button className="menu-toggle" aria-expanded={aberto} aria-controls="menu-principal" onClick={() => setAberto(!aberto)}>☰ Menu</button><h1>{modulo === "dashboard" ? "Olá, bem-vindo à sua gestão" : modulos.find(([id]) => id === modulo)?.[1]}</h1><p>{modulo === "dashboard" ? `Aqui está o panorama da sua operação em ${new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", day: "numeric", month: "long", year: "numeric" })}` : "Gestão agrícola · AGRO-AI-PRO"}</p></div><div className="topbar-controls"><AplicativoStatus /><label className="property-select"><span>Propriedade do dashboard</span><select value={selecionada?.id ?? ""} onChange={e => selecionar(propriedades.find(p => p.id === Number(e.target.value)) ?? null)}><option value="" disabled>Selecione uma propriedade</option>{propriedades.map(p => <option key={p.id} value={p.id}>{p.nome} · {p.uf}</option>)}</select></label></div></header>
+      <header className="app-topbar"><div className="app-topbar-heading"><div className="app-topbar-navigation">
+        <button
+          type="button"
+          className="app-back-button"
+          disabled={!podeVoltar}
+          onClick={voltar}
+          aria-label="Voltar ao módulo anterior"
+          title={podeVoltar ? "Voltar ao módulo anterior" : "Nenhuma tela anterior"}
+        >
+          <span aria-hidden="true">←</span> Voltar
+        </button>
+        <button type="button" className="menu-toggle" aria-expanded={aberto} aria-controls="menu-principal" onClick={() => setAberto(!aberto)}>☰ Menu</button>
+        </div><h1>{modulo === "dashboard" ? "Olá, bem-vindo à sua gestão" : modulos.find(([id]) => id === modulo)?.[1]}</h1><p>{modulo === "dashboard" ? `Aqui está o panorama da sua operação em ${new Date().toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo", day: "numeric", month: "long", year: "numeric" })}` : "Gestão agrícola · AGRO-AI-PRO"}</p></div><div className="topbar-controls"><AplicativoStatus /><label className="property-select"><span>Propriedade do dashboard</span><select value={selecionada?.id ?? ""} onChange={e => selecionar(propriedades.find(p => p.id === Number(e.target.value)) ?? null)}><option value="" disabled>Selecione uma propriedade</option>{propriedades.map(p => <option key={p.id} value={p.id}>{p.nome} · {p.uf}</option>)}</select></label></div></header>
       <div className="shell-preferences"><span>Sessão autenticada</span><button className="secundario" aria-pressed={escuro} onClick={() => setEscuro(!escuro)}>{escuro ? "☀ Tema claro" : "☾ Tema escuro"}</button></div>
       {children}
     </main>
