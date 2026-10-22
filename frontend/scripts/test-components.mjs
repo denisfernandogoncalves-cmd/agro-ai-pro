@@ -171,6 +171,38 @@ try {
   const { rotuloPropriedade } = await servidor.ssrLoadModule(
     "/src/api/propriedades.ts",
   );
+  const { organizarPropriedades } = await servidor.ssrLoadModule(
+    "/src/utils/ordenarPropriedades.ts",
+  );
+  const listaOriginal = [
+    { id: 1, nome: "Fazenda Norte", cad_pro_numeros: ["111"], latitude: "-24.0000", longitude: "-51.0000" },
+    { id: 2, nome: "Fazenda Sul", cad_pro_numeros: ["111", "333"], latitude: "-24.0200", longitude: "-51.0000" },
+    { id: 3, nome: "Fazenda Vizinha", cad_pro_numeros: ["1-1-1"], latitude: "-24.0050", longitude: "-51.0000" },
+    { id: 4, nome: "Fazenda Vinculada", cad_pro_numeros: ["333"], latitude: null, longitude: null },
+    { id: 5, nome: "Outro CAD/PRO", cad_pro_numeros: ["222"], latitude: "-23.0000", longitude: "-50.0000" },
+    { id: 6, nome: "Sem CAD/PRO", cad_pro_numeros: [], latitude: "-22.0000", longitude: "-49.0000" },
+    { id: 7, nome: "Sem Coordenadas", cad_pro_numeros: [], latitude: null, longitude: null },
+  ];
+  const listaAntesDeOrdenar = JSON.stringify(listaOriginal);
+  const gruposOrdenados = organizarPropriedades(listaOriginal);
+  assert.equal(gruposOrdenados.length, 3, "CAD/PRO comuns formam grupos");
+  assert.deepEqual(gruposOrdenados.map(grupo => grupo.propriedades.map(item => item.id)), [
+    [1, 3, 2, 4], [5], [6, 7],
+  ], "mesmo CAD/PRO antes de distância e sem coordenadas por último");
+  assert.equal(gruposOrdenados[2].titulo, "Sem CAD/PRO informado");
+  assert.deepEqual(organizarPropriedades([]), []);
+  assert.equal(JSON.stringify(listaOriginal), listaAntesDeOrdenar, "a ordenação não altera os dados originais");
+  assert.equal(
+    new Set(gruposOrdenados.flatMap(grupo => grupo.propriedades.map(item => item.id))).size,
+    listaOriginal.length,
+    "nenhuma propriedade é duplicada em grupos com vários CAD/PRO",
+  );
+  const invalidas = organizarPropriedades([
+    { id: 9, nome: "Inválida", cad_pro_numeros: [], latitude: "999", longitude: "0" },
+    { id: 8, nome: "Válida", cad_pro_numeros: [], latitude: "-24", longitude: "-51" },
+  ]);
+  assert.deepEqual(invalidas[0].propriedades.map(item => item.id), [8, 9]);
+
 
   const propriedade = {
     id: 1,
