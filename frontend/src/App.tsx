@@ -123,8 +123,37 @@ type PrivateAreaProps = {
   sair: () => Promise<boolean>;
 };
 
+type EstadoNavegacao = {
+  modulo: Modulo;
+  historico: Modulo[];
+};
+
 function PrivateArea({ sair }: PrivateAreaProps) {
-  const [modulo, setModulo] = useState<Modulo>("dashboard");
+  const [navegacao, setNavegacao] = useState<EstadoNavegacao>({
+    modulo: "dashboard",
+    historico: [],
+  });
+  const { modulo } = navegacao;
+
+  const navegar = useCallback((destino: Modulo) => {
+    setNavegacao((atual) => {
+      if (atual.modulo === destino) return atual;
+      return {
+        modulo: destino,
+        historico: [...atual.historico, atual.modulo].slice(-30),
+      };
+    });
+  }, []);
+
+  const voltar = useCallback(() => {
+    setNavegacao((atual) => {
+      if (!atual.historico.length) return atual;
+      return {
+        modulo: atual.historico[atual.historico.length - 1],
+        historico: atual.historico.slice(0, -1),
+      };
+    });
+  }, []);
   const [propriedades, setPropriedades] = useState<Propriedade[]>([]);
   const [selecionada, setSelecionada] = useState<Propriedade | null>(null);
   const [edicaoId, setEdicaoId] = useState<number | null>(null);
@@ -204,7 +233,7 @@ function PrivateArea({ sair }: PrivateAreaProps) {
 
   async function encerrarSessao() {
     setErro("");
-    setModulo("propriedades");
+    setNavegacao({ modulo: "dashboard", historico: [] });
     setPropriedades([]);
     setSelecionada(null);
     setEdicaoId(null);
@@ -215,10 +244,10 @@ function PrivateArea({ sair }: PrivateAreaProps) {
   }
 
   return (
-    <AppShell modulo={modulo} navegar={setModulo} propriedades={propriedades} selecionada={selecionada} selecionar={setSelecionada} sair={() => { void encerrarSessao(); }}>
+    <AppShell modulo={modulo} navegar={navegar} voltar={voltar} podeVoltar={navegacao.historico.length > 0} propriedades={propriedades} selecionada={selecionada} selecionar={setSelecionada} sair={() => { void encerrarSessao(); }}>
       {modulo !== "propriedades" && erro && <p className="erro card" role="alert">{erro}</p>}
       {modulo === "dashboard" ? (
-        <DashboardPage propriedade={selecionada} navegar={setModulo} />
+        <DashboardPage propriedade={selecionada} navegar={navegar} />
       ) : modulo === "vendas" ? (<VendasPage />
       ) : modulo === "saldos" ? (<ProducaoSaldosPage propriedades={propriedades} />
       ) : modulo === "cargas" ? (<CargasColhidasPage propriedades={propriedades} />
