@@ -359,3 +359,33 @@ dialog.editor-venda { width: min(640px, 92vw); max-height: 88vh; overflow: auto;
 dialog.editor-venda::backdrop { background: #102f2480; }
 .editor-venda fieldset { display: grid; gap: 1rem; border: 0; padding: 0; min-width: 0; }
 .transferencia-saldo fieldset { display: grid; gap: 1rem; border: 0; padding: 0; min-width: 0; }
+
+/* Lista de propriedades agrupada por CAD/PRO e ordenada por localização. */
+.propriedades-lista { gap: 1.1rem; }
+.grupo-propriedades { display: grid; gap: 0.7rem; min-width: 0; }
+.grupo-propriedades-cabecalho {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid #d5e4d8;
+  border-left: 4px solid #237447;
+  border-radius: 9px;
+  background: #edf5ed;
+}
+.grupo-propriedades-cabecalho h3 {
+  margin: 0;
+  color: #24523a;
+  font-size: 0.98rem;
+  overflow-wrap: anywhere;
+}
+.grupo-propriedades-cabecalho span {
+  color: #587065;
+  font-size: 0.82rem;
+}
+.grupo-propriedades-itens { gap: 0.6rem; }
+@media (max-width: 640px) {
+  .grupo-propriedades-cabecalho { align-items: flex-start; flex-direction: column; }
+}
